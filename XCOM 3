@@ -1,0 +1,268 @@
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Media;
+using System;
+using System.Collections.Generic;
+
+namespace XCOM_3
+{
+
+
+    // ==================================================
+    // Classe principale du jeu (point d’entrée MonoGame)
+    // ==================================================
+    public class Game1 : Game
+    {
+        // Gère la configuration graphique (résolution, fullscreen, etc.)
+        private GraphicsDeviceManager _graphics;
+
+        // Sert à dessiner du texte et des sprites
+        private SpriteBatch _spriteBatch;
+
+        // Police utilisée pour le texte
+        private SpriteFont font;
+
+        // Liste des boutons du menu principal
+        private List<Button> menuButtons;
+
+        // État précédent de la souris (pour détecter un clic unique)
+        private MouseState previousMouseState;
+
+        // Liste de musiques du menu
+        private List<Song> menuSongs;
+
+        // Musique en cours
+        private Song currentSong; 
+
+        // Générateur de nombre aléatoire
+        private Random random = new Random();
+
+        // Les états de jeu : Menu principal ou en jeu.
+        enum GameState
+        {
+            MainMenu,
+            Playing
+        }
+
+        private GameState currentState = GameState.MainMenu;
+
+        public Game1()
+        {
+            // Initialisation du gestionnaire graphique
+            _graphics = new GraphicsDeviceManager(this);
+
+            // Dossier où MonoGame va chercher les assets
+            Content.RootDirectory = "Content";
+
+            // Rend le curseur de la souris visible
+            IsMouseVisible = true;
+
+            // Permet de redimensionner la fenêtre
+            Window.AllowUserResizing = true;
+
+        }
+
+        
+
+        // Chargement des ressources (appelé une seule fois)
+        protected override void LoadContent()
+        {
+            // Initialise le SpriteBatch
+            _spriteBatch = new SpriteBatch(GraphicsDevice);
+
+            // Charge la police "Arial.spritefont" depuis Content
+            font = Content.Load<SpriteFont>("Arial");                             
+
+            // Création des boutons du menu
+            menuButtons = new List<Button>
+            {
+                new Button("New Game", new Vector2(0, 100)),
+                new Button("Continue",       new Vector2(0, 128)),
+                new Button("Encyclopedia",    new Vector2(0, 156)),
+                new Button("Options",         new Vector2(0, 184)),
+                new Button("Quit",         new Vector2(0, 212))
+            };
+
+
+            // Crée la liste et charge les musiques
+            menuSongs = new List<Song>
+                {
+                Content.Load<Song>("menu_music_1"),
+                Content.Load<Song>("menu_music_2"),
+                Content.Load<Song>("menu_music_3"),
+                Content.Load<Song>("menu_music_4")
+                };
+
+            // Choisir une musique au hasard
+            currentSong = menuSongs[random.Next(menuSongs.Count)];
+
+            // Jouer la musique
+            MediaPlayer.Volume = 0.5f;
+            MediaPlayer.Play(currentSong);
+        }
+
+
+
+        // Logique du jeu (appelé à chaque frame)
+        protected override void Update(GameTime gameTime)
+        {
+            // État actuel de la souris
+            MouseState mouse = Mouse.GetState();
+
+            // Vérifie les clics sur chaque bouton
+            foreach (var button in menuButtons)
+            {
+                if (button.IsClicked(mouse, previousMouseState))
+                {
+                    // Action selon le texte du bouton
+                    switch (button.Text)
+                    {
+                        case "New Game":
+
+                            MediaPlayer.Stop(); //  Stop la musique
+                            currentState = GameState.Playing; // Passe en mode jeu
+                            //LoadMap(); // (optionnel) initialise la carte isométrique (Efface les deux // en avant de LoadMap)
+                            Console.WriteLine("New game launched !");
+                            break;
+
+                        case "Continue":
+                            Console.WriteLine("Continue a saved game...");
+                            break;
+
+                        case "Encylopedia":
+                            Console.WriteLine("Open encyclopedia...");
+                            break;
+
+                        case "Options":
+                            Console.WriteLine("Options");
+                            break;
+                            
+                        case "Quit":
+                            Exit(); // Quitte le jeu
+                            break;
+                    }
+                }
+            }
+            
+            // Sauvegarde l’état actuel pour la frame suivante
+            previousMouseState = mouse;
+
+            // Quitte le jeu si ESC est appuyé
+            if (Keyboard.GetState().IsKeyDown(Keys.Escape))
+                Exit();
+
+            base.Update(gameTime);
+        }
+
+
+
+        // Dessin à l’écran (appelé à chaque frame)
+        protected override void Draw(GameTime gameTime)
+        {
+            // Nettoie l’écran en noir
+            GraphicsDevice.Clear(Color.Black);
+
+            _spriteBatch.Begin();
+
+            if (currentState == GameState.MainMenu)
+            {
+                // Texte du titre
+                string title = "XCOM 3";
+
+                // Position du titre
+                Vector2 position = new Vector2(0, 0);
+
+                // Échelle du texte (3x plus grand)
+                float scale = 3f;
+
+                // Dessine le titre
+                _spriteBatch.DrawString(
+                    font,
+                    title,
+                    position,
+                    Color.White,
+                    0f,
+                    Vector2.Zero,
+                    scale,
+                    SpriteEffects.None,
+                    0f
+                );
+
+                // État actuel de la souris
+                MouseState mouse = Mouse.GetState();
+
+                // Dessine chaque bouton
+                foreach (var button in menuButtons)
+                {
+                    button.Draw(_spriteBatch, font, mouse);
+                }
+            }
+            else if (currentState == GameState.Playing)
+            {
+                // Dessiner la carte isométrique
+            }
+
+
+            _spriteBatch.End();
+            base.Draw(gameTime);
+        }        
+
+    }
+
+
+    // ============================
+    // Classe Button (bouton simple)
+    // ============================
+    public class Button
+    {
+        // Texte affiché
+        public string Text;
+
+        // Position à l’écran
+        public Vector2 Position;
+
+        // Zone cliquable du bouton
+        private Rectangle bounds;
+
+        public Button(string text, Vector2 position)
+        {
+            Text = text;
+            Position = position;
+        }
+
+
+
+        public void Draw(SpriteBatch spriteBatch, SpriteFont font, MouseState mouse)
+        {
+            // Mesure la taille du texte
+            Vector2 size = font.MeasureString(Text);
+
+            // Définit la zone cliquable
+            bounds = new Rectangle(
+                (int)Position.X,
+                (int)Position.Y,
+                (int)size.X,
+                (int)size.Y
+            );
+
+            // Si la souris est dessus → jaune, sinon blanc
+            Color color = bounds.Contains(mouse.Position)
+                ? Color.Yellow
+                : Color.White;
+
+            // Dessine le texte
+            spriteBatch.DrawString(font, Text, Position, color);
+        }
+
+
+
+        // Détecte un clic unique (Pressed maintenant, Released avant)
+        public bool IsClicked(MouseState current, MouseState previous)
+        {
+            return bounds.Contains(current.Position) &&
+                   current.LeftButton == ButtonState.Pressed &&
+                   previous.LeftButton == ButtonState.Released;
+        }
+    } 
+}
