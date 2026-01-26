@@ -219,11 +219,10 @@ namespace XCOM_3 // Nom du projet
                         switch (button.Text)
                         {
                             case "New Game":
-                                //MediaPlayer.Stop(); //  Stop la musique
+                                //MediaPlayer.Stop(); // Stop la musique
                                 currentState = GameState.Playing; // Passe en mode jeu
-                                LoadMap();
-                                // ÉTAPE 3 — Créer les unités au lancement de New Game - 1.5.0
-                                CreateUnits();                               
+                                LoadMap();                                
+                                CreateUnits(); // Créer les unités au lancement de New Game - 1.5.0                          
                                 Console.WriteLine("New game launched !");
                                 break;
 
@@ -289,6 +288,7 @@ namespace XCOM_3 // Nom du projet
                             if (clickedUnit != null)
                             {
                                 selectedUnit = clickedUnit;
+
                             }
                         }
                     }
@@ -297,6 +297,22 @@ namespace XCOM_3 // Nom du projet
                 {
                     selectedUnit = null;
                 }
+                if (selectedUnit != null && mouse.LeftButton == ButtonState.Pressed &&
+                    previousMouseState.LeftButton == ButtonState.Released)
+                {
+                    // int cellX = mouse.X / cellSize;
+                    // int cellY = mouse.Y / cellSize;
+                    Point clickedCell = new Point(cellX, cellY);
+
+                    var movableCells = GetMovableCells(selectedUnit);
+
+                    if (movableCells.Contains(clickedCell))
+                    {
+                        selectedUnit.Cell = clickedCell;
+                        // On peut réduire les PA si tu veux un vrai système tour par tour
+                    }
+                }
+
 
             }
 
@@ -432,10 +448,23 @@ namespace XCOM_3 // Nom du projet
                 DrawGrid(); // Dessiner la carte isométrique
                 DrawUnits(); // ÉTAPE 5 — Appeler le dessin des unités - 1.5.0
                 DrawHoveredCell(); // <-- SURBRILLANCE
+
+                // Dessiner les cases accessibles - 1.5.2
+                if (currentState == GameState.Playing && selectedUnit != null)
+                {
+                    var movableCells = GetMovableCells(selectedUnit);
+
+                    foreach (var cell in movableCells)
+                    {
+                        Rectangle rect = new Rectangle(cell.X * cellSize, cell.Y * cellSize, cellSize, cellSize);
+                        _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80)); // vert transparent
+                    }
+                }
+
                 DrawUnitInfoPanel(); // - 1.5.1
             }
 
-            // Si on est dans Options // 1.4.0
+            // Si on est dans Options // - 1.4.0
             else if (currentState == GameState.OptionsMenu)
             {
                 string title = "Options";
@@ -448,7 +477,7 @@ namespace XCOM_3 // Nom du projet
                     button.Draw(_spriteBatch, font, mouse);
                 }
 
-                // Dessin du slider (Draw – OptionsMenu) 1.4.1
+                // Dessin du slider (Draw – OptionsMenu) - 1.4.1
                 // _spriteBatch.DrawString(font, "Options", new Vector2(0, 0), Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f); // Déjà intégré dans 1.4.0
 
                 // _spriteBatch.DrawString(font, "Music Volume", new Vector2(0, 100), Color.White); // Semble superflu
@@ -663,10 +692,42 @@ namespace XCOM_3 // Nom du projet
             _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White);
         }
 
+
+        // Méthode pour calculer les cases accessibles à l’unité sélectionnée 1.5.2
+        private List<Point> GetMovableCells(Unit unit)
+        {
+            List<Point> cells = new List<Point>();
+
+            if (unit == null)
+                return cells;
+
+            int range = unit.ActionPoints;
+
+            // Simple logique : toutes les cases autour dans un carré
+            for (int dx = -range; dx <= range; dx++)
+            {
+                for (int dy = -range; dy <= range; dy++)
+                {
+                    int x = unit.Cell.X + dx;
+                    int y = unit.Cell.Y + dy;
+
+                    // Vérifie que la case est dans la grille et accessible
+                    if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight)
+                    {
+                        // Ignore les cases déjà occupées par une unité
+                        if (GetUnitAtCell(new Point(x, y)) == null)
+                            cells.Add(new Point(x, y));
+                    }
+                }
+            }
+
+            return cells;
+        }
+
     }
 
 
-
+    // ========================================================================================================
 
 
     // ============================
@@ -723,7 +784,7 @@ namespace XCOM_3 // Nom du projet
     }
 
 
-
+    // =======================================================================================================
 
 
     // =====================================
@@ -744,6 +805,9 @@ namespace XCOM_3 // Nom du projet
         public string Name;
         public string Class;
         public string Weapon;
+
+        // 1.5.2
+        public int ActionPoints = 3; // nombre de cases que l'unité peut se déplacer
 
         // 👉 Ces infos serviront uniquement au panneau d’info (HUD). 1.5.1
         public Unit(Point cell, Team team, string name, string unitClass, string weapon)
