@@ -313,7 +313,28 @@ namespace XCOM_3 // Nom du projet
                     }
                 }
 
+                // Attaque avec clic droit - 1.5.4
+                if (selectedUnit != null &&
+                    mouse.RightButton == ButtonState.Pressed &&
+                    previousMouseState.RightButton == ButtonState.Released)
+                {
+                    Unit enemy = GetAdjacentEnemy(selectedUnit);
 
+                    if (enemy != null)
+                    {
+                        // Calcul simple : chance de toucher 80%
+                        if (random.NextDouble() < 0.8)
+                        {
+                            enemy.HP -= selectedUnit.Damage;
+                            if (enemy.HP < 0) enemy.HP = 0;
+                            Console.WriteLine($"{selectedUnit.Name} hits {enemy.Name} for {selectedUnit.Damage} damage!");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"{selectedUnit.Name} missed {enemy.Name}!");
+                        }
+                    }
+                }
             }
 
             // Détecter les clics dans le Menu Options // 1.4.0
@@ -627,6 +648,24 @@ namespace XCOM_3 // Nom du projet
                 ? Color.Blue
                 : Color.Red;
 
+            // Si l'unité est une cible possible de l'unité sélectionnée
+            if (selectedUnit != null && unit.Team != selectedUnit.Team)
+            {
+                Point[] directions = new Point[]
+                {
+        new Point(0,-1), new Point(0,1), new Point(-1,0), new Point(1,0)
+                };
+
+                foreach (var dir in directions)
+                {
+                    Point check = new Point(selectedUnit.Cell.X + dir.X, selectedUnit.Cell.Y + dir.Y);
+                    if (check == unit.Cell)
+                    {
+                        color = Color.OrangeRed; // cible ennemie
+                    }
+                }
+            }
+
             _spriteBatch.Draw(pixel, rect, color);
 
             // 1.5.1
@@ -641,7 +680,7 @@ namespace XCOM_3 // Nom du projet
 
                 _spriteBatch.Draw(pixel, outline, new Color(0, 255, 255, 80));
             }
-
+            
         }
 
 
@@ -690,6 +729,16 @@ namespace XCOM_3 // Nom du projet
             _spriteBatch.DrawString(font, "Name: " + selectedUnit.Name, textPos, Color.White);
             _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White);
             _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White);
+
+            // 1.5.4
+            _spriteBatch.DrawString(font, $"HP: {selectedUnit.HP}/{selectedUnit.MaxHP}", textPos + new Vector2(0, 60), Color.White);
+
+            Unit enemy = GetAdjacentEnemy(selectedUnit);
+            if (enemy != null)
+            {
+                _spriteBatch.DrawString(font, $"Enemy: {enemy.Name} HP: {enemy.HP}", textPos + new Vector2(0, 80), Color.Red);
+            }
+
         }
 
 
@@ -722,6 +771,36 @@ namespace XCOM_3 // Nom du projet
             }
 
             return cells;
+        }
+
+        // Méthode pour savoir si un ennemi est adjacent à une unité - 1.5.4
+        private Unit GetAdjacentEnemy(Unit unit)
+        {
+            if (unit == null) return null;
+
+            // Vérifie toutes les cases autour (haut, bas, gauche, droite)
+            Point[] directions = new Point[]
+            {
+        new Point(0, -1),
+        new Point(0, 1),
+        new Point(-1, 0),
+        new Point(1, 0)
+            };
+
+            foreach (var dir in directions)
+            {
+                Point check = new Point(unit.Cell.X + dir.X, unit.Cell.Y + dir.Y);
+
+                if (check.X < 0 || check.X >= gridWidth || check.Y < 0 || check.Y >= gridHeight)
+                    continue;
+
+                Unit u = GetUnitAtCell(check);
+
+                if (u != null && u.Team != unit.Team)
+                    return u;
+            }
+
+            return null;
         }
 
     }
@@ -805,6 +884,12 @@ namespace XCOM_3 // Nom du projet
         public string Name;
         public string Class;
         public string Weapon;
+
+        // 1.5.4
+        public int HP = 10;      // points de vie
+        public int MaxHP = 10;
+        public int Damage = 3;   // dégâts infligés par attaque
+
 
         // 1.5.2
         public int ActionPoints = 3; // nombre de cases que l'unité peut se déplacer
