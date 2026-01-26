@@ -117,6 +117,9 @@ namespace XCOM_3 // Nom du projet
         private List<Unit> playerUnits = new List<Unit>();
         private List<Unit> enemyUnits = new List<Unit>();
 
+        // Variable d’unité sélectionnée - 1.5.1
+        private Unit selectedUnit = null;
+
 
         public Game1()
         {
@@ -220,8 +223,7 @@ namespace XCOM_3 // Nom du projet
                                 currentState = GameState.Playing; // Passe en mode jeu
                                 LoadMap();
                                 // ÉTAPE 3 — Créer les unités au lancement de New Game - 1.5.0
-                                CreateUnits();
-
+                                CreateUnits();                               
                                 Console.WriteLine("New game launched !");
                                 break;
 
@@ -265,6 +267,37 @@ namespace XCOM_3 // Nom du projet
                 {
                     hoveredCell = new Point(-1, -1);
                 }
+
+                if (currentState == GameState.Playing) // 1.5.1
+                    // Clic gauche unique
+                    if (mouse.LeftButton == ButtonState.Pressed &&
+                        previousMouseState.LeftButton == ButtonState.Released)
+                    {
+                        // Calcul direct de la cellule cliquée
+                        // int cellX = mouse.X / cellSize; // Déjà mentionné plus haut.
+                        // int cellY = mouse.Y / cellSize; // 
+
+                        Point clickedCell = new Point(cellX, cellY);
+
+                        // Vérifie que le clic est dans la grille
+                        if (cellX >= 0 && cellX < gridWidth &&
+                            cellY >= 0 && cellY < gridHeight)
+                        {
+                            Unit clickedUnit = GetUnitAtCell(clickedCell);
+
+                            // On ne change la sélection QUE si une unité est cliquée
+                            if (clickedUnit != null)
+                            {
+                                selectedUnit = clickedUnit;
+                            }
+                        }
+                    }
+                if (mouse.RightButton == ButtonState.Pressed &&
+                    previousMouseState.RightButton == ButtonState.Released)
+                {
+                    selectedUnit = null;
+                }
+
             }
 
             // Détecter les clics dans le Menu Options // 1.4.0
@@ -399,6 +432,7 @@ namespace XCOM_3 // Nom du projet
                 DrawGrid(); // Dessiner la carte isométrique
                 DrawUnits(); // ÉTAPE 5 — Appeler le dessin des unités - 1.5.0
                 DrawHoveredCell(); // <-- SURBRILLANCE
+                DrawUnitInfoPanel(); // - 1.5.1
             }
 
             // Si on est dans Options // 1.4.0
@@ -515,7 +549,10 @@ namespace XCOM_3 // Nom du projet
                 playerUnits.Add(
                     new Unit(
                         new Point(2 + i, gridHeight - 2),
-                        Team.Player
+                        Team.Player,
+                        "Soldier " + (i + 1), //1.5.1
+                        "Assault", // 1.5.1
+                        "Rifle" // 1.5.1
                     )
                 );
             }
@@ -526,7 +563,10 @@ namespace XCOM_3 // Nom du projet
                 enemyUnits.Add(
                     new Unit(
                         new Point(2 + i, 1),
-                        Team.Enemy
+                        Team.Enemy,
+                        "Alien" + (i + 1), // 1.5.1
+                        "Infantry", // 1.5.1
+                        "Plasma Gun" // 1.5.1
                     )
                 );
             }
@@ -544,6 +584,7 @@ namespace XCOM_3 // Nom du projet
                 DrawUnit(unit);
         }
 
+        // 1.5.0
         private void DrawUnit(Unit unit)
         {
             Rectangle rect = new Rectangle(
@@ -558,9 +599,57 @@ namespace XCOM_3 // Nom du projet
                 : Color.Red;
 
             _spriteBatch.Draw(pixel, rect, color);
+
+            // 1.5.1
+            if (unit == selectedUnit)
+            {
+                Rectangle outline = new Rectangle(
+                    unit.Cell.X * cellSize,
+                    unit.Cell.Y * cellSize,
+                    cellSize,
+                    cellSize
+                );
+
+                _spriteBatch.Draw(pixel, outline, new Color(0, 255, 255, 80));
+            }
+
+        }
+
+        // 1.5.1
+        private Unit GetUnitAtCell(Point cell)
+        {
+            foreach (var unit in playerUnits)
+            {
+                if (unit.Cell == cell)
+                    return unit;
+            }
+            foreach (var unit in enemyUnits)
+            {
+                if (unit.Cell == cell)
+                    return unit;
+            }
+            return null;
+        }
+
+        // Panneau d’information (HUD) - 1.5.1
+        private void DrawUnitInfoPanel()
+        {
+            if (selectedUnit == null)
+                return;
+
+            Rectangle panel = new Rectangle(10, 350, 300, 120);
+
+            _spriteBatch.Draw(pixel, panel, new Color(0, 0, 0, 180));
+
+            Vector2 textPos = new Vector2(20, 360);
+
+            _spriteBatch.DrawString(font, "Name: " + selectedUnit.Name, textPos, Color.White);
+            _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White);
+            _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White);
         }
 
     }
+
 
 
 
@@ -624,7 +713,7 @@ namespace XCOM_3 // Nom du projet
 
 
     // =====================================
-    // ÉTAPE 1 — Définir ce qu’est une unité - 1.5.0
+    // ===== Définir ce qu’est une unité === - 1.5.0
     // =====================================
     public enum Team
     {
@@ -637,10 +726,19 @@ namespace XCOM_3 // Nom du projet
         public Point Cell;     // Position sur la grille
         public Team Team;      // Joueur ou Ennemi
 
-        public Unit(Point cell, Team team)
+        // On ajoute les données métier (pas du visuel).-  1.5.1
+        public string Name;
+        public string Class;
+        public string Weapon;
+
+        // 👉 Ces infos serviront uniquement au panneau d’info (HUD). 1.5.1
+        public Unit(Point cell, Team team, string name, string unitClass, string weapon)
         {
             Cell = cell;
             Team = team;
+            Name = name;
+            Class = unitClass;
+            Weapon = weapon;
         }
     }
 
