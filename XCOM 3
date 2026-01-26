@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 // - Color.Black
 // - Color.Yellow
 // - Color.White
+// - Color(int red, int green, int blue, int alpha)
 // GameTime
 // Vector2
 // - Vector2(float x, float y)
@@ -43,7 +44,7 @@ namespace XCOM_3 // Nom du projet
     // ==================================================
     public class Game1 : Game
     {
-        // ===== MENU PRINCIPAL =====
+        // ===== MENU PRINCIPAL ===== 1.0.0
         // Gère la configuration graphique (résolution, fullscreen, etc.)
         private GraphicsDeviceManager _graphics;
 
@@ -59,7 +60,7 @@ namespace XCOM_3 // Nom du projet
         // État précédent de la souris (pour détecter un clic unique)
         private MouseState previousMouseState;
 
-        // ===== MUSIQUE =====
+        // ===== MUSIQUE ===== 1.1.0
         // Liste de musiques du menu
         //private List<Song> menuSongs;
 
@@ -69,26 +70,31 @@ namespace XCOM_3 // Nom du projet
         // Générateur de nombre aléatoire
         private Random random = new Random();
 
-        // ===== MENU PRINCIPAL/NEW GAME=====
+        // ===== MENU PRINCIPAL/NEW GAME===== 1.2.0
         // Les états de jeu : Menu principal ou en jeu.
         enum GameState
         {
             MainMenu,
-            Playing
+            Playing,
+            OptionsMenu // 1.4.0
         }
 
         private GameState currentState = GameState.MainMenu;
 
-        // ===== NEW GAME =====
+        // ===== NEW GAME ===== 1.3.0
         // --- Grille / Map ---
         private Texture2D pixel; // On crée le pixel dans LoadContent()      
         private int cellSize = 32; // Taille des cases
         private int gridWidth = 20; // Dimension X de la grille
         private int gridHeight = 15; // Dimension Y de la grille
 
-        // ===== NEW GAME/HIGHLIGHT ===== 26 janvier 2026 11:33
+        // ===== NEW GAME/HIGHLIGHT ===== 1.3.1 - 26 janvier 2026 11:33
         // Case survolée par la souris
         private Point hoveredCell = new Point(-1, -1);
+
+        // ===== OPTIONS MENU ===== 1.4.0
+        private List<Button> optionsButtons; // 1.4.0
+        private float musicVolume = 0.5f; // Valeur initiale du volume (0.0f à 1.0f) // 1.4.0
 
 
         public Game1()
@@ -150,6 +156,15 @@ namespace XCOM_3 // Nom du projet
             pixel = new Texture2D(GraphicsDevice, 1, 1);
             pixel.SetData(new[] { Color.White });
 
+
+            // Boutons du Menu Options // 1.4.0
+            optionsButtons = new List<Button>
+            {
+                new Button("Music Volume +", new Vector2(0, 100)),
+                new Button("Music Volume -", new Vector2(0, 128)),
+                new Button("Back", new Vector2(0, 156))
+            };
+
         }
 
 
@@ -160,40 +175,46 @@ namespace XCOM_3 // Nom du projet
             // État actuel de la souris
             MouseState mouse = Mouse.GetState();
 
-            // Vérifie les clics sur chaque bouton
-            foreach (var button in menuButtons)
+            // Si on est dans le Main Menu
+            if (currentState == GameState.MainMenu)
             {
-                if (button.IsClicked(mouse, previousMouseState))
+                // Vérifie les clics sur chaque bouton
+                foreach (var button in menuButtons)
                 {
-                    // Action selon le texte du bouton
-                    switch (button.Text)
+                    // Si le bouton de la souris est cliqué
+                    if (button.IsClicked(mouse, previousMouseState))
                     {
-                        case "New Game":
+                        // Action selon le texte du bouton
+                        switch (button.Text)
+                        {
+                            case "New Game":
+                                //MediaPlayer.Stop(); //  Stop la musique
+                                currentState = GameState.Playing; // Passe en mode jeu
+                                LoadMap();
+                                Console.WriteLine("New game launched !");
+                                break;
 
-                            //MediaPlayer.Stop(); //  Stop la musique
-                            currentState = GameState.Playing; // Passe en mode jeu
-                            LoadMap(); // (optionnel) initialise la carte isométrique (Efface les deux // en avant de LoadMap)
-                            Console.WriteLine("New game launched !");
-                            break;
+                            case "Continue":
+                                Console.WriteLine("Continue a saved game...");
+                                break;
 
-                        case "Continue":
-                            Console.WriteLine("Continue a saved game...");
-                            break;
+                            case "Encylopedia":
+                                Console.WriteLine("Open encyclopedia...");
+                                break;
 
-                        case "Encylopedia":
-                            Console.WriteLine("Open encyclopedia...");
-                            break;
+                            case "Options":
+                                currentState = GameState.OptionsMenu;
+                                Console.WriteLine("Options");
+                                break;
 
-                        case "Options":
-                            Console.WriteLine("Options");
-                            break;
-
-                        case "Quit":
-                            Exit(); // Quitte le jeu
-                            break;
+                            case "Quit":
+                                Exit(); // Quitte le jeu
+                                break;
+                        }
                     }
                 }
             }
+            
             if (currentState == GameState.Playing)
             {
                 int mouseX = mouse.X;
@@ -214,6 +235,38 @@ namespace XCOM_3 // Nom du projet
                 }
             }
 
+            // Détecter les clics dans le Menu Options // 1.4.0
+            if (currentState == GameState.OptionsMenu)
+            {
+                foreach (var button in optionsButtons)
+                {
+                    if (button.IsClicked(mouse, previousMouseState))
+                    {
+                        switch (button.Text)
+                        {
+                            case "Music Volume +":
+                                musicVolume += 0.1f;
+                                if (musicVolume > 1f) musicVolume = 1f;
+                                MediaPlayer.Volume = musicVolume;
+                                Console.WriteLine("Volume: " + musicVolume);
+                                break;
+
+                            case "Music Volume -":
+                                musicVolume -= 0.1f;
+                                if (musicVolume < 0f) musicVolume = 0f;
+                                MediaPlayer.Volume = musicVolume;
+                                Console.WriteLine("Volume: " + musicVolume);
+                                break;
+
+                            case "Back":
+                                currentState = GameState.MainMenu;
+                                break;
+                        }
+                    }
+                }
+            }
+
+
             // Sauvegarde l’état actuel pour la frame suivante
             previousMouseState = mouse;
 
@@ -222,6 +275,8 @@ namespace XCOM_3 // Nom du projet
                 Exit();
 
             base.Update(gameTime);
+
+
         }
 
 
@@ -234,6 +289,7 @@ namespace XCOM_3 // Nom du projet
 
             _spriteBatch.Begin();
 
+            // Si on est dans le Main Menu
             if (currentState == GameState.MainMenu)
             {
                 // Texte du titre
@@ -267,11 +323,27 @@ namespace XCOM_3 // Nom du projet
                     button.Draw(_spriteBatch, font, mouse);
                 }
             }
+
+            // Si on est dans New Game
             else if (currentState == GameState.Playing)
             {
                 DrawGrid(); // Dessiner la carte isométrique
                 DrawHoveredCell(); // <-- SURBRILLANCE
 
+            }
+
+            // Si on est dans Options // 1.4.0
+            else if (currentState == GameState.OptionsMenu)
+            {
+                string title = "Options";
+                _spriteBatch.DrawString(font, title, new Vector2(0, 0), Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
+
+                MouseState mouse = Mouse.GetState();
+
+                foreach (var button in optionsButtons)
+                {
+                    button.Draw(_spriteBatch, font, mouse);
+                }
             }
 
 
@@ -328,7 +400,7 @@ namespace XCOM_3 // Nom du projet
 
 
 
-        private void DrawHoveredCell()
+        private void DrawHoveredCell() // 1.3.1
         {
             if (hoveredCell.X < 0 || hoveredCell.Y < 0)
                 return;
@@ -340,13 +412,12 @@ namespace XCOM_3 // Nom du projet
                 cellSize);
 
             // Couleur de surbrillance
-            Color highlightColor = new Color(255, 255, 0, 80);
+            Color highlightColor = new Color(255, 255, 0, 80); // Yellow
 
             _spriteBatch.Draw(pixel, cellRect, highlightColor);
         }
 
     }
-
 
 
 
