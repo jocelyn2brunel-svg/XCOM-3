@@ -1,19 +1,49 @@
 using Microsoft.Xna.Framework;
+// Color
+// - Color.Black
+// - Color.Yellow
+// - Color.White
+// GameTime
+// Vector2
+// - Vector2(float x, float y)
+// - Vector2.Zero
+
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
+// GraphicsDeviceManager
+// SpriteBatch
+// - SpriteBatch.DrawString
+// SpriteFont
+// Texture2D
+// - Texture2D(GraphicsDevice, int width, int height)
+
+using Microsoft.Xna.Framework.Input; 
+// Keyboard
+// - Keyboard.GetState()
+// MouseState
+// Mouse
+// - Mouse.GetState()
+
 using Microsoft.Xna.Framework.Media;
+// Song
+// MediaPlayer
+// - MediaPlayer.Volume
+// - MediaPlayer.Play()
+// - MediaPlayer.Stop()
+
 using System;
+// Random
+
 using System.Collections.Generic;
+// List<>
 
-namespace XCOM_3
+namespace XCOM_3 // Nom du projet
 {
-
-
     // ==================================================
     // Classe principale du jeu (point d’entrée MonoGame)
     // ==================================================
     public class Game1 : Game
     {
+        // ===== MENU PRINCIPAL =====
         // Gère la configuration graphique (résolution, fullscreen, etc.)
         private GraphicsDeviceManager _graphics;
 
@@ -29,6 +59,7 @@ namespace XCOM_3
         // État précédent de la souris (pour détecter un clic unique)
         private MouseState previousMouseState;
 
+        // ===== MUSIQUE =====
         // Liste de musiques du menu
         //private List<Song> menuSongs;
 
@@ -38,6 +69,7 @@ namespace XCOM_3
         // Générateur de nombre aléatoire
         private Random random = new Random();
 
+        // ===== MENU PRINCIPAL/NEW GAME=====
         // Les états de jeu : Menu principal ou en jeu.
         enum GameState
         {
@@ -47,12 +79,16 @@ namespace XCOM_3
 
         private GameState currentState = GameState.MainMenu;
 
+        // ===== NEW GAME =====
         // --- Grille / Map ---
-        private Texture2D pixel;
-        private int cellSize = 32;
-        private int gridWidth = 20;
-        private int gridHeight = 15;
+        private Texture2D pixel; // On crée le pixel dans LoadContent()      
+        private int cellSize = 32; // Taille des cases
+        private int gridWidth = 20; // Dimension X de la grille
+        private int gridHeight = 15; // Dimension Y de la grille
 
+        // ===== NEW GAME/HIGHLIGHT ===== 26 janvier 2026 11:33
+        // Case survolée par la souris
+        private Point hoveredCell = new Point(-1, -1);
 
 
         public Game1()
@@ -74,7 +110,7 @@ namespace XCOM_3
 
 
         // Chargement des ressources (appelé une seule fois)
-        protected override void LoadContent()
+        protected override void LoadContent() // Classe héritée de Game
         {
             // Initialise le SpriteBatch
             _spriteBatch = new SpriteBatch(GraphicsDevice);
@@ -119,7 +155,7 @@ namespace XCOM_3
 
 
         // Logique du jeu (appelé à chaque frame)
-        protected override void Update(GameTime gameTime)
+        protected override void Update(GameTime gameTime) // Classe héritée de Game
         {
             // État actuel de la souris
             MouseState mouse = Mouse.GetState();
@@ -158,6 +194,25 @@ namespace XCOM_3
                     }
                 }
             }
+            if (currentState == GameState.Playing)
+            {
+                int mouseX = mouse.X;
+                int mouseY = mouse.Y;
+
+                int cellX = mouseX / cellSize;
+                int cellY = mouseY / cellSize;
+
+                // Vérifie que la souris est dans la grille
+                if (cellX >= 0 && cellX < gridWidth &&
+                    cellY >= 0 && cellY < gridHeight)
+                {
+                    hoveredCell = new Point(cellX, cellY);
+                }
+                else
+                {
+                    hoveredCell = new Point(-1, -1);
+                }
+            }
 
             // Sauvegarde l’état actuel pour la frame suivante
             previousMouseState = mouse;
@@ -172,7 +227,7 @@ namespace XCOM_3
 
 
         // Dessin à l’écran (appelé à chaque frame)
-        protected override void Draw(GameTime gameTime)
+        protected override void Draw(GameTime gameTime) // Classe héritée de Game
         {
             // Nettoie l’écran en noir
             GraphicsDevice.Clear(Color.Black);
@@ -214,8 +269,8 @@ namespace XCOM_3
             }
             else if (currentState == GameState.Playing)
             {
-                // Dessiner la carte isométrique
-                DrawGrid();
+                DrawGrid(); // Dessiner la carte isométrique
+                DrawHoveredCell(); // <-- SURBRILLANCE
 
             }
 
@@ -223,6 +278,8 @@ namespace XCOM_3
             _spriteBatch.End();
             base.Draw(gameTime);
         }
+
+
 
         private void LoadMap()
         {
@@ -235,6 +292,9 @@ namespace XCOM_3
 
             Console.WriteLine("Map loaded");
         }
+
+
+
         private void DrawGrid()
         {
             Color gridColor = new Color(255, 255, 255, 80);
@@ -267,7 +327,29 @@ namespace XCOM_3
         }
 
 
+
+        private void DrawHoveredCell()
+        {
+            if (hoveredCell.X < 0 || hoveredCell.Y < 0)
+                return;
+
+            Rectangle cellRect = new Rectangle(
+                hoveredCell.X * cellSize,
+                hoveredCell.Y * cellSize,
+                cellSize,
+                cellSize);
+
+            // Couleur de surbrillance
+            Color highlightColor = new Color(255, 255, 0, 80);
+
+            _spriteBatch.Draw(pixel, cellRect, highlightColor);
+        }
+
     }
+
+
+
+
 
 
     // ============================
