@@ -615,6 +615,7 @@ namespace XCOM_3 // Nom du projet
 
         }
 
+
         // 1.5.1
         private Unit GetUnitAtCell(Point cell)
         {
@@ -631,17 +632,31 @@ namespace XCOM_3 // Nom du projet
             return null;
         }
 
+
         // Panneau d’information (HUD) - 1.5.1
         private void DrawUnitInfoPanel()
         {
             if (selectedUnit == null)
                 return;
 
-            Rectangle panel = new Rectangle(10, 350, 300, 120);
+            // 1.5.2
+            int margin = 10; // marge par rapport aux bords de la fenêtre
 
+            // Taille du HUD
+            int panelWidth = 300;
+            int panelHeight = 120;
+
+            // Coin bas gauche relatif à la fenêtre
+            int panelX = margin;
+            int panelY = GraphicsDevice.Viewport.Height - panelHeight - margin;
+
+            Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
+            
+            // Fond semi-transparent
             _spriteBatch.Draw(pixel, panel, new Color(0, 0, 0, 180));
 
-            Vector2 textPos = new Vector2(20, 360);
+            // Texte avec un petit offset dans le panneau
+            Vector2 textPos = new Vector2(panelX + 10, panelY + 10);
 
             _spriteBatch.DrawString(font, "Name: " + selectedUnit.Name, textPos, Color.White);
             _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White);
@@ -649,7 +664,6 @@ namespace XCOM_3 // Nom du projet
         }
 
     }
-
 
 
 
@@ -676,7 +690,6 @@ namespace XCOM_3 // Nom du projet
         }
 
 
-
         public void Draw(SpriteBatch spriteBatch, SpriteFont font, MouseState mouse)
         {
             // Mesure la taille du texte
@@ -700,7 +713,6 @@ namespace XCOM_3 // Nom du projet
         }
 
 
-
         // Détecte un clic unique (Pressed maintenant, Released avant)
         public bool IsClicked(MouseState current, MouseState previous)
         {
@@ -709,6 +721,8 @@ namespace XCOM_3 // Nom du projet
                    previous.LeftButton == ButtonState.Released;
         }
     }
+
+
 
 
 
