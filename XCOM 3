@@ -35,6 +35,8 @@ using System;
 // Random
 
 using System.Collections.Generic;
+using System.Net.Sockets;
+using System.Runtime.ConstrainedExecution;
 // List<>
 
 namespace XCOM_3 // Nom du projet
@@ -110,6 +112,10 @@ namespace XCOM_3 // Nom du projet
         private Rectangle volumeHandle;
         private bool draggingVolume = false;
 
+        // ÉTAPE 2 — Stocker les unités dans Game1 - 1.5.0
+        // ===== UNITÉS =====
+        private List<Unit> playerUnits = new List<Unit>();
+        private List<Unit> enemyUnits = new List<Unit>();
 
 
         public Game1()
@@ -213,6 +219,9 @@ namespace XCOM_3 // Nom du projet
                                 //MediaPlayer.Stop(); //  Stop la musique
                                 currentState = GameState.Playing; // Passe en mode jeu
                                 LoadMap();
+                                // ÉTAPE 3 — Créer les unités au lancement de New Game - 1.5.0
+                                CreateUnits();
+
                                 Console.WriteLine("New game launched !");
                                 break;
 
@@ -388,8 +397,8 @@ namespace XCOM_3 // Nom du projet
             else if (currentState == GameState.Playing)
             {
                 DrawGrid(); // Dessiner la carte isométrique
+                DrawUnits(); // ÉTAPE 5 — Appeler le dessin des unités - 1.5.0
                 DrawHoveredCell(); // <-- SURBRILLANCE
-
             }
 
             // Si on est dans Options // 1.4.0
@@ -494,6 +503,63 @@ namespace XCOM_3 // Nom du projet
             _spriteBatch.Draw(pixel, cellRect, highlightColor);
         }
 
+        // Créer les unités au lancement de New Game - 1.5.0
+        private void CreateUnits()
+        {
+            playerUnits.Clear();
+            enemyUnits.Clear();
+
+            // ---- UNITÉS JOUEUR (en bas de la map) ----
+            for (int i = 0; i < 6; i++)
+            {
+                playerUnits.Add(
+                    new Unit(
+                        new Point(2 + i, gridHeight - 2),
+                        Team.Player
+                    )
+                );
+            }
+
+            // ---- UNITÉS ENNEMIES (en haut de la map) ----
+            for (int i = 0; i < 6; i++)
+            {
+                enemyUnits.Add(
+                    new Unit(
+                        new Point(2 + i, 1),
+                        Team.Enemy
+                    )
+                );
+            }
+
+            Console.WriteLine("Units created: 6 player, 6 enemy");
+        }
+
+        // ÉTAPE 4 — Dessiner les unités sur la grille - 1.5.0
+        private void DrawUnits()
+        {
+            foreach (var unit in playerUnits)
+                DrawUnit(unit);
+
+            foreach (var unit in enemyUnits)
+                DrawUnit(unit);
+        }
+
+        private void DrawUnit(Unit unit)
+        {
+            Rectangle rect = new Rectangle(
+                unit.Cell.X * cellSize + 4,
+                unit.Cell.Y * cellSize + 4,
+                cellSize - 8,
+                cellSize - 8
+            );
+
+            Color color = (unit.Team == Team.Player)
+                ? Color.Blue
+                : Color.Red;
+
+            _spriteBatch.Draw(pixel, rect, color);
+        }
+
     }
 
 
@@ -554,4 +620,28 @@ namespace XCOM_3 // Nom du projet
                    previous.LeftButton == ButtonState.Released;
         }
     }
+
+
+
+    // =====================================
+    // ÉTAPE 1 — Définir ce qu’est une unité - 1.5.0
+    // =====================================
+    public enum Team
+    {
+        Player,
+        Enemy
+    }
+
+    public class Unit
+    {
+        public Point Cell;     // Position sur la grille
+        public Team Team;      // Joueur ou Ennemi
+
+        public Unit(Point cell, Team team)
+        {
+            Cell = cell;
+            Team = team;
+        }
+    }
+
 }
