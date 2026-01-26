@@ -30,10 +30,10 @@ namespace XCOM_3
         private MouseState previousMouseState;
 
         // Liste de musiques du menu
-        private List<Song> menuSongs;
+        //private List<Song> menuSongs;
 
         // Musique en cours
-        private Song currentSong; 
+        private Song currentSong;
 
         // Générateur de nombre aléatoire
         private Random random = new Random();
@@ -46,6 +46,14 @@ namespace XCOM_3
         }
 
         private GameState currentState = GameState.MainMenu;
+
+        // --- Grille / Map ---
+        private Texture2D pixel;
+        private int cellSize = 32;
+        private int gridWidth = 20;
+        private int gridHeight = 15;
+
+
 
         public Game1()
         {
@@ -63,7 +71,7 @@ namespace XCOM_3
 
         }
 
-        
+
 
         // Chargement des ressources (appelé une seule fois)
         protected override void LoadContent()
@@ -72,7 +80,7 @@ namespace XCOM_3
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
             // Charge la police "Arial.spritefont" depuis Content
-            font = Content.Load<SpriteFont>("Arial");                             
+            font = Content.Load<SpriteFont>("Arial");
 
             // Création des boutons du menu
             menuButtons = new List<Button>
@@ -86,20 +94,26 @@ namespace XCOM_3
 
 
             // Crée la liste et charge les musiques
-            menuSongs = new List<Song>
+            //menuSongs = new List<Song>
                 {
-                Content.Load<Song>("menu_music_1"),
-                Content.Load<Song>("menu_music_2"),
-                Content.Load<Song>("menu_music_3"),
-                Content.Load<Song>("menu_music_4")
+                //Content.Load<Song>("menu_music_1"),
+                //Content.Load<Song>("menu_music_2"),
+                //Content.Load<Song>("menu_music_3"),
+                //Content.Load<Song>("menu_music_4")
                 };
 
             // Choisir une musique au hasard
-            currentSong = menuSongs[random.Next(menuSongs.Count)];
+            //currentSong = menuSongs[random.Next(menuSongs.Count)];
 
             // Jouer la musique
-            MediaPlayer.Volume = 0.5f;
-            MediaPlayer.Play(currentSong);
+            //MediaPlayer.Volume = 0.5f;
+            //MediaPlayer.Play(currentSong);
+
+
+            // Créer le pixel blanc pour les lignes.
+            pixel = new Texture2D(GraphicsDevice, 1, 1);
+            pixel.SetData(new[] { Color.White });
+
         }
 
 
@@ -120,9 +134,9 @@ namespace XCOM_3
                     {
                         case "New Game":
 
-                            MediaPlayer.Stop(); //  Stop la musique
+                            //MediaPlayer.Stop(); //  Stop la musique
                             currentState = GameState.Playing; // Passe en mode jeu
-                            //LoadMap(); // (optionnel) initialise la carte isométrique (Efface les deux // en avant de LoadMap)
+                            LoadMap(); // (optionnel) initialise la carte isométrique (Efface les deux // en avant de LoadMap)
                             Console.WriteLine("New game launched !");
                             break;
 
@@ -137,14 +151,14 @@ namespace XCOM_3
                         case "Options":
                             Console.WriteLine("Options");
                             break;
-                            
+
                         case "Quit":
                             Exit(); // Quitte le jeu
                             break;
                     }
                 }
             }
-            
+
             // Sauvegarde l’état actuel pour la frame suivante
             previousMouseState = mouse;
 
@@ -201,12 +215,57 @@ namespace XCOM_3
             else if (currentState == GameState.Playing)
             {
                 // Dessiner la carte isométrique
+                DrawGrid();
+
             }
 
 
             _spriteBatch.End();
             base.Draw(gameTime);
-        }        
+        }
+
+        private void LoadMap()
+        {
+            // Pour l’instant, on ne charge que la taille de la grille
+            // Plus tard : tilemap, collisions, unités, etc.
+
+            gridWidth = 20;
+            gridHeight = 15;
+            cellSize = 32;
+
+            Console.WriteLine("Map loaded");
+        }
+        private void DrawGrid()
+        {
+            Color gridColor = new Color(255, 255, 255, 80);
+
+            // Lignes verticales
+            for (int x = 0; x <= gridWidth; x++)
+            {
+                _spriteBatch.Draw(
+                    pixel,
+                    new Rectangle(
+                        x * cellSize,
+                        0,
+                        1,
+                        gridHeight * cellSize),
+                    gridColor);
+            }
+
+            // Lignes horizontales
+            for (int y = 0; y <= gridHeight; y++)
+            {
+                _spriteBatch.Draw(
+                    pixel,
+                    new Rectangle(
+                        0,
+                        y * cellSize,
+                        gridWidth * cellSize,
+                        1),
+                    gridColor);
+            }
+        }
+
 
     }
 
@@ -264,5 +323,5 @@ namespace XCOM_3
                    current.LeftButton == ButtonState.Pressed &&
                    previous.LeftButton == ButtonState.Released;
         }
-    } 
+    }
 }
