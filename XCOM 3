@@ -445,23 +445,27 @@ namespace XCOM_3 // Nom du projet
             _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White);
             _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White);
         }
-        private List<Point> GetMovableCells(Unit unit) // Méthode pour calculer les cases accessibles à l’unité sélectionnée 1.5.2
+        private List<Point> GetMovableCells(Unit unit)
         {
             List<Point> cells = new List<Point>();
             if (unit == null)
                 return cells;
             int range = unit.ActionPoints;
-            for (int dx = -range; dx <= range; dx++) // Simple logique : toutes les cases autour dans un carré
+            for (int dx = -range; dx <= range; dx++)
             {
                 for (int dy = -range; dy <= range; dy++)
                 {
+                    int distance = Math.Abs(dx) + Math.Abs(dy);
+                    if (distance == 0 || distance > range) // ignore la case de départ, ignore les diagonales gratuites
+                        continue;
                     int x = unit.Cell.X + dx;
                     int y = unit.Cell.Y + dy;
-                    if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) // Vérifie que la case est dans la grille et accessible
-                    {
-                        if (GetUnitAtCell(new Point(x, y)) == null) // Ignore les cases déjà occupées par une unité
-                            cells.Add(new Point(x, y));
-                    }
+                    if (x < 0 || x >= gridWidth || // Grille
+                        y < 0 || y >= gridHeight)
+                        continue;
+                    if (GetUnitAtCell(new Point(x, y)) != null) // Case occupée
+                        continue;
+                    cells.Add(new Point(x, y));
                 }
             }
             return cells;
