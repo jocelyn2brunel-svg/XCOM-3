@@ -164,9 +164,7 @@ namespace XCOM_3 // Nom du projet
                 }
                 if (leftClick)
                 {
-                    Point clickedCell = new Point(cellX, cellY);
-                    if (cellX < 0 || cellX >= gridWidth || cellY < 0 || cellY >= gridHeight)
-                        return;
+                    Point clickedCell = new Point(cellX, cellY);                   
                     Unit clickedUnit = GetUnitAtCell(clickedCell);
                     if (clickedUnit != null)
                     {
@@ -180,12 +178,12 @@ namespace XCOM_3 // Nom du projet
                             selectedUnit.Cell = clickedCell;
                         }
                     }
-                }             
+                }
                 if (mouse.RightButton == ButtonState.Pressed &&
                     previousMouseState.RightButton == ButtonState.Released)
                 {
                     selectedUnit = null;
-                }               
+                }
             }
             if (currentState == GameState.OptionsMenu) // Détecter les clics dans le Menu Options // 1.4.0
             {
@@ -415,18 +413,16 @@ namespace XCOM_3 // Nom du projet
                 _spriteBatch.Draw(pixel, outline, new Color(0, 255, 255, 80));
             }
         }
-        private Unit GetUnitAtCell(Point cell) // 1.5.1
+        private IEnumerable<Unit> AllUnits()
         {
-            foreach (var unit in playerUnits)
-            {
+            foreach (var u in playerUnits) yield return u;
+            foreach (var u in enemyUnits) yield return u;
+        }
+        private Unit GetUnitAtCell(Point cell)
+        {
+            foreach (var unit in AllUnits())
                 if (unit.Cell == cell)
                     return unit;
-            }
-            foreach (var unit in enemyUnits)
-            {
-                if (unit.Cell == cell)
-                    return unit;
-            }
             return null;
         }
         private void DrawUnitInfoPanel() // Panneau d’information (HUD) - 1.5.1
