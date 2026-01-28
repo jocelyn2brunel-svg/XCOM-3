@@ -132,7 +132,7 @@ namespace XCOM_3 // Nom du projet
                                 Console.WriteLine("Continue a saved game...");
                                 break;
                             case "Encylopedia":
-                                Console.WriteLine("Open encyclopedia...");
+                                Console.WriteLine("Opening encyclopedia...");
                                 break;
                             case "Options":
                                 currentState = GameState.OptionsMenu; // L'état du jeu deviens : Menu Options
@@ -177,8 +177,15 @@ namespace XCOM_3 // Nom du projet
                         var movableCells = GetMovableCells(selectedUnit);
                         if (movableCells.Contains(clickedCell))
                         {
-                            selectedUnit.Cell = clickedCell;
-                            cachedMovableCells.Clear(); // 1.5.3.5
+                            int cost = // 1.5.3.6
+                                Math.Abs(clickedCell.X - selectedUnit.Cell.X) + // 1.5.3.6
+                                Math.Abs(clickedCell.Y - selectedUnit.Cell.Y); // 1.5.3.6
+                            if (selectedUnit.ActionPoints >= cost) // 1.5.3.6
+                            {
+                                selectedUnit.ActionPoints -= cost; // 1.5.3.6
+                                selectedUnit.Cell = clickedCell; // 1.5.3.6
+                                cachedMovableCells = GetMovableCells(selectedUnit); // 1.5.3.5
+                            }                          
                         }
                     }
                 }
@@ -281,14 +288,15 @@ namespace XCOM_3 // Nom du projet
                 DrawUnits(); // ÉTAPE 5 — Appeler le dessin des unités - 1.5.0
                 DrawHoveredCell(); // <-- SURBRILLANCE
                 if (currentState == GameState.Playing && selectedUnit != null) // Dessiner les cases accessibles - 1.5.2
-                {
-                    var movableCells = GetMovableCells(selectedUnit);
-                    foreach (var cell in movableCells)
+                    foreach (var cell in cachedMovableCells) // 1.5.3.5
                     {
-                        Rectangle rect = new Rectangle(cell.X * cellSize, cell.Y * cellSize, cellSize, cellSize);
-                        _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80)); // vert transparent
+                        Rectangle rect = new Rectangle( // 1.5.3.5
+                            cell.X * cellSize, // 1.5.3.5
+                            cell.Y * cellSize, // 1.5.3.5
+                            cellSize, // 1.5.3.5
+                            cellSize); // 1.5.3.5
+                        _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80)); // 1.5.3.5
                     }
-                }
                 DrawUnitInfoPanel(); // - 1.5.1
             }
             else if (currentState == GameState.OptionsMenu) // Si on est dans Options // - 1.4.0
@@ -307,15 +315,7 @@ namespace XCOM_3 // Nom du projet
                 _spriteBatch.Draw(pixel, volumeFill, Color.Yellow); // Niveau de volume
                 _spriteBatch.Draw(pixel, volumeHandle, Color.White); // Poignée de la barre de volume
             }
-            foreach (var cell in cachedMovableCells) // 1.5.3.5
-            {
-                Rectangle rect = new Rectangle( // 1.5.3.5
-                    cell.X * cellSize, // 1.5.3.5
-                    cell.Y * cellSize, // 1.5.3.5
-                    cellSize, // 1.5.3.5
-                    cellSize); // 1.5.3.5
-                _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80)); // 1.5.3.5
-            }
+            
             _spriteBatch.End();
             base.Draw(gameTime);
         }
