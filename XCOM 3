@@ -112,10 +112,10 @@ namespace XCOM_3 // Nom du projet
         }
         protected override void Update(GameTime gameTime) // Logique du jeu (appelé à chaque frame) // Classe héritée de Game
         {
-            MouseState mouse = Mouse.GetState(); // État actuel de la souris           
+            MouseState mouse = Mouse.GetState(); // Lecture de l'état actuel de la souris (position + boutons) 
             if (currentState == GameState.MainMenu) // Si on est dans le Main Menu
             {
-                foreach (var button in menuButtons) // Vérifie les clics sur chaque bouton
+                foreach (var button in menuButtons) // Parcourt tous les boutons du menu principal
                 {
                     if (button.IsClicked(mouse, previousMouseState)) // Si le bouton de la souris est cliqué
                     {
@@ -124,7 +124,7 @@ namespace XCOM_3 // Nom du projet
                             case "New Game":
                                 //MediaPlayer.Stop(); // Stop la musique
                                 currentState = GameState.Playing; // L'état du jeu deviens : New Game
-                                LoadMap();
+                                LoadMap(); // Chargement de la map
                                 CreateUnits(); // Créer les unités au lancement de New Game - 1.5.0                          
                                 Console.WriteLine("New game launched !");
                                 break;
@@ -139,13 +139,13 @@ namespace XCOM_3 // Nom du projet
                                 Console.WriteLine("Options");
                                 break;
                             case "Quit":
-                                Exit(); // Quitte le jeu
+                                Exit(); // Quitte complètement le jeu
                                 break;
                         }
                     }
                 }
             }
-            bool leftClick =
+            bool leftClick = // Détecte un clic gauche unique (pas maintenu)
                 mouse.LeftButton == ButtonState.Pressed &&
                 previousMouseState.LeftButton == ButtonState.Released;
             if (currentState == GameState.Playing) // Si l'état du jeu est : New Game
@@ -161,7 +161,7 @@ namespace XCOM_3 // Nom du projet
                 }
                 else
                 {
-                    hoveredCell = new Point(-1, -1);
+                    hoveredCell = new Point(-1, -1); // Hors grille
                 }
                 if (leftClick)
                 {
@@ -182,14 +182,14 @@ namespace XCOM_3 // Nom du projet
                                 Math.Abs(clickedCell.Y - selectedUnit.Cell.Y); // 1.5.3.6
                             if (selectedUnit.ActionPoints >= cost) // 1.5.3.6
                             {
-                                selectedUnit.ActionPoints -= cost; // 1.5.3.6
-                                selectedUnit.Cell = clickedCell; // 1.5.3.6
+                                selectedUnit.ActionPoints -= cost; // Consomme les AP 1.5.3.6
+                                selectedUnit.Cell = clickedCell; // Déplace l’unité 1.5.3.6
                                 cachedMovableCells = GetMovableCells(selectedUnit); // 1.5.3.5
                             }                          
                         }
                     }
                 }
-                if (mouse.RightButton == ButtonState.Pressed &&
+                if (mouse.RightButton == ButtonState.Pressed && // Clic droit : désélection
                     previousMouseState.RightButton == ButtonState.Released)
                 {
                     selectedUnit = null;
@@ -251,10 +251,10 @@ namespace XCOM_3 // Nom du projet
                     10,
                     volumeBar.Height + 8);
             }
-            previousMouseState = mouse; // Sauvegarde l’état actuel pour la frame suivante
-            if (Keyboard.GetState().IsKeyDown(Keys.Escape)) // Quitte le jeu si ESC est appuyé
-                Exit();
-            base.Update(gameTime);
+            previousMouseState = mouse; // Sauvegarde l’état actuel  de la souris pour la frame suivante
+            if (Keyboard.GetState().IsKeyDown(Keys.Escape)) // Si la touche "Escape" est appuyée :
+                Exit(); // quitte le jeu.
+            base.Update(gameTime); // Appel du moteur MonoGame
         }
         protected override void Draw(GameTime gameTime) // Dessin à l’écran (appelé à chaque frame) // Classe héritée de Game
         {
@@ -364,148 +364,148 @@ namespace XCOM_3 // Nom du projet
             Color highlightColor = new Color(255, 255, 0, 80); // Couleur de surbrillance - Yellow
             _spriteBatch.Draw(pixel, cellRect, highlightColor);
         }
-        public class EnemyTemplate // 1.5.3.4
+        public class EnemyTemplate // Classe servant de "modèle" pour créer des ennemis 1.5.3.4
         {
-            public string Name;
-            public string Class;
-            public string Weapon;
-            public int ActionPoints;
+            public string Name; // Nom de l'ennemi (ex: "Alien Grunt")
+            public string Class; // Classe/type de l'ennemi (ex: "Infantry", "Sniper")
+            public string Weapon; // Arme que possède l'ennemi (ex: "Plasma Rifle")
+            public int ActionPoints; // Nombre de points d'action (AP) que l'ennemi peut utiliser pour se déplacer
 
-            public EnemyTemplate(string name, string unitClass, string weapon, int ap)
+            public EnemyTemplate(string name, string unitClass, string weapon, int ap) // Constructeur : permet d'initialiser un template avec ses caractéristiques
             {
-                Name = name;
-                Class = unitClass;
-                Weapon = weapon;
-                ActionPoints = ap;
+                Name = name; // Assignation du nom
+                Class = unitClass; // Assignation de la classe
+                Weapon = weapon; // Assignation de l'arme
+                ActionPoints = ap; // Assignation des points d'action
             }
         }
-        private void CreateUnits() // Créer les unités au lancement de New Game - 1.5.0
+        private void CreateUnits() // Crée toutes les unités au lancement d'une nouvelle partie 1.5.0
         {
-            playerUnits.Clear();
-            enemyUnits.Clear();
-            for (int i = 0; i < 6; i++) // ---- UNITÉS JOUEUR (en bas de la map) ----
+            playerUnits.Clear(); // Vide la liste de toutes les unités du joueur
+            enemyUnits.Clear(); // Vide la liste de toutes les unités ennemies
+            for (int i = 0; i < 6; i++) // Création des unités du joueur.  Boucle pour créer 6 soldats
             {
                 playerUnits.Add(
                     new Unit(
-                        new Point(2 + i, gridHeight - 2),
-                        Team.Player,
-                        "Soldier " + (i + 1), //1.5.1
-                        "Assault", // 1.5.1
-                        "Rifle" // 1.5.1
+                        new Point(2 + i, gridHeight - 2), // Position initiale (en bas de la map, espacée de 1 case horizontalement)
+                        Team.Player, // Équipe du joueur
+                        "Soldier " + (i + 1), // Nom de l’unité ("Soldier 1", "Soldier 2", ...) 1.5.1
+                        "Assault", // Classe de l’unité (ici Assault) 1.5.1
+                        "Rifle" // Arme de l’unité (ici Rifle) 1.5.1
                     )
                 );
             }
-            for (int i = 0; i < 6; i++) // 1.5.3.4
+            for (int i = 0; i < 6; i++) // Création des unités ennemies.  Boucle pour créer 6 ennemis 1.5.3.4
             {
-                EnemyTemplate template = // 1.5.3.4
-                    enemyPool[random.Next(enemyPool.Count)]; // 1.5.3.4
+                EnemyTemplate template = // Choisir un template aléatoire dans la pool d’ennemis 1.5.3.4
+                    enemyPool[random.Next(enemyPool.Count)]; // Les ennemis sont tirés aléatoirement de enemyPool, ce qui permet de varier le type, l’arme et les AP. 1.5.3.4
                 enemyUnits.Add( // 1.5.3.4
                     new Unit( // 1.5.3.4
-                        new Point(2 + i, 1), // 1.5.3.4
-                        Team.Enemy, // 1.5.3.4
-                        template.Name, // 1.5.3.4
-                        template.Class, // 1.5.3.4
-                        template.Weapon // 1.5.3.4
+                        new Point(2 + i, 1), // Position initiale (en haut de la map, espacée de 1 case horizontalement) 1.5.3.4
+                        Team.Enemy, // Équipe ennemie 1.5.3.4
+                        template.Name, // Nom de l’unité selon le template 1.5.3.4
+                        template.Class, // Classe selon le template 1.5.3.4
+                        template.Weapon // Arme selon le template 1.5.3.4
                     )
                     {
-                        ActionPoints = template.ActionPoints // 1.5.3.4
+                        ActionPoints = template.ActionPoints // Définir les points d’action selon le template 1.5.3.4
                     }
                 );
             }
-            Console.WriteLine("Units created: 6 player, 6 enemy");
+            Console.WriteLine("Units created: 6 player, 6 enemy"); // Afficher dans la console que les unités ont été créées (debug)
         }
-        private void DrawUnits() // Dessiner les unités sur la grille - 1.5.0
+        private void DrawUnits() // Dessine toutes les unités présentes sur la grille 1.5.0
         {
-            foreach (var unit in playerUnits)
-                DrawUnit(unit);
-            foreach (var unit in enemyUnits)
-                DrawUnit(unit);
+            foreach (var unit in playerUnits) // Parcourt toutes les unités du joueur
+                DrawUnit(unit); // Appelle la fonction DrawUnit pour dessiner chaque unité du joueur
+            foreach (var unit in enemyUnits) // Parcourt toutes les unités ennemies
+                DrawUnit(unit); // Appelle la fonction DrawUnit pour dessiner chaque unité ennemie
         }
-        private void DrawUnit(Unit unit) // 1.5.0
+        private void DrawUnit(Unit unit) // Dessine une unité sur la grille 1.5.0
         {
-            Rectangle rect = new Rectangle(
-                unit.Cell.X * cellSize + 4,
-                unit.Cell.Y * cellSize + 4,
-                cellSize - 8,
-                cellSize - 8
+            Rectangle rect = new Rectangle( // Crée un rectangle pour dessiner le "sprite" de l'unité.  On ajoute +4 et on retire 8 à la largeur/hauteur pour avoir un petit padding.  Cela permet de ne pas coller exactement au contour de la case de la grille
+                unit.Cell.X * cellSize + 4, // Position X = colonne * taille d'une case + padding
+                unit.Cell.Y * cellSize + 4, // Position Y = ligne * taille d'une case + padding
+                cellSize - 8, // Largeur = taille de case - padding
+                cellSize - 8 // Hauteur = taille de case - padding
             );
-            Color color = (unit.Team == Team.Player)
-                ? Color.Blue
-                : Color.Red;
-            _spriteBatch.Draw(pixel, rect, color);
-            if (unit == selectedUnit) // 1.5.1
+            Color color = (unit.Team == Team.Player) // Détermine la couleur de l'unité selon son équipe
+                ? Color.Blue // Joueur = bleu
+                : Color.Red; // Ennemi = rouge
+            _spriteBatch.Draw(pixel, rect, color); // Dessine le rectangle représentant l'unité
+            if (unit == selectedUnit) // Si l'unité est sélectionnée, dessine une surbrillance autour 1.5.1
             {
-                Rectangle outline = new Rectangle(
-                    unit.Cell.X * cellSize,
-                    unit.Cell.Y * cellSize,
-                    cellSize,
-                    cellSize
+                Rectangle outline = new Rectangle( // Rectangle pour l'outline (entoure toute la case, pas seulement le sprite)
+                    unit.Cell.X * cellSize, // Position X de la case
+                    unit.Cell.Y * cellSize, // Position Y de la case
+                    cellSize, // Largeur = taille d'une case
+                    cellSize // Hauteur = taille d'une case
                 );
-                _spriteBatch.Draw(pixel, outline, new Color(0, 255, 255, 80));
+                _spriteBatch.Draw(pixel, outline, new Color(0, 255, 255, 80)); // Dessine un rectangle semi-transparent cyan pour montrer la sélection
             }
         }
         private IEnumerable<Unit> AllUnits()
         {
-            foreach (var u in playerUnits) yield return u;
-            foreach (var u in enemyUnits) yield return u;
+            foreach (var u in playerUnits) yield return u; // Parcourt toutes les unités du joueur, "yield return" renvoie chaque unité une par une sans créer une nouvelle liste
+            foreach (var u in enemyUnits) yield return u; // Parcourt toutes les unités ennemies, renvoie chaque unité ennemie également
         }
         private Unit GetUnitAtCell(Point cell)
         {
-            foreach (var unit in AllUnits())
-                if (unit.Cell == cell)
-                    return unit;
-            return null;
+            foreach (var unit in AllUnits()) // Parcourt toutes les unités du jeu (joueur + ennemis)
+                if (unit.Cell == cell) // Vérifie si l'unité est sur la case demandée
+                    return unit; // Si oui, retourne cette unité immédiatement
+            return null; // Si aucune unité n'est trouvée sur cette case, retourne null
         }
         private void DrawUnitInfoPanel() // Panneau d’information (HUD) - 1.5.1
         {
-            if (selectedUnit == null)
+            if (selectedUnit == null) // Si aucune unité n'est sélectionnée, on ne fait rien
                 return;
-            int margin = 10; // marge par rapport aux bords de la fenêtre - 1.5.2
-            int panelWidth = 300; // Longueur du HUD
-            int panelHeight = 120; // Hauteur du HUD
-            int panelX = margin; // Coin bas gauche relatif à la fenêtre
-            int panelY = GraphicsDevice.Viewport.Height - panelHeight - margin;
-            Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
-            _spriteBatch.Draw(pixel, panel, new Color(0, 0, 0, 180)); // Fond semi-transparent
-            Vector2 textPos = new Vector2(panelX + 10, panelY + 10); // Texte avec un petit offset dans le panneau
-            _spriteBatch.DrawString(font, "Name: " + selectedUnit.Name, textPos, Color.White);
-            _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White);
-            _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White);
-            _spriteBatch.DrawString(font, "AP: " +selectedUnit.ActionPoints, textPos + new Vector2(0, 60), Color.White); // 1.5.3.6
+            int margin = 10; // marge par rapport aux bords de la fenêtre : 10 pixels - 1.5.2
+            int panelWidth = 300; // Longueur du HUD : 300 pixels
+            int panelHeight = 120; // Hauteur du HUD : 120 pixels
+            int panelX = margin; // Position X : juste après la marge de la fenêtre
+            int panelY = GraphicsDevice.Viewport.Height - panelHeight - margin; // Position Y : En bas de la fenêtre, en tenant compte de la marge et de la hauteur du panneau
+            Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight); // Crée un rectangle pour le panneau HUD
+            _spriteBatch.Draw(pixel, panel, new Color(0, 0, 0, 180)); // Dessine le fond du panneau avec une couleur noire semi-transparente
+            Vector2 textPos = new Vector2(panelX + 10, panelY + 10); // Position de départ du texte dans le panneau (un peu décalé à l'intérieur)
+            _spriteBatch.DrawString(font, "Name: " + selectedUnit.Name, textPos, Color.White); // Dessine le nom de l'unité
+            _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White); // Dessine la classe de l'unité, 20 pixels plus bas
+            _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White); // Dessine l’arme de l'unité, 40 pixels plus bas
+            _spriteBatch.DrawString(font, "AP: " +selectedUnit.ActionPoints, textPos + new Vector2(0, 60), Color.White); // Dessine les points d'action (AP) de l'unité, 60 pixels plus bas 1.5.3.6
         }
         private List<Point> GetMovableCells(Unit unit)
         {
-            List<Point> cells = new List<Point>();
-            if (unit == null)
+            List<Point> cells = new List<Point>(); // Crée la liste qui contiendra toutes les cases accessibles
+            if (unit == null) // Si l'unité est nulle, retourne une liste vide
                 return cells;
-            int range = unit.ActionPoints;
-            if (unit.ActionPoints <= 0)
+            int range = unit.ActionPoints; // Nombre d'AP restant pour cette unité = portée de déplacement
+            if (unit.ActionPoints <= 0) // Si l'unité n'a plus d'AP, elle ne peut pas se déplacer
                 return cells;
-            for (int dx = -range; dx <= range; dx++)
+            for (int dx = -range; dx <= range; dx++) // Boucle sur toutes les positions relatives possibles dans un carré centré sur l'unité
             {
                 for (int dy = -range; dy <= range; dy++)
                 {
-                    int distance = Math.Abs(dx) + Math.Abs(dy);
-                    if (distance == 0 || distance > range) // ignore la case de départ, ignore les diagonales gratuites
+                    int distance = Math.Abs(dx) + Math.Abs(dy); // Calcul de la distance de Manhattan (|dx| + |dy|)
+                    if (distance == 0 || distance > range) // Ignore la case de départ (distance == 0), Ignore les cases hors portée (distance > range).  Remarque : ceci empêche le déplacement gratuit en diagonale
                         continue;
-                    int x = unit.Cell.X + dx;
+                    int x = unit.Cell.X + dx; // Coordonnées absolues de la case candidate
                     int y = unit.Cell.Y + dy;
-                    if (x < 0 || x >= gridWidth || // Grille
+                    if (x < 0 || x >= gridWidth || // Ignore les cases en dehors de la grille
                         y < 0 || y >= gridHeight)
                         continue;
-                    if (GetUnitAtCell(new Point(x, y)) != null) // Case occupée
+                    if (GetUnitAtCell(new Point(x, y)) != null) // Ignore les cases déjà occupées par une autre unité
                         continue;
-                    cells.Add(new Point(x, y));
+                    cells.Add(new Point(x, y)); // Case valide → on l'ajoute à la liste
                 }
             }
-            return cells;
+            return cells; // Retourne toutes les cases accessibles à l'unité
         }
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>() // 1.5.3.4
         {
-            new EnemyTemplate("Alien Grunt", "Infantry", "Plasma Rifle", 3),
-            new EnemyTemplate("Alien Sniper", "Sniper", "Plasma Sniper", 2),
-            new EnemyTemplate("Alien Heavy", "Heavy", "Plasma Cannon", 2),
-            new EnemyTemplate("Alien Scout", "Scout", "SMG Plasma", 4)
+            new EnemyTemplate("Alien Grunt", "Infantry", "Plasma Rifle", 3), // 1.5.3.4
+            new EnemyTemplate("Alien Sniper", "Sniper", "Plasma Sniper", 2), // 1.5.3.4
+            new EnemyTemplate("Alien Heavy", "Heavy", "Plasma Cannon", 2), // 1.5.3.4
+            new EnemyTemplate("Alien Scout", "Scout", "SMG Plasma", 4) // 1.5.3.4
         };
     }
     public class Button // Classe Button (bouton simple)
