@@ -164,7 +164,7 @@ namespace XCOM_3 // Nom du projet
                 }
                 if (leftClick)
                 {
-                    Point clickedCell = new Point(cellX, cellY);                   
+                    Point clickedCell = new Point(cellX, cellY);
                     Unit clickedUnit = GetUnitAtCell(clickedCell);
                     if (clickedUnit != null)
                     {
@@ -352,6 +352,21 @@ namespace XCOM_3 // Nom du projet
             Color highlightColor = new Color(255, 255, 0, 80); // Couleur de surbrillance - Yellow
             _spriteBatch.Draw(pixel, cellRect, highlightColor);
         }
+        public class EnemyTemplate // 1.5.3.4
+        {
+            public string Name;
+            public string Class;
+            public string Weapon;
+            public int ActionPoints;
+
+            public EnemyTemplate(string name, string unitClass, string weapon, int ap)
+            {
+                Name = name;
+                Class = unitClass;
+                Weapon = weapon;
+                ActionPoints = ap;
+            }
+        }
         private void CreateUnits() // Créer les unités au lancement de New Game - 1.5.0
         {
             playerUnits.Clear();
@@ -368,16 +383,22 @@ namespace XCOM_3 // Nom du projet
                     )
                 );
             }
-            for (int i = 0; i < 6; i++) // ---- UNITÉS ENNEMIES (en haut de la map) ----
+            for (int i = 0; i < 6; i++) // 1.5.3.4
             {
+                EnemyTemplate template =
+                    enemyPool[random.Next(enemyPool.Count)];
+
                 enemyUnits.Add(
                     new Unit(
                         new Point(2 + i, 1),
                         Team.Enemy,
-                        "Alien" + (i + 1), // 1.5.1
-                        "Infantry", // 1.5.1
-                        "Plasma Gun" // 1.5.1
+                        template.Name,
+                        template.Class,
+                        template.Weapon
                     )
+                    {
+                        ActionPoints = template.ActionPoints
+                    }
                 );
             }
             Console.WriteLine("Units created: 6 player, 6 enemy");
@@ -466,6 +487,13 @@ namespace XCOM_3 // Nom du projet
             }
             return cells;
         }
+        private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>() // 1.5.3.4
+        {
+            new EnemyTemplate("Alien Grunt", "Infantry", "Plasma Rifle", 3),
+            new EnemyTemplate("Alien Sniper", "Sniper", "Plasma Sniper", 2),
+            new EnemyTemplate("Alien Heavy", "Heavy", "Plasma Cannon", 2),
+            new EnemyTemplate("Alien Scout", "Scout", "SMG Plasma", 4)
+        };
     }
     public class Button // Classe Button (bouton simple)
     {
