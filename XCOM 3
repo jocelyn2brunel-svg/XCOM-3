@@ -67,6 +67,7 @@ namespace XCOM_3 // Nom du projet
         private List<Unit> playerUnits = new List<Unit>(); // Liste d'unités du joueur humain - 1.5.0
         private List<Unit> enemyUnits = new List<Unit>(); // Liste d'unités du joueur IA - 1.5.0
         private Unit selectedUnit = null; // Variable d’unité sélectionnée - 1.5.1
+        private List<Point> cachedMovableCells = new(); // 1.5.3.5
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this); // Initialisation du gestionnaire graphique
@@ -169,6 +170,7 @@ namespace XCOM_3 // Nom du projet
                     if (clickedUnit != null)
                     {
                         selectedUnit = clickedUnit;
+                        cachedMovableCells = GetMovableCells(selectedUnit); // 1.5.3.5
                     }
                     else if (selectedUnit != null)
                     {
@@ -176,6 +178,7 @@ namespace XCOM_3 // Nom du projet
                         if (movableCells.Contains(clickedCell))
                         {
                             selectedUnit.Cell = clickedCell;
+                            cachedMovableCells.Clear(); // 1.5.3.5
                         }
                     }
                 }
@@ -304,6 +307,15 @@ namespace XCOM_3 // Nom du projet
                 _spriteBatch.Draw(pixel, volumeFill, Color.Yellow); // Niveau de volume
                 _spriteBatch.Draw(pixel, volumeHandle, Color.White); // Poignée de la barre de volume
             }
+            foreach (var cell in cachedMovableCells) // 1.5.3.5
+            {
+                Rectangle rect = new Rectangle( // 1.5.3.5
+                    cell.X * cellSize, // 1.5.3.5
+                    cell.Y * cellSize, // 1.5.3.5
+                    cellSize, // 1.5.3.5
+                    cellSize); // 1.5.3.5
+                _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80)); // 1.5.3.5
+            }
             _spriteBatch.End();
             base.Draw(gameTime);
         }
@@ -385,19 +397,18 @@ namespace XCOM_3 // Nom du projet
             }
             for (int i = 0; i < 6; i++) // 1.5.3.4
             {
-                EnemyTemplate template =
-                    enemyPool[random.Next(enemyPool.Count)];
-
-                enemyUnits.Add(
-                    new Unit(
-                        new Point(2 + i, 1),
-                        Team.Enemy,
-                        template.Name,
-                        template.Class,
-                        template.Weapon
+                EnemyTemplate template = // 1.5.3.4
+                    enemyPool[random.Next(enemyPool.Count)]; // 1.5.3.4
+                enemyUnits.Add( // 1.5.3.4
+                    new Unit( // 1.5.3.4
+                        new Point(2 + i, 1), // 1.5.3.4
+                        Team.Enemy, // 1.5.3.4
+                        template.Name, // 1.5.3.4
+                        template.Class, // 1.5.3.4
+                        template.Weapon // 1.5.3.4
                     )
                     {
-                        ActionPoints = template.ActionPoints
+                        ActionPoints = template.ActionPoints // 1.5.3.4
                     }
                 );
             }
@@ -407,7 +418,6 @@ namespace XCOM_3 // Nom du projet
         {
             foreach (var unit in playerUnits)
                 DrawUnit(unit);
-
             foreach (var unit in enemyUnits)
                 DrawUnit(unit);
         }
