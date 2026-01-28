@@ -471,6 +471,7 @@ namespace XCOM_3 // Nom du projet
             _spriteBatch.DrawString(font, "Name: " + selectedUnit.Name, textPos, Color.White);
             _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White);
             _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White);
+            _spriteBatch.DrawString(font, "AP: " +selectedUnit.ActionPoints, textPos + new Vector2(0, 60), Color.White); // 1.5.3.6
         }
         private List<Point> GetMovableCells(Unit unit)
         {
@@ -478,6 +479,8 @@ namespace XCOM_3 // Nom du projet
             if (unit == null)
                 return cells;
             int range = unit.ActionPoints;
+            if (unit.ActionPoints <= 0)
+                return cells;
             for (int dx = -range; dx <= range; dx++)
             {
                 for (int dy = -range; dy <= range; dy++)
