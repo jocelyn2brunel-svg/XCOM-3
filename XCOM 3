@@ -255,28 +255,40 @@ namespace XCOM_3 // Nom du projet
                         // Non → il n’y a pas d’unité sous le clic
                         // MAIS une unité est déjà sélectionnée
 
-                        // Je récupère les cases où cette unité peut aller
-                        var movableCells = GetMovableCells(selectedUnit);
-
-                        // Est-ce que la cellule cliquée est autorisée ?
-                        if (movableCells.Contains(clickedCell))
+                        // Vérifie qu'il reste au moins 1 point d'action
+                        if (selectedUnit.ActionPoints > 0)
                         {
-                            // Je calcule le coût du déplacement (distance Manhattan)
-                            int cost =
-                                Math.Abs(clickedCell.X - selectedUnit.Cell.X) +
-                                Math.Abs(clickedCell.Y - selectedUnit.Cell.Y);
 
-                            // Est-ce que l’unité a assez de points d’action ?
-                            if (selectedUnit.ActionPoints >= cost)
+                            // Je récupère les cases où cette unité peut aller pour **un mouvement**
+                            var movableCells = GetMovableCells(selectedUnit);
+
+                            // Est-ce que la cellule cliquée est autorisée ?
+                            if (movableCells.Contains(clickedCell))
                             {
-                                // Oui → je retire les points d’action
-                                selectedUnit.ActionPoints -= cost;
+                                // Calcul du coût en distance Manhattan
+                                int cost = Math.Abs(clickedCell.X - selectedUnit.Cell.X) +
+                                           Math.Abs(clickedCell.Y - selectedUnit.Cell.Y);
 
-                                // Je déplace réellement l’unité
-                                selectedUnit.Cell = clickedCell;
+                                // Vérifie que le mouvement est possible pour la distance maximale
+                                if (cost <= selectedUnit.MovementPoints)
+                                {
+                                    // Déplacer l’unité
+                                    selectedUnit.Cell = clickedCell;
 
-                                // Je recalcule les déplacements possibles après le move
-                                cachedMovableCells = GetMovableCells(selectedUnit);
+                                    // Retirer 1 point d’action pour ce mouvement
+                                    selectedUnit.ActionPoints -= 1;
+
+                                    // Calculer les cases uniquement si l'unité a encore des points d'action
+                                    if (selectedUnit.ActionPoints > 0)
+                                    {
+                                        // Recalculer les déplacements possibles après le move
+                                        cachedMovableCells = GetMovableCells(selectedUnit);
+                                    }
+                                    else
+                                    {
+                                        cachedMovableCells.Clear(); // pas de surbrillance si pas d'AP
+                                    }
+                                }
                             }
                         }
                     }
@@ -478,8 +490,8 @@ namespace XCOM_3 // Nom du projet
                 // Je surligne la case sous la souris
                 DrawHoveredCell();
 
-                // Si une unité est sélectionnée
-                if (currentState == GameState.Playing && selectedUnit != null)
+                // Si une unité est sélectionnée ET qu'elle a au moins 1 AP
+                if (currentState == GameState.Playing && selectedUnit != null && selectedUnit.ActionPoints > 0)
                     // Je dessine les cases où elle peut se déplacer
                     foreach (var cell in cachedMovableCells)
                     {
@@ -760,8 +772,8 @@ namespace XCOM_3 // Nom du projet
             List<Point> cells = new List<Point>(); // Crée la liste qui contiendra toutes les cases accessibles
             if (unit == null) // Si l'unité est nulle, retourne une liste vide
                 return cells;
-            int range = unit.ActionPoints; // Nombre d'AP restant pour cette unité = portée de déplacement
-            if (unit.ActionPoints <= 0) // Si l'unité n'a plus d'AP, elle ne peut pas se déplacer
+            int range = unit.MovementPoints; // Nombre d'AP restant pour cette unité = portée de déplacement
+            if (unit.MovementPoints <= 0) // Si l'unité n'a plus d'AP, elle ne peut pas se déplacer
                 return cells;
             for (int dx = -range; dx <= range; dx++) // Boucle sur toutes les positions relatives possibles dans un carré centré sur l'unité
             {
@@ -892,6 +904,9 @@ namespace XCOM_3 // Nom du projet
         // Combien de points d’action j’ai par tour
         // Ici : 3 cases de déplacement possibles
         public int ActionPoints = 3;
+
+        public int MovementPoints = 3; // combien de cases l’unité peut bouger
+
 
         // Quand une unité est créée, on DOIT lui fournir
         // sa position, son équipe, son nom, sa classe et son arme
