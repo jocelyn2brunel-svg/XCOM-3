@@ -122,6 +122,9 @@ namespace XCOM_3 // Nom du projet
             // position + boutons pressés ou non
             MouseState mouse = Mouse.GetState();
 
+            menuButtons[1].IsEnabled = hasSavedGame;
+
+
             // Est-ce que je suis actuellement dans le menu principal ?
             if (currentState == GameState.MainMenu)
             {
@@ -407,6 +410,13 @@ namespace XCOM_3 // Nom du projet
                 // Retour au menu principal
                 currentState = GameState.MainMenu;
             }
+
+            if (keyboardState.IsKeyDown(Keys.Escape) && currentState == GameState.OptionsMenu)
+            {
+                // Retour au menu principal
+                currentState = GameState.MainMenu;
+            }
+
             base.Update(gameTime); // Appel du moteur MonoGame
         }
 
@@ -795,6 +805,8 @@ namespace XCOM_3 // Nom du projet
         // Elle est privée parce que personne d’autre n’a à la modifier
         private Rectangle bounds;
 
+        public bool IsEnabled = true; // true = clic possible, false = grisé et non cliquable
+
         // Quand on me crée, on me donne mon texte et ma position
         public Button(string text, Vector2 position)
         {
@@ -816,11 +828,19 @@ namespace XCOM_3 // Nom du projet
                 (int)size.Y
             );
 
-            // Est-ce que la souris est au-dessus de moi ?
-            Color color = bounds.Contains(mouse.Position)
-                ? Color.Yellow
-                : Color.White;
+            Color color;
 
+            if (!IsEnabled)
+            {
+                color = Color.Gray; // gris si désactivé
+            }
+            else
+            {
+                // Est-ce que la souris est au-dessus de moi ?
+                color = bounds.Contains(mouse.Position)
+                    ? Color.Yellow
+                    : Color.White;
+            }
             // Je dessine mon texte à l’écran
             spriteBatch.DrawString(font, Text, Position, color); // Dessine le texte
         }
@@ -828,6 +848,9 @@ namespace XCOM_3 // Nom du projet
         // Est-ce que je viens d’être cliqué ?
         public bool IsClicked(MouseState current, MouseState previous) // Détecte un clic unique (Pressed maintenant, Released avant)
         {
+
+            if (!IsEnabled) return false; // impossible de cliquer si désactivé
+
             return
                 // La souris est sur moi
                 bounds.Contains(current.Position) &&
