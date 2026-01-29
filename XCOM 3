@@ -37,37 +37,40 @@ namespace XCOM_3 // Nom du projet
 {
     public class Game1 : Game // Classe principale du jeu (point d’entrée MonoGame)
     {
-        private GraphicsDeviceManager _graphics; // Gère la configuration graphique (résolution, fullscreen, etc.) 1.1.0
-        private SpriteBatch _spriteBatch; // Sert à dessiner du texte et des sprites 1.1.0
-        private SpriteFont font; // Police utilisée pour le texte 1.1.0
-        private List<Button> menuButtons; // Liste des boutons du menu principal 1.1.0
-        private MouseState previousMouseState; // État précédent de la souris (pour détecter un clic unique) 1.1.0
-        //private List<Song> menuSongs; // Liste de musiques du menu 1.1.0
-        private Song currentSong; // Musique en cours - 1.1.0
-        private Random random = new Random(); // Générateur de nombre aléatoire - 1.1.0
-        enum GameState // Les états de jeu : Menu principal ou en jeu. 1.2.0
+        private GraphicsDeviceManager _graphics; // Gère la configuration graphique (résolution, fullscreen, etc.)
+        private SpriteBatch _spriteBatch; // Sert à dessiner du texte et des sprites
+        private SpriteFont font; // Police utilisée pour le texte
+        private List<Button> menuButtons; // Liste des boutons du menu principal
+        private MouseState previousMouseState; // État précédent de la souris (pour détecter un clic unique)
+        //private List<Song> menuSongs; // Liste de musiques du menu
+        private Song currentSong; // Musique en cours
+        private Random random = new Random(); // Générateur de nombre aléatoire
+        enum GameState // Les états de jeu : Menu principal ou en jeu
         {
-            MainMenu, // 1.2.0
-            Playing, // 1.2.0
-            OptionsMenu // 1.4.0
+            MainMenu,
+            Playing,
+            OptionsMenu
         }
         private GameState currentState = GameState.MainMenu;
-        private Texture2D pixel; // On crée le pixel dans LoadContent() 1.3.0
-        private int cellSize = 32; // Taille des cases 1.3.0
-        private int gridWidth = 20; // Dimension X de la grille 1.3.0
-        private int gridHeight = 15; // Dimension Y de la grille 1.3.0
-        private Point hoveredCell = new Point(-1, -1); // Case survolée par la souris 1.3.1
-        private List<Button> optionsButtons; // Liste des boutons du menu options - 1.4.0
-        private float musicVolume = 0.5f; // Valeur initiale du volume (0.0f à 1.0f) - 1.4.0
-        // private float musicVolume = 0.5f; // 0.0 → 1.0 (Créé dans 1.4.0)
-        private Rectangle volumeBar; // 1.4.1
-        private Rectangle volumeFill; // 1.4.1
-        private Rectangle volumeHandle; // 1.4.1
-        private bool draggingVolume = false; // 1.4.1
-        private List<Unit> playerUnits = new List<Unit>(); // Liste d'unités du joueur humain - 1.5.0
-        private List<Unit> enemyUnits = new List<Unit>(); // Liste d'unités du joueur IA - 1.5.0
-        private Unit selectedUnit = null; // Variable d’unité sélectionnée - 1.5.1
-        private List<Point> cachedMovableCells = new(); // 1.5.3.5
+        private Texture2D pixel; // On crée le pixel dans LoadContent()
+        private int cellSize = 32; // Taille des cases
+        private int gridWidth = 20; // Dimension X de la grille
+        private int gridHeight = 15; // Dimension Y de la grille
+        private Point hoveredCell = new Point(-1, -1); // Case survolée par la souris
+        private List<Button> optionsButtons; // Liste des boutons du menu options
+        private float musicVolume = 0.5f; // Valeur initiale du volume (0.0f à 1.0f)
+        private Rectangle volumeBar;
+        private Rectangle volumeFill;
+        private Rectangle volumeHandle;
+        private bool draggingVolume = false;
+        private List<Unit> playerUnits = new List<Unit>(); // Liste d'unités du joueur humain
+        private List<Unit> enemyUnits = new List<Unit>(); // Liste d'unités du joueur IA
+        private Unit selectedUnit = null; // Variable d’unité sélectionnée
+        private List<Point> cachedMovableCells = new();
+        private bool hasSavedGame = false; // Savoir s’il y a une partie à continuer
+        private List<Unit> savedPlayerUnits;
+        private List<Unit> savedEnemyUnits;
+
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this); // Initialisation du gestionnaire graphique
@@ -75,7 +78,7 @@ namespace XCOM_3 // Nom du projet
             IsMouseVisible = true; // Rend le curseur de la souris visible
             Window.AllowUserResizing = true; // Permet de redimensionner la fenêtre
         }
-        protected override void LoadContent() // Chargement des ressources (appelé une seule fois) // Classe héritée de Game
+        protected override void LoadContent() // Chargement des ressources (appelé une seule fois).  Classe héritée de Game
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice); // Initialise le SpriteBatch
             font = Content.Load<SpriteFont>("Arial"); // Charge la police "Arial.spritefont" depuis Content
@@ -98,153 +101,286 @@ namespace XCOM_3 // Nom du projet
             //currentSong = menuSongs[random.Next(menuSongs.Count)]; // Choisir une musique au hasard
             //MediaPlayer.Play(currentSong); // Jouer la musique
             //MediaPlayer.Volume = 0.5f; // Le volume est à 50%
-            pixel = new Texture2D(GraphicsDevice, 1, 1); // On crée un pixel 1x1 pour les lignes.
-            pixel.SetData(new[] { Color.White }); // On met la couleur du pixel en blanc.
-            optionsButtons = new List<Button> // Boutons du Menu Options // 1.4.0
+            pixel = new Texture2D(GraphicsDevice, 1, 1); // On crée un pixel 1x1 pour les lignes
+            pixel.SetData(new[] { Color.White }); // On met la couleur du pixel en blanc
+            optionsButtons = new List<Button> // Boutons du Menu Options
             {
                 new Button("Music Volume +", new Vector2(0, 100)),
                 new Button("Music Volume -", new Vector2(0, 156)),
                 new Button("Back", new Vector2(0, 184))
             };
-            int barWidth = 200; // Longueur de la barre de volume, en pixel. 1.4.1
-            int barHeight = 8; // Hauteur de la barre de volume, en pixel. 1.4.1
-            volumeBar = new Rectangle(0, 134, barWidth, barHeight); // Rectangle de la barre de volume (posX, posY, Longueur, Hauteur) 1.4.1
+            int barWidth = 200; // Longueur de la barre de volume, en pixel
+            int barHeight = 8; // Hauteur de la barre de volume, en pixel
+            volumeBar = new Rectangle(0, 134, barWidth, barHeight); // Rectangle de la barre de volume (posX, posY, Longueur, Hauteur)
         }
-        protected override void Update(GameTime gameTime) // Logique du jeu (appelé à chaque frame) // Classe héritée de Game
+
+        // Cette fonction est appelée automatiquement par le moteur du jeu
+        // Elle s’exécute à CHAQUE frame (ex : 60 fois par seconde)
+        protected override void Update(GameTime gameTime)
         {
-            MouseState mouse = Mouse.GetState(); // Lecture de l'état actuel de la souris (position + boutons) 
-            if (currentState == GameState.MainMenu) // Si on est dans le Main Menu
+            // Je lis l’état actuel de la souris :
+            // position + boutons pressés ou non
+            MouseState mouse = Mouse.GetState();
+
+            // Est-ce que je suis actuellement dans le menu principal ?
+            if (currentState == GameState.MainMenu)
             {
-                foreach (var button in menuButtons) // Parcourt tous les boutons du menu principal
+                // Oui → je parcours tous les boutons du menu principal
+                foreach (var button in menuButtons)
                 {
-                    if (button.IsClicked(mouse, previousMouseState)) // Si le bouton de la souris est cliqué
+                    // Est-ce que ce bouton vient d’être cliqué ?
+                    if (button.IsClicked(mouse, previousMouseState))
                     {
+                        // Oui → je regarde quel bouton exactement
                         switch (button.Text) // Action selon le texte du bouton
                         {
                             case "New Game":
-                                //MediaPlayer.Stop(); // Stop la musique
-                                currentState = GameState.Playing; // L'état du jeu deviens : New Game
-                                LoadMap(); // Chargement de la map
-                                CreateUnits(); // Créer les unités au lancement de New Game - 1.5.0                          
+                                // Le joueur veut lancer une nouvelle partie
+
+                                // (Optionnel) j’arrêterais la musique actuelle
+                                // MediaPlayer.Stop();
+
+                                // Je passe le jeu à l’état "Playing"
+                                currentState = GameState.Playing;
+
+                                // Je charge la carte du jeu
+                                LoadMap();
+
+                                // Je crée les unités de départ
+                                CreateUnits();
+
+                                // Message de debug
                                 Console.WriteLine("New game launched !");
                                 break;
+
                             case "Continue":
-                                Console.WriteLine("Continue a saved game...");
+                                // Le joueur veut continuer une partie sauvegardée
+                                
+                                if (hasSavedGame)
+                                {
+                                    // Recharger la partie sauvegardée
+                                    playerUnits = new List<Unit>();
+                                    foreach (var u in savedPlayerUnits)
+                                        playerUnits.Add(new Unit(u.Cell, u.Team, u.Name, u.Class, u.Weapon) { ActionPoints = u.ActionPoints });
+
+                                    enemyUnits = new List<Unit>();
+                                    foreach (var u in savedEnemyUnits)
+                                        enemyUnits.Add(new Unit(u.Cell, u.Team, u.Name, u.Class, u.Weapon) { ActionPoints = u.ActionPoints });
+
+                                    currentState = GameState.Playing;
+                                    Console.WriteLine("Game continued!");
+                                }
+                                else
+                                {
+                                    Console.WriteLine("No saved game to continue!");
+                                }
                                 break;
+
                             case "Encylopedia":
+                                // Le joueur veut ouvrir l’encyclopédie
                                 Console.WriteLine("Opening encyclopedia...");
                                 break;
+
                             case "Options":
-                                currentState = GameState.OptionsMenu; // L'état du jeu deviens : Menu Options
+                                // Le joueur veut aller dans le menu Options
+                                currentState = GameState.OptionsMenu;
                                 Console.WriteLine("Options");
                                 break;
+
                             case "Quit":
-                                Exit(); // Quitte complètement le jeu
+                                // Le joueur veut quitter le jeu
+                                // Je ferme complètement l’application
+                                Exit();
                                 break;
                         }
                     }
                 }
             }
-            bool leftClick = // Détecte un clic gauche unique (pas maintenu)
+
+            // Je crée une variable qui va me dire :
+            // “Est-ce que le joueur vient JUSTE de cliquer gauche ?”
+            bool leftClick =
+                // Le bouton gauche est appuyé maintenant…
                 mouse.LeftButton == ButtonState.Pressed &&
+                // …mais il était relâché à l’image précédente
                 previousMouseState.LeftButton == ButtonState.Released;
-            if (currentState == GameState.Playing) // Si l'état du jeu est : New Game
+
+            // Je commence par vérifier : est-ce que le jeu est en train de se jouer ?
+            if (currentState == GameState.Playing) 
             {
+                // Je récupère la position actuelle de la souris en pixels
                 int mouseX = mouse.X;
                 int mouseY = mouse.Y;
+
+                // Je convertis les pixels en coordonnées de cellule de la grille
+                // (ex : si une cellule fait 32px, 64px = cellule 2)
                 int cellX = mouseX / cellSize;
                 int cellY = mouseY / cellSize;
+
+                // Je vérifie si la souris est DANS la grille
                 if (cellX >= 0 && cellX < gridWidth &&
                     cellY >= 0 && cellY < gridHeight)
                 {
+                    // Oui → je mémorise la cellule survolée
                     hoveredCell = new Point(cellX, cellY);
                 }
                 else
                 {
+                    // Non → la souris est hors de la grille
                     hoveredCell = new Point(-1, -1); // Hors grille
                 }
+                // Maintenant, est-ce que le joueur a cliqué avec le bouton gauche ?
                 if (leftClick)
                 {
+                    // Je transforme le clic en une cellule de la grille
                     Point clickedCell = new Point(cellX, cellY);
+
+                    // Est-ce qu’il y a une unité sur cette cellule ?
                     Unit clickedUnit = GetUnitAtCell(clickedCell);
+
                     if (clickedUnit != null)
                     {
+                        // Oui → le joueur vient de cliquer sur une unité
+                        // Donc je la sélectionne
                         selectedUnit = clickedUnit;
-                        cachedMovableCells = GetMovableCells(selectedUnit); // 1.5.3.5
+
+                        // Et je calcule où elle peut se déplacer
+                        cachedMovableCells = GetMovableCells(selectedUnit);
                     }
                     else if (selectedUnit != null)
                     {
+                        // Non → il n’y a pas d’unité sous le clic
+                        // MAIS une unité est déjà sélectionnée
+
+                        // Je récupère les cases où cette unité peut aller
                         var movableCells = GetMovableCells(selectedUnit);
+
+                        // Est-ce que la cellule cliquée est autorisée ?
                         if (movableCells.Contains(clickedCell))
                         {
-                            int cost = // 1.5.3.6
-                                Math.Abs(clickedCell.X - selectedUnit.Cell.X) + // 1.5.3.6
-                                Math.Abs(clickedCell.Y - selectedUnit.Cell.Y); // 1.5.3.6
-                            if (selectedUnit.ActionPoints >= cost) // 1.5.3.6
+                            // Je calcule le coût du déplacement (distance Manhattan)
+                            int cost =
+                                Math.Abs(clickedCell.X - selectedUnit.Cell.X) +
+                                Math.Abs(clickedCell.Y - selectedUnit.Cell.Y);
+
+                            // Est-ce que l’unité a assez de points d’action ?
+                            if (selectedUnit.ActionPoints >= cost)
                             {
-                                selectedUnit.ActionPoints -= cost; // Consomme les AP 1.5.3.6
-                                selectedUnit.Cell = clickedCell; // Déplace l’unité 1.5.3.6
-                                cachedMovableCells = GetMovableCells(selectedUnit); // 1.5.3.5
-                            }                          
+                                // Oui → je retire les points d’action
+                                selectedUnit.ActionPoints -= cost;
+
+                                // Je déplace réellement l’unité
+                                selectedUnit.Cell = clickedCell;
+
+                                // Je recalcule les déplacements possibles après le move
+                                cachedMovableCells = GetMovableCells(selectedUnit);
+                            }
                         }
                     }
                 }
-                if (mouse.RightButton == ButtonState.Pressed && // Clic droit : désélection
-                    previousMouseState.RightButton == ButtonState.Released)
+
+                // Est-ce que le joueur vient JUSTE de cliquer avec le bouton droit ?
+                if (mouse.RightButton == ButtonState.Pressed && // Le bouton droit est appuyé maintenant
+                    previousMouseState.RightButton == ButtonState.Released) // …mais il était relâché juste avant
                 {
+                    // Oui → le joueur veut annuler sa sélection
+                    // Je retire donc l’unité actuellement sélectionnée
                     selectedUnit = null;
                 }
             }
-            if (currentState == GameState.OptionsMenu) // Détecter les clics dans le Menu Options // 1.4.0
+
+            // Je regarde d’abord : est-ce qu’on est dans le menu Options ?
+            if (currentState == GameState.OptionsMenu) // Détecter les clics dans le Menu Options
             {
+                // Je parcours tous les boutons du menu Options
                 foreach (var button in optionsButtons)
                 {
+                    // Est-ce que ce bouton vient d’être cliqué ?
                     if (button.IsClicked(mouse, previousMouseState))
                     {
+                        // Oui → je regarde quel bouton exactement
                         switch (button.Text)
                         {
                             case "Music Volume +":
+                                // Le joueur veut augmenter le volume
                                 musicVolume += 0.1f;
+
+                                // Je m’assure de ne jamais dépasser le max (1.0)
                                 if (musicVolume > 1f) musicVolume = 1f;
+
+                                // J’applique le volume au lecteur audio
                                 MediaPlayer.Volume = musicVolume;
+
+                                // Debug : j’affiche le volume actuel
                                 Console.WriteLine("Volume: " + musicVolume);
                                 break;
+
                             case "Music Volume -":
+                                // Le joueur veut diminuer le volume
                                 musicVolume -= 0.1f;
+
+                                // Je m’assure de ne jamais descendre sous 0
                                 if (musicVolume < 0f) musicVolume = 0f;
+
+                                // J’applique le nouveau volume
                                 MediaPlayer.Volume = musicVolume;
+
+                                // Debug
                                 Console.WriteLine("Volume: " + musicVolume);
                                 break;
                             case "Back":
+
+                                // Le joueur veut quitter les options
+                                // Je retourne au menu principal
                                 currentState = GameState.MainMenu;
                                 break;
                         }
                     }
-                }
-                // Logique du slider(Update – OptionsMenu) 1.4.1
-                if (mouse.LeftButton == ButtonState.Pressed && // Détection clic / drag
+                }              
+
+                // ===== Gestion du slider de volume =====
+
+                // Est-ce que le joueur clique sur la barre de volume ?
+                if (mouse.LeftButton == ButtonState.Pressed &&
                     volumeBar.Contains(mouse.Position))
                 {
+                    // Oui → on commence à glisser le slider
                     draggingVolume = true;
                 }
+
+                // Est-ce que le joueur a relâché le bouton ?
                 if (mouse.LeftButton == ButtonState.Released)
                 {
+                    // Oui → on arrête de glisser
                     draggingVolume = false;
                 }
+
+                // Tant que le joueur glisse le slider
                 if (draggingVolume)
                 {
+                    // Je calcule à quel pourcentage de la barre se trouve la souris
                     float percent =
                         (mouse.X - volumeBar.X) / (float)volumeBar.Width;
 
+                    // Je transforme ce pourcentage en volume (0 à 1)
                     musicVolume = MathHelper.Clamp(percent, 0f, 1f);
+
+                    // J’applique le volume en temps réel
                     MediaPlayer.Volume = musicVolume;
                 }
-                volumeFill = new Rectangle( // Mise à jour des rectangles visuels
+
+                // ===== Mise à jour visuelle du slider =====
+
+                // La partie remplie de la barre dépend du volume
+                volumeFill = new Rectangle(
                     volumeBar.X,
                     volumeBar.Y,
                     (int)(volumeBar.Width * musicVolume),
                     volumeBar.Height);
+
+                // Le curseur (handle) se place à la fin de la partie remplie
                 int handleX = volumeBar.X + volumeFill.Width - 5;
+
                 volumeHandle = new Rectangle(
                     handleX,
                     volumeBar.Y - 4,
@@ -252,20 +388,53 @@ namespace XCOM_3 // Nom du projet
                     volumeBar.Height + 8);
             }
             previousMouseState = mouse; // Sauvegarde l’état actuel  de la souris pour la frame suivante
-            if (Keyboard.GetState().IsKeyDown(Keys.Escape)) // Si la touche "Escape" est appuyée :
-                Exit(); // quitte le jeu.
+
+            KeyboardState keyboardState = Keyboard.GetState();
+
+            if (keyboardState.IsKeyDown(Keys.Escape) && currentState == GameState.Playing)
+            {
+                // Sauvegarde la partie actuelle
+                hasSavedGame = true;
+
+                savedPlayerUnits = new List<Unit>();
+                foreach (var u in playerUnits)
+                    savedPlayerUnits.Add(new Unit(u.Cell, u.Team, u.Name, u.Class, u.Weapon) { ActionPoints = u.ActionPoints });
+
+                savedEnemyUnits = new List<Unit>();
+                foreach (var u in enemyUnits)
+                    savedEnemyUnits.Add(new Unit(u.Cell, u.Team, u.Name, u.Class, u.Weapon) { ActionPoints = u.ActionPoints });
+
+                // Retour au menu principal
+                currentState = GameState.MainMenu;
+            }
             base.Update(gameTime); // Appel du moteur MonoGame
         }
-        protected override void Draw(GameTime gameTime) // Dessin à l’écran (appelé à chaque frame) // Classe héritée de Game
+
+        // Cette méthode est appelée automatiquement par le moteur
+        // Elle sert UNIQUEMENT à dessiner ce que le joueur voit à l’écran
+        protected override void Draw(GameTime gameTime) // Dessin à l’écran (appelé à chaque frame)
         {
-            GraphicsDevice.Clear(Color.Black); // Nettoie l’écran en noir
+            // Je commence par nettoyer l’écran
+            // Tout est repeint en noir avant de redessiner
+            GraphicsDevice.Clear(Color.Black);
+
+            // Je démarre le SpriteBatch (obligatoire avant de dessiner du texte ou des sprites)
             _spriteBatch.Begin();
-            if (currentState == GameState.MainMenu) // Si on est dans le Main Menu
+
+            // ===== MENU PRINCIPAL =====
+            if (currentState == GameState.MainMenu)
             {
-                string title = "XCOM 3"; // Texte du titre
-                Vector2 position = new Vector2(0, 0); // Position du titre (posX, posY)
-                float scale = 3f; // Échelle du texte (3x plus grand)
-                _spriteBatch.DrawString( // Dessine le titre
+                // Je prépare le titre du jeu
+                string title = "XCOM 3";
+
+                // Je le place en haut à gauche de l’écran
+                Vector2 position = new Vector2(0, 0);
+
+                // Je veux un texte plus gros que la normale
+                float scale = 3f;
+
+                // Je dessine le titre à l’écran
+                _spriteBatch.DrawString(
                     font,
                     title,
                     position,
@@ -276,115 +445,211 @@ namespace XCOM_3 // Nom du projet
                     SpriteEffects.None,
                     0f
                 );
-                MouseState mouse = Mouse.GetState(); // État actuel de la souris
-                foreach (var button in menuButtons) // Dessine chaque bouton
+
+                // Je récupère l’état actuel de la souris
+                MouseState mouse = Mouse.GetState();
+
+                // Je dessine chaque bouton du menu principal
+                foreach (var button in menuButtons)
                 {
                     button.Draw(_spriteBatch, font, mouse);
                 }
             }
-            else if (currentState == GameState.Playing) // Si on est dans New Game
+
+            // ===== JEU EN COURS =====
+            else if (currentState == GameState.Playing)
             {
-                DrawGrid(); // Dessiner la carte isométrique
-                DrawUnits(); // ÉTAPE 5 — Appeler le dessin des unités - 1.5.0
-                DrawHoveredCell(); // <-- SURBRILLANCE
-                if (currentState == GameState.Playing && selectedUnit != null) // Dessiner les cases accessibles - 1.5.2
-                    foreach (var cell in cachedMovableCells) // 1.5.3.5
+                // Je dessine la grille (la carte)
+                DrawGrid();
+
+                // Je dessine toutes les unités
+                DrawUnits();
+
+                // Je surligne la case sous la souris
+                DrawHoveredCell();
+
+                // Si une unité est sélectionnée
+                if (currentState == GameState.Playing && selectedUnit != null)
+                    // Je dessine les cases où elle peut se déplacer
+                    foreach (var cell in cachedMovableCells)
                     {
-                        Rectangle rect = new Rectangle( // 1.5.3.5
-                            cell.X * cellSize, // 1.5.3.5
-                            cell.Y * cellSize, // 1.5.3.5
-                            cellSize, // 1.5.3.5
-                            cellSize); // 1.5.3.5
-                        _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80)); // 1.5.3.5
+                        // Je transforme la cellule (X,Y) en rectangle à l’écran
+                        Rectangle rect = new Rectangle( 
+                            cell.X * cellSize,
+                            cell.Y * cellSize,
+                            cellSize,
+                            cellSize);
+
+                        // Je dessine une surbrillance verte semi-transparente
+                        _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));
                     }
-                DrawUnitInfoPanel(); // - 1.5.1
+
+                // Je dessine le panneau d’informations de l’unité sélectionnée
+                DrawUnitInfoPanel();
             }
-            else if (currentState == GameState.OptionsMenu) // Si on est dans Options // - 1.4.0
+
+            // ===== MENU OPTIONS =====
+            else if (currentState == GameState.OptionsMenu)
             {
+                // Je dessine le titre "Options"
                 string title = "Options";
-                _spriteBatch.DrawString(font, title, new Vector2(0, 0), Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
+                _spriteBatch.DrawString(
+                    font, 
+                    title, 
+                    new Vector2(0, 0), 
+                    Color.White, 
+                    0f, 
+                    Vector2.Zero, 
+                    3f, 
+                    SpriteEffects.None, 
+                    0f
+                );
+
+                // Je récupère l’état de la souris
                 MouseState mouse = Mouse.GetState();
+
+                // Je dessine tous les boutons du menu Options
                 foreach (var button in optionsButtons)
                 {
                     button.Draw(_spriteBatch, font, mouse);
                 }
-                // Dessin du slider (Draw – OptionsMenu) - 1.4.1
-                // _spriteBatch.DrawString(font, "Options", new Vector2(0, 0), Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f); // Déjà intégré dans 1.4.0
-                // _spriteBatch.DrawString(font, "Music Volume", new Vector2(0, 100), Color.White); // Semble superflu
-                _spriteBatch.Draw(pixel, volumeBar, Color.Gray); // Barre de fond
-                _spriteBatch.Draw(pixel, volumeFill, Color.Yellow); // Niveau de volume
-                _spriteBatch.Draw(pixel, volumeHandle, Color.White); // Poignée de la barre de volume
+
+                // ===== Dessin du slider de volume =====
+
+                // Je dessine la barre de fond
+                _spriteBatch.Draw(pixel, volumeBar, Color.Gray);
+
+                // Je dessine la partie remplie (niveau du volume)
+                _spriteBatch.Draw(pixel, volumeFill, Color.Yellow);
+
+                // Je dessine la poignée du slider
+                _spriteBatch.Draw(pixel, volumeHandle, Color.White);
             }
-            
+
+            // Je termine le SpriteBatch
             _spriteBatch.End();
+
+            // J’appelle le Draw de la classe de base (important)
             base.Draw(gameTime);
         }
-        private void LoadMap() // Informations de la grille
+
+        // Cette méthode initialise les informations de la grille de jeu
+        // Pour l’instant, c’est très simple : juste la taille
+        private void LoadMap()
         {
-            gridWidth = 20; // Pour l’instant, on ne charge que la taille de la grille
-            gridHeight = 15; // Plus tard : tilemap, collisions, unités, etc.
+            // Combien de cases il y a en largeur
+            gridWidth = 20;
+
+            // Combien de cases il y a en hauteur
+            gridHeight = 15;
+
+            // Taille d’une case en pixels
             cellSize = 32;
+
+            // Message pour savoir que la carte est chargée (debug)
             Console.WriteLine("Map loaded");
         }
-        private void DrawGrid()        // Dessin de la grille 2D
+
+        // Cette méthode dessine la grille 2D à l’écran
+        private void DrawGrid() 
         {
+            // Couleur des lignes de la grille : blanc semi-transparent
             Color gridColor = new Color(255, 255, 255, 80);
-            for (int x = 0; x <= gridWidth; x++) // Lignes verticales
+
+            // ===== Lignes verticales =====
+            for (int x = 0; x <= gridWidth; x++)
             {
+                // Je dessine une ligne verticale à la position x
                 _spriteBatch.Draw(
-                    pixel,
+                    pixel, // petit carré blanc de 1x1 que je vais étirer
                     new Rectangle(
-                        x * cellSize,
-                        0,
-                        1,
-                        gridHeight * cellSize),
+                        x * cellSize,           // position X de la ligne
+                        0,                      // position Y (en haut de l’écran)
+                        1,                      // largeur de la ligne (1 pixel)
+                        gridHeight * cellSize), // hauteur de la ligne (tout le grid)
                     gridColor);
             }
-            for (int y = 0; y <= gridHeight; y++) // Lignes horizontales
+
+            // ===== Lignes horizontales =====
+            for (int y = 0; y <= gridHeight; y++)
             {
+                // Je dessine une ligne horizontale à la position y
                 _spriteBatch.Draw(
-                    pixel,
+                    pixel, // encore le petit carré blanc
                     new Rectangle(
-                        0,
-                        y * cellSize,
-                        gridWidth * cellSize,
-                        1),
+                        0,                    // position X (à gauche de l’écran)
+                        y * cellSize,         // position Y
+                        gridWidth * cellSize, // largeur de la ligne (tout le grid)
+                        1),                   // hauteur de la ligne (1 pixel)
                     gridColor);
             }
         }
-        private void DrawHoveredCell() // Highlight des cases de la grille // 1.3.1
+
+        // Cette méthode met en surbrillance la case que la souris survole
+        private void DrawHoveredCell()
         {
+            // Si la souris n’est pas sur une case valide (hors grille)
             if (hoveredCell.X < 0 || hoveredCell.Y < 0)
-                return;
+                return; // je ne fais rien
+
+            // Je transforme la cellule survolée en rectangle à l’écran
             Rectangle cellRect = new Rectangle(
-                hoveredCell.X * cellSize,
-                hoveredCell.Y * cellSize,
-                cellSize,
-                cellSize);
-            Color highlightColor = new Color(255, 255, 0, 80); // Couleur de surbrillance - Yellow
+                hoveredCell.X * cellSize, // position X
+                hoveredCell.Y * cellSize, // position Y
+                cellSize,                 // largeur
+                cellSize);                // hauteur
+
+            // Couleur de surbrillance : jaune semi-transparent
+            Color highlightColor = new Color(255, 255, 0, 80);
+
+            // Je dessine le rectangle sur la grille
             _spriteBatch.Draw(pixel, cellRect, highlightColor);
         }
-        public class EnemyTemplate // Classe servant de "modèle" pour créer des ennemis 1.5.3.4
-        {
-            public string Name; // Nom de l'ennemi (ex: "Alien Grunt")
-            public string Class; // Classe/type de l'ennemi (ex: "Infantry", "Sniper")
-            public string Weapon; // Arme que possède l'ennemi (ex: "Plasma Rifle")
-            public int ActionPoints; // Nombre de points d'action (AP) que l'ennemi peut utiliser pour se déplacer
 
-            public EnemyTemplate(string name, string unitClass, string weapon, int ap) // Constructeur : permet d'initialiser un template avec ses caractéristiques
+        // Cette classe représente un "modèle" pour créer des ennemis
+        // Elle ne correspond pas à une unité active dans le jeu, juste aux données de base
+        public class EnemyTemplate
+        {
+            // Nom de l’ennemi (ex : "Alien Grunt")
+            public string Name;
+
+            // Classe ou type (ex : "Infantry", "Sniper")
+            public string Class;
+
+            // Arme équipée par défaut (ex : "Plasma Rifle")
+            public string Weapon;
+
+            // Points d’action disponibles pour se déplacer
+            public int ActionPoints;
+
+            // Constructeur : on fournit toutes les infos du template à la création
+            public EnemyTemplate(string name, string unitClass, string weapon, int ap)
             {
-                Name = name; // Assignation du nom
-                Class = unitClass; // Assignation de la classe
-                Weapon = weapon; // Assignation de l'arme
-                ActionPoints = ap; // Assignation des points d'action
+                // Je mémorise le nom
+                Name = name;
+
+                // Je mémorise la classe
+                Class = unitClass;
+
+                // Je mémorise l’arme
+                Weapon = weapon;
+
+                // Je mémorise le nombre de points d’action
+                ActionPoints = ap;
             }
         }
-        private void CreateUnits() // Crée toutes les unités au lancement d'une nouvelle partie 1.5.0
+
+        // Cette méthode crée toutes les unités quand une nouvelle partie commence
+        private void CreateUnits()
         {
+            // On commence par vider toutes les unités existantes
             playerUnits.Clear(); // Vide la liste de toutes les unités du joueur
             enemyUnits.Clear(); // Vide la liste de toutes les unités ennemies
-            for (int i = 0; i < 6; i++) // Création des unités du joueur.  Boucle pour créer 6 soldats
+
+            // ===== Création des unités du joueur =====
+            for (int i = 0; i < 6; i++)
             {
+                // Je crée un nouveau soldat et je l’ajoute à la liste du joueur
                 playerUnits.Add(
                     new Unit(
                         new Point(2 + i, gridHeight - 2), // Position initiale (en bas de la map, espacée de 1 case horizontalement)
@@ -395,24 +660,31 @@ namespace XCOM_3 // Nom du projet
                     )
                 );
             }
-            for (int i = 0; i < 6; i++) // Création des unités ennemies.  Boucle pour créer 6 ennemis 1.5.3.4
+
+            // ===== Création des unités ennemies =====
+            for (int i = 0; i < 6; i++)
             {
-                EnemyTemplate template = // Choisir un template aléatoire dans la pool d’ennemis 1.5.3.4
-                    enemyPool[random.Next(enemyPool.Count)]; // Les ennemis sont tirés aléatoirement de enemyPool, ce qui permet de varier le type, l’arme et les AP. 1.5.3.4
-                enemyUnits.Add( // 1.5.3.4
-                    new Unit( // 1.5.3.4
+                // Je choisis un template aléatoire dans le pool d’ennemis
+                EnemyTemplate template =
+                    enemyPool[random.Next(enemyPool.Count)];
+                // Cela permet de varier le type d’ennemi, son arme et ses points d’action
+
+                // Je crée une unité ennemie à partir du template
+                enemyUnits.Add(
+                    new Unit(
                         new Point(2 + i, 1), // Position initiale (en haut de la map, espacée de 1 case horizontalement) 1.5.3.4
-                        Team.Enemy, // Équipe ennemie 1.5.3.4
-                        template.Name, // Nom de l’unité selon le template 1.5.3.4
-                        template.Class, // Classe selon le template 1.5.3.4
-                        template.Weapon // Arme selon le template 1.5.3.4
+                        Team.Enemy, // Équipe ennemie
+                        template.Name, // Nom de l’unité selon le template
+                        template.Class, // Classe selon le template
+                        template.Weapon // Arme selon le template
                     )
                     {
-                        ActionPoints = template.ActionPoints // Définir les points d’action selon le template 1.5.3.4
+                        ActionPoints = template.ActionPoints // Définir les points d’action selon le template
                     }
                 );
             }
-            Console.WriteLine("Units created: 6 player, 6 enemy"); // Afficher dans la console que les unités ont été créées (debug)
+            // Message de debug pour confirmer la création des unités
+            Console.WriteLine("Units created: 6 player, 6 enemy");
         }
         private void DrawUnits() // Dessine toutes les unités présentes sur la grille 1.5.0
         {
@@ -471,7 +743,7 @@ namespace XCOM_3 // Nom du projet
             _spriteBatch.DrawString(font, "Name: " + selectedUnit.Name, textPos, Color.White); // Dessine le nom de l'unité
             _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White); // Dessine la classe de l'unité, 20 pixels plus bas
             _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White); // Dessine l’arme de l'unité, 40 pixels plus bas
-            _spriteBatch.DrawString(font, "AP: " +selectedUnit.ActionPoints, textPos + new Vector2(0, 60), Color.White); // Dessine les points d'action (AP) de l'unité, 60 pixels plus bas 1.5.3.6
+            _spriteBatch.DrawString(font, "AP: " + selectedUnit.ActionPoints, textPos + new Vector2(0, 60), Color.White); // Dessine les points d'action (AP) de l'unité, 60 pixels plus bas 1.5.3.6
         }
         private List<Point> GetMovableCells(Unit unit)
         {
@@ -500,65 +772,123 @@ namespace XCOM_3 // Nom du projet
             }
             return cells; // Retourne toutes les cases accessibles à l'unité
         }
-        private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>() // 1.5.3.4
+        private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
         {
-            new EnemyTemplate("Alien Grunt", "Infantry", "Plasma Rifle", 3), // 1.5.3.4
-            new EnemyTemplate("Alien Sniper", "Sniper", "Plasma Sniper", 2), // 1.5.3.4
-            new EnemyTemplate("Alien Heavy", "Heavy", "Plasma Cannon", 2), // 1.5.3.4
-            new EnemyTemplate("Alien Scout", "Scout", "SMG Plasma", 4) // 1.5.3.4
+            new EnemyTemplate("Alien Grunt", "Infantry", "Plasma Rifle", 3),
+            new EnemyTemplate("Alien Sniper", "Sniper", "Plasma Sniper", 2),
+            new EnemyTemplate("Alien Heavy", "Heavy", "Plasma Cannon", 2),
+            new EnemyTemplate("Alien Scout", "Scout", "SMG Plasma", 4)
         };
     }
-    public class Button // Classe Button (bouton simple)
+
+    // Je représente un bouton très simple à l’écran
+    // Juste du texte sur lequel on peut cliquer
+    public class Button
     {
-        public string Text; // Texte affiché
-        public Vector2 Position; // Position à l’écran
-        private Rectangle bounds; // Zone cliquable du bouton
+        // Le texte que j’affiche (ex : "Play", "Options", "Quit")
+        public string Text;
+
+        // Ma position à l’écran (en pixels)
+        public Vector2 Position;
+
+        // Ma zone cliquable réelle
+        // Elle est privée parce que personne d’autre n’a à la modifier
+        private Rectangle bounds;
+
+        // Quand on me crée, on me donne mon texte et ma position
         public Button(string text, Vector2 position)
         {
             Text = text;
             Position = position;
         }
+
+        // Cette méthode me dessine à l’écran
         public void Draw(SpriteBatch spriteBatch, SpriteFont font, MouseState mouse)
         {
-            Vector2 size = font.MeasureString(Text); // Mesure la taille du texte
-            bounds = new Rectangle( // Définit la zone cliquable
+            // Je mesure la taille du texte avec la police actuelle
+            Vector2 size = font.MeasureString(Text);
+
+            // À partir de cette taille, je définis ma zone cliquable
+            bounds = new Rectangle(
                 (int)Position.X,
                 (int)Position.Y,
                 (int)size.X,
                 (int)size.Y
             );
-            Color color = bounds.Contains(mouse.Position) // Si la souris est dessus → jaune, sinon blanc
+
+            // Est-ce que la souris est au-dessus de moi ?
+            Color color = bounds.Contains(mouse.Position)
                 ? Color.Yellow
                 : Color.White;
+
+            // Je dessine mon texte à l’écran
             spriteBatch.DrawString(font, Text, Position, color); // Dessine le texte
         }
+
+        // Est-ce que je viens d’être cliqué ?
         public bool IsClicked(MouseState current, MouseState previous) // Détecte un clic unique (Pressed maintenant, Released avant)
         {
-            return bounds.Contains(current.Position) &&
-                   current.LeftButton == ButtonState.Pressed &&
-                   previous.LeftButton == ButtonState.Released;
-        }
+            return
+                // La souris est sur moi
+                bounds.Contains(current.Position) &&
+
+                // Le bouton gauche est appuyé maintenant
+                current.LeftButton == ButtonState.Pressed &&
+
+                // …mais il était relâché à la frame précédente
+                previous.LeftButton == ButtonState.Released;
+        }      
+
     }
-    public enum Team // ===== Définir ce qu’est une unité === - 1.5.0
+
+    // ===== Définir ce qu’est une unité ===
+    public enum Team 
     {
         Player,
         Enemy
     }
+
+    // Je définis ce qu’est une unité dans le jeu
     public class Unit
     {
-        public Point Cell; // Position sur la grille
-        public Team Team; // Joueur ou Ennemi
-        public string Name; // On ajoute les données métier (pas du visuel). - 1.5.1
+        // Où je me trouve sur la grille (case X / Y)
+        public Point Cell;
+
+        // À quelle équipe j’appartiens (joueur ou ennemi)
+        public Team Team;
+
+        // Mon nom (ex : "Soldat", "Alien", "Sniper")
+        public string Name;
+
+        // Ma classe (ex : Assault, Medic, Heavy)
         public string Class;
+
+        // Mon arme équipée
         public string Weapon;
-        public int ActionPoints = 3; // nombre de cases que l'unité peut se déplacer - 1.5.2
-        public Unit(Point cell, Team team, string name, string unitClass, string weapon) // 👉 Ces infos serviront uniquement au panneau d’info (HUD). 1.5.1
+
+        // Combien de points d’action j’ai par tour
+        // Ici : 3 cases de déplacement possibles
+        public int ActionPoints = 3;
+
+        // Quand une unité est créée, on DOIT lui fournir
+        // sa position, son équipe, son nom, sa classe et son arme
+        public Unit(Point cell, Team team, string name, string unitClass, string weapon)
         {
+            // Je mémorise ma position de départ
             Cell = cell;
+
+            // Je mémorise mon équipe
             Team = team;
+
+            // Je mémorise mon nom
             Name = name;
+
+            // "Class" est un mot réservé, donc on utilise "unitClass" en paramètre
+            // puis on l’assigne au champ Class
             Class = unitClass;
+
+            // Je mémorise mon arme
             Weapon = weapon;
-        }
+        }   
     }
 }
