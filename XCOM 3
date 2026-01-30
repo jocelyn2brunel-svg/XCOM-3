@@ -608,7 +608,7 @@ namespace XCOM_3 // Nom du projet
                 // Si tu sélectionnes une unité, qu'il lui reste des points d'actions et que tu survoles le bouton "Tirer" :
                 if (selectedUnit != null && selectedUnit.ActionPoints > 0 && fireButtonHovered)
                 {
-                    foreach (var cell in GetFireRangeCells(selectedUnit))
+                    foreach (var cell in GetEnemiesInFireRange(selectedUnit))
                     {
                         Rectangle rect = new Rectangle(
                             cell.X * cellSize,
@@ -1028,41 +1028,7 @@ namespace XCOM_3 // Nom du projet
             }
 
             Console.WriteLine("Aucune cible à portée");
-        }
-
-
-
-        private List<Point> GetFireRangeCells(Unit unit)
-        {
-            List<Point> cells = new List<Point>();
-
-            if (unit == null || unit.ActionPoints <= 0)
-                return cells;
-
-            int range = unit.FireRange;
-
-            for (int dx = -range; dx <= range; dx++)
-            {
-                for (int dy = -range; dy <= range; dy++)
-                {
-                    int distance = Math.Abs(dx) + Math.Abs(dy);
-
-                    if (distance == 0 || distance > range)
-                        continue;
-
-                    int x = unit.Cell.X + dx;
-                    int y = unit.Cell.Y + dy;
-
-                    if (x < 0 || x >= gridWidth ||
-                        y < 0 || y >= gridHeight)
-                        continue;
-
-                    cells.Add(new Point(x, y));
-                }
-            }
-
-            return cells;
-        }
+        }    
 
         private int GetWeaponDamage(string weapon)
         {
@@ -1153,6 +1119,27 @@ namespace XCOM_3 // Nom du projet
             StartPlayerTurn();
         }
 
+        private List<Point> GetEnemiesInFireRange(Unit unit)
+        {
+            List<Point> cells = new List<Point>();
+
+            if (unit == null || unit.ActionPoints <= 0)
+                return cells;
+
+            foreach (var target in AllUnits())
+            {
+                if (target.Team == unit.Team)
+                    continue; // ignore les alliés
+
+                int distance = Math.Abs(target.Cell.X - unit.Cell.X) +
+                               Math.Abs(target.Cell.Y - unit.Cell.Y);
+
+                if (distance <= unit.FireRange)
+                    cells.Add(target.Cell); // seulement les ennemis à portée
+            }
+
+            return cells;
+        }
 
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
         {
