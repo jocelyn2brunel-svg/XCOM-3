@@ -161,7 +161,7 @@ namespace XCOM_3 // Nom du projet
 
                             case "Continue":
                                 // Le joueur veut continuer une partie sauvegardée
-                                
+
                                 if (hasSavedGame)
                                 {
                                     // Recharger la partie sauvegardée
@@ -212,7 +212,7 @@ namespace XCOM_3 // Nom du projet
                 previousMouseState.LeftButton == ButtonState.Released;
 
             // Je commence par vérifier : est-ce que le jeu est en train de se jouer ?
-            if (currentState == GameState.Playing) 
+            if (currentState == GameState.Playing)
             {
                 // Je récupère la position actuelle de la souris en pixels
                 int mouseX = mouse.X;
@@ -378,7 +378,7 @@ namespace XCOM_3 // Nom du projet
                                 break;
                         }
                     }
-                }              
+                }
 
                 // ===== Gestion du slider de volume =====
 
@@ -518,20 +518,35 @@ namespace XCOM_3 // Nom du projet
                 DrawHoveredCell();
 
                 // Si une unité est sélectionnée ET qu'elle a au moins 1 AP
-                if (currentState == GameState.Playing && selectedUnit != null && selectedUnit.ActionPoints > 0)
+                if (selectedUnit != null && selectedUnit.ActionPoints > 0)
                     // Je dessine les cases où elle peut se déplacer
                     foreach (var cell in cachedMovableCells)
                     {
                         // Je transforme la cellule (X,Y) en rectangle à l’écran
-                        Rectangle rect = new Rectangle( 
+                        Rectangle rect = new Rectangle(
                             cell.X * cellSize,
                             cell.Y * cellSize,
                             cellSize,
                             cellSize);
 
                         // Je dessine une surbrillance verte semi-transparente
-                        _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));
+                        _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));            
                     }
+                // ===== Portée de tir =====
+                // Si tu sélectionnes une unité, qu'il lui reste des points d'actions et que tu survoles le bouton "Tirer" :
+                if (selectedUnit != null && selectedUnit.ActionPoints > 0 && fireButtonHovered)
+                {
+                    foreach (var cell in GetFireRangeCells(selectedUnit))
+                    {
+                        Rectangle rect = new Rectangle(
+                            cell.X * cellSize,
+                            cell.Y * cellSize,
+                            cellSize,
+                            cellSize);
+
+                        _spriteBatch.Draw(pixel, rect, new Color(255, 0, 0, 60));
+                    }
+                }
 
                 // Je dessine le panneau d’informations de l’unité sélectionnée
                 DrawUnitInfoPanel();
@@ -543,14 +558,14 @@ namespace XCOM_3 // Nom du projet
                 // Je dessine le titre "Options"
                 string title = "Options";
                 _spriteBatch.DrawString(
-                    font, 
-                    title, 
-                    new Vector2(0, 0), 
-                    Color.White, 
-                    0f, 
-                    Vector2.Zero, 
-                    3f, 
-                    SpriteEffects.None, 
+                    font,
+                    title,
+                    new Vector2(0, 0),
+                    Color.White,
+                    0f,
+                    Vector2.Zero,
+                    3f,
+                    SpriteEffects.None,
                     0f
                 );
 
@@ -600,7 +615,7 @@ namespace XCOM_3 // Nom du projet
         }
 
         // Cette méthode dessine la grille 2D à l’écran
-        private void DrawGrid() 
+        private void DrawGrid()
         {
             // Couleur des lignes de la grille : blanc semi-transparent
             Color gridColor = new Color(255, 255, 255, 80);
@@ -885,6 +900,38 @@ namespace XCOM_3 // Nom du projet
             Console.WriteLine("Aucune cible à portée");
         }
 
+        private List<Point> GetFireRangeCells(Unit unit)
+        {
+            List<Point> cells = new List<Point>();
+
+            if (unit == null || unit.ActionPoints <= 0)
+                return cells;
+
+            int range = unit.FireRange;
+
+            for (int dx = -range; dx <= range; dx++)
+            {
+                for (int dy = -range; dy <= range; dy++)
+                {
+                    int distance = Math.Abs(dx) + Math.Abs(dy);
+
+                    if (distance == 0 || distance > range)
+                        continue;
+
+                    int x = unit.Cell.X + dx;
+                    int y = unit.Cell.Y + dy;
+
+                    if (x < 0 || x >= gridWidth ||
+                        y < 0 || y >= gridHeight)
+                        continue;
+
+                    cells.Add(new Point(x, y));
+                }
+            }
+
+            return cells;
+        }
+
 
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
         {
@@ -964,12 +1011,12 @@ namespace XCOM_3 // Nom du projet
 
                 // …mais il était relâché à la frame précédente
                 previous.LeftButton == ButtonState.Released;
-        }      
+        }
 
     }
 
     // ===== Définir ce qu’est une unité ===
-    public enum Team 
+    public enum Team
     {
         Player,
         Enemy
@@ -999,6 +1046,7 @@ namespace XCOM_3 // Nom du projet
 
         public int MovementPoints = 3; // combien de cases l’unité peut bouger
 
+        public int FireRange = 5; // portée de tir
 
         // Quand une unité est créée, on DOIT lui fournir
         // sa position, son équipe, son nom, sa classe et son arme
@@ -1019,6 +1067,6 @@ namespace XCOM_3 // Nom du projet
 
             // Je mémorise mon arme
             Weapon = weapon;
-        }   
+        }
     }
 }
