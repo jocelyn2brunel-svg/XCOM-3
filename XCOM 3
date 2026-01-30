@@ -780,11 +780,13 @@ namespace XCOM_3 // Nom du projet
                 _spriteBatch.Draw(pixel, outline, new Color(0, 255, 255, 80)); // Dessine un rectangle semi-transparent cyan pour montrer la sélection
             }
         }
+
         private IEnumerable<Unit> AllUnits()
         {
             foreach (var u in playerUnits) yield return u; // Parcourt toutes les unités du joueur, "yield return" renvoie chaque unité une par une sans créer une nouvelle liste
             foreach (var u in enemyUnits) yield return u; // Parcourt toutes les unités ennemies, renvoie chaque unité ennemie également
         }
+
         private Unit GetUnitAtCell(Point cell)
         {
             foreach (var unit in AllUnits()) // Parcourt toutes les unités du jeu (joueur + ennemis)
@@ -792,13 +794,14 @@ namespace XCOM_3 // Nom du projet
                     return unit; // Si oui, retourne cette unité immédiatement
             return null; // Si aucune unité n'est trouvée sur cette case, retourne null
         }
+
         private void DrawUnitInfoPanel() // Panneau d’information (HUD) - 1.5.1
         {
             if (selectedUnit == null) // Si aucune unité n'est sélectionnée, on ne fait rien
                 return;
             int margin = 10; // marge par rapport aux bords de la fenêtre : 10 pixels - 1.5.2
             int panelWidth = 300; // Longueur du HUD : 300 pixels
-            int panelHeight = 120; // Hauteur du HUD : 120 pixels
+            int panelHeight = 140; // Hauteur du HUD : 140 pixels
             int panelX = margin; // Position X : juste après la marge de la fenêtre
             int panelY = GraphicsDevice.Viewport.Height - panelHeight - margin; // Position Y : En bas de la fenêtre, en tenant compte de la marge et de la hauteur du panneau
             Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight); // Crée un rectangle pour le panneau HUD
@@ -808,8 +811,10 @@ namespace XCOM_3 // Nom du projet
             _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White); // Dessine la classe de l'unité, 20 pixels plus bas
             _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White); // Dessine l’arme de l'unité, 40 pixels plus bas
             _spriteBatch.DrawString(font, "AP: " + selectedUnit.ActionPoints, textPos + new Vector2(0, 60), Color.White); // Dessine les points d'action (AP) de l'unité, 60 pixels plus bas 1.5.3.6
-                                                                                                                          // ===== Bouton TIRER =====
-            int buttonWidth = 160;
+            _spriteBatch.DrawString(font, "HP: " + selectedUnit.Health + " / " + selectedUnit.MaxHealth, textPos + new Vector2(0, 80), Color.White);
+
+            // ===== Bouton TIRER =====
+            int buttonWidth = 100;
             int buttonHeight = 36;
             int marginBottom = 15;
 
@@ -844,9 +849,8 @@ namespace XCOM_3 // Nom du projet
                 ),
                 Color.Black
             );
-
-
         }
+
         private List<Point> GetMovableCells(Unit unit)
         {
             List<Point> cells = new List<Point>(); // Crée la liste qui contiendra toutes les cases accessibles
@@ -898,7 +902,16 @@ namespace XCOM_3 // Nom du projet
                     if (roll < effectiveAccuracy)  // si le tir réussit
                     {
                         Console.WriteLine($"{shooter.Name} touche {target.Name} !");
-                        // Ici tu pourrais retirer des points de vie si tu en ajoutes
+                        int damage = GetWeaponDamage(shooter.Weapon);
+                        target.Health -= damage;
+                        target.Health = Math.Max(target.Health, 0); // pas de vie négative
+                        // Si la cible est morte, on peut la retirer de la liste
+                        if (target.Health <= 0)
+                        {
+                            Console.WriteLine($"{target.Name} est éliminé !");
+                            if (target.Team == Team.Player) playerUnits.Remove(target);
+                            else enemyUnits.Remove(target);
+                        }
                     }
                     else
                     {
@@ -946,7 +959,19 @@ namespace XCOM_3 // Nom du projet
             return cells;
         }
 
-        
+        private int GetWeaponDamage(string weapon)
+        {
+            return weapon switch
+            {
+                "Rifle" => 25,
+                "Plasma Rifle" => 30,
+                "Plasma Sniper" => 50,
+                "Plasma Cannon" => 40,
+                "SMG Plasma" => 15,
+                _ => 20
+            };
+        }
+
 
 
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
@@ -1041,34 +1066,20 @@ namespace XCOM_3 // Nom du projet
         Enemy
     }
 
-    // Je définis ce qu’est une unité dans le jeu
-    public class Unit
-    {
-        // Où je me trouve sur la grille (case X / Y)
-        public Point Cell;
-
-        // À quelle équipe j’appartiens (joueur ou ennemi)
-        public Team Team;
-
-        // Mon nom (ex : "Soldat", "Alien", "Sniper")
-        public string Name;
-
-        // Ma classe (ex : Assault, Medic, Heavy)
-        public string Class;
-
-        // Mon arme équipée
-        public string Weapon;
-
-        // Combien de points d’action j’ai par tour
-        // Ici : 3 cases de déplacement possibles
-        public int ActionPoints = 3;
-
+    
+    public class Unit // Je définis ce qu’est une unité dans le jeu
+    {      
+        public Point Cell; // Où je me trouve sur la grille (case X / Y)
+        public Team Team; // À quelle équipe j’appartiens (joueur ou ennemi)
+        public string Name; // Mon nom (ex : "Soldat", "Alien", "Sniper")
+        public string Class; // Ma classe (ex : Assault, Medic, Heavy)
+        public string Weapon; // Mon arme équipée
+        public int ActionPoints = 3; // Combien de points d’action j’ai par tour
         public int MovementPoints = 3; // combien de cases l’unité peut bouger
-
         public int FireRange = 5; // portée de tir
-
         public int Accuracy = 75; // en pourcentage, 0 = jamais, 100 = toujours
-
+        public int Health = 100; // points de vie maximum par défaut
+        public int MaxHealth = 100; // facultatif, pour réinitialiser ou afficher
 
         // Quand une unité est créée, on DOIT lui fournir
         // sa position, son équipe, son nom, sa classe et son arme
