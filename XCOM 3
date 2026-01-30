@@ -223,6 +223,8 @@ namespace XCOM_3 // Nom du projet
                 int cellX = mouseX / cellSize;
                 int cellY = mouseY / cellSize;
 
+                float fireSpeed = 3f; // vitesse de l'animation
+
                 // Je vérifie si la souris est DANS la grille
                 if (cellX >= 0 && cellX < gridWidth &&
                     cellY >= 0 && cellY < gridHeight)
@@ -300,6 +302,31 @@ namespace XCOM_3 // Nom du projet
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+
+                foreach (var unit in AllUnits())
+                {
+                    if (unit.IsFiring && unit.FireTarget.HasValue)
+                    {
+                        unit.FireProgress += (float)gameTime.ElapsedGameTime.TotalSeconds * fireSpeed;
+
+                        if (unit.FireProgress >= 1f)
+                        {
+                            // Fin de l'animation
+                            unit.IsFiring = false;
+
+                            // Ici tu peux appliquer les dégâts
+                            Unit target = GetUnitAtCell(unit.FireTarget.Value);
+                            if (target != null)
+                            {
+                                // Exemple simple : 1 dégât
+                                target.Health -= 1;
+                                if (target.Health < 0) target.Health = 0;
+                            }
+
+                            unit.FireTarget = null;
                         }
                     }
                 }
@@ -769,6 +796,21 @@ namespace XCOM_3 // Nom du projet
                 ? Color.Blue // Joueur = bleu
                 : Color.Red; // Ennemi = rouge
             _spriteBatch.Draw(pixel, rect, color); // Dessine le rectangle représentant l'unité
+
+            // Animation de tir
+            if (unit.IsFiring && unit.FireTarget.HasValue)
+            {
+                Point target = unit.FireTarget.Value;
+
+                // Calcul de la position du projectile
+                Vector2 start = new Vector2(unit.Cell.X + 0.5f, unit.Cell.Y + 0.5f) * cellSize;
+                Vector2 end = new Vector2(target.X + 0.5f, target.Y + 0.5f) * cellSize;
+                Vector2 pos = Vector2.Lerp(start, end, unit.FireProgress);
+
+                Rectangle proj = new Rectangle((int)pos.X - 4, (int)pos.Y - 4, 8, 8);
+                _spriteBatch.Draw(pixel, proj, Color.Yellow);
+            }
+
             if (unit == selectedUnit) // Si l'unité est sélectionnée, dessine une surbrillance autour 1.5.1
             {
                 Rectangle outline = new Rectangle( // Rectangle pour l'outline (entoure toute la case, pas seulement le sprite)
@@ -892,6 +934,11 @@ namespace XCOM_3 // Nom du projet
 
                 if (distance <= shooter.FireRange) // portée de tir
                 {
+                    // Déclenche l'animation de tir
+                    shooter.IsFiring = true;
+                    shooter.FireTarget = target.Cell;
+                    shooter.FireProgress = 0f;
+
                     // Tir basé sur la précision avec ajustement distance
                     int roll = random.Next(100); // 0 à 99
 
@@ -1080,6 +1127,9 @@ namespace XCOM_3 // Nom du projet
         public int Accuracy = 75; // en pourcentage, 0 = jamais, 100 = toujours
         public int Health = 100; // points de vie maximum par défaut
         public int MaxHealth = 100; // facultatif, pour réinitialiser ou afficher
+        public bool IsFiring = false;        // l’unité est en train de tirer
+        public Point? FireTarget = null;     // cible du tir pour dessiner le projectile
+        public float FireProgress = 0f;      // progression de l’animation (0 → 1)
 
         // Quand une unité est créée, on DOIT lui fournir
         // sa position, son équipe, son nom, sa classe et son arme
