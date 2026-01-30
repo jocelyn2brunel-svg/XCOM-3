@@ -30,6 +30,8 @@ using Microsoft.Xna.Framework.Media;
 using System;
 // Random
 using System.Collections.Generic;
+using System.Linq;
+
 // List<>
 using System.Net.Sockets;
 using System.Runtime.ConstrainedExecution;
@@ -72,6 +74,16 @@ namespace XCOM_3 // Nom du projet
         private List<Unit> savedEnemyUnits;
         private Rectangle fireButton;
         private bool fireButtonHovered = false;
+        enum TurnState
+        {
+            PlayerTurn,
+            EnemyTurn,
+            Busy // animations / transitions
+        }
+        private TurnState currentTurn = TurnState.PlayerTurn;
+        private Rectangle endTurnButton;
+        private bool endTurnHovered = false;
+
 
 
         public Game1()
@@ -212,7 +224,7 @@ namespace XCOM_3 // Nom du projet
                 previousMouseState.LeftButton == ButtonState.Released;
 
             // Je commence par vérifier : est-ce que le jeu est en train de se jouer ?
-            if (currentState == GameState.Playing)
+            if (currentState == GameState.Playing && currentTurn == TurnState.PlayerTurn)
             {
                 // Je récupère la position actuelle de la souris en pixels
                 int mouseX = mouse.X;
@@ -355,8 +367,22 @@ namespace XCOM_3 // Nom du projet
                     }
                 }
 
+                endTurnHovered = endTurnButton.Contains(mouse.Position);
+
+                if (endTurnHovered && leftClick)
+                {
+                    StartEnemyTurn();
+                }
+
 
             }
+
+            if (currentState == GameState.Playing &&
+                currentTurn == TurnState.EnemyTurn)
+            {
+                UpdateEnemyTurn();
+            }
+
 
             // Je regarde d’abord : est-ce qu’on est dans le menu Options ?
             if (currentState == GameState.OptionsMenu) // Détecter les clics dans le Menu Options
@@ -574,6 +600,31 @@ namespace XCOM_3 // Nom du projet
                         _spriteBatch.Draw(pixel, rect, new Color(255, 0, 0, 60));
                     }
                 }
+
+                int btnWidth = 140;
+                int btnHeight = 36;
+
+                endTurnButton = new Rectangle(
+                    GraphicsDevice.Viewport.Width - btnWidth - 20,
+                    GraphicsDevice.Viewport.Height - btnHeight - 20,
+                    btnWidth,
+                    btnHeight
+                );
+
+                Color btnColor = endTurnHovered ? Color.DarkRed : Color.Red;
+                _spriteBatch.Draw(pixel, endTurnButton, btnColor);
+
+                Vector2 txtSize = font.MeasureString("FIN DU TOUR");
+                _spriteBatch.DrawString(
+                    font,
+                    "FIN DU TOUR",
+                    new Vector2(
+                        endTurnButton.X + (btnWidth - txtSize.X) / 2,
+                        endTurnButton.Y + (btnHeight - txtSize.Y) / 2
+                    ),
+                    Color.White
+                );
+
 
                 // Je dessine le panneau d’informations de l’unité sélectionnée
                 DrawUnitInfoPanel();
@@ -1019,6 +1070,81 @@ namespace XCOM_3 // Nom du projet
             };
         }
 
+        private void StartPlayerTurn()
+        {
+            foreach (var unit in playerUnits)
+                unit.ActionPoints = 3;
+
+            selectedUnit = null;
+            cachedMovableCells.Clear();
+
+            currentTurn = TurnState.PlayerTurn;
+        }
+        private void StartEnemyTurn()
+        {
+            foreach (var unit in enemyUnits)
+                unit.ActionPoints = 2; // ou variable selon classe
+
+            currentTurn = TurnState.EnemyTurn;
+        }
+
+        private void UpdateEnemyTurn()
+        {
+            foreach (var enemy in enemyUnits.ToList())
+            {
+                if (enemy.ActionPoints <= 0)
+                    continue;
+
+                // Cherche la cible la plus proche
+                Unit closest = null;
+                int bestDist = int.MaxValue;
+
+                foreach (var player in playerUnits)
+                {
+                    int dist =
+                        Math.Abs(player.Cell.X - enemy.Cell.X) +
+                        Math.Abs(player.Cell.Y - enemy.Cell.Y);
+
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        closest = player;
+                    }
+                }
+
+                if (closest == null)
+                    continue;
+
+                // Si à portée → tirer
+                if (bestDist <= enemy.FireRange)
+                {
+                    HandleFire(enemy);
+                }
+                else
+                {
+                    // Sinon avancer vers la cible
+                    Point dir = new Point(
+                        Math.Sign(closest.Cell.X - enemy.Cell.X),
+                        Math.Sign(closest.Cell.Y - enemy.Cell.Y)
+                    );
+
+                    Point next = new Point(
+                        enemy.Cell.X + dir.X,
+                        enemy.Cell.Y + dir.Y
+                    );
+
+                    if (GetUnitAtCell(next) == null &&
+                        next.X >= 0 && next.X < gridWidth &&
+                        next.Y >= 0 && next.Y < gridHeight)
+                    {
+                        enemy.Cell = next;
+                        enemy.ActionPoints--;
+                    }
+                }
+            }
+
+            StartPlayerTurn();
+        }
 
 
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
