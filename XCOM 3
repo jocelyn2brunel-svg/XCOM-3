@@ -329,13 +329,32 @@ namespace XCOM_3 // Nom du projet
                             // Fin de l'animation
                             unit.IsFiring = false;
 
-                            // Ici tu peux appliquer les dégâts
-                            Unit target = GetUnitAtCell(unit.FireTarget.Value);
-                            if (target != null)
+                            if (unit.PendingTarget != null)
                             {
-                                // Exemple simple : 1 dégât
-                                target.Health -= 1;
-                                if (target.Health < 0) target.Health = 0;
+                                if (unit.WillHit)
+                                {
+                                    Console.WriteLine($"{unit.Name} touche {unit.PendingTarget.Name} !");
+                                    int damage = GetWeaponDamage(unit.Weapon);
+                                    unit.PendingTarget.Health -= damage;
+                                    unit.PendingTarget.Health = Math.Max(unit.PendingTarget.Health, 0);
+
+                                    if (unit.PendingTarget.Health <= 0)
+                                    {
+                                        Console.WriteLine($"{unit.PendingTarget.Name} est éliminé !");
+                                        if (unit.PendingTarget.Team == Team.Player)
+                                            playerUnits.Remove(unit.PendingTarget);
+                                        else
+                                            enemyUnits.Remove(unit.PendingTarget);
+                                    }
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"{unit.Name} rate {unit.PendingTarget.Name}...");
+                                }
+
+                                // Nettoyage
+                                unit.PendingTarget = null;
+                                unit.WillHit = false;
                             }
 
                             unit.FireTarget = null;
@@ -992,37 +1011,25 @@ namespace XCOM_3 // Nom du projet
 
                     // Tir basé sur la précision avec ajustement distance
                     int roll = random.Next(100); // 0 à 99
-
-                    // calcul de la précision effective
-                    int effectiveAccuracy = shooter.Accuracy - distance * 5; // perte 5% par case de distance
+                    int effectiveAccuracy = shooter.Accuracy - distance * 5;
                     effectiveAccuracy = Math.Max(effectiveAccuracy, 10); // minimum 10% de chance de toucher
 
-                    if (roll < effectiveAccuracy)  // si le tir réussit
-                    {
-                        Console.WriteLine($"{shooter.Name} touche {target.Name} !");
-                        int damage = GetWeaponDamage(shooter.Weapon);
-                        target.Health -= damage;
-                        target.Health = Math.Max(target.Health, 0); // pas de vie négative
-                        // Si la cible est morte, on peut la retirer de la liste
-                        if (target.Health <= 0)
-                        {
-                            Console.WriteLine($"{target.Name} est éliminé !");
-                            if (target.Team == Team.Player) playerUnits.Remove(target);
-                            else enemyUnits.Remove(target);
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"{shooter.Name} rate {target.Name}...");
-                    }
+                    // On stocke dans le shooter si le tir sera réussi
+                    shooter.WillHit = roll < effectiveAccuracy;
 
+                    // On stocke la cible
+                    shooter.PendingTarget = target;
+
+                    // Consomme un point d'action
                     shooter.ActionPoints -= 1;
+
                     return; // seulement une cible tirée par tour
                 }
             }
 
             Console.WriteLine("Aucune cible à portée");
         }
+
 
 
         private List<Point> GetFireRangeCells(Unit unit)
@@ -1239,9 +1246,9 @@ namespace XCOM_3 // Nom du projet
         Enemy
     }
 
-    
+
     public class Unit // Je définis ce qu’est une unité dans le jeu
-    {      
+    {
         public Point Cell; // Où je me trouve sur la grille (case X / Y)
         public Team Team; // À quelle équipe j’appartiens (joueur ou ennemi)
         public string Name; // Mon nom (ex : "Soldat", "Alien", "Sniper")
@@ -1256,6 +1263,10 @@ namespace XCOM_3 // Nom du projet
         public bool IsFiring = false;        // l’unité est en train de tirer
         public Point? FireTarget = null;     // cible du tir pour dessiner le projectile
         public float FireProgress = 0f;      // progression de l’animation (0 → 1)
+        public bool WillHit = false;          // Tir prévu réussi ou raté
+        public Unit PendingTarget = null;     // La cible sur laquelle appliquer les dégâts
+
+
 
         // Quand une unité est créée, on DOIT lui fournir
         // sa position, son équipe, son nom, sa classe et son arme
