@@ -530,7 +530,7 @@ namespace XCOM_3 // Nom du projet
                             cellSize);
 
                         // Je dessine une surbrillance verte semi-transparente
-                        _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));            
+                        _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));
                     }
                 // ===== Portée de tir =====
                 // Si tu sélectionnes une unité, qu'il lui reste des points d'actions et que tu survoles le bouton "Tirer" :
@@ -877,7 +877,6 @@ namespace XCOM_3 // Nom du projet
 
         private void HandleFire(Unit shooter)
         {
-            // Cherche une cible adjacente (exemple simple)
             foreach (var target in AllUnits())
             {
                 if (target.Team == shooter.Team)
@@ -887,18 +886,33 @@ namespace XCOM_3 // Nom du projet
                     Math.Abs(target.Cell.X - shooter.Cell.X) +
                     Math.Abs(target.Cell.Y - shooter.Cell.Y);
 
-                if (distance <= 5) // portée de tir
+                if (distance <= shooter.FireRange) // portée de tir
                 {
-                    Console.WriteLine(
-                        shooter.Name + " tire sur " + target.Name);
+                    // Tir basé sur la précision avec ajustement distance
+                    int roll = random.Next(100); // 0 à 99
+
+                    // calcul de la précision effective
+                    int effectiveAccuracy = shooter.Accuracy - distance * 5; // perte 5% par case de distance
+                    effectiveAccuracy = Math.Max(effectiveAccuracy, 10); // minimum 10% de chance de toucher
+
+                    if (roll < effectiveAccuracy)  // si le tir réussit
+                    {
+                        Console.WriteLine($"{shooter.Name} touche {target.Name} !");
+                        // Ici tu pourrais retirer des points de vie si tu en ajoutes
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{shooter.Name} rate {target.Name}...");
+                    }
 
                     shooter.ActionPoints -= 1;
-                    return;
+                    return; // seulement une cible tirée par tour
                 }
             }
 
             Console.WriteLine("Aucune cible à portée");
         }
+
 
         private List<Point> GetFireRangeCells(Unit unit)
         {
@@ -932,6 +946,8 @@ namespace XCOM_3 // Nom du projet
             return cells;
         }
 
+        
+
 
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
         {
@@ -940,6 +956,9 @@ namespace XCOM_3 // Nom du projet
             new EnemyTemplate("Alien Heavy", "Heavy", "Plasma Cannon", 2),
             new EnemyTemplate("Alien Scout", "Scout", "SMG Plasma", 4)
         };
+
+
+
     }
 
     // Je représente un bouton très simple à l’écran
@@ -1048,6 +1067,9 @@ namespace XCOM_3 // Nom du projet
 
         public int FireRange = 5; // portée de tir
 
+        public int Accuracy = 75; // en pourcentage, 0 = jamais, 100 = toujours
+
+
         // Quand une unité est créée, on DOIT lui fournir
         // sa position, son équipe, son nom, sa classe et son arme
         public Unit(Point cell, Team team, string name, string unitClass, string weapon)
@@ -1067,6 +1089,23 @@ namespace XCOM_3 // Nom du projet
 
             // Je mémorise mon arme
             Weapon = weapon;
+
+            Accuracy = GetWeaponAccuracy(weapon);
+
         }
+
+        private int GetWeaponAccuracy(string weapon)
+        {
+            return weapon switch
+            {
+                "Rifle" => 80,
+                "Plasma Rifle" => 75,
+                "Plasma Sniper" => 90,
+                "Plasma Cannon" => 70,
+                "SMG Plasma" => 60,
+                _ => 75
+            };
+        }
+
     }
 }
