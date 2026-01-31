@@ -83,6 +83,8 @@ namespace XCOM_3 // Nom du projet
         private TurnState currentTurn = TurnState.PlayerTurn;
         private Rectangle endTurnButton;
         private bool endTurnHovered = false;
+        private bool isTargeting = false;
+        private List<Unit> validFireTargets = new();
 
 
 
@@ -256,6 +258,21 @@ namespace XCOM_3 // Nom du projet
                     hoveredCell = new Point(-1, -1);
                 }
 
+                if (isTargeting && leftClick)
+                {
+                    Point clickedCell = new Point(cellX, cellY);
+                    Unit target = GetUnitAtCell(clickedCell);
+
+                    if (target != null && validFireTargets.Contains(target))
+                    {
+                        FireAtTarget(selectedUnit, target);
+                        isTargeting = false;
+                        validFireTargets.Clear();
+                    }
+
+                    return; // bloque les autres clics pendant le ciblage
+                }
+
                 // Maintenant, est-ce que le joueur a cliqué avec le bouton gauche ?
                 if (leftClick)
                 {
@@ -381,7 +398,7 @@ namespace XCOM_3 // Nom du projet
 
                         if (leftClick)
                         {
-                            HandleFire(selectedUnit);
+                            EnterTargetingMode(selectedUnit);
                         }
                     }
                 }
@@ -608,16 +625,20 @@ namespace XCOM_3 // Nom du projet
                 // Si tu sélectionnes une unité, qu'il lui reste des points d'actions et que tu survoles le bouton "Tirer" :
                 if (selectedUnit != null && selectedUnit.ActionPoints > 0 && fireButtonHovered)
                 {
-                    foreach (var cell in GetEnemiesInFireRange(selectedUnit))
+                    if (isTargeting)
                     {
-                        Rectangle rect = new Rectangle(
-                            cell.X * cellSize,
-                            cell.Y * cellSize,
-                            cellSize,
-                            cellSize);
+                        foreach (var target in validFireTargets)
+                        {
+                            Rectangle rect = new Rectangle(
+                                target.Cell.X * cellSize,
+                                target.Cell.Y * cellSize,
+                                cellSize,
+                                cellSize);
 
-                        _spriteBatch.Draw(pixel, rect, new Color(255, 0, 0, 60));
+                            _spriteBatch.Draw(pixel, rect, new Color(255, 0, 0, 80));
+                        }
                     }
+
                 }
 
                 int btnWidth = 140;
@@ -1028,7 +1049,7 @@ namespace XCOM_3 // Nom du projet
             }
 
             Console.WriteLine("Aucune cible à portée");
-        }    
+        }
 
         private int GetWeaponDamage(string weapon)
         {
@@ -1141,6 +1162,49 @@ namespace XCOM_3 // Nom du projet
             return cells;
         }
 
+        private void EnterTargetingMode(Unit shooter)
+        {
+            isTargeting = true;
+            validFireTargets.Clear();
+
+            foreach (var target in AllUnits())
+            {
+                if (target.Team == shooter.Team)
+                    continue;
+
+                int distance =
+                    Math.Abs(target.Cell.X - shooter.Cell.X) +
+                    Math.Abs(target.Cell.Y - shooter.Cell.Y);
+
+                if (distance <= shooter.FireRange)
+                    validFireTargets.Add(target);
+            }
+
+            Console.WriteLine("Mode ciblage activé");
+        }
+
+        private void FireAtTarget(Unit shooter, Unit target)
+        {
+            shooter.IsFiring = true;
+            shooter.FireTarget = target.Cell;
+            shooter.FireProgress = 0f;
+
+            int distance =
+                Math.Abs(target.Cell.X - shooter.Cell.X) +
+                Math.Abs(target.Cell.Y - shooter.Cell.Y);
+
+            int roll = random.Next(100);
+            int effectiveAccuracy = shooter.Accuracy - distance * 5;
+            effectiveAccuracy = Math.Max(effectiveAccuracy, 10);
+
+            shooter.WillHit = roll < effectiveAccuracy;
+            shooter.PendingTarget = target;
+
+            shooter.ActionPoints -= 1;
+        }
+
+
+
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
         {
             new EnemyTemplate("Alien Grunt", "Infantry", "Plasma Rifle", 3),
@@ -1148,6 +1212,7 @@ namespace XCOM_3 // Nom du projet
             new EnemyTemplate("Alien Heavy", "Heavy", "Plasma Cannon", 2),
             new EnemyTemplate("Alien Scout", "Scout", "SMG Plasma", 4)
         };
+
 
 
 
