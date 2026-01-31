@@ -991,62 +991,70 @@ namespace XCOM_3 // Nom du projet
         {
             if (isActionInProgress) // Si une animation est en cours, on ATTEND
                 return;
-            if (enemyTurnIndex >= enemyUnits.Count) // Si tous les ennemis ont joué → retour joueur
+
+            if (enemyTurnIndex >= enemyUnits.Count) // Tous les ennemis ont joué → tour joueur
             {
                 StartPlayerTurn();
                 return;
             }
+
             Unit enemy = enemyUnits[enemyTurnIndex];
-            if (enemy.ActionPoints <= 0) // Si cet ennemi n'a plus d'AP → suivant
+
+            if (enemy.ActionPoints <= 0) // Pas d’AP → suivant
             {
                 enemyTurnIndex++;
                 return;
             }
-            Unit closest = null; // Trouver la cible la plus proche
+
+            // Trouver cible la plus proche
+            Unit closest = null;
             int bestDist = int.MaxValue;
             foreach (var player in playerUnits)
             {
-                int dist =
-                    Math.Abs(player.Cell.X - enemy.Cell.X) +
-                    Math.Abs(player.Cell.Y - enemy.Cell.Y);
+                int dist = Math.Abs(player.Cell.X - enemy.Cell.X) +
+                           Math.Abs(player.Cell.Y - enemy.Cell.Y);
                 if (dist < bestDist)
                 {
                     bestDist = dist;
                     closest = player;
                 }
             }
+
             if (closest == null)
             {
+                // Pas de cible → passer à l’ennemi suivant
                 enemyTurnIndex++;
                 return;
             }
-            // À portée → tirer
+
             if (bestDist <= enemy.WeaponData.Range)
             {
                 HandleFire(enemy);
                 isActionInProgress = true;
                 enemy.ActionPoints--;
+                enemyTurnIndex++; // ✅ on passe au suivant dès qu’on tire
+                return;
             }
-            else
+
+            // Déplacement
+            Point dir = new Point(
+                Math.Sign(closest.Cell.X - enemy.Cell.X),
+                Math.Sign(closest.Cell.Y - enemy.Cell.Y)
+            );
+            Point next = new Point(enemy.Cell.X + dir.X, enemy.Cell.Y + dir.Y);
+
+            if (GetUnitAtCell(next) == null &&
+                next.X >= 0 && next.X < gridWidth &&
+                next.Y >= 0 && next.Y < gridHeight)
             {
-                // Avancer
-                Point dir = new Point(
-                    Math.Sign(closest.Cell.X - enemy.Cell.X),
-                    Math.Sign(closest.Cell.Y - enemy.Cell.Y)
-                );
-                Point next = new Point(
-                    enemy.Cell.X + dir.X,
-                    enemy.Cell.Y + dir.Y
-                );
-                if (GetUnitAtCell(next) == null &&
-                    next.X >= 0 && next.X < gridWidth &&
-                    next.Y >= 0 && next.Y < gridHeight)
-                {
-                    enemy.Cell = next;
-                    enemy.ActionPoints--;
-                }
+                enemy.Cell = next;
+                enemy.ActionPoints--;
             }
+
+            // Toujours passer à l’ennemi suivant après action (tir ou déplacement)
+            enemyTurnIndex++;
         }
+
         private void EnterTargetingMode(Unit shooter)
         {
             isTargeting = true;
@@ -1103,7 +1111,7 @@ namespace XCOM_3 // Nom du projet
                 if (unit.FireProgress >= 1f)
                 {
                     unit.IsFiring = false;
-                    unit.FireProgress = 1f;
+                    unit.FireProgress = 0f;   // ✅ RESET CORRECT
 
                     if (unit.PendingTarget != null)
                     {
@@ -1131,7 +1139,10 @@ namespace XCOM_3 // Nom du projet
 
                     // 🔓 DÉVERROUILLAGE GLOBAL
                     isActionInProgress = false;
+
+                    return; // ⛔ IMPORTANT : stoppe l’update ce frame
                 }
+
             }
         }
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
