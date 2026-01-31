@@ -87,12 +87,8 @@ namespace XCOM_3 // Nom du projet
         private List<Unit> validFireTargets = new();
         private bool isActionInProgress = false;
         private int enemyTurnIndex = 0;
-        // Caméra
         private Vector2 cameraOffset = Vector2.Zero; // décalage de la caméra en pixels
         private float cameraSpeed = 200f; // vitesse en pixels/seconde
-
-
-
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this); // Initialisation du gestionnaire graphique
@@ -135,7 +131,6 @@ namespace XCOM_3 // Nom du projet
             int barHeight = 8; // Hauteur de la barre de volume, en pixel
             volumeBar = new Rectangle(0, 134, barWidth, barHeight); // Rectangle de la barre de volume (posX, posY, Longueur, Hauteur)
         }
-
         // Cette fonction est appelée automatiquement par le moteur du jeu
         // Elle s’exécute à CHAQUE frame (ex : 60 fois par seconde)
         protected override void Update(GameTime gameTime)
@@ -143,10 +138,7 @@ namespace XCOM_3 // Nom du projet
             // Je lis l’état actuel de la souris :
             // position + boutons pressés ou non
             MouseState mouse = Mouse.GetState();
-
             menuButtons[1].IsEnabled = hasSavedGame;
-
-
             // Est-ce que je suis actuellement dans le menu principal ?
             if (currentState == GameState.MainMenu)
             {
@@ -161,19 +153,14 @@ namespace XCOM_3 // Nom du projet
                         {
                             case "New Game":
                                 // Le joueur veut lancer une nouvelle partie
-
                                 // (Optionnel) j’arrêterais la musique actuelle
                                 // MediaPlayer.Stop();
-
                                 // Je passe le jeu à l’état "Playing"
                                 currentState = GameState.Playing;
-
                                 // Je charge la carte du jeu
                                 LoadMap();
-
                                 // Je crée les unités de départ
                                 CreateUnits();
-
                                 // Message de debug
                                 Console.WriteLine("New game launched !");
                                 break;
@@ -221,7 +208,6 @@ namespace XCOM_3 // Nom du projet
                     }
                 }
             }
-
             // Je crée une variable qui va me dire :
             // “Est-ce que le joueur vient JUSTE de cliquer gauche ?”
             bool leftClick =
@@ -778,40 +764,6 @@ namespace XCOM_3 // Nom du projet
             // Je dessine le rectangle sur la grille
             _spriteBatch.Draw(pixel, cellRect, highlightColor);
         }
-
-        // Cette classe représente un "modèle" pour créer des ennemis
-        // Elle ne correspond pas à une unité active dans le jeu, juste aux données de base
-        public class EnemyTemplate
-        {
-            // Nom de l’ennemi (ex : "Alien Grunt")
-            public string Name;
-
-            // Classe ou type (ex : "Infantry", "Sniper")
-            public string Class;
-
-            // Arme équipée par défaut (ex : "Plasma Rifle")
-            public string Weapon;
-
-            // Points d’action disponibles pour se déplacer
-            public int ActionPoints;
-
-            // Constructeur : on fournit toutes les infos du template à la création
-            public EnemyTemplate(string name, string unitClass, string weapon, int ap)
-            {
-                // Je mémorise le nom
-                Name = name;
-
-                // Je mémorise la classe
-                Class = unitClass;
-
-                // Je mémorise l’arme
-                Weapon = weapon;
-
-                // Je mémorise le nombre de points d’action
-                ActionPoints = ap;
-            }
-        }
-
         // Cette méthode crée toutes les unités quand une nouvelle partie commence
         private void CreateUnits()
         {
@@ -833,7 +785,6 @@ namespace XCOM_3 // Nom du projet
                     )
                 );
             }
-
             // ===== Création des unités ennemies =====
             for (int i = 0; i < 6; i++)
             {
@@ -878,23 +829,18 @@ namespace XCOM_3 // Nom du projet
                 ? Color.Blue // Joueur = bleu
                 : Color.Red; // Ennemi = rouge
             _spriteBatch.Draw(pixel, rect, color); // Dessine le rectangle représentant l'unité
-
             // Animation de tir
             if (unit.IsFiring && unit.FireTarget.HasValue)
             {
                 Point target = unit.FireTarget.Value;
-
                 // Calcul de la position du projectile
                 Vector2 start = new Vector2(unit.Cell.X + 0.5f, unit.Cell.Y + 0.5f) * cellSize;
                 Vector2 end = new Vector2(target.X + 0.5f, target.Y + 0.5f) * cellSize;
                 Vector2 pos = Vector2.Lerp(start, end, unit.FireProgress);
-
                 pos -= cameraOffset;
-
                 Rectangle proj = new Rectangle((int)pos.X - 4, (int)pos.Y - 4, 8, 8);
                 _spriteBatch.Draw(pixel, proj, Color.Yellow);
             }
-
             if (unit == selectedUnit) // Si l'unité est sélectionnée, dessine une surbrillance autour 1.5.1
             {
                 Rectangle outline = new Rectangle( // Rectangle pour l'outline (entoure toute la case, pas seulement le sprite)
@@ -906,13 +852,11 @@ namespace XCOM_3 // Nom du projet
                 _spriteBatch.Draw(pixel, outline, new Color(0, 255, 255, 80)); // Dessine un rectangle semi-transparent cyan pour montrer la sélection
             }
         }
-
         private IEnumerable<Unit> AllUnits()
         {
             foreach (var u in playerUnits) yield return u; // Parcourt toutes les unités du joueur, "yield return" renvoie chaque unité une par une sans créer une nouvelle liste
             foreach (var u in enemyUnits) yield return u; // Parcourt toutes les unités ennemies, renvoie chaque unité ennemie également
         }
-
         private Unit GetUnitAtCell(Point cell)
         {
             foreach (var unit in AllUnits()) // Parcourt toutes les unités du jeu (joueur + ennemis)
@@ -920,7 +864,6 @@ namespace XCOM_3 // Nom du projet
                     return unit; // Si oui, retourne cette unité immédiatement
             return null; // Si aucune unité n'est trouvée sur cette case, retourne null
         }
-
         private void DrawUnitInfoPanel() // Panneau d’information (HUD) - 1.5.1
         {
             if (selectedUnit == null) // Si aucune unité n'est sélectionnée, on ne fait rien
@@ -938,34 +881,25 @@ namespace XCOM_3 // Nom du projet
             _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White); // Dessine l’arme de l'unité, 40 pixels plus bas
             _spriteBatch.DrawString(font, "AP: " + selectedUnit.ActionPoints, textPos + new Vector2(0, 60), Color.White); // Dessine les points d'action (AP) de l'unité, 60 pixels plus bas 1.5.3.6
             _spriteBatch.DrawString(font, "HP: " + selectedUnit.Health + " / " + selectedUnit.MaxHealth, textPos + new Vector2(0, 80), Color.White);
-
             // ===== Bouton TIRER =====
             int buttonWidth = 100;
             int buttonHeight = 36;
             int marginBottom = 15;
-
             int centerX =
                 (GraphicsDevice.Viewport.Width / 2) - (buttonWidth / 2);
-
             int bottomY =
                 GraphicsDevice.Viewport.Height - marginBottom - buttonHeight;
-
             fireButton = new Rectangle(
                 centerX,
                 bottomY,
                 buttonWidth,
                 buttonHeight
             );
-
             Color btnColor = fireButtonHovered
                 ? Color.Orange
                 : Color.DarkOrange;
-
             _spriteBatch.Draw(pixel, fireButton, btnColor);
-
-            // Texte centré dans le bouton
-            Vector2 textSize = font.MeasureString("TIRER");
-
+            Vector2 textSize = font.MeasureString("TIRER"); // Texte centré dans le bouton
             _spriteBatch.DrawString(
                 font,
                 "TIRER",
@@ -976,7 +910,6 @@ namespace XCOM_3 // Nom du projet
                 Color.Black
             );
         }
-
         private List<Point> GetMovableCells(Unit unit)
         {
             List<Point> cells = new List<Point>(); // Crée la liste qui contiendra toutes les cases accessibles
@@ -1004,46 +937,33 @@ namespace XCOM_3 // Nom du projet
             }
             return cells; // Retourne toutes les cases accessibles à l'unité
         }
-
         private void HandleFire(Unit shooter)
         {
             foreach (var target in AllUnits())
             {
                 if (target.Team == shooter.Team)
                     continue;
-
                 int distance =
                     Math.Abs(target.Cell.X - shooter.Cell.X) +
                     Math.Abs(target.Cell.Y - shooter.Cell.Y);
-
                 if (distance <= shooter.FireRange) // portée de tir
                 {
                     // Déclenche l'animation de tir
                     shooter.IsFiring = true;
                     shooter.FireTarget = target.Cell;
                     shooter.FireProgress = 0f;
-
                     // Tir basé sur la précision avec ajustement distance
                     int roll = random.Next(100); // 0 à 99
                     int effectiveAccuracy = shooter.Accuracy - distance * 5;
-                    effectiveAccuracy = Math.Max(effectiveAccuracy, 10); // minimum 10% de chance de toucher
-
-                    // On stocke dans le shooter si le tir sera réussi
-                    shooter.WillHit = roll < effectiveAccuracy;
-
-                    // On stocke la cible
-                    shooter.PendingTarget = target;
-
-                    // Consomme un point d'action
-                    shooter.ActionPoints -= 1;
-
+                    effectiveAccuracy = Math.Max(effectiveAccuracy, 10); // minimum 10% de chance de toucher                  
+                    shooter.WillHit = roll < effectiveAccuracy; // On stocke dans le shooter si le tir sera réussi                
+                    shooter.PendingTarget = target; // On stocke la cible
+                    shooter.ActionPoints -= 1; // Consomme un point d'action
                     return; // seulement une cible tirée par tour
                 }
             }
-
             Console.WriteLine("Aucune cible à portée");
         }
-
         private int GetWeaponDamage(string weapon)
         {
             return weapon switch
@@ -1056,7 +976,6 @@ namespace XCOM_3 // Nom du projet
                 _ => 20
             };
         }
-
         private void StartPlayerTurn()
         {
             foreach (var unit in playerUnits)
@@ -1064,64 +983,48 @@ namespace XCOM_3 // Nom du projet
 
             selectedUnit = null;
             cachedMovableCells.Clear();
-
             currentTurn = TurnState.PlayerTurn;
         }
         private void StartEnemyTurn()
         {
             foreach (var unit in enemyUnits)
                 unit.ActionPoints = 2;
-
             enemyTurnIndex = 0;
             currentTurn = TurnState.EnemyTurn;
         }
-
-
         private void UpdateEnemyTurn()
-        {
-            // Si une animation est en cours, on ATTEND
-            if (isActionInProgress)
+        {            
+            if (isActionInProgress) // Si une animation est en cours, on ATTEND
                 return;
-
-            // Si tous les ennemis ont joué → retour joueur
-            if (enemyTurnIndex >= enemyUnits.Count)
+            if (enemyTurnIndex >= enemyUnits.Count) // Si tous les ennemis ont joué → retour joueur
             {
                 StartPlayerTurn();
                 return;
             }
-
             Unit enemy = enemyUnits[enemyTurnIndex];
-
-            // Si cet ennemi n'a plus d'AP → suivant
-            if (enemy.ActionPoints <= 0)
+            if (enemy.ActionPoints <= 0) // Si cet ennemi n'a plus d'AP → suivant
             {
                 enemyTurnIndex++;
                 return;
             }
-
-            // Trouver la cible la plus proche
-            Unit closest = null;
+            Unit closest = null; // Trouver la cible la plus proche
             int bestDist = int.MaxValue;
-
             foreach (var player in playerUnits)
             {
                 int dist =
                     Math.Abs(player.Cell.X - enemy.Cell.X) +
                     Math.Abs(player.Cell.Y - enemy.Cell.Y);
-
                 if (dist < bestDist)
                 {
                     bestDist = dist;
                     closest = player;
                 }
             }
-
             if (closest == null)
             {
                 enemyTurnIndex++;
                 return;
             }
-
             // À portée → tirer
             if (bestDist <= enemy.FireRange)
             {
@@ -1136,12 +1039,10 @@ namespace XCOM_3 // Nom du projet
                     Math.Sign(closest.Cell.X - enemy.Cell.X),
                     Math.Sign(closest.Cell.Y - enemy.Cell.Y)
                 );
-
                 Point next = new Point(
                     enemy.Cell.X + dir.X,
                     enemy.Cell.Y + dir.Y
                 );
-
                 if (GetUnitAtCell(next) == null &&
                     next.X >= 0 && next.X < gridWidth &&
                     next.Y >= 0 && next.Y < gridHeight)
@@ -1151,8 +1052,6 @@ namespace XCOM_3 // Nom du projet
                 }
             }
         }
-
-
         private void EnterTargetingMode(Unit shooter)
         {
             isTargeting = true;
@@ -1173,7 +1072,6 @@ namespace XCOM_3 // Nom du projet
 
             Console.WriteLine("Mode ciblage activé");
         }
-
         private void FireAtTarget(Unit shooter, Unit target)
         {
             isActionInProgress = true;
@@ -1195,7 +1093,6 @@ namespace XCOM_3 // Nom du projet
 
             shooter.ActionPoints -= 1;
         }
-
         private void UpdateFiringAnimations(GameTime gameTime)
         {
             float fireSpeed = 3f;
@@ -1242,8 +1139,6 @@ namespace XCOM_3 // Nom du projet
                 }
             }
         }
-
-
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
         {
             new EnemyTemplate("Alien Grunt", "Infantry", "Plasma Rifle", 3),
@@ -1251,92 +1146,56 @@ namespace XCOM_3 // Nom du projet
             new EnemyTemplate("Alien Heavy", "Heavy", "Plasma Cannon", 2),
             new EnemyTemplate("Alien Scout", "Scout", "SMG Plasma", 4)
         };
-
-
-
-
-    }
-
-    // Je représente un bouton très simple à l’écran
-    // Juste du texte sur lequel on peut cliquer
-    public class Button
-    {
-        // Le texte que j’affiche (ex : "Play", "Options", "Quit")
-        public string Text;
-
-        // Ma position à l’écran (en pixels)
-        public Vector2 Position;
-
-        // Ma zone cliquable réelle
-        // Elle est privée parce que personne d’autre n’a à la modifier
-        private Rectangle bounds;
-
+    }   
+    
+    public class Button // Je représente un bouton très simple à l’écran.  Juste du texte sur lequel on peut cliquer
+    {      
+        public string Text; // Le texte que j’affiche (ex : "Play", "Options", "Quit")    
+        public Vector2 Position; // Ma position à l’écran (en pixels)       
+        private Rectangle bounds; // Ma zone cliquable réelle.  Elle est privée parce que personne d’autre n’a à la modifier
         public bool IsEnabled = true; // true = clic possible, false = grisé et non cliquable
-
-        // Quand on me crée, on me donne mon texte et ma position
-        public Button(string text, Vector2 position)
+        public Button(string text, Vector2 position) // Quand on me crée, on me donne mon texte et ma position
         {
             Text = text;
             Position = position;
         }
-
-        // Cette méthode me dessine à l’écran
-        public void Draw(SpriteBatch spriteBatch, SpriteFont font, MouseState mouse)
+        public void Draw(SpriteBatch spriteBatch, SpriteFont font, MouseState mouse) // Cette méthode me dessine à l’écran
         {
-            // Je mesure la taille du texte avec la police actuelle
-            Vector2 size = font.MeasureString(Text);
-
-            // À partir de cette taille, je définis ma zone cliquable
-            bounds = new Rectangle(
+            Vector2 size = font.MeasureString(Text); // Je mesure la taille du texte avec la police actuelle
+            bounds = new Rectangle( // À partir de cette taille, je définis ma zone cliquable
                 (int)Position.X,
                 (int)Position.Y,
                 (int)size.X,
                 (int)size.Y
             );
-
             Color color;
-
             if (!IsEnabled)
             {
                 color = Color.Gray; // gris si désactivé
             }
             else
             {
-                // Est-ce que la souris est au-dessus de moi ?
-                color = bounds.Contains(mouse.Position)
+                color = bounds.Contains(mouse.Position) // Est-ce que la souris est au-dessus de moi ?
                     ? Color.Yellow
                     : Color.White;
             }
-            // Je dessine mon texte à l’écran
-            spriteBatch.DrawString(font, Text, Position, color); // Dessine le texte
+            spriteBatch.DrawString(font, Text, Position, color); // Je dessine mon texte à l’écran.  Dessine le texte
         }
-
-        // Est-ce que je viens d’être cliqué ?
-        public bool IsClicked(MouseState current, MouseState previous) // Détecte un clic unique (Pressed maintenant, Released avant)
+        public bool IsClicked(MouseState current, MouseState previous)// Est-ce que je viens d’être cliqué ?  Détecte un clic unique (Pressed maintenant, Released avant)
         {
-
             if (!IsEnabled) return false; // impossible de cliquer si désactivé
-
             return
-                // La souris est sur moi
-                bounds.Contains(current.Position) &&
-
-                // Le bouton gauche est appuyé maintenant
-                current.LeftButton == ButtonState.Pressed &&
-
-                // …mais il était relâché à la frame précédente
-                previous.LeftButton == ButtonState.Released;
+                bounds.Contains(current.Position) && // La souris est sur moi
+                current.LeftButton == ButtonState.Pressed && // Le bouton gauche est appuyé maintenant
+                previous.LeftButton == ButtonState.Released; // …mais il était relâché à la frame précédente
         }
-
     }
 
-    // ===== Définir ce qu’est une unité ===
-    public enum Team
+    public enum Team // ===== Définir ce qu’est une unité ===
     {
         Player,
         Enemy
     }
-
 
     public class Unit // Je définis ce qu’est une unité dans le jeu
     {
@@ -1356,33 +1215,15 @@ namespace XCOM_3 // Nom du projet
         public float FireProgress = 0f;      // progression de l’animation (0 → 1)
         public bool WillHit = false;          // Tir prévu réussi ou raté
         public Unit PendingTarget = null;     // La cible sur laquelle appliquer les dégâts
-
-
-
-        // Quand une unité est créée, on DOIT lui fournir
-        // sa position, son équipe, son nom, sa classe et son arme
-        public Unit(Point cell, Team team, string name, string unitClass, string weapon)
+        public Unit(Point cell, Team team, string name, string unitClass, string weapon) // Quand une unité est créée, on DOIT lui fournir sa position, son équipe, son nom, sa classe et son arme
         {
-            // Je mémorise ma position de départ
-            Cell = cell;
-
-            // Je mémorise mon équipe
-            Team = team;
-
-            // Je mémorise mon nom
-            Name = name;
-
-            // "Class" est un mot réservé, donc on utilise "unitClass" en paramètre
-            // puis on l’assigne au champ Class
-            Class = unitClass;
-
-            // Je mémorise mon arme
-            Weapon = weapon;
-
+            Cell = cell; // Je mémorise ma position de départ            
+            Team = team; // Je mémorise mon équipe          
+            Name = name; // Je mémorise mon nom                        
+            Class = unitClass; // "Class" est un mot réservé, donc on utilise "unitClass" en paramètre puis on l’assigne au champ Class           
+            Weapon = weapon; // Je mémorise mon arme
             Accuracy = GetWeaponAccuracy(weapon);
-
         }
-
         private int GetWeaponAccuracy(string weapon)
         {
             return weapon switch
@@ -1395,6 +1236,20 @@ namespace XCOM_3 // Nom du projet
                 _ => 75
             };
         }
+    }
 
+    public class EnemyTemplate
+    {
+        public string Name; // Nom de l’ennemi (ex : "Alien Grunt")     
+        public string Class; // Classe ou type (ex : "Infantry", "Sniper")       
+        public string Weapon; // Arme équipée par défaut (ex : "Plasma Rifle")       
+        public int ActionPoints; // Points d’action disponibles pour se déplacer       
+        public EnemyTemplate(string name, string unitClass, string weapon, int ap) // Constructeur : on fournit toutes les infos du template à la création
+        {            
+            Name = name; // Je mémorise le nom           
+            Class = unitClass; // Je mémorise la classe           
+            Weapon = weapon; // Je mémorise l’arme            
+            ActionPoints = ap; // Je mémorise le nombre de points d’action
+        }
     }
 }
