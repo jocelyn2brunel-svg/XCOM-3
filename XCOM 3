@@ -74,6 +74,9 @@ namespace XCOM_3 // Nom du projet
         private List<Unit> savedEnemyUnits;
         private Rectangle fireButton;
         private bool fireButtonHovered = false;
+
+        private Dictionary<string, WeaponData> weaponDatabase;
+
         enum TurnState
         {
             PlayerTurn,
@@ -130,6 +133,8 @@ namespace XCOM_3 // Nom du projet
             int barWidth = 200; // Longueur de la barre de volume, en pixel
             int barHeight = 8; // Hauteur de la barre de volume, en pixel
             volumeBar = new Rectangle(0, 134, barWidth, barHeight); // Rectangle de la barre de volume (posX, posY, Longueur, Hauteur)
+
+            InitializeWeapons();
         }
         // Cette fonction est appelée automatiquement par le moteur du jeu
         // Elle s’exécute à CHAQUE frame (ex : 60 fois par seconde)
@@ -173,11 +178,11 @@ namespace XCOM_3 // Nom du projet
                                     // Recharger la partie sauvegardée
                                     playerUnits = new List<Unit>();
                                     foreach (var u in savedPlayerUnits)
-                                        playerUnits.Add(new Unit(u.Cell, u.Team, u.Name, u.Class, u.Weapon) { ActionPoints = u.ActionPoints });
+                                        playerUnits.Add(new Unit(u));
 
                                     enemyUnits = new List<Unit>();
                                     foreach (var u in savedEnemyUnits)
-                                        enemyUnits.Add(new Unit(u.Cell, u.Team, u.Name, u.Class, u.Weapon) { ActionPoints = u.ActionPoints });
+                                        enemyUnits.Add(new Unit(u));
 
                                     currentState = GameState.Playing;
                                     Console.WriteLine("Game continued!");
@@ -331,7 +336,7 @@ namespace XCOM_3 // Nom du projet
                     }
                 }
 
-                
+
 
                 // Est-ce que le joueur vient JUSTE de cliquer avec le bouton droit ?
                 if (mouse.RightButton == ButtonState.Pressed && // Le bouton droit est appuyé maintenant
@@ -498,11 +503,11 @@ namespace XCOM_3 // Nom du projet
 
                 savedPlayerUnits = new List<Unit>();
                 foreach (var u in playerUnits)
-                    savedPlayerUnits.Add(new Unit(u.Cell, u.Team, u.Name, u.Class, u.Weapon) { ActionPoints = u.ActionPoints });
+                    savedPlayerUnits.Add(new Unit(u));
 
                 savedEnemyUnits = new List<Unit>();
                 foreach (var u in enemyUnits)
-                    savedEnemyUnits.Add(new Unit(u.Cell, u.Team, u.Name, u.Class, u.Weapon) { ActionPoints = u.ActionPoints });
+                    savedEnemyUnits.Add(new Unit(u));
 
                 // Retour au menu principal
                 currentState = GameState.MainMenu;
@@ -779,9 +784,10 @@ namespace XCOM_3 // Nom du projet
                     new Unit(
                         new Point(2 + i, gridHeight - 2), // Position initiale (en bas de la map, espacée de 1 case horizontalement)
                         Team.Player, // Équipe du joueur
-                        "Soldier " + (i + 1), // Nom de l’unité ("Soldier 1", "Soldier 2", ...) 1.5.1
-                        "Assault", // Classe de l’unité (ici Assault) 1.5.1
-                        "Rifle" // Arme de l’unité (ici Rifle) 1.5.1
+                        "Soldier " + (i + 1), // Nom de l’unité ("Soldier 1", "Soldier 2", ...)
+                        "Assault", // Classe de l’unité (ici Assault)
+                        "Rifle", // Arme de l’unité (ici Rifle)
+                        weaponDatabase["Rifle"]
                     )
                 );
             }
@@ -800,7 +806,8 @@ namespace XCOM_3 // Nom du projet
                         Team.Enemy, // Équipe ennemie
                         template.Name, // Nom de l’unité selon le template
                         template.Class, // Classe selon le template
-                        template.Weapon // Arme selon le template
+                        template.Weapon, // Arme selon le template
+                        weaponDatabase[template.Weapon]
                     )
                     {
                         ActionPoints = template.ActionPoints // Définir les points d’action selon le template
@@ -946,7 +953,7 @@ namespace XCOM_3 // Nom du projet
                 int distance =
                     Math.Abs(target.Cell.X - shooter.Cell.X) +
                     Math.Abs(target.Cell.Y - shooter.Cell.Y);
-                if (distance <= shooter.FireRange) // portée de tir
+                if (distance <= shooter.WeaponData.Range) // portée de tir
                 {
                     // Déclenche l'animation de tir
                     shooter.IsFiring = true;
@@ -954,7 +961,7 @@ namespace XCOM_3 // Nom du projet
                     shooter.FireProgress = 0f;
                     // Tir basé sur la précision avec ajustement distance
                     int roll = random.Next(100); // 0 à 99
-                    int effectiveAccuracy = shooter.Accuracy - distance * 5;
+                    int effectiveAccuracy = shooter.WeaponData.Accuracy - distance * 5;
                     effectiveAccuracy = Math.Max(effectiveAccuracy, 10); // minimum 10% de chance de toucher                  
                     shooter.WillHit = roll < effectiveAccuracy; // On stocke dans le shooter si le tir sera réussi                
                     shooter.PendingTarget = target; // On stocke la cible
@@ -963,18 +970,6 @@ namespace XCOM_3 // Nom du projet
                 }
             }
             Console.WriteLine("Aucune cible à portée");
-        }
-        private int GetWeaponDamage(string weapon)
-        {
-            return weapon switch
-            {
-                "Rifle" => 25,
-                "Plasma Rifle" => 30,
-                "Plasma Sniper" => 50,
-                "Plasma Cannon" => 40,
-                "SMG Plasma" => 15,
-                _ => 20
-            };
         }
         private void StartPlayerTurn()
         {
@@ -993,7 +988,7 @@ namespace XCOM_3 // Nom du projet
             currentTurn = TurnState.EnemyTurn;
         }
         private void UpdateEnemyTurn()
-        {            
+        {
             if (isActionInProgress) // Si une animation est en cours, on ATTEND
                 return;
             if (enemyTurnIndex >= enemyUnits.Count) // Si tous les ennemis ont joué → retour joueur
@@ -1026,7 +1021,7 @@ namespace XCOM_3 // Nom du projet
                 return;
             }
             // À portée → tirer
-            if (bestDist <= enemy.FireRange)
+            if (bestDist <= enemy.WeaponData.Range)
             {
                 HandleFire(enemy);
                 isActionInProgress = true;
@@ -1066,7 +1061,7 @@ namespace XCOM_3 // Nom du projet
                     Math.Abs(target.Cell.X - shooter.Cell.X) +
                     Math.Abs(target.Cell.Y - shooter.Cell.Y);
 
-                if (distance <= shooter.FireRange)
+                if (distance <= shooter.WeaponData.Range)
                     validFireTargets.Add(target);
             }
 
@@ -1085,7 +1080,7 @@ namespace XCOM_3 // Nom du projet
                 Math.Abs(target.Cell.Y - shooter.Cell.Y);
 
             int roll = random.Next(100);
-            int effectiveAccuracy = shooter.Accuracy - distance * 5;
+            int effectiveAccuracy = shooter.WeaponData.Accuracy - distance * 5;
             effectiveAccuracy = Math.Max(effectiveAccuracy, 10);
 
             shooter.WillHit = roll < effectiveAccuracy;
@@ -1114,7 +1109,7 @@ namespace XCOM_3 // Nom du projet
                     {
                         if (unit.WillHit)
                         {
-                            int damage = GetWeaponDamage(unit.Weapon);
+                            int damage = unit.WeaponData.Damage;
                             unit.PendingTarget.Health -= damage;
                             unit.PendingTarget.Health =
                                 Math.Max(unit.PendingTarget.Health, 0);
@@ -1146,10 +1141,23 @@ namespace XCOM_3 // Nom du projet
             new EnemyTemplate("Alien Heavy", "Heavy", "Plasma Cannon", 2),
             new EnemyTemplate("Alien Scout", "Scout", "SMG Plasma", 4)
         };
-    }   
-    
+
+        private void InitializeWeapons()
+        {
+            weaponDatabase = new Dictionary<string, WeaponData>
+            {
+                ["Rifle"] = new WeaponData("Rifle", 25, 80, 5),
+                ["Plasma Rifle"] = new WeaponData("Plasma Rifle", 30, 75, 5),
+                ["Plasma Sniper"] = new WeaponData("Plasma Sniper", 50, 90, 8),
+                ["Plasma Cannon"] = new WeaponData("Plasma Cannon", 40, 70, 4),
+                ["SMG Plasma"] = new WeaponData("SMG Plasma", 15, 60, 6)
+            };
+        }
+
+    }
+
     public class Button // Je représente un bouton très simple à l’écran.  Juste du texte sur lequel on peut cliquer
-    {      
+    {
         public string Text; // Le texte que j’affiche (ex : "Play", "Options", "Quit")    
         public Vector2 Position; // Ma position à l’écran (en pixels)       
         private Rectangle bounds; // Ma zone cliquable réelle.  Elle est privée parce que personne d’autre n’a à la modifier
@@ -1206,8 +1214,7 @@ namespace XCOM_3 // Nom du projet
         public string Weapon; // Mon arme équipée
         public int ActionPoints = 3; // Combien de points d’action j’ai par tour
         public int MovementPoints = 3; // combien de cases l’unité peut bouger
-        public int FireRange = 5; // portée de tir
-        public int Accuracy = 75; // en pourcentage, 0 = jamais, 100 = toujours
+        public WeaponData WeaponData;
         public int Health = 100; // points de vie maximum par défaut
         public int MaxHealth = 100; // facultatif, pour réinitialiser ou afficher
         public bool IsFiring = false;        // l’unité est en train de tirer
@@ -1215,27 +1222,31 @@ namespace XCOM_3 // Nom du projet
         public float FireProgress = 0f;      // progression de l’animation (0 → 1)
         public bool WillHit = false;          // Tir prévu réussi ou raté
         public Unit PendingTarget = null;     // La cible sur laquelle appliquer les dégâts
-        public Unit(Point cell, Team team, string name, string unitClass, string weapon) // Quand une unité est créée, on DOIT lui fournir sa position, son équipe, son nom, sa classe et son arme
+        public Unit(Point cell, Team team, string name, string unitClass, string weapon, WeaponData weaponData)
         {
-            Cell = cell; // Je mémorise ma position de départ            
-            Team = team; // Je mémorise mon équipe          
-            Name = name; // Je mémorise mon nom                        
-            Class = unitClass; // "Class" est un mot réservé, donc on utilise "unitClass" en paramètre puis on l’assigne au champ Class           
-            Weapon = weapon; // Je mémorise mon arme
-            Accuracy = GetWeaponAccuracy(weapon);
+            Cell = cell;
+            Team = team;
+            Name = name;
+            Class = unitClass;
+            Weapon = weapon;
+            WeaponData = weaponData;
+
         }
-        private int GetWeaponAccuracy(string weapon)
+        public Unit(Unit other)
         {
-            return weapon switch
-            {
-                "Rifle" => 80,
-                "Plasma Rifle" => 75,
-                "Plasma Sniper" => 90,
-                "Plasma Cannon" => 70,
-                "SMG Plasma" => 60,
-                _ => 75
-            };
+            Cell = other.Cell;
+            Team = other.Team;
+            Name = other.Name;
+            Class = other.Class;
+            Weapon = other.Weapon;
+            WeaponData = other.WeaponData;
+
+            ActionPoints = other.ActionPoints;
+            Health = other.Health;
+            MaxHealth = other.MaxHealth;
         }
+
+
     }
 
     public class EnemyTemplate
@@ -1245,11 +1256,29 @@ namespace XCOM_3 // Nom du projet
         public string Weapon; // Arme équipée par défaut (ex : "Plasma Rifle")       
         public int ActionPoints; // Points d’action disponibles pour se déplacer       
         public EnemyTemplate(string name, string unitClass, string weapon, int ap) // Constructeur : on fournit toutes les infos du template à la création
-        {            
+        {
             Name = name; // Je mémorise le nom           
             Class = unitClass; // Je mémorise la classe           
             Weapon = weapon; // Je mémorise l’arme            
             ActionPoints = ap; // Je mémorise le nombre de points d’action
         }
     }
+
+    public class WeaponData
+    {
+        public string Name;
+        public int Damage;
+        public int Accuracy;
+        public int Range;
+
+        public WeaponData(string name, int damage, int accuracy, int range)
+        {
+            Name = name;
+            Damage = damage;
+            Accuracy = accuracy;
+            Range = range;
+        }
+    }
+
+
 }
