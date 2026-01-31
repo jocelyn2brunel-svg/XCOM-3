@@ -85,6 +85,8 @@ namespace XCOM_3 // Nom du projet
         private bool endTurnHovered = false;
         private bool isTargeting = false;
         private List<Unit> validFireTargets = new();
+        private bool isActionInProgress = false;
+        private int enemyTurnIndex = 0;
 
 
 
@@ -335,49 +337,7 @@ namespace XCOM_3 // Nom du projet
                     }
                 }
 
-                foreach (var unit in AllUnits())
-                {
-                    if (unit.IsFiring && unit.FireTarget.HasValue)
-                    {
-                        unit.FireProgress += (float)gameTime.ElapsedGameTime.TotalSeconds * fireSpeed;
-
-                        if (unit.FireProgress >= 1f)
-                        {
-                            // Fin de l'animation
-                            unit.IsFiring = false;
-
-                            if (unit.PendingTarget != null)
-                            {
-                                if (unit.WillHit)
-                                {
-                                    Console.WriteLine($"{unit.Name} touche {unit.PendingTarget.Name} !");
-                                    int damage = GetWeaponDamage(unit.Weapon);
-                                    unit.PendingTarget.Health -= damage;
-                                    unit.PendingTarget.Health = Math.Max(unit.PendingTarget.Health, 0);
-
-                                    if (unit.PendingTarget.Health <= 0)
-                                    {
-                                        Console.WriteLine($"{unit.PendingTarget.Name} est éliminé !");
-                                        if (unit.PendingTarget.Team == Team.Player)
-                                            playerUnits.Remove(unit.PendingTarget);
-                                        else
-                                            enemyUnits.Remove(unit.PendingTarget);
-                                    }
-                                }
-                                else
-                                {
-                                    Console.WriteLine($"{unit.Name} rate {unit.PendingTarget.Name}...");
-                                }
-
-                                // Nettoyage
-                                unit.PendingTarget = null;
-                                unit.WillHit = false;
-                            }
-
-                            unit.FireTarget = null;
-                        }
-                    }
-                }
+                
 
                 // Est-ce que le joueur vient JUSTE de cliquer avec le bouton droit ?
                 if (mouse.RightButton == ButtonState.Pressed && // Le bouton droit est appuyé maintenant
@@ -405,8 +365,9 @@ namespace XCOM_3 // Nom du projet
 
                 endTurnHovered = endTurnButton.Contains(mouse.Position);
 
-                if (endTurnHovered && leftClick)
+                if (endTurnHovered && leftClick && !isActionInProgress)
                 {
+
                     StartEnemyTurn();
                 }
 
@@ -545,6 +506,12 @@ namespace XCOM_3 // Nom du projet
                 currentState = GameState.MainMenu;
             }
 
+            if (currentState == GameState.Playing)
+            {
+                UpdateFiringAnimations(gameTime);
+            }
+
+
             base.Update(gameTime); // Appel du moteur MonoGame
         }
 
@@ -640,6 +607,8 @@ namespace XCOM_3 // Nom du projet
                     }
 
                 }
+
+
 
                 int btnWidth = 140;
                 int btnHeight = 36;
@@ -1077,90 +1046,88 @@ namespace XCOM_3 // Nom du projet
         private void StartEnemyTurn()
         {
             foreach (var unit in enemyUnits)
-                unit.ActionPoints = 2; // ou variable selon classe
+                unit.ActionPoints = 2;
 
+            enemyTurnIndex = 0;
             currentTurn = TurnState.EnemyTurn;
         }
 
+
         private void UpdateEnemyTurn()
         {
-            foreach (var enemy in enemyUnits.ToList())
+            // Si une animation est en cours, on ATTEND
+            if (isActionInProgress)
+                return;
+
+            // Si tous les ennemis ont joué → retour joueur
+            if (enemyTurnIndex >= enemyUnits.Count)
             {
-                if (enemy.ActionPoints <= 0)
-                    continue;
+                StartPlayerTurn();
+                return;
+            }
 
-                // Cherche la cible la plus proche
-                Unit closest = null;
-                int bestDist = int.MaxValue;
+            Unit enemy = enemyUnits[enemyTurnIndex];
 
-                foreach (var player in playerUnits)
+            // Si cet ennemi n'a plus d'AP → suivant
+            if (enemy.ActionPoints <= 0)
+            {
+                enemyTurnIndex++;
+                return;
+            }
+
+            // Trouver la cible la plus proche
+            Unit closest = null;
+            int bestDist = int.MaxValue;
+
+            foreach (var player in playerUnits)
+            {
+                int dist =
+                    Math.Abs(player.Cell.X - enemy.Cell.X) +
+                    Math.Abs(player.Cell.Y - enemy.Cell.Y);
+
+                if (dist < bestDist)
                 {
-                    int dist =
-                        Math.Abs(player.Cell.X - enemy.Cell.X) +
-                        Math.Abs(player.Cell.Y - enemy.Cell.Y);
-
-                    if (dist < bestDist)
-                    {
-                        bestDist = dist;
-                        closest = player;
-                    }
-                }
-
-                if (closest == null)
-                    continue;
-
-                // Si à portée → tirer
-                if (bestDist <= enemy.FireRange)
-                {
-                    HandleFire(enemy);
-                }
-                else
-                {
-                    // Sinon avancer vers la cible
-                    Point dir = new Point(
-                        Math.Sign(closest.Cell.X - enemy.Cell.X),
-                        Math.Sign(closest.Cell.Y - enemy.Cell.Y)
-                    );
-
-                    Point next = new Point(
-                        enemy.Cell.X + dir.X,
-                        enemy.Cell.Y + dir.Y
-                    );
-
-                    if (GetUnitAtCell(next) == null &&
-                        next.X >= 0 && next.X < gridWidth &&
-                        next.Y >= 0 && next.Y < gridHeight)
-                    {
-                        enemy.Cell = next;
-                        enemy.ActionPoints--;
-                    }
+                    bestDist = dist;
+                    closest = player;
                 }
             }
 
-            StartPlayerTurn();
-        }
-
-        private List<Point> GetEnemiesInFireRange(Unit unit)
-        {
-            List<Point> cells = new List<Point>();
-
-            if (unit == null || unit.ActionPoints <= 0)
-                return cells;
-
-            foreach (var target in AllUnits())
+            if (closest == null)
             {
-                if (target.Team == unit.Team)
-                    continue; // ignore les alliés
-
-                int distance = Math.Abs(target.Cell.X - unit.Cell.X) +
-                               Math.Abs(target.Cell.Y - unit.Cell.Y);
-
-                if (distance <= unit.FireRange)
-                    cells.Add(target.Cell); // seulement les ennemis à portée
+                enemyTurnIndex++;
+                return;
             }
 
-            return cells;
+            // À portée → tirer
+            if (bestDist <= enemy.FireRange)
+            {
+                HandleFire(enemy);
+                isActionInProgress = true;
+                enemy.ActionPoints--;
+            }
+            else
+            {
+                // Avancer
+                Point dir = new Point(
+                    Math.Sign(closest.Cell.X - enemy.Cell.X),
+                    Math.Sign(closest.Cell.Y - enemy.Cell.Y)
+                );
+
+                Point next = new Point(
+                    enemy.Cell.X + dir.X,
+                    enemy.Cell.Y + dir.Y
+                );
+
+                if (GetUnitAtCell(next) == null &&
+                    next.X >= 0 && next.X < gridWidth &&
+                    next.Y >= 0 && next.Y < gridHeight)
+                {
+                    enemy.Cell = next;
+                    enemy.ActionPoints--;
+                }
+            }
         }
+
 
         private void EnterTargetingMode(Unit shooter)
         {
@@ -1185,6 +1152,8 @@ namespace XCOM_3 // Nom du projet
 
         private void FireAtTarget(Unit shooter, Unit target)
         {
+            isActionInProgress = true;
+
             shooter.IsFiring = true;
             shooter.FireTarget = target.Cell;
             shooter.FireProgress = 0f;
@@ -1203,6 +1172,52 @@ namespace XCOM_3 // Nom du projet
             shooter.ActionPoints -= 1;
         }
 
+        private void UpdateFiringAnimations(GameTime gameTime)
+        {
+            float fireSpeed = 3f;
+
+            foreach (var unit in AllUnits())
+            {
+                if (!unit.IsFiring || !unit.FireTarget.HasValue)
+                    continue;
+
+                unit.FireProgress +=
+                    (float)gameTime.ElapsedGameTime.TotalSeconds * fireSpeed;
+
+                if (unit.FireProgress >= 1f)
+                {
+                    unit.IsFiring = false;
+                    unit.FireProgress = 1f;
+
+                    if (unit.PendingTarget != null)
+                    {
+                        if (unit.WillHit)
+                        {
+                            int damage = GetWeaponDamage(unit.Weapon);
+                            unit.PendingTarget.Health -= damage;
+                            unit.PendingTarget.Health =
+                                Math.Max(unit.PendingTarget.Health, 0);
+
+                            if (unit.PendingTarget.Health <= 0)
+                            {
+                                if (unit.PendingTarget.Team == Team.Player)
+                                    playerUnits.Remove(unit.PendingTarget);
+                                else
+                                    enemyUnits.Remove(unit.PendingTarget);
+                            }
+                        }
+
+                        unit.PendingTarget = null;
+                        unit.WillHit = false;
+                    }
+
+                    unit.FireTarget = null;
+
+                    // 🔓 DÉVERROUILLAGE GLOBAL
+                    isActionInProgress = false;
+                }
+            }
+        }
 
 
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
