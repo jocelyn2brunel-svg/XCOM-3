@@ -75,6 +75,10 @@ namespace XCOM_3 // Nom du projet
         private Rectangle fireButton;
         private bool fireButtonHovered = false;
         private Dictionary<string, WeaponData> weaponDatabase;
+        Vector2 cameraPosition = Vector2.Zero; // centre de la caméra
+        float zoom = 1f;                       // facteur de zoom
+        float minZoom = 0.5f;
+        float maxZoom = 3f;
 
 
         enum TurnState
@@ -96,6 +100,8 @@ namespace XCOM_3 // Nom du projet
         private bool showMoveArrow = false;
         private Point arrowFromCell;
         private Point arrowToCell;
+        private float previousScroll = 0f; // valeur du scroll de la frame précédente
+
 
 
         public Game1()
@@ -150,6 +156,7 @@ namespace XCOM_3 // Nom du projet
             // position + boutons pressés ou non
             MouseState mouse = Mouse.GetState();
             menuButtons[1].IsEnabled = hasSavedGame;
+
             // Est-ce que je suis actuellement dans le menu principal ?
             if (currentState == GameState.MainMenu)
             {
@@ -232,7 +239,7 @@ namespace XCOM_3 // Nom du projet
             {
 
                 // Convertir la position de la souris en coordonnées monde
-                Vector2 mouseWorldPos = new Vector2(mouse.X, mouse.Y) + cameraOffset;
+                Vector2 mouseWorldPos = (new Vector2(mouse.X, mouse.Y) - new Vector2(GraphicsDevice.Viewport.Width / 2, GraphicsDevice.Viewport.Height / 2)) / zoom + cameraOffset;
 
                 // Je récupère la position actuelle de la souris en pixels
                 int mouseX = mouse.X;
@@ -406,9 +413,22 @@ namespace XCOM_3 // Nom du projet
                 UpdateEnemyTurn();
             }
 
+            if (currentState == GameState.Playing)
+            {
+                MouseState mouseState = Mouse.GetState();
+                float scroll = mouseState.ScrollWheelValue; // valeur absolue
+                float scrollDelta = (scroll - previousScroll) / 120f; // 120 = un cran
+                previousScroll = scroll;
 
-            // Je regarde d’abord : est-ce qu’on est dans le menu Options ?
-            if (currentState == GameState.OptionsMenu) // Détecter les clics dans le Menu Options
+                if (scrollDelta != 0)
+                {
+                    zoom += scrollDelta * 0.1f; // ajuster vitesse
+                    zoom = MathHelper.Clamp(zoom, minZoom, maxZoom);
+                }
+            }
+
+                // Je regarde d’abord : est-ce qu’on est dans le menu Options ?
+                if (currentState == GameState.OptionsMenu) // Détecter les clics dans le Menu Options
             {
                 // Je parcours tous les boutons du menu Options
                 foreach (var button in optionsButtons)
@@ -564,76 +584,33 @@ namespace XCOM_3 // Nom du projet
         // Elle sert UNIQUEMENT à dessiner ce que le joueur voit à l’écran
         protected override void Draw(GameTime gameTime) // Dessin à l’écran (appelé à chaque frame)
         {
-            // Je commence par nettoyer l’écran
-            // Tout est repeint en noir avant de redessiner
             GraphicsDevice.Clear(Color.Black);
 
-            // Je démarre le SpriteBatch (obligatoire avant de dessiner du texte ou des sprites)
-            _spriteBatch.Begin();
-
-            // ===== MENU PRINCIPAL =====
-            if (currentState == GameState.MainMenu)
+            // ✅ Création de la matrice de transformation pour la caméra + zoom
+            Matrix transform =
+                Matrix.CreateTranslation(new Vector3(-cameraOffset, 0)) * // déplacement caméra
+                Matrix.CreateScale(zoom, zoom, 1) *                      // zoom
+                Matrix.CreateTranslation(new Vector3(GraphicsDevice.Viewport.Width / 2,
+                                                    GraphicsDevice.Viewport.Height / 2, 0)); // centre écran
+            // -----------------------------
+            // Dessin du monde (grille + unités + flèches)
+            // -----------------------------
+            if (currentState == GameState.Playing) // ===== JEU EN COURS =====
             {
-                // Je prépare le titre du jeu
-                string title = "XCOM 3";
-
-                // Je le place en haut à gauche de l’écran
-                Vector2 position = new Vector2(0, 0);
-
-                // Je veux un texte plus gros que la normale
-                float scale = 3f;
-
-                // Je dessine le titre à l’écran
-                _spriteBatch.DrawString(
-                    font,
-                    title,
-                    position,
-                    Color.White,
-                    0f,
-                    Vector2.Zero,
-                    scale,
-                    SpriteEffects.None,
-                    0f
-                );
-
-                // Je récupère l’état actuel de la souris
-                MouseState mouse = Mouse.GetState();
-
-                // Je dessine chaque bouton du menu principal
-                foreach (var button in menuButtons)
-                {
-                    button.Draw(_spriteBatch, font, mouse);
-                }
-            }
-
-            // ===== JEU EN COURS =====
-            else if (currentState == GameState.Playing)
-            {
-                // Je dessine la grille (la carte)
+                _spriteBatch.Begin(transformMatrix: transform);
                 DrawGrid();
-
-                // Je dessine toutes les unités
                 DrawUnits();
-
-                // Je surligne la case sous la souris
                 DrawHoveredCell();
-
-                // Si une unité est sélectionnée ET qu'elle a au moins 1 AP
                 if (selectedUnit != null && selectedUnit.ActionPoints > 0 && currentTurn == TurnState.PlayerTurn)
-                    // ⚠️ Ajouter la vérification que l'unité appartient au joueur
                     if (selectedUnit.Team == Team.Player)
                     {
-                        // Je dessine les cases où elle peut se déplacer
                         foreach (var cell in cachedMovableCells)
                         {
-                            // Je transforme la cellule (X,Y) en rectangle à l’écran
                             Rectangle rect = new Rectangle(
-                                cell.X * cellSize - (int)cameraOffset.X,
-                                cell.Y * cellSize - (int)cameraOffset.Y,
+                                cell.X * cellSize,
+                                cell.Y * cellSize,
                                 cellSize,
                                 cellSize);
-
-                            // Je dessine une surbrillance verte semi-transparente
                             _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));
                         }
                     }
@@ -642,14 +619,11 @@ namespace XCOM_3 // Nom du projet
                     Vector2 fromWorld = new Vector2(
                         arrowFromCell.X * cellSize + cellSize / 2,
                         arrowFromCell.Y * cellSize + cellSize / 2
-                    ) - cameraOffset;
-
+                    );
                     Vector2 toWorld = new Vector2(
                         arrowToCell.X * cellSize + cellSize / 2,
                         arrowToCell.Y * cellSize + cellSize / 2
-                    ) - cameraOffset;
-
-
+                    );
                     // 👉 ANIMATION PULSE (ICI EXACTEMENT)
                     float pulse =
                         (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.2f;
@@ -658,7 +632,6 @@ namespace XCOM_3 // Nom du projet
 
                     DrawArrow(_spriteBatch, fromWorld, toWorld, arrowColor);
                 }
-
                 // ===== Portée de tir =====
                 // Si tu sélectionnes une unité, qu'il lui reste des points d'actions et que tu survoles le bouton "Tirer" :
                 if (selectedUnit != null && selectedUnit.ActionPoints > 0 && fireButtonHovered)
@@ -668,32 +641,55 @@ namespace XCOM_3 // Nom du projet
                         foreach (var target in validFireTargets)
                         {
                             Rectangle rect = new Rectangle(
-                                target.Cell.X * cellSize - (int)cameraOffset.X,
-                                target.Cell.Y * cellSize - (int)cameraOffset.Y,
+                                target.Cell.X * cellSize,
+                                target.Cell.Y * cellSize,
                                 cellSize,
                                 cellSize);
 
                             _spriteBatch.Draw(pixel, rect, new Color(255, 0, 0, 80));
                         }
                     }
-
                 }
-
-
-
+                _spriteBatch.End();
+            }
+            // -----------------------------
+            // Dessin de l’UI fixe (menu principal / boutons / sliders)
+            // -----------------------------
+            _spriteBatch.Begin();
+            if (currentState == GameState.MainMenu) // ===== MENU PRINCIPAL =====
+            {
+                string title = "XCOM 3";
+                Vector2 position = new Vector2(0, 0);
+                float scale = 3f;
+                _spriteBatch.DrawString(
+                    font,
+                    title,
+                    new Vector2(0, 0),
+                    Color.White,
+                    0f,
+                    Vector2.Zero,
+                    3f,
+                    SpriteEffects.None,
+                    0f
+                );
+                MouseState mouse = Mouse.GetState();
+                foreach (var button in menuButtons)
+                {
+                    button.Draw(_spriteBatch, font, mouse);
+                }
+            }
+            else if (currentState == GameState.Playing)
+            {
                 int btnWidth = 140;
                 int btnHeight = 36;
-
                 endTurnButton = new Rectangle(
                     GraphicsDevice.Viewport.Width - btnWidth - 20,
                     GraphicsDevice.Viewport.Height - btnHeight - 20,
                     btnWidth,
                     btnHeight
                 );
-
                 Color btnColor = endTurnHovered ? Color.DarkRed : Color.Red;
                 _spriteBatch.Draw(pixel, endTurnButton, btnColor);
-
                 Vector2 txtSize = font.MeasureString("FIN DU TOUR");
                 _spriteBatch.DrawString(
                     font,
@@ -704,12 +700,9 @@ namespace XCOM_3 // Nom du projet
                     ),
                     Color.White
                 );
-
-
                 // Je dessine le panneau d’informations de l’unité sélectionnée
                 DrawUnitInfoPanel();
             }
-
             // ===== MENU OPTIONS =====
             else if (currentState == GameState.OptionsMenu)
             {
@@ -785,8 +778,8 @@ namespace XCOM_3 // Nom du projet
                 _spriteBatch.Draw(
                     pixel, // petit carré blanc de 1x1 que je vais étirer
                     new Rectangle(
-                        x * cellSize - (int)cameraOffset.X,           // position X de la ligne
-                        0 - (int)cameraOffset.Y,                      // position Y (en haut de l’écran)
+                        x * cellSize,           // position X de la ligne
+                        0,                      // position Y (en haut de l’écran)
                         1,                      // largeur de la ligne (1 pixel)
                         gridHeight * cellSize), // hauteur de la ligne (tout le grid)
                     gridColor);
@@ -799,8 +792,8 @@ namespace XCOM_3 // Nom du projet
                 _spriteBatch.Draw(
                     pixel, // encore le petit carré blanc
                     new Rectangle(
-                        0 - (int)cameraOffset.X,                    // position X (à gauche de l’écran)
-                        y * cellSize - (int)cameraOffset.Y,         // position Y
+                        0,                    // position X (à gauche de l’écran)
+                        y * cellSize,         // position Y
                         gridWidth * cellSize, // largeur de la ligne (tout le grid)
                         1),                   // hauteur de la ligne (1 pixel)
                     gridColor);
@@ -862,8 +855,8 @@ namespace XCOM_3 // Nom du projet
 
             // Je transforme la cellule survolée en rectangle à l’écran
             Rectangle cellRect = new Rectangle(
-                hoveredCell.X * cellSize - (int)cameraOffset.X, // position X
-                hoveredCell.Y * cellSize - (int)cameraOffset.Y, // position Y
+                hoveredCell.X * cellSize, // position X
+                hoveredCell.Y * cellSize, // position Y
                 cellSize,                 // largeur
                 cellSize);                // hauteur
 
@@ -931,8 +924,8 @@ namespace XCOM_3 // Nom du projet
         private void DrawUnit(Unit unit) // Dessine une unité sur la grille 1.5.0
         {
             Rectangle rect = new Rectangle( // Crée un rectangle pour dessiner le "sprite" de l'unité.  On ajoute +4 et on retire 8 à la largeur/hauteur pour avoir un petit padding.  Cela permet de ne pas coller exactement au contour de la case de la grille
-                unit.Cell.X * cellSize + 4 - (int)cameraOffset.X, // Position X = colonne * taille d'une case + padding
-                unit.Cell.Y * cellSize + 4 - (int)cameraOffset.Y, // Position Y = ligne * taille d'une case + padding
+                unit.Cell.X * cellSize + 4, // Position X = colonne * taille d'une case + padding
+                unit.Cell.Y * cellSize + 4, // Position Y = ligne * taille d'une case + padding
                 cellSize - 8, // Largeur = taille de case - padding
                 cellSize - 8 // Hauteur = taille de case - padding
             );
@@ -948,15 +941,14 @@ namespace XCOM_3 // Nom du projet
                 Vector2 start = new Vector2(unit.Cell.X + 0.5f, unit.Cell.Y + 0.5f) * cellSize;
                 Vector2 end = new Vector2(target.X + 0.5f, target.Y + 0.5f) * cellSize;
                 Vector2 pos = Vector2.Lerp(start, end, unit.FireProgress);
-                pos -= cameraOffset;
                 Rectangle proj = new Rectangle((int)pos.X - 4, (int)pos.Y - 4, 8, 8);
                 _spriteBatch.Draw(pixel, proj, Color.Yellow);
             }
             if (unit == selectedUnit) // Si l'unité est sélectionnée, dessine une surbrillance autour 1.5.1
             {
                 Rectangle outline = new Rectangle( // Rectangle pour l'outline (entoure toute la case, pas seulement le sprite)
-                    unit.Cell.X * cellSize - (int)cameraOffset.X, // Position X de la case
-                    unit.Cell.Y * cellSize - (int)cameraOffset.Y, // Position Y de la case
+                    unit.Cell.X * cellSize, // Position X de la case
+                    unit.Cell.Y * cellSize, // Position Y de la case
                     cellSize, // Largeur = taille d'une case
                     cellSize // Hauteur = taille d'une case
                 );
