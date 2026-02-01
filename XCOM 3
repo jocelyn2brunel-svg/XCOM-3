@@ -14,7 +14,7 @@ namespace XCOM_3
         private SpriteFont font;
         private List<Button> menuButtons;
         private MouseState previousMouseState;
-        //private List<Song> menuSongs;
+        private List<Song> menuSongs;
         private Song currentSong;
         private Random random = new Random();
         enum GameState
@@ -70,6 +70,7 @@ namespace XCOM_3
         private Point arrowToCell;
         private float previousScroll = 0f;
         private Texture2D tileTexture;
+        private Texture2D obstacleTexture;
         private HashSet<Point> obstacles = new HashSet<Point>();
 
         public Game1()
@@ -91,18 +92,19 @@ namespace XCOM_3
                 new Button("Options",         new Vector2(0, 184)),
                 new Button("Quit",         new Vector2(0, 212))
             };
-            //menuSongs = new List<Song> // Crée la liste et charge les musiques
+            menuSongs = new List<Song> // Crée la liste et charge les musiques
             {
-                //Content.Load<Song>("menu_music_1"),
-                //Content.Load<Song>("menu_music_2"),
-                //Content.Load<Song>("menu_music_3"),
-                //Content.Load<Song>("menu_music_4")
+                Content.Load<Song>("menu_music_1"),
+                Content.Load<Song>("menu_music_2"),
+                Content.Load<Song>("menu_music_3"),
+                Content.Load<Song>("menu_music_4")
             }
             ;
-            //currentSong = menuSongs[random.Next(menuSongs.Count)];
-            //MediaPlayer.Play(currentSong);
-            //MediaPlayer.Volume = 0.5f;
+            currentSong = menuSongs[random.Next(menuSongs.Count)];
+            MediaPlayer.Play(currentSong);
+            MediaPlayer.Volume = 0.5f;
             tileTexture = Content.Load<Texture2D>("TileParchment32x32");
+            obstacleTexture = Content.Load<Texture2D>("Crate32x32");
             pixel = new Texture2D(GraphicsDevice, 1, 1);
             pixel.SetData(new[] { Color.White });
             optionsButtons = new List<Button>
@@ -130,7 +132,7 @@ namespace XCOM_3
                         switch (button.Text)
                         {
                             case "New Game":
-                                // MediaPlayer.Stop();
+                                MediaPlayer.Stop();
                                 currentState = GameState.Playing;
                                 LoadMap();
                                 CreateUnits();
@@ -556,8 +558,9 @@ namespace XCOM_3
                     cellSize,
                     cellSize
                 );
-                _spriteBatch.Draw(pixel, rect, Color.DarkSlateGray);
+                _spriteBatch.Draw(obstacleTexture, rect, Color.White);
             }
+
             Color gridColor = new Color(255, 255, 255, 80);
             for (int x = 0; x <= gridWidth; x++)
             {
