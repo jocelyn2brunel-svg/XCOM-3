@@ -92,6 +92,9 @@ namespace XCOM_3 // Nom du projet
         private int enemyTurnIndex = 0;
         private Vector2 cameraOffset = Vector2.Zero; // décalage de la caméra en pixels
         private float cameraSpeed = 200f; // vitesse en pixels/seconde
+        KeyboardState previousKeyboardState;
+
+
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this); // Initialisation du gestionnaire graphique
@@ -482,6 +485,10 @@ namespace XCOM_3 // Nom du projet
 
             KeyboardState keyboardState = Keyboard.GetState();
 
+            bool escapePressed =
+                keyboardState.IsKeyDown(Keys.Escape) &&
+                previousKeyboardState.IsKeyUp(Keys.Escape);
+
             // Déplacement caméra
             Vector2 move = Vector2.Zero;
 
@@ -496,7 +503,7 @@ namespace XCOM_3 // Nom du projet
             // Déplacement selon vitesse et temps écoulé
             cameraOffset += move * cameraSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            if (keyboardState.IsKeyDown(Keys.Escape) && currentState == GameState.Playing)
+            if (escapePressed && currentState == GameState.Playing)
             {
                 // Sauvegarde la partie actuelle
                 hasSavedGame = true;
@@ -513,7 +520,7 @@ namespace XCOM_3 // Nom du projet
                 currentState = GameState.MainMenu;
             }
 
-            if (keyboardState.IsKeyDown(Keys.Escape) && currentState == GameState.OptionsMenu)
+            if (escapePressed && currentState == GameState.OptionsMenu)
             {
                 // Retour au menu principal
                 currentState = GameState.MainMenu;
@@ -524,6 +531,7 @@ namespace XCOM_3 // Nom du projet
                 UpdateFiringAnimations(gameTime);
             }
 
+            previousKeyboardState = keyboardState;
 
             base.Update(gameTime); // Appel du moteur MonoGame
         }
