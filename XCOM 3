@@ -357,7 +357,6 @@ namespace XCOM_3
                     10,
                     volumeBar.Height + 8);
             }
-            previousMouseState = mouse;
             KeyboardState keyboardState = Keyboard.GetState();
             bool escapePressed =
                 keyboardState.IsKeyDown(Keys.Escape) &&
@@ -369,6 +368,11 @@ namespace XCOM_3
             if (keyboardState.IsKeyDown(Keys.D)) move.X += 1;
             if (move != Vector2.Zero) move.Normalize();
             cameraOffset += move * cameraSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds;
+            if (mouse.MiddleButton == ButtonState.Pressed)
+            {
+                Vector2 mouseDelta = new Vector2(mouse.X - previousMouseState.X, mouse.Y - previousMouseState.Y);
+                cameraOffset -= mouseDelta / zoom;
+            }
             if (escapePressed && currentState == GameState.Playing)
             {
                 hasSavedGame = true;
@@ -389,6 +393,7 @@ namespace XCOM_3
             {
                 UpdateFiringAnimations(gameTime);
             }
+            previousMouseState = mouse;
             previousKeyboardState = keyboardState;
             base.Update(gameTime);
         }
