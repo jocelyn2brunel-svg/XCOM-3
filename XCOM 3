@@ -16,7 +16,7 @@ namespace XCOM_3
         //private List<Song> menuSongs;
         private Song currentSong;
         private Random random = new Random();
-        enum GameState 
+        enum GameState
         {
             MainMenu,
             Playing,
@@ -68,6 +68,8 @@ namespace XCOM_3
         private Point arrowFromCell;
         private Point arrowToCell;
         private float previousScroll = 0f;
+        private Texture2D tileTexture;
+
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
@@ -98,6 +100,7 @@ namespace XCOM_3
             //currentSong = menuSongs[random.Next(menuSongs.Count)];
             //MediaPlayer.Play(currentSong);
             //MediaPlayer.Volume = 0.5f;
+            tileTexture = Content.Load<Texture2D>("TileParchment32x32");
             pixel = new Texture2D(GraphicsDevice, 1, 1);
             pixel.SetData(new[] { Color.White });
             optionsButtons = new List<Button>
@@ -246,7 +249,7 @@ namespace XCOM_3
                                     }
                                     else
                                     {
-                                        cachedMovableCells.Clear(); 
+                                        cachedMovableCells.Clear();
                                     }
                                 }
                             }
@@ -298,7 +301,7 @@ namespace XCOM_3
                     zoom = MathHelper.Clamp(zoom, minZoom, maxZoom);
                 }
             }
-                if (currentState == GameState.OptionsMenu)
+            if (currentState == GameState.OptionsMenu)
             {
                 foreach (var button in optionsButtons)
                 {
@@ -392,9 +395,9 @@ namespace XCOM_3
             GraphicsDevice.Clear(Color.Black);
             Matrix transform =
                 Matrix.CreateTranslation(new Vector3(-cameraOffset, 0)) *
-                Matrix.CreateScale(zoom, zoom, 1) *                     
+                Matrix.CreateScale(zoom, zoom, 1) *
                 Matrix.CreateTranslation(new Vector3(GraphicsDevice.Viewport.Width / 2,
-                                                    GraphicsDevice.Viewport.Height / 2, 0));         
+                                                    GraphicsDevice.Viewport.Height / 2, 0));
             if (currentState == GameState.Playing)
             {
                 _spriteBatch.Begin(transformMatrix: transform);
@@ -446,7 +449,7 @@ namespace XCOM_3
                     }
                 }
                 _spriteBatch.End();
-            }        
+            }
             _spriteBatch.Begin();
             if (currentState == GameState.MainMenu)
             {
@@ -529,27 +532,36 @@ namespace XCOM_3
         }
         private void DrawGrid()
         {
+            for (int x = 0; x < gridWidth; x++)
+            {
+                for (int y = 0; y < gridHeight; y++)
+                {
+                    Rectangle rect = new Rectangle(x * cellSize, y * cellSize, cellSize, cellSize);
+                    _spriteBatch.Draw(tileTexture, rect, Color.White);
+                }
+            }
+
             Color gridColor = new Color(255, 255, 255, 80);
             for (int x = 0; x <= gridWidth; x++)
             {
                 _spriteBatch.Draw(
                     pixel,
                     new Rectangle(
-                        x * cellSize,           
-                        0,                    
-                        1,                     
+                        x * cellSize,
+                        0,
+                        1,
                         gridHeight * cellSize),
                     gridColor);
             }
             for (int y = 0; y <= gridHeight; y++)
             {
                 _spriteBatch.Draw(
-                    pixel, 
+                    pixel,
                     new Rectangle(
-                        0,                   
-                        y * cellSize,        
-                        gridWidth * cellSize, 
-                        1),                 
+                        0,
+                        y * cellSize,
+                        gridWidth * cellSize,
+                        1),
                     gridColor);
             }
         }
@@ -595,21 +607,21 @@ namespace XCOM_3
                 return;
             Rectangle cellRect = new Rectangle(
                 hoveredCell.X * cellSize,
-                hoveredCell.Y * cellSize, 
-                cellSize,                
-                cellSize);             
+                hoveredCell.Y * cellSize,
+                cellSize,
+                cellSize);
             Color highlightColor = new Color(255, 255, 0, 80);
             _spriteBatch.Draw(pixel, cellRect, highlightColor);
         }
         private void CreateUnits()
         {
-            playerUnits.Clear(); 
-            enemyUnits.Clear(); 
+            playerUnits.Clear();
+            enemyUnits.Clear();
             for (int i = 0; i < 6; i++)
             {
                 playerUnits.Add(
                     new Unit(
-                        new Point(2 + i, gridHeight - 2), 
+                        new Point(2 + i, gridHeight - 2),
                         Team.Player,
                         "Soldier " + (i + 1),
                         "Assault",
@@ -624,15 +636,15 @@ namespace XCOM_3
                     enemyPool[random.Next(enemyPool.Count)];
                 enemyUnits.Add(
                     new Unit(
-                        new Point(2 + i, 1), 
+                        new Point(2 + i, 1),
                         Team.Enemy,
-                        template.Name, 
-                        template.Class, 
+                        template.Name,
+                        template.Class,
                         template.Weapon,
                         weaponDatabase[template.Weapon]
                     )
                     {
-                        ActionPoints = template.ActionPoints 
+                        ActionPoints = template.ActionPoints
                     }
                 );
             }
@@ -640,23 +652,23 @@ namespace XCOM_3
         }
         private void DrawUnits()
         {
-            foreach (var unit in playerUnits) 
-                DrawUnit(unit); 
-            foreach (var unit in enemyUnits) 
-                DrawUnit(unit); 
+            foreach (var unit in playerUnits)
+                DrawUnit(unit);
+            foreach (var unit in enemyUnits)
+                DrawUnit(unit);
         }
-        private void DrawUnit(Unit unit) 
+        private void DrawUnit(Unit unit)
         {
             Rectangle rect = new Rectangle(
                 unit.Cell.X * cellSize + 4,
                 unit.Cell.Y * cellSize + 4,
                 cellSize - 8,
-                cellSize - 8 
+                cellSize - 8
             );
-            Color color = (unit.Team == Team.Player) 
+            Color color = (unit.Team == Team.Player)
                 ? Color.Blue
-                : Color.Red; 
-            _spriteBatch.Draw(pixel, rect, color); 
+                : Color.Red;
+            _spriteBatch.Draw(pixel, rect, color);
             if (unit.IsFiring && unit.FireTarget.HasValue)
             {
                 Point target = unit.FireTarget.Value;
@@ -666,45 +678,45 @@ namespace XCOM_3
                 Rectangle proj = new Rectangle((int)pos.X - 4, (int)pos.Y - 4, 8, 8);
                 _spriteBatch.Draw(pixel, proj, Color.Yellow);
             }
-            if (unit == selectedUnit) 
+            if (unit == selectedUnit)
             {
                 Rectangle outline = new Rectangle(
-                    unit.Cell.X * cellSize, 
-                    unit.Cell.Y * cellSize, 
-                    cellSize, 
-                    cellSize 
+                    unit.Cell.X * cellSize,
+                    unit.Cell.Y * cellSize,
+                    cellSize,
+                    cellSize
                 );
-                _spriteBatch.Draw(pixel, outline, new Color(0, 255, 255, 80)); 
+                _spriteBatch.Draw(pixel, outline, new Color(0, 255, 255, 80));
             }
         }
         private IEnumerable<Unit> AllUnits()
         {
-            foreach (var u in playerUnits) yield return u; 
-            foreach (var u in enemyUnits) yield return u; 
+            foreach (var u in playerUnits) yield return u;
+            foreach (var u in enemyUnits) yield return u;
         }
         private Unit GetUnitAtCell(Point cell)
         {
-            foreach (var unit in AllUnits()) 
-                if (unit.Cell == cell) 
-                    return unit; 
-            return null; 
+            foreach (var unit in AllUnits())
+                if (unit.Cell == cell)
+                    return unit;
+            return null;
         }
-        private void DrawUnitInfoPanel() 
+        private void DrawUnitInfoPanel()
         {
-            if (selectedUnit == null) 
+            if (selectedUnit == null)
                 return;
             int margin = 10;
-            int panelWidth = 300; 
+            int panelWidth = 300;
             int panelHeight = 140;
-            int panelX = margin; 
+            int panelX = margin;
             int panelY = GraphicsDevice.Viewport.Height - panelHeight - margin;
             Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
-            _spriteBatch.Draw(pixel, panel, new Color(0, 0, 0, 180)); 
-            Vector2 textPos = new Vector2(panelX + 10, panelY + 10); 
-            _spriteBatch.DrawString(font, "Name: " + selectedUnit.Name, textPos, Color.White); 
-            _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White); 
-            _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White); 
-            _spriteBatch.DrawString(font, "AP: " + selectedUnit.ActionPoints, textPos + new Vector2(0, 60), Color.White); 
+            _spriteBatch.Draw(pixel, panel, new Color(0, 0, 0, 180));
+            Vector2 textPos = new Vector2(panelX + 10, panelY + 10);
+            _spriteBatch.DrawString(font, "Name: " + selectedUnit.Name, textPos, Color.White);
+            _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White);
+            _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White);
+            _spriteBatch.DrawString(font, "AP: " + selectedUnit.ActionPoints, textPos + new Vector2(0, 60), Color.White);
             _spriteBatch.DrawString(font, "HP: " + selectedUnit.Health + " / " + selectedUnit.MaxHealth, textPos + new Vector2(0, 80), Color.White);
             int buttonWidth = 100;
             int buttonHeight = 36;
@@ -723,7 +735,7 @@ namespace XCOM_3
                 ? Color.Orange
                 : Color.DarkOrange;
             _spriteBatch.Draw(pixel, fireButton, btnColor);
-            Vector2 textSize = font.MeasureString("TIRER"); 
+            Vector2 textSize = font.MeasureString("TIRER");
             _spriteBatch.DrawString(
                 font,
                 "TIRER",
@@ -736,30 +748,30 @@ namespace XCOM_3
         }
         private List<Point> GetMovableCells(Unit unit)
         {
-            List<Point> cells = new List<Point>(); 
-            if (unit == null) 
+            List<Point> cells = new List<Point>();
+            if (unit == null)
                 return cells;
-            int range = unit.MovementPoints; 
-            if (unit.MovementPoints <= 0) 
+            int range = unit.MovementPoints;
+            if (unit.MovementPoints <= 0)
                 return cells;
-            for (int dx = -range; dx <= range; dx++) 
+            for (int dx = -range; dx <= range; dx++)
             {
                 for (int dy = -range; dy <= range; dy++)
                 {
-                    int distance = Math.Abs(dx) + Math.Abs(dy); 
-                    if (distance == 0 || distance > range) 
+                    int distance = Math.Abs(dx) + Math.Abs(dy);
+                    if (distance == 0 || distance > range)
                         continue;
-                    int x = unit.Cell.X + dx; 
+                    int x = unit.Cell.X + dx;
                     int y = unit.Cell.Y + dy;
-                    if (x < 0 || x >= gridWidth || 
+                    if (x < 0 || x >= gridWidth ||
                         y < 0 || y >= gridHeight)
                         continue;
-                    if (GetUnitAtCell(new Point(x, y)) != null) 
+                    if (GetUnitAtCell(new Point(x, y)) != null)
                         continue;
-                    cells.Add(new Point(x, y)); 
+                    cells.Add(new Point(x, y));
                 }
             }
-            return cells; 
+            return cells;
         }
         private void HandleFire(Unit shooter)
         {
@@ -770,18 +782,18 @@ namespace XCOM_3
                 int distance =
                     Math.Abs(target.Cell.X - shooter.Cell.X) +
                     Math.Abs(target.Cell.Y - shooter.Cell.Y);
-                if (distance <= shooter.WeaponData.Range) 
+                if (distance <= shooter.WeaponData.Range)
                 {
                     shooter.IsFiring = true;
                     shooter.FireTarget = target.Cell;
                     shooter.FireProgress = 0f;
                     int roll = random.Next(100);
                     int effectiveAccuracy = shooter.WeaponData.Accuracy - distance * 5;
-                    effectiveAccuracy = Math.Max(effectiveAccuracy, 10);                 
-                    shooter.WillHit = roll < effectiveAccuracy;               
-                    shooter.PendingTarget = target; 
-                    shooter.ActionPoints -= 1; 
-                    return; 
+                    effectiveAccuracy = Math.Max(effectiveAccuracy, 10);
+                    shooter.WillHit = roll < effectiveAccuracy;
+                    shooter.PendingTarget = target;
+                    shooter.ActionPoints -= 1;
+                    return;
                 }
             }
             Console.WriteLine("Aucune cible à portée");
@@ -790,7 +802,6 @@ namespace XCOM_3
         {
             foreach (var unit in playerUnits)
                 unit.ActionPoints = 3;
-
             selectedUnit = null;
             cachedMovableCells.Clear();
             currentTurn = TurnState.PlayerTurn;
@@ -812,6 +823,7 @@ namespace XCOM_3
                 return;
             }
             Unit enemy = enemyUnits[enemyTurnIndex];
+
             if (enemy.ActionPoints <= 0)
             {
                 enemyTurnIndex++;
@@ -834,26 +846,35 @@ namespace XCOM_3
                 enemyTurnIndex++;
                 return;
             }
+            bool actionTaken = false;
             if (bestDist <= enemy.WeaponData.Range)
             {
                 HandleFire(enemy);
                 isActionInProgress = true;
-                enemy.ActionPoints--;
-                return;
+                actionTaken = true;
             }
-            Point dir = new Point(
-                Math.Sign(closest.Cell.X - enemy.Cell.X),
-                Math.Sign(closest.Cell.Y - enemy.Cell.Y)
-            );
-            Point next = new Point(enemy.Cell.X + dir.X, enemy.Cell.Y + dir.Y);
-            if (GetUnitAtCell(next) == null &&
-                next.X >= 0 && next.X < gridWidth &&
-                next.Y >= 0 && next.Y < gridHeight)
+            else
             {
-                enemy.Cell = next;
-                enemy.ActionPoints--;
+                Point dir = new Point(
+                    Math.Sign(closest.Cell.X - enemy.Cell.X),
+                    Math.Sign(closest.Cell.Y - enemy.Cell.Y)
+                );
+                Point next = new Point(enemy.Cell.X + dir.X, enemy.Cell.Y + dir.Y);
+                if (GetUnitAtCell(next) == null &&
+                    next.X >= 0 && next.X < gridWidth &&
+                    next.Y >= 0 && next.Y < gridHeight)
+                {
+                    enemy.Cell = next;
+                    enemy.ActionPoints--;
+                    actionTaken = true;
+                }
+                else
+                {
+                    enemy.ActionPoints = 0;
+                    actionTaken = true;
+                }
             }
-            if (enemy.ActionPoints <= 0)
+            if (!actionTaken || enemy.ActionPoints <= 0)
             {
                 enemyTurnIndex++;
             }
@@ -926,7 +947,7 @@ namespace XCOM_3
                     }
                     unit.FireTarget = null;
                     isActionInProgress = false;
-                    return; 
+                    return;
                 }
             }
         }
@@ -951,8 +972,8 @@ namespace XCOM_3
     }
     public class Button
     {
-        public string Text;  
-        public Vector2 Position;     
+        public string Text;
+        public Vector2 Position;
         private Rectangle bounds;
         public bool IsEnabled = true;
         public Button(string text, Vector2 position)
@@ -976,11 +997,11 @@ namespace XCOM_3
             }
             else
             {
-                color = bounds.Contains(mouse.Position) 
+                color = bounds.Contains(mouse.Position)
                     ? Color.Yellow
                     : Color.White;
             }
-            spriteBatch.DrawString(font, Text, Position, color); 
+            spriteBatch.DrawString(font, Text, Position, color);
         }
         public bool IsClicked(MouseState current, MouseState previous)
         {
@@ -1010,8 +1031,8 @@ namespace XCOM_3
         public int MaxHealth = 100;
         public bool IsFiring = false;
         public Point? FireTarget = null;
-        public float FireProgress = 0f; 
-        public bool WillHit = false;  
+        public float FireProgress = 0f;
+        public bool WillHit = false;
         public Unit PendingTarget = null;
         public Unit(Point cell, Team team, string name, string unitClass, string weapon, WeaponData weaponData)
         {
@@ -1037,15 +1058,15 @@ namespace XCOM_3
     }
     public class EnemyTemplate
     {
-        public string Name; 
-        public string Class;     
-        public string Weapon;    
-        public int ActionPoints;    
+        public string Name;
+        public string Class;
+        public string Weapon;
+        public int ActionPoints;
         public EnemyTemplate(string name, string unitClass, string weapon, int ap)
         {
-            Name = name;    
-            Class = unitClass;         
-            Weapon = weapon;          
+            Name = name;
+            Class = unitClass;
+            Weapon = weapon;
             ActionPoints = ap;
         }
     }
