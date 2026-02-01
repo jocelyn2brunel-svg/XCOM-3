@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 namespace XCOM_3
 {
     public class Game1 : Game
@@ -69,6 +70,7 @@ namespace XCOM_3
         private Point arrowToCell;
         private float previousScroll = 0f;
         private Texture2D tileTexture;
+        private HashSet<Point> obstacles = new HashSet<Point>();
 
         public Game1()
         {
@@ -151,7 +153,7 @@ namespace XCOM_3
                                     Console.WriteLine("No saved game to continue!");
                                 }
                                 break;
-                            case "Encylopedia":
+                            case "Encyclopedia":
                                 Console.WriteLine("Opening encyclopedia...");
                                 break;
                             case "Options":
@@ -528,6 +530,7 @@ namespace XCOM_3
             gridWidth = 20;
             gridHeight = 15;
             cellSize = 32;
+            GenerateObstacles(30); // ← nombre d’obstacles
             Console.WriteLine("Map loaded");
         }
         private void DrawGrid()
@@ -540,7 +543,16 @@ namespace XCOM_3
                     _spriteBatch.Draw(tileTexture, rect, Color.White);
                 }
             }
-
+            foreach (var cell in obstacles)
+            {
+                Rectangle rect = new Rectangle(
+                    cell.X * cellSize,
+                    cell.Y * cellSize,
+                    cellSize,
+                    cellSize
+                );
+                _spriteBatch.Draw(pixel, rect, Color.DarkSlateGray);
+            }
             Color gridColor = new Color(255, 255, 255, 80);
             for (int x = 0; x <= gridWidth; x++)
             {
@@ -768,6 +780,8 @@ namespace XCOM_3
                         continue;
                     if (GetUnitAtCell(new Point(x, y)) != null)
                         continue;
+                    if (obstacles.Contains(new Point(x, y)))
+                        continue;
                     cells.Add(new Point(x, y));
                 }
             }
@@ -775,6 +789,8 @@ namespace XCOM_3
         }
         private void HandleFire(Unit shooter)
         {
+            if (shooter.ActionPoints <= 0)
+                return;
             foreach (var target in AllUnits())
             {
                 if (target.Team == shooter.Team)
@@ -782,21 +798,23 @@ namespace XCOM_3
                 int distance =
                     Math.Abs(target.Cell.X - shooter.Cell.X) +
                     Math.Abs(target.Cell.Y - shooter.Cell.Y);
-                if (distance <= shooter.WeaponData.Range)
-                {
-                    shooter.IsFiring = true;
-                    shooter.FireTarget = target.Cell;
-                    shooter.FireProgress = 0f;
-                    int roll = random.Next(100);
-                    int effectiveAccuracy = shooter.WeaponData.Accuracy - distance * 5;
-                    effectiveAccuracy = Math.Max(effectiveAccuracy, 10);
-                    shooter.WillHit = roll < effectiveAccuracy;
-                    shooter.PendingTarget = target;
-                    shooter.ActionPoints -= 1;
-                    return;
-                }
+                if (distance > shooter.WeaponData.Range)
+                    continue;
+                if (!HasLineOfSight(shooter.Cell, target.Cell))
+                    continue;
+                shooter.IsFiring = true;
+                shooter.FireTarget = target.Cell;
+                shooter.FireProgress = 0f;
+                int roll = random.Next(100);
+                int effectiveAccuracy =
+                    shooter.WeaponData.Accuracy - distance * 5;
+                effectiveAccuracy = Math.Max(effectiveAccuracy, 10);
+                shooter.WillHit = roll < effectiveAccuracy;
+                shooter.PendingTarget = target;
+                shooter.ActionPoints -= 1;
+                return;
             }
-            Console.WriteLine("Aucune cible à portée");
+            Console.WriteLine("Aucune cible valide (portée + LOS)");
         }
         private void StartPlayerTurn()
         {
@@ -815,15 +833,14 @@ namespace XCOM_3
         }
         private void UpdateEnemyTurn()
         {
-            if (isActionInProgress)
-                return;
             if (enemyTurnIndex >= enemyUnits.Count)
             {
                 StartPlayerTurn();
                 return;
             }
             Unit enemy = enemyUnits[enemyTurnIndex];
-
+            if (enemy.IsFiring)
+                return;
             if (enemy.ActionPoints <= 0)
             {
                 enemyTurnIndex++;
@@ -846,73 +863,78 @@ namespace XCOM_3
                 enemyTurnIndex++;
                 return;
             }
-            bool actionTaken = false;
-            if (bestDist <= enemy.WeaponData.Range)
+            if (bestDist <= enemy.WeaponData.Range && HasLineOfSight(enemy.Cell, closest.Cell))
             {
-                HandleFire(enemy);
-                isActionInProgress = true;
-                actionTaken = true;
+                HandleFire(enemy); // démarre le tir
+                return; // attend la fin du tir avant d'agir
+            }
+            Point dir = new Point(
+                Math.Sign(closest.Cell.X - enemy.Cell.X),
+                Math.Sign(closest.Cell.Y - enemy.Cell.Y)
+            );
+            Point next = new Point(enemy.Cell.X + dir.X, enemy.Cell.Y + dir.Y);
+            if (GetUnitAtCell(next) == null && !obstacles.Contains(next) &&
+                next.X >= 0 && next.X < gridWidth &&
+                next.Y >= 0 && next.Y < gridHeight)
+            {
+                enemy.Cell = next;
+                enemy.ActionPoints--;
             }
             else
             {
-                Point dir = new Point(
-                    Math.Sign(closest.Cell.X - enemy.Cell.X),
-                    Math.Sign(closest.Cell.Y - enemy.Cell.Y)
-                );
-                Point next = new Point(enemy.Cell.X + dir.X, enemy.Cell.Y + dir.Y);
-                if (GetUnitAtCell(next) == null &&
-                    next.X >= 0 && next.X < gridWidth &&
-                    next.Y >= 0 && next.Y < gridHeight)
-                {
-                    enemy.Cell = next;
-                    enemy.ActionPoints--;
-                    actionTaken = true;
-                }
-                else
-                {
-                    enemy.ActionPoints = 0;
-                    actionTaken = true;
-                }
+                enemy.ActionPoints = 0; // bloqué, consomme les AP
             }
-            if (!actionTaken || enemy.ActionPoints <= 0)
+            if (enemy.ActionPoints <= 0)
             {
                 enemyTurnIndex++;
             }
         }
         private void EnterTargetingMode(Unit shooter)
         {
-            isTargeting = true;
             validFireTargets.Clear();
-
             foreach (var target in AllUnits())
             {
                 if (target.Team == shooter.Team)
                     continue;
-                int distance =
-                    Math.Abs(target.Cell.X - shooter.Cell.X) +
-                    Math.Abs(target.Cell.Y - shooter.Cell.Y);
-                if (distance <= shooter.WeaponData.Range)
+                int distance = Math.Abs(target.Cell.X - shooter.Cell.X) + Math.Abs(target.Cell.Y - shooter.Cell.Y);
+                if (distance <= shooter.WeaponData.Range && HasLineOfSight(shooter.Cell, target.Cell))
+                {
                     validFireTargets.Add(target);
+                }
             }
-
+            if (validFireTargets.Count == 0)
+            {
+                Console.WriteLine("Aucune cible visible");
+                isTargeting = false;
+                return;
+            }
+            isTargeting = true;
             Console.WriteLine("Mode ciblage activé");
         }
         private void FireAtTarget(Unit shooter, Unit target)
         {
+            if (shooter.ActionPoints <= 0)
+                return;
+            if (!HasLineOfSight(shooter.Cell, target.Cell))
+                return;
+            int distance =
+                Math.Abs(target.Cell.X - shooter.Cell.X) +
+                Math.Abs(target.Cell.Y - shooter.Cell.Y);
+            if (distance > shooter.WeaponData.Range)
+                return;
             isActionInProgress = true;
             shooter.IsFiring = true;
             shooter.FireTarget = target.Cell;
             shooter.FireProgress = 0f;
-            int distance =
-                Math.Abs(target.Cell.X - shooter.Cell.X) +
-                Math.Abs(target.Cell.Y - shooter.Cell.Y);
             int roll = random.Next(100);
-            int effectiveAccuracy = shooter.WeaponData.Accuracy - distance * 5;
+            int effectiveAccuracy =
+                shooter.WeaponData.Accuracy - distance * 5;
             effectiveAccuracy = Math.Max(effectiveAccuracy, 10);
             shooter.WillHit = roll < effectiveAccuracy;
             shooter.PendingTarget = target;
             shooter.ActionPoints -= 1;
         }
+
         private void UpdateFiringAnimations(GameTime gameTime)
         {
             float fireSpeed = 3f;
@@ -950,6 +972,63 @@ namespace XCOM_3
                     return;
                 }
             }
+        }
+        private void GenerateObstacles(int count)
+        {
+            obstacles.Clear();
+            int clusters = count / 3;
+            for (int i = 0; i < clusters; i++)
+            {
+                int cx = random.Next(2, gridWidth - 2);
+                int cy = random.Next(2, gridHeight - 2);
+                for (int j = 0; j < 3; j++)
+                {
+                    int x = cx + random.Next(-1, 2);
+                    int y = cy + random.Next(-1, 2);
+                    Point p = new Point(x, y);
+                    bool spawnZone =
+                        y >= gridHeight - 2 ||
+                        y <= 1;
+                    if (spawnZone)
+                        continue;
+                    if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight)
+                        obstacles.Add(p);
+                }
+            }
+        }
+        private bool HasLineOfSight(Point from, Point to)
+        {
+            int x0 = from.X;
+            int y0 = from.Y;
+            int x1 = to.X;
+            int y1 = to.Y;
+            int dx = Math.Abs(x1 - x0);
+            int dy = Math.Abs(y1 - y0);
+            int sx = x0 < x1 ? 1 : -1;
+            int sy = y0 < y1 ? 1 : -1;
+            int err = dx - dy;
+            while (true)
+            {
+                if (!(x0 == from.X && y0 == from.Y))
+                {
+                    if (obstacles.Contains(new Point(x0, y0)))
+                        return false;
+                }
+                if (x0 == x1 && y0 == y1)
+                    break;
+                int e2 = 2 * err;
+                if (e2 > -dy)
+                {
+                    err -= dy;
+                    x0 += sx;
+                }
+                if (e2 < dx)
+                {
+                    err += dx;
+                    y0 += sy;
+                }
+            }
+            return true;
         }
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
         {
