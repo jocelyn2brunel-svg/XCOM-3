@@ -74,8 +74,8 @@ namespace XCOM_3 // Nom du projet
         private List<Unit> savedEnemyUnits;
         private Rectangle fireButton;
         private bool fireButtonHovered = false;
-
         private Dictionary<string, WeaponData> weaponDatabase;
+
 
         enum TurnState
         {
@@ -93,6 +93,9 @@ namespace XCOM_3 // Nom du projet
         private Vector2 cameraOffset = Vector2.Zero; // décalage de la caméra en pixels
         private float cameraSpeed = 200f; // vitesse en pixels/seconde
         KeyboardState previousKeyboardState;
+        private bool showMoveArrow = false;
+        private Point arrowFromCell;
+        private Point arrowToCell;
 
 
         public Game1()
@@ -261,6 +264,19 @@ namespace XCOM_3 // Nom du projet
                 {
                     hoveredCell = new Point(-1, -1);
                 }
+
+                showMoveArrow = false;
+
+                if (selectedUnit != null &&
+                    selectedUnit.ActionPoints > 0 &&
+                    hoveredCell.X != -1 &&
+                    cachedMovableCells.Contains(hoveredCell))
+                {
+                    arrowFromCell = selectedUnit.Cell;
+                    arrowToCell = hoveredCell;
+                    showMoveArrow = true;
+                }
+
 
                 if (isTargeting && leftClick)
                 {
@@ -595,7 +611,7 @@ namespace XCOM_3 // Nom du projet
                 DrawHoveredCell();
 
                 // Si une unité est sélectionnée ET qu'elle a au moins 1 AP
-                if (selectedUnit != null && selectedUnit.ActionPoints > 0)
+                if (selectedUnit != null && selectedUnit.ActionPoints > 0 && currentTurn == TurnState.PlayerTurn)
                     // Je dessine les cases où elle peut se déplacer
                     foreach (var cell in cachedMovableCells)
                     {
@@ -609,6 +625,28 @@ namespace XCOM_3 // Nom du projet
                         // Je dessine une surbrillance verte semi-transparente
                         _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));
                     }
+                if (showMoveArrow)
+                {
+                    Vector2 fromWorld = new Vector2(
+                        arrowFromCell.X * cellSize + cellSize / 2,
+                        arrowFromCell.Y * cellSize + cellSize / 2
+                    ) - cameraOffset;
+
+                    Vector2 toWorld = new Vector2(
+                        arrowToCell.X * cellSize + cellSize / 2,
+                        arrowToCell.Y * cellSize + cellSize / 2
+                    ) - cameraOffset;
+
+
+                    // 👉 ANIMATION PULSE (ICI EXACTEMENT)
+                    float pulse =
+                        (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.2f;
+
+                    Color arrowColor = Color.CornflowerBlue * (0.7f + pulse * 0.3f);
+
+                    DrawArrow(_spriteBatch, fromWorld, toWorld, arrowColor);
+                }
+
                 // ===== Portée de tir =====
                 // Si tu sélectionnes une unité, qu'il lui reste des points d'actions et que tu survoles le bouton "Tirer" :
                 if (selectedUnit != null && selectedUnit.ActionPoints > 0 && fireButtonHovered)
@@ -756,6 +794,52 @@ namespace XCOM_3 // Nom du projet
                     gridColor);
             }
         }
+
+        private void DrawLine(SpriteBatch sb, Vector2 start, Vector2 end, Color color, float thickness)
+        {
+            Vector2 delta = end - start;
+            float length = delta.Length();
+            float rotation = (float)Math.Atan2(delta.Y, delta.X);
+
+            sb.Draw(
+                pixel,
+                start,
+                null,
+                color,
+                rotation,
+                Vector2.Zero,
+                new Vector2(length, thickness),
+                SpriteEffects.None,
+                0f
+            );
+        }
+
+        private void DrawArrow(SpriteBatch sb, Vector2 from, Vector2 to, Color color)
+        {
+            float thickness = 3f;
+            float headLength = 12f;
+            float headAngle = MathHelper.ToRadians(30f);
+
+            // Ligne principale
+            DrawLine(sb, from, to, color, thickness);
+
+            Vector2 dir = Vector2.Normalize(from - to);
+            float angle = (float)Math.Atan2(dir.Y, dir.X);
+
+            Vector2 left = to + new Vector2(
+                (float)Math.Cos(angle + headAngle),
+                (float)Math.Sin(angle + headAngle)
+            ) * headLength;
+
+            Vector2 right = to + new Vector2(
+                (float)Math.Cos(angle - headAngle),
+                (float)Math.Sin(angle - headAngle)
+            ) * headLength;
+
+            DrawLine(sb, to, left, color, thickness);
+            DrawLine(sb, to, right, color, thickness);
+        }
+
 
         // Cette méthode met en surbrillance la case que la souris survole
         private void DrawHoveredCell()
