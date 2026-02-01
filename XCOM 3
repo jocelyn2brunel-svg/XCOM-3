@@ -356,15 +356,23 @@ namespace XCOM_3 // Nom du projet
                 }
 
 
-
-                // Est-ce que le joueur vient JUSTE de cliquer avec le bouton droit ?
-                if (mouse.RightButton == ButtonState.Pressed && // Le bouton droit est appuyé maintenant
-                    previousMouseState.RightButton == ButtonState.Released) // …mais il était relâché juste avant
+                // Annuler la sélection avec clic droit
+                if (mouse.RightButton == ButtonState.Pressed &&
+                    previousMouseState.RightButton == ButtonState.Released)
                 {
-                    // Oui → le joueur veut annuler sa sélection
-                    // Je retire donc l’unité actuellement sélectionnée
+                    if (isTargeting)
+                    {
+                        // Annule le mode ciblage si actif
+                        isTargeting = false;
+                        validFireTargets.Clear();
+                    }
+
+                    // Puis annule la sélection si nécessaire
                     selectedUnit = null;
+                    cachedMovableCells.Clear();
+                    showMoveArrow = false;
                 }
+
                 // ===== Bouton TIRER =====
                 fireButtonHovered = false;
 
@@ -625,7 +633,7 @@ namespace XCOM_3 // Nom du projet
                         // Je dessine une surbrillance verte semi-transparente
                         _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));
                     }
-                if (showMoveArrow)
+                if (showMoveArrow && selectedUnit != null)
                 {
                     Vector2 fromWorld = new Vector2(
                         arrowFromCell.X * cellSize + cellSize / 2,
