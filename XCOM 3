@@ -1095,21 +1095,17 @@ namespace XCOM_3 // Nom du projet
         {
             if (isActionInProgress) // Si une animation est en cours, on ATTEND
                 return;
-
             if (enemyTurnIndex >= enemyUnits.Count) // Tous les ennemis ont joué → tour joueur
             {
                 StartPlayerTurn();
                 return;
             }
-
             Unit enemy = enemyUnits[enemyTurnIndex];
-
             if (enemy.ActionPoints <= 0) // Pas d’AP → suivant
             {
                 enemyTurnIndex++;
                 return;
             }
-
             // Trouver cible la plus proche
             Unit closest = null;
             int bestDist = int.MaxValue;
@@ -1123,30 +1119,25 @@ namespace XCOM_3 // Nom du projet
                     closest = player;
                 }
             }
-
             if (closest == null)
             {
                 // Pas de cible → passer à l’ennemi suivant
                 enemyTurnIndex++;
                 return;
             }
-
             if (bestDist <= enemy.WeaponData.Range)
             {
                 HandleFire(enemy);
                 isActionInProgress = true;
                 enemy.ActionPoints--;
-                enemyTurnIndex++; // ✅ on passe au suivant dès qu’on tire
                 return;
             }
-
             // Déplacement
             Point dir = new Point(
                 Math.Sign(closest.Cell.X - enemy.Cell.X),
                 Math.Sign(closest.Cell.Y - enemy.Cell.Y)
             );
             Point next = new Point(enemy.Cell.X + dir.X, enemy.Cell.Y + dir.Y);
-
             if (GetUnitAtCell(next) == null &&
                 next.X >= 0 && next.X < gridWidth &&
                 next.Y >= 0 && next.Y < gridHeight)
@@ -1154,9 +1145,10 @@ namespace XCOM_3 // Nom du projet
                 enemy.Cell = next;
                 enemy.ActionPoints--;
             }
-
-            // Toujours passer à l’ennemi suivant après action (tir ou déplacement)
-            enemyTurnIndex++;
+            if (enemy.ActionPoints <= 0)
+            {
+                enemyTurnIndex++;
+            }
         }
 
         private void EnterTargetingMode(Unit shooter)
