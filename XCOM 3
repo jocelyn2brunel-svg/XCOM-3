@@ -304,12 +304,18 @@ namespace XCOM_3 // Nom du projet
 
                     if (clickedUnit != null)
                     {
-                        // Oui → le joueur vient de cliquer sur une unité
-                        // Donc je la sélectionne
+                        // On sélectionne l'unité pour voir ses infos, mais on ne calcule les mouvements que pour le joueur
                         selectedUnit = clickedUnit;
 
-                        // Et je calcule où elle peut se déplacer
-                        cachedMovableCells = GetMovableCells(selectedUnit);
+                        if (selectedUnit.Team == Team.Player)
+                        {
+                            cachedMovableCells = GetMovableCells(selectedUnit);
+                        }
+                        else
+                        {
+                            cachedMovableCells.Clear(); // Ennemi sélectionné → pas de mouvement
+                            showMoveArrow = false;
+                        }
                     }
                     else if (selectedUnit != null)
                     {
@@ -357,21 +363,15 @@ namespace XCOM_3 // Nom du projet
 
 
                 // Annuler la sélection avec clic droit
-                if (mouse.RightButton == ButtonState.Pressed &&
-                    previousMouseState.RightButton == ButtonState.Released)
+                if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released)
                 {
-                    if (isTargeting)
-                    {
-                        // Annule le mode ciblage si actif
-                        isTargeting = false;
-                        validFireTargets.Clear();
-                    }
-
-                    // Puis annule la sélection si nécessaire
+                    isTargeting = false;
+                    validFireTargets.Clear();
                     selectedUnit = null;
                     cachedMovableCells.Clear();
                     showMoveArrow = false;
                 }
+
 
                 // ===== Bouton TIRER =====
                 fireButtonHovered = false;
@@ -620,20 +620,24 @@ namespace XCOM_3 // Nom du projet
 
                 // Si une unité est sélectionnée ET qu'elle a au moins 1 AP
                 if (selectedUnit != null && selectedUnit.ActionPoints > 0 && currentTurn == TurnState.PlayerTurn)
-                    // Je dessine les cases où elle peut se déplacer
-                    foreach (var cell in cachedMovableCells)
+                    // ⚠️ Ajouter la vérification que l'unité appartient au joueur
+                    if (selectedUnit.Team == Team.Player)
                     {
-                        // Je transforme la cellule (X,Y) en rectangle à l’écran
-                        Rectangle rect = new Rectangle(
-                            cell.X * cellSize - (int)cameraOffset.X,
-                            cell.Y * cellSize - (int)cameraOffset.Y,
-                            cellSize,
-                            cellSize);
+                        // Je dessine les cases où elle peut se déplacer
+                        foreach (var cell in cachedMovableCells)
+                        {
+                            // Je transforme la cellule (X,Y) en rectangle à l’écran
+                            Rectangle rect = new Rectangle(
+                                cell.X * cellSize - (int)cameraOffset.X,
+                                cell.Y * cellSize - (int)cameraOffset.Y,
+                                cellSize,
+                                cellSize);
 
-                        // Je dessine une surbrillance verte semi-transparente
-                        _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));
+                            // Je dessine une surbrillance verte semi-transparente
+                            _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));
+                        }
                     }
-                if (showMoveArrow && selectedUnit != null)
+                if (showMoveArrow && selectedUnit != null && selectedUnit.Team == Team.Player)
                 {
                     Vector2 fromWorld = new Vector2(
                         arrowFromCell.X * cellSize + cellSize / 2,
