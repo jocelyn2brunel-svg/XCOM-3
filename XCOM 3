@@ -1,161 +1,248 @@
+// Namespace principal de MonoGame/XNA contenant les types de base comme Vector2, Point, Color, Rectangle, GameTime, etc.
 using Microsoft.Xna.Framework;
+
+// Contient les classes pour dessiner à l’écran : SpriteBatch, Texture2D, SpriteFont, etc.
 using Microsoft.Xna.Framework.Graphics;
+
+// Contient les classes pour gérer l’entrée utilisateur : clavier, souris, manettes (Keyboard, Mouse, GamePad, MouseState, ButtonState…)
 using Microsoft.Xna.Framework.Input;
+
+// Contient les classes pour gérer la musique et les sons : MediaPlayer, Song, etc.
 using Microsoft.Xna.Framework.Media;
+
+// Namespace de base de .NET, nécessaire pour les types fondamentaux comme Console, Math, Random, etc.
 using System;
+
+// Contient les collections génériques : List<T>, Dictionary<TKey,TValue>, Queue<T>, Stack<T>, etc.
 using System.Collections.Generic;
+
+// Fournit des extensions LINQ (Language Integrated Query) pour manipuler facilement les collections : Where, Select, Any, Count, FirstOrDefault, etc.
 using System.Linq;
+
 namespace XCOM_3
 {
+    // Déclaration de la classe principale du jeu
+    // héritée de Game (classe de base de MonoGame)
     public class Game1 : Game
     {
-        private GraphicsDeviceManager _graphics;
-        private SpriteBatch _spriteBatch;
-        private SpriteFont font;
-        private List<Button> menuButtons;
-        private MouseState previousMouseState;
-        private List<Song> menuSongs;
-        private Song currentSong;
-        private Random random = new Random();
+        // --- Gestion graphique et rendu ---
+        private GraphicsDeviceManager _graphics; // gère les paramètres graphiques (résolution, plein écran, etc.)
+        private SpriteBatch _spriteBatch;        // permet de dessiner des textures et du texte
+        private SpriteFont font;                 // police pour dessiner du texte
+
+        // --- Menu principal ---
+        private List<Button> menuButtons;        // boutons du menu principal
+        private MouseState previousMouseState;   // pour détecter les clics et survols de la souris
+        private List<Song> menuSongs;            // liste des musiques du menu
+        private Song currentSong;                // musique actuellement jouée
+        private Random random = new Random();    // générateur de nombres aléatoires
+
+        // --- États du jeu ---
         enum GameState
         {
-            MainMenu,
-            Playing,
-            OptionsMenu
+            MainMenu,     // menu principal
+            Playing,      // partie en cours
+            OptionsMenu   // menu options
         }
-        private GameState currentState = GameState.MainMenu;
-        private Texture2D pixel;
-        private int cellSize = 32;
-        private int gridWidth = 20;
-        private int gridHeight = 15;
-        private Point hoveredCell = new Point(-1, -1);
-        private List<Button> optionsButtons;
-        private float musicVolume = 0.5f; // Valeur initiale du volume (0.0f à 1.0f)
-        private Rectangle volumeBar;
-        private Rectangle volumeFill;
-        private Rectangle volumeHandle;
-        private bool draggingVolume = false;
-        private List<Unit> playerUnits = new List<Unit>();
-        private List<Unit> enemyUnits = new List<Unit>();
-        private Unit selectedUnit = null;
-        private List<Point> cachedMovableCells = new();
-        private bool hasSavedGame = false;
-        private List<Unit> savedPlayerUnits;
-        private List<Unit> savedEnemyUnits;
-        private Rectangle fireButton;
-        private bool fireButtonHovered = false;
-        private Dictionary<string, WeaponData> weaponDatabase;
-        Vector2 cameraPosition = Vector2.Zero;
-        float zoom = 1f;
-        float minZoom = 0.5f;
-        float maxZoom = 3f;
-        enum TurnState
-        {
-            PlayerTurn,
-            EnemyTurn,
-            Busy // animations / transitions
-        }
-        private TurnState currentTurn = TurnState.PlayerTurn;
-        private Rectangle endTurnButton;
-        private bool endTurnHovered = false;
-        private List<Unit> validFireTargets = new();
-        private bool isActionInProgress = false;
-        private int enemyTurnIndex = 0;
-        private Vector2 cameraOffset = Vector2.Zero;
-        private float cameraSpeed = 200f;
-        KeyboardState previousKeyboardState;
-        private bool showMoveArrow = false;
-        private Point arrowFromCell;
-        private Point arrowToCell;
-        private float previousScroll = 0f;
-        private Texture2D tileTexture;
-        private Texture2D obstacleTexture;
-        private HashSet<Point> obstacles = new HashSet<Point>();
-        List<FireTargetUI> fireTargetsUI = new();
-        bool showFireTargets = false;
-        Unit selectedFireTarget = null;
-        private Unit hoveredFireTarget = null;
-        private List<Button> unitActionButtons = new List<Button>();
+        private GameState currentState = GameState.MainMenu; // état courant du jeu
+
+        // --- Textures utilitaires ---
+        private Texture2D pixel;                 // pixel blanc utilisé pour dessiner des formes simples (rectangles, lignes)
+        private Texture2D tileTexture;           // texture pour les cases de la grille
+        private Texture2D obstacleTexture;       // texture pour obstacles
+
+        // --- Grille ---
+        private int cellSize = 32;               // taille d'une case (en pixels)
+        private int gridWidth = 20;              // nombre de colonnes
+        private int gridHeight = 15;             // nombre de lignes
+        private Point hoveredCell = new Point(-1, -1); // cellule actuellement survolée par la souris
+        private HashSet<Point> obstacles = new HashSet<Point>(); // positions des obstacles
+
+        // --- Options / Volume ---
+        private List<Button> optionsButtons;     // boutons du menu Options
+        private float musicVolume = 0.5f;        // volume initial de la musique
+        private Rectangle volumeBar;             // barre de fond du volume
+        private Rectangle volumeFill;            // portion remplie représentant le volume actuel
+        private Rectangle volumeHandle;          // poignée de contrôle du volume
+        private bool draggingVolume = false;     // indique si l'utilisateur fait glisser la poignée
+
+        // --- Unités et combat ---
+        private List<Unit> playerUnits = new List<Unit>();   // unités du joueur
+        private List<Unit> enemyUnits = new List<Unit>();    // unités ennemies
+        private Unit selectedUnit = null;                    // unité actuellement sélectionnée
+        private List<Point> cachedMovableCells = new();      // cellules accessibles pour le déplacement de l'unité sélectionnée
+        private List<Unit> savedPlayerUnits;                // sauvegarde des unités joueur
+        private List<Unit> savedEnemyUnits;                 // sauvegarde des unités ennemies
+        private bool hasSavedGame = false;                  // si une partie sauvegardée existe
+
+        // --- Boutons et UI de combat ---
+        private Rectangle fireButton;                        // bouton "TIRER"
+        private bool fireButtonHovered = false;             // survol du bouton
+        private List<Unit> validFireTargets = new();        // cibles possibles pour le tir
+        private Unit selectedFireTarget = null;             // cible sélectionnée pour tirer
+        private Unit hoveredFireTarget = null;              // cible survolée pour indication
+
+        private List<Button> unitActionButtons = new List<Button>(); // boutons actions spécifiques (COUVERT, RECHARGER, etc.)
         private const int ActionButtonWidth = 100;
         private const int ActionButtonHeight = 36;
+
+        private bool showMoveArrow = false;                 // afficher la flèche de déplacement
+        private Point arrowFromCell;                        // case de départ de la flèche
+        private Point arrowToCell;                          // case d'arrivée de la flèche
+
+        private Dictionary<string, WeaponData> weaponDatabase; // base de données des armes
+
+        // --- Caméra / Zoom ---
+        Vector2 cameraPosition = Vector2.Zero;             // position de la caméra
+        private Vector2 cameraOffset = Vector2.Zero;       // décalage utilisé pour suivre la caméra
+        float zoom = 1f;                                   // zoom actuel
+        float minZoom = 0.5f;                              // zoom minimum
+        float maxZoom = 3f;                                // zoom maximum
+        private float cameraSpeed = 200f;                  // vitesse de déplacement caméra
+        private float previousScroll = 0f;                 // pour gérer le zoom via la molette de la souris
+
+        // --- Gestion des tours ---
+        enum TurnState
+        {
+            PlayerTurn,   // tour du joueur
+            EnemyTurn,    // tour de l'IA
+            Busy          // en animation ou action en cours
+        }
+        private TurnState currentTurn = TurnState.PlayerTurn; // état du tour actuel
+        private int enemyTurnIndex = 0;                       // index de l'ennemi courant lors du tour IA
+        private bool isActionInProgress = false;             // une action (tir, déplacement) est en cours
+
+        // --- Bouton Fin du tour ---
+        private Rectangle endTurnButton;
+        private bool endTurnHovered = false;                  // survol du bouton
+
+        // --- Interface Fire Targets ---
+        List<FireTargetUI> fireTargetsUI = new();            // UI pour représenter les cibles à portée
+        private bool showFireTargets = false;                // afficher les cibles possibles
+
+        // --- Entrées clavier ---
+        KeyboardState previousKeyboardState;                // pour détecter les touches pressées / relâchées
 
 
 
         public Game1()
         {
+            // Initialise le gestionnaire de la carte graphique et de l’écran (résolution, plein écran, etc.)
             _graphics = new GraphicsDeviceManager(this);
+
+            // Définit le dossier racine où se trouvent les contenus (textures, polices, sons…) à charger via Content.Load<T>()
             Content.RootDirectory = "Content";
+
+            // Rends le curseur de la souris visible dans la fenêtre du jeu
             IsMouseVisible = true;
+
+            // Permet à l’utilisateur de redimensionner la fenêtre du jeu
             Window.AllowUserResizing = true;
         }
+
+
         protected override void LoadContent()
         {
+            // Crée le SpriteBatch, qui permet de dessiner des textures, textes et formes à l'écran
             _spriteBatch = new SpriteBatch(GraphicsDevice);
+
+            // Charge la police de caractères "Arial" depuis le dossier Content
             font = Content.Load<SpriteFont>("Arial");
+
+            // Crée la liste des boutons du menu principal avec leur texte et position à l'écran
             menuButtons = new List<Button>
-            {
-                new Button("New Game", new Vector2(0, 100)),
-                new Button("Continue",       new Vector2(0, 128)),
-                new Button("Encyclopedia",    new Vector2(0, 156)),
-                new Button("Options",         new Vector2(0, 184)),
-                new Button("Quit",         new Vector2(0, 212))
-            };
-            menuSongs = new List<Song> // Crée la liste et charge les musiques
-            {
-                Content.Load<Song>("menu_music_1"),
-                Content.Load<Song>("menu_music_2"),
-                Content.Load<Song>("menu_music_3"),
-                Content.Load<Song>("menu_music_4")
-            }
-            ;
+    {
+        new Button("New Game", new Vector2(0, 100)),
+        new Button("Continue", new Vector2(0, 128)),
+        new Button("Encyclopedia", new Vector2(0, 156)),
+        new Button("Options", new Vector2(0, 184)),
+        new Button("Quit", new Vector2(0, 212))
+    };
+
+            // Crée et charge la liste de musiques pour le menu
+            menuSongs = new List<Song>
+    {
+        Content.Load<Song>("menu_music_1"),
+        Content.Load<Song>("menu_music_2"),
+        Content.Load<Song>("menu_music_3"),
+        Content.Load<Song>("menu_music_4")
+    };
+
+            // Sélectionne une musique aléatoire parmi la liste et la joue
             currentSong = menuSongs[random.Next(menuSongs.Count)];
             MediaPlayer.Play(currentSong);
+
+            // Définit le volume du MediaPlayer (50%)
             MediaPlayer.Volume = 0.5f;
+
+            // Charge les textures pour la grille et les obstacles
             tileTexture = Content.Load<Texture2D>("TileParchment32x32");
             obstacleTexture = Content.Load<Texture2D>("Crate32x32");
+
+            // Crée une texture 1x1 blanche, utile pour dessiner des rectangles et lignes simples
             pixel = new Texture2D(GraphicsDevice, 1, 1);
             pixel.SetData(new[] { Color.White });
+
+            // Crée les boutons de l'écran Options
             optionsButtons = new List<Button>
-            {
-                new Button("Music Volume +", new Vector2(0, 100)),
-                new Button("Music Volume -", new Vector2(0, 156)),
-                new Button("Back", new Vector2(0, 184))
-            };
+    {
+        new Button("Music Volume +", new Vector2(0, 100)),
+        new Button("Music Volume -", new Vector2(0, 156)),
+        new Button("Back", new Vector2(0, 184))
+    };
+
+            // Définition d'une barre de volume (rectangle à l'écran)
             int barWidth = 200;
             int barHeight = 8;
             volumeBar = new Rectangle(0, 134, barWidth, barHeight);
+
+            // Attache un événement pour mettre à jour les positions des icônes de cibles de tir si la fenêtre change de taille
             Window.ClientSizeChanged += (s, e) => UpdateFireTargetsUIPositions();
 
+            // Initialise la base de données d'armes (nom, dégâts, précision, portée)
             InitializeWeapons();
         }
+
+
+
         protected override void Update(GameTime gameTime)
         {
+            // --- 1. Lecture de l'état de la souris ---
             MouseState mouse = Mouse.GetState();
+
+            // Active ou désactive le bouton "Continue" selon s'il existe une partie sauvegardée
             menuButtons[1].IsEnabled = hasSavedGame;
+
+            // --- 2. GESTION DU MENU PRINCIPAL ---
             if (currentState == GameState.MainMenu)
             {
                 foreach (var button in menuButtons)
                 {
+                    // Détecte un clic sur le bouton
                     if (button.IsClicked(mouse, previousMouseState))
                     {
                         switch (button.Text)
                         {
                             case "New Game":
-                                MediaPlayer.Stop();
-                                currentState = GameState.Playing;
-                                LoadMap();
-                                CreateUnits();
+                                MediaPlayer.Stop(); // Arrête la musique du menu
+                                currentState = GameState.Playing; // Passe à l'état de jeu
+                                LoadMap(); // Charge une nouvelle carte
+                                CreateUnits(); // Crée les unités du joueur et de l'ennemi
                                 Console.WriteLine("New game launched !");
                                 break;
+
                             case "Continue":
                                 if (hasSavedGame)
                                 {
+                                    // Recharge les unités sauvegardées
                                     playerUnits = new List<Unit>();
                                     foreach (var u in savedPlayerUnits)
                                         playerUnits.Add(new Unit(u));
+
                                     enemyUnits = new List<Unit>();
                                     foreach (var u in savedEnemyUnits)
                                         enemyUnits.Add(new Unit(u));
+
                                     currentState = GameState.Playing;
                                     Console.WriteLine("Game continued!");
                                 }
@@ -164,46 +251,53 @@ namespace XCOM_3
                                     Console.WriteLine("No saved game to continue!");
                                 }
                                 break;
+
                             case "Encyclopedia":
                                 Console.WriteLine("Opening encyclopedia...");
                                 break;
+
                             case "Options":
                                 currentState = GameState.OptionsMenu;
                                 Console.WriteLine("Options");
                                 break;
+
                             case "Quit":
-                                Exit();
+                                Exit(); // Quitte le jeu
                                 break;
                         }
                     }
                 }
             }
 
+            // --- 3. Détection du clic gauche ---
             bool leftClick =
                 mouse.LeftButton == ButtonState.Pressed &&
                 previousMouseState.LeftButton == ButtonState.Released;
 
+            // --- 4. GESTION DU TOUR DU JOUEUR ---
             if (currentState == GameState.Playing && currentTurn == TurnState.PlayerTurn)
             {
-                Vector2 mouseWorldPos = (new Vector2(mouse.X, mouse.Y) - new Vector2(GraphicsDevice.Viewport.Width / 2, GraphicsDevice.Viewport.Height / 2)) / zoom + cameraOffset;
+                // Transforme les coordonnées de la souris en coordonnées de la grille
+                Vector2 mouseWorldPos = (new Vector2(mouse.X, mouse.Y)
+                                        - new Vector2(GraphicsDevice.Viewport.Width / 2, GraphicsDevice.Viewport.Height / 2))
+                                        / zoom + cameraOffset;
+
                 int mouseX = mouse.X;
                 int mouseY = mouse.Y;
                 int cellX = (int)(mouseWorldPos.X / cellSize);
                 int cellY = (int)(mouseWorldPos.Y / cellSize);
-                float fireSpeed = 3f;
-                if (cellX >= 0 && cellX < gridWidth &&
-                    cellY >= 0 && cellY < gridHeight)
-                {
+
+                // Vérifie si la cellule survolée est dans la grille
+                if (cellX >= 0 && cellX < gridWidth && cellY >= 0 && cellY < gridHeight)
                     hoveredCell = new Point(cellX, cellY);
-                }
                 else
-                {
                     hoveredCell = new Point(-1, -1);
-                }
+
+                // Si la souris est sur le bouton Tirer, on n'affiche pas le hover sur la grille
                 if (selectedUnit != null && fireButton.Contains(mouse.Position))
-                {
                     hoveredCell = new Point(-1, -1);
-                }
+
+                // --- Gestion de la flèche de mouvement ---
                 showMoveArrow = false;
                 if (selectedUnit != null &&
                     selectedUnit.ActionPoints > 0 &&
@@ -215,10 +309,12 @@ namespace XCOM_3
                     showMoveArrow = true;
                 }
 
+                // Vérifie si le clic est sur l'UI (boutons)
                 bool clickOnUI =
                     fireButton.Contains(mouse.Position) ||
                     IsMouseOverActionButton(mouse);
 
+                // --- Clic gauche sur une cellule de la grille ---
                 if (leftClick && !clickOnUI)
                 {
                     Point clickedCell = new Point(cellX, cellY);
@@ -231,7 +327,7 @@ namespace XCOM_3
                         if (selectedUnit.Team == Team.Player)
                         {
                             cachedMovableCells = GetMovableCells(selectedUnit);
-                            UpdateFireTargets(); // ← AJOUT
+                            UpdateFireTargets(); // Met à jour les cibles potentielles à tirer
                         }
                         else
                         {
@@ -241,6 +337,7 @@ namespace XCOM_3
                     }
                     else if (selectedUnit != null && selectedUnit.ActionPoints > 0)
                     {
+                        // Déplace l'unité si la cellule est valide
                         var movableCells = GetMovableCells(selectedUnit);
                         if (movableCells.Contains(clickedCell))
                         {
@@ -261,6 +358,7 @@ namespace XCOM_3
                     }
                 }
 
+                // --- Clic gauche sur les boutons d'actions d'unité ---
                 if (leftClick)
                 {
                     foreach (var btn in unitActionButtons)
@@ -276,17 +374,13 @@ namespace XCOM_3
                         {
                             Console.WriteLine($"Action future : {btn.Text}");
 
-                            // PLUS TARD :
-                            // switch(btn.Text)
-                            // {
-                            //     case "COUVERT": ...
-                            //     case "RECHARGER": ...
-                            // }
+                            // À implémenter plus tard selon le bouton
+                            // switch(btn.Text) { case "COUVERT": ... }
                         }
                     }
                 }
 
-
+                // --- Clic gauche sur les cibles à tirer ---
                 if (leftClick && showFireTargets)
                 {
                     foreach (var ui in fireTargetsUI)
@@ -299,7 +393,9 @@ namespace XCOM_3
                     }
                 }
 
-                if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released)
+                // --- Clic droit : annule la sélection et les cibles ---
+                if (mouse.RightButton == ButtonState.Pressed &&
+                    previousMouseState.RightButton == ButtonState.Released)
                 {
                     validFireTargets.Clear();
                     selectedUnit = null;
@@ -307,36 +403,32 @@ namespace XCOM_3
                     showMoveArrow = false;
                 }
 
-                fireButtonHovered = false;
-
-                if (fireButton.Contains(mouse.Position))
+                // --- Survol et clic sur le bouton Tirer ---
+                fireButtonHovered = fireButton.Contains(mouse.Position);
+                if (fireButtonHovered && leftClick &&
+                    selectedUnit != null && selectedFireTarget != null &&
+                    selectedUnit.ActionPoints > 0)
                 {
-                    fireButtonHovered = true;
-
-                    if (leftClick &&
-                        selectedUnit != null &&
-                        selectedFireTarget != null &&
-                        selectedUnit.ActionPoints > 0)
-                    {
-                        FireAtTarget(selectedUnit, selectedFireTarget);
-                        UpdateFireTargets();
-                    }
+                    FireAtTarget(selectedUnit, selectedFireTarget);
+                    UpdateFireTargets();
                 }
 
+                // --- Survol et clic sur le bouton Fin de tour ---
                 endTurnHovered = endTurnButton.Contains(mouse.Position);
                 if (endTurnHovered && leftClick && !isActionInProgress)
                 {
-
                     StartEnemyTurn();
                 }
             }
 
+            // --- 5. GESTION DU TOUR DE L'ENNEMI ---
             if (currentState == GameState.Playing &&
                 currentTurn == TurnState.EnemyTurn)
             {
                 UpdateEnemyTurn();
             }
 
+            // --- 6. ZOOM AVEC LA MOLETTE ---
             if (currentState == GameState.Playing)
             {
                 MouseState mouseState = Mouse.GetState();
@@ -351,6 +443,7 @@ namespace XCOM_3
                 }
             }
 
+            // --- 7. GESTION DU MENU OPTIONS ---
             if (currentState == GameState.OptionsMenu)
             {
                 foreach (var button in optionsButtons)
@@ -360,14 +453,12 @@ namespace XCOM_3
                         switch (button.Text)
                         {
                             case "Music Volume +":
-                                musicVolume += 0.1f;
-                                if (musicVolume > 1f) musicVolume = 1f;
+                                musicVolume = Math.Min(musicVolume + 0.1f, 1f);
                                 MediaPlayer.Volume = musicVolume;
                                 Console.WriteLine("Volume: " + musicVolume);
                                 break;
                             case "Music Volume -":
-                                musicVolume -= 0.1f;
-                                if (musicVolume < 0f) musicVolume = 0f;
+                                musicVolume = Math.Max(musicVolume - 0.1f, 0f);
                                 MediaPlayer.Volume = musicVolume;
                                 Console.WriteLine("Volume: " + musicVolume);
                                 break;
@@ -377,40 +468,31 @@ namespace XCOM_3
                         }
                     }
                 }
+
+                // --- Glisser le curseur du volume ---
                 if (mouse.LeftButton == ButtonState.Pressed &&
-                    volumeBar.Contains(mouse.Position))
-                {
-                    draggingVolume = true;
-                }
-                if (mouse.LeftButton == ButtonState.Released)
-                {
-                    draggingVolume = false;
-                }
+                    volumeBar.Contains(mouse.Position)) draggingVolume = true;
+                if (mouse.LeftButton == ButtonState.Released) draggingVolume = false;
+
                 if (draggingVolume)
                 {
-                    float percent =
-                        (mouse.X - volumeBar.X) / (float)volumeBar.Width;
+                    float percent = (mouse.X - volumeBar.X) / (float)volumeBar.Width;
                     musicVolume = MathHelper.Clamp(percent, 0f, 1f);
                     MediaPlayer.Volume = musicVolume;
                 }
-                volumeFill = new Rectangle(
-                    volumeBar.X,
-                    volumeBar.Y,
-                    (int)(volumeBar.Width * musicVolume),
-                    volumeBar.Height);
+
+                // Met à jour la barre de volume et le curseur
+                volumeFill = new Rectangle(volumeBar.X, volumeBar.Y, (int)(volumeBar.Width * musicVolume), volumeBar.Height);
                 int handleX = volumeBar.X + volumeFill.Width - 5;
-                volumeHandle = new Rectangle(
-                    handleX,
-                    volumeBar.Y - 4,
-                    10,
-                    volumeBar.Height + 8);
+                volumeHandle = new Rectangle(handleX, volumeBar.Y - 4, 10, volumeBar.Height + 8);
             }
 
+            // --- 8. GESTION DU CLAVIER POUR CAMERA ET ESCAPE ---
             KeyboardState keyboardState = Keyboard.GetState();
-            bool escapePressed =
-                keyboardState.IsKeyDown(Keys.Escape) &&
-                previousKeyboardState.IsKeyUp(Keys.Escape);
+            bool escapePressed = keyboardState.IsKeyDown(Keys.Escape) &&
+                                 previousKeyboardState.IsKeyUp(Keys.Escape);
 
+            // Déplacement de la caméra avec WASD
             Vector2 move = Vector2.Zero;
             if (keyboardState.IsKeyDown(Keys.W)) move.Y -= 1;
             if (keyboardState.IsKeyDown(Keys.S)) move.Y += 1;
@@ -418,15 +500,19 @@ namespace XCOM_3
             if (keyboardState.IsKeyDown(Keys.D)) move.X += 1;
             if (move != Vector2.Zero) move.Normalize();
             cameraOffset += move * cameraSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            // Déplacement de la caméra avec le clic du milieu de souris
             if (mouse.MiddleButton == ButtonState.Pressed)
             {
                 Vector2 mouseDelta = new Vector2(mouse.X - previousMouseState.X, mouse.Y - previousMouseState.Y);
                 cameraOffset -= mouseDelta / zoom;
             }
 
+            // --- 9. ESCAPE : sauvegarde et retour au menu ---
             if (escapePressed && currentState == GameState.Playing)
             {
                 hasSavedGame = true;
+
                 savedPlayerUnits = new List<Unit>();
                 foreach (var u in playerUnits)
                     savedPlayerUnits.Add(new Unit(u));
@@ -434,6 +520,7 @@ namespace XCOM_3
                 savedEnemyUnits = new List<Unit>();
                 foreach (var u in enemyUnits)
                     savedEnemyUnits.Add(new Unit(u));
+
                 currentState = GameState.MainMenu;
             }
 
@@ -442,70 +529,83 @@ namespace XCOM_3
                 currentState = GameState.MainMenu;
             }
 
+            // --- 10. MISE À JOUR DES ANIMATIONS DE TIR ---
             if (currentState == GameState.Playing)
             {
                 UpdateFiringAnimations(gameTime);
             }
+
+            // --- 11. Sauvegarde des états précédents pour le prochain frame ---
             previousMouseState = mouse;
             previousKeyboardState = keyboardState;
-            base.Update(gameTime);
+
+            base.Update(gameTime); // Appel obligatoire à la méthode parent
         }
+
         protected override void Draw(GameTime gameTime)
         {
+            // --- 1. Nettoie l'écran ---
             GraphicsDevice.Clear(Color.Black);
 
-            // Transformation caméra
+            // --- 2. Transformation de la caméra ---
+            // Cette matrice permet de gérer le décalage (cameraOffset) et le zoom
             Matrix transform =
-                Matrix.CreateTranslation(new Vector3(-cameraOffset, 0)) *
-                Matrix.CreateScale(zoom, zoom, 1) *
+                Matrix.CreateTranslation(new Vector3(-cameraOffset, 0)) *   // translation inverse pour simuler la caméra
+                Matrix.CreateScale(zoom, zoom, 1) *                        // zoom
                 Matrix.CreateTranslation(new Vector3(GraphicsDevice.Viewport.Width / 2,
-                                                     GraphicsDevice.Viewport.Height / 2, 0));
+                                                     GraphicsDevice.Viewport.Height / 2, 0)); // recentrage
 
+            // --- 3. DESSIN DU JEU EN COURS ---
             if (currentState == GameState.Playing)
             {
-                _spriteBatch.Begin(transformMatrix: transform);
-                DrawGrid();
-                DrawUnits();
-                DrawHoveredCell(gameTime);
+                _spriteBatch.Begin(transformMatrix: transform); // commence le batch avec transformation caméra
 
-                // cellules accessibles
+                DrawGrid();        // dessine la grille
+                DrawUnits();       // dessine toutes les unités
+                DrawHoveredCell(gameTime); // dessine la cellule survolée avec pulsation
+
+                // --- 3a. Cellules accessibles pour le mouvement ---
                 if (selectedUnit != null && selectedUnit.ActionPoints > 0 && currentTurn == TurnState.PlayerTurn)
                     if (selectedUnit.Team == Team.Player)
                         foreach (var cell in cachedMovableCells)
                         {
                             Rectangle rect = new Rectangle(cell.X * cellSize, cell.Y * cellSize, cellSize, cellSize);
-                            _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));
+                            _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80)); // vert semi-transparent
                         }
 
-                // flèche de déplacement
+                // --- 3b. Flèche de déplacement ---
                 if (showMoveArrow && selectedUnit != null && selectedUnit.Team == Team.Player)
                 {
                     Vector2 fromWorld = new Vector2(arrowFromCell.X * cellSize + cellSize / 2,
                                                     arrowFromCell.Y * cellSize + cellSize / 2);
                     Vector2 toWorld = new Vector2(arrowToCell.X * cellSize + cellSize / 2,
                                                   arrowToCell.Y * cellSize + cellSize / 2);
+                    // pulsation pour effet visuel
                     float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.2f;
                     Color arrowColor = Color.CornflowerBlue * (0.7f + pulse * 0.3f);
                     DrawArrow(_spriteBatch, fromWorld, toWorld, arrowColor);
                 }
 
-                _spriteBatch.End();
+                _spriteBatch.End(); // fin du batch pour le monde
             }
 
+            // --- 4. DESSIN DE L'UI (toujours sans transformation caméra) ---
             _spriteBatch.Begin();
 
-            // Menu principal
+            // --- 4a. Menu principal ---
             if (currentState == GameState.MainMenu)
             {
                 string title = "XCOM 3";
                 _spriteBatch.DrawString(font, title, Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
+
                 MouseState mouse = Mouse.GetState();
                 foreach (var button in menuButtons) button.Draw(_spriteBatch, font, mouse);
             }
-            // Jeu
+
+            // --- 4b. UI du jeu ---
             else if (currentState == GameState.Playing)
             {
-                // Bouton FIN DU TOUR
+                // --- Bouton FIN DU TOUR ---
                 int btnWidth = 140, btnHeight = 36;
                 endTurnButton = new Rectangle(GraphicsDevice.Viewport.Width - btnWidth - 20,
                                               GraphicsDevice.Viewport.Height - btnHeight - 20,
@@ -518,15 +618,15 @@ namespace XCOM_3
                                 endTurnButton.Y + (btnHeight - txtSize.Y) / 2),
                     Color.White);
 
-                DrawUnitInfoPanel();
+                DrawUnitInfoPanel(); // panneau d'info de l'unité sélectionnée
 
-                // Gestion des fire targets
+                // --- Gestion des fire targets ---
                 if (showFireTargets && selectedUnit != null && selectedUnit.Team == Team.Player)
                 {
                     MouseState mouse = Mouse.GetState();
                     hoveredFireTarget = null;
 
-                    // détecte le survol d'une icône
+                    // détecte le survol d'une icône de cible
                     foreach (var ui in fireTargetsUI)
                     {
                         if (ui.Bounds.Contains(mouse.Position))
@@ -536,6 +636,7 @@ namespace XCOM_3
                         }
                     }
 
+                    // dessine toutes les icônes de fire target
                     foreach (var ui in fireTargetsUI)
                     {
                         Color bg = ui.Target == selectedFireTarget ? Color.OrangeRed : Color.DarkRed;
@@ -552,16 +653,12 @@ namespace XCOM_3
                     Unit targetToHighlight = selectedFireTarget ?? hoveredFireTarget;
                     if (targetToHighlight != null)
                     {
-                        // trouve le UI correspondant à cette unité
                         var ui = fireTargetsUI.FirstOrDefault(f => f.Target == targetToHighlight);
                         if (ui != null)
                         {
                             Rectangle targetRect = ui.Bounds;
 
-                            // semi-transparent
-                            _spriteBatch.Draw(pixel, targetRect, Color.Red * 0.4f);
-
-                            // contour visible
+                            _spriteBatch.Draw(pixel, targetRect, Color.Red * 0.4f); // semi-transparent
                             int thickness = 3;
                             DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top),
                                                 new Vector2(targetRect.Right, targetRect.Top), Color.Red, thickness);
@@ -573,251 +670,411 @@ namespace XCOM_3
                                                 new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
                         }
                     }
-
                 }
             }
-            // Options
+
+            // --- 4c. Menu Options ---
             else if (currentState == GameState.OptionsMenu)
             {
                 string title = "Options";
                 _spriteBatch.DrawString(font, title, Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
                 MouseState mouse = Mouse.GetState();
                 foreach (var button in optionsButtons) button.Draw(_spriteBatch, font, mouse);
+
+                // barre de volume
                 _spriteBatch.Draw(pixel, volumeBar, Color.Gray);
                 _spriteBatch.Draw(pixel, volumeFill, Color.Yellow);
                 _spriteBatch.Draw(pixel, volumeHandle, Color.White);
             }
 
-            _spriteBatch.End();
+            _spriteBatch.End(); // fin du batch UI
             base.Draw(gameTime);
         }
 
+
+        // Initialise les paramètres de la carte tactique
+        // (taille de la grille, taille des cellules, obstacles)
         private void LoadMap()
         {
+            // Nombre de colonnes de la grille
+            // → largeur totale = gridWidth * cellSize
             gridWidth = 20;
+
+            // Nombre de lignes de la grille
+            // → hauteur totale = gridHeight * cellSize
             gridHeight = 15;
+
+            // Taille d’une cellule en pixels (largeur et hauteur)
+            // Sert à convertir :
+            // - cellule → position monde
+            // - position souris → cellule
             cellSize = 32;
-            GenerateObstacles(30); // ← nombre d’obstacles
+
+            // Génère des obstacles aléatoires sur la carte
+            // Le paramètre (30) correspond au nombre total d’obstacles
+            // Ces obstacles bloquent le déplacement et la ligne de vue
+            GenerateObstacles(30);
+
+            // Message de debug pour confirmer le chargement de la carte
             Console.WriteLine("Map loaded");
         }
+
+
+        // Dessine la carte tactique :
+        // 1) les tuiles de sol
+        // 2) les obstacles
+        // 3) la grille par-dessus (overlay)
         private void DrawGrid()
         {
+            // --- 1️⃣ Dessin des tuiles de sol ---
+            // Parcours de toutes les cellules de la grille
             for (int x = 0; x < gridWidth; x++)
             {
                 for (int y = 0; y < gridHeight; y++)
                 {
-                    Rectangle rect = new Rectangle(x * cellSize, y * cellSize, cellSize, cellSize);
+                    // Rectangle écran correspondant à la cellule (x, y)
+                    Rectangle rect = new Rectangle(
+                        x * cellSize,
+                        y * cellSize,
+                        cellSize,
+                        cellSize
+                    );
+
+                    // Dessin de la texture de sol
                     _spriteBatch.Draw(tileTexture, rect, Color.White);
                 }
             }
+
+            // --- 2️⃣ Dessin des obstacles ---
+            // Chaque obstacle est stocké comme une cellule bloquée
             foreach (var cell in obstacles)
             {
+                // Conversion cellule → rectangle écran
                 Rectangle rect = new Rectangle(
                     cell.X * cellSize,
                     cell.Y * cellSize,
                     cellSize,
                     cellSize
                 );
+
+                // Dessin de la texture d’obstacle
                 _spriteBatch.Draw(obstacleTexture, rect, Color.White);
             }
 
+            // --- 3️⃣ Dessin de la grille (overlay) ---
+            // Couleur blanche semi-transparente pour ne pas masquer le sol
             Color gridColor = new Color(255, 255, 255, 80);
+
+            // Lignes verticales de la grille
+            // x <= gridWidth → inclut la dernière ligne de bord
             for (int x = 0; x <= gridWidth; x++)
             {
                 _spriteBatch.Draw(
-                    pixel,
+                    pixel, // texture 1x1 blanche étirée
                     new Rectangle(
-                        x * cellSize,
-                        0,
-                        1,
-                        gridHeight * cellSize),
-                    gridColor);
+                        x * cellSize,        // position X de la ligne
+                        0,                   // en haut de la carte
+                        1,                   // épaisseur de la ligne
+                        gridHeight * cellSize // hauteur totale de la grille
+                    ),
+                    gridColor
+                );
             }
+
+            // Lignes horizontales de la grille
+            // y <= gridHeight → inclut la dernière ligne de bord
             for (int y = 0; y <= gridHeight; y++)
             {
                 _spriteBatch.Draw(
-                    pixel,
+                    pixel, // texture 1x1 blanche étirée
                     new Rectangle(
-                        0,
-                        y * cellSize,
-                        gridWidth * cellSize,
-                        1),
-                    gridColor);
+                        0,                    // à gauche de la carte
+                        y * cellSize,         // position Y de la ligne
+                        gridWidth * cellSize, // largeur totale de la grille
+                        1                     // épaisseur de la ligne
+                    ),
+                    gridColor
+                );
             }
         }
+
+
+        // Dessine une ligne entre deux points écran en utilisant une texture 1x1
+        // La ligne est étirée, tournée et colorée dynamiquement
         private void DrawLine(SpriteBatch sb, Vector2 start, Vector2 end, Color color, float thickness)
         {
+            // Vecteur direction allant du point de départ au point d’arrivée
             Vector2 delta = end - start;
+
+            // Longueur réelle de la ligne (norme du vecteur)
             float length = delta.Length();
+
+            // Angle de rotation de la ligne en radians
+            // Atan2 donne l’angle correct quel que soit le quadrant
             float rotation = (float)Math.Atan2(delta.Y, delta.X);
+
+            // Dessin de la ligne à partir d’une texture 1x1 (pixel)
             sb.Draw(
-                pixel,
-                start,
-                null,
-                color,
-                rotation,
-                Vector2.Zero,
-                new Vector2(length, thickness),
-                SpriteEffects.None,
-                0f
+                pixel,              // Texture de base (1x1 blanc)
+                start,              // Position de départ de la ligne
+                null,               // On utilise toute la texture
+                color,              // Couleur finale de la ligne
+                rotation,           // Rotation pour orienter la ligne
+                Vector2.Zero,       // Origine au coin haut-gauche de la texture
+                new Vector2(
+                    length,         // Étirement horizontal = longueur de la ligne
+                    thickness       // Étirement vertical = épaisseur de la ligne
+                ),
+                SpriteEffects.None, // Aucun effet miroir
+                0f                  // LayerDepth (ordre de rendu)
             );
         }
+
+
+        // Dessine une flèche entre deux points écran
+        // Utilise DrawLine pour tracer le corps et la pointe de la flèche
         private void DrawArrow(SpriteBatch sb, Vector2 from, Vector2 to, Color color)
         {
+            // Épaisseur du corps de la flèche (en pixels)
             float thickness = 3f;
+
+            // Longueur de chaque segment de la pointe de la flèche
             float headLength = 12f;
+
+            // Angle d’ouverture de la pointe (30° de chaque côté)
             float headAngle = MathHelper.ToRadians(30f);
+
+            // --- 1️⃣ Dessin du corps de la flèche ---
             DrawLine(sb, from, to, color, thickness);
+
+            // --- 2️⃣ Calcul de la direction de la flèche ---
+            // Direction normalisée allant de la pointe vers la base
+            // (on part de to pour revenir vers from)
             Vector2 dir = Vector2.Normalize(from - to);
+
+            // Angle global de la flèche en radians
             float angle = (float)Math.Atan2(dir.Y, dir.X);
+
+            // --- 3️⃣ Calcul du segment gauche de la pointe ---
             Vector2 left = to + new Vector2(
                 (float)Math.Cos(angle + headAngle),
                 (float)Math.Sin(angle + headAngle)
             ) * headLength;
+
+            // --- 4️⃣ Calcul du segment droit de la pointe ---
             Vector2 right = to + new Vector2(
                 (float)Math.Cos(angle - headAngle),
                 (float)Math.Sin(angle - headAngle)
             ) * headLength;
+
+            // --- 5️⃣ Dessin de la pointe de la flèche ---
             DrawLine(sb, to, left, color, thickness);
             DrawLine(sb, to, right, color, thickness);
         }
+
+
+        // Dessine la cellule actuellement survolée par la souris avec un effet de pulsation
         private void DrawHoveredCell(GameTime gameTime)
         {
+            // --- 1️⃣ Vérification que la cellule survolée est valide ---
+            // Si la souris est hors de la grille, on ne fait rien
             if (hoveredCell.X < 0 || hoveredCell.Y < 0)
                 return;
 
+            // --- 2️⃣ Calcul du rectangle écran correspondant à la cellule ---
             Rectangle cellRect = new Rectangle(
-                hoveredCell.X * cellSize,
-                hoveredCell.Y * cellSize,
-                cellSize,
-                cellSize);
+                hoveredCell.X * cellSize,  // position X de la cellule en pixels
+                hoveredCell.Y * cellSize,  // position Y de la cellule en pixels
+                cellSize,                  // largeur de la cellule
+                cellSize                   // hauteur de la cellule
+            );
 
-            // --- PULSATION ---
+            // --- 3️⃣ Calcul de la pulsation pour un effet visuel dynamique ---
+            // gameTime.TotalGameTime.TotalSeconds -> temps total écoulé
+            // Sinus pour créer un mouvement oscillant
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f);
-            float alpha = 0.4f + pulse * 0.2f; // entre 0.2 et 0.6
-            Color fillColor = Color.Yellow * alpha;
-            Color outlineColor = Color.Yellow * (alpha + 0.2f);
+            // Alpha final oscillant entre 0.2 et 0.6
+            float alpha = 0.4f + pulse * 0.2f;
+            Color fillColor = Color.Yellow * alpha;           // couleur de remplissage pulsante
+            Color outlineColor = Color.Yellow * (alpha + 0.2f); // contour légèrement plus opaque
 
-            // léger fond (optionnel)
+            // --- 4️⃣ Remplissage léger de la cellule ---
+            // Utilise le pixel blanc pour dessiner un rectangle plein semi-transparent
             _spriteBatch.Draw(pixel, cellRect, Color.Yellow * 0.25f);
 
-            int thickness = 2;
+            int thickness = 2; // épaisseur des lignes du contour
 
-            // contour
+            // --- 5️⃣ Dessin du contour de la cellule ---
+            // Ligne du haut
             DrawLine(_spriteBatch,
                 new Vector2(cellRect.Left, cellRect.Top),
                 new Vector2(cellRect.Right, cellRect.Top),
                 Color.Yellow, thickness);
 
+            // Ligne du bas
             DrawLine(_spriteBatch,
                 new Vector2(cellRect.Left, cellRect.Bottom),
                 new Vector2(cellRect.Right, cellRect.Bottom),
                 Color.Yellow, thickness);
 
+            // Ligne de gauche
             DrawLine(_spriteBatch,
                 new Vector2(cellRect.Left, cellRect.Top),
                 new Vector2(cellRect.Left, cellRect.Bottom),
                 Color.Yellow, thickness);
 
+            // Ligne de droite
             DrawLine(_spriteBatch,
                 new Vector2(cellRect.Right, cellRect.Top),
                 new Vector2(cellRect.Right, cellRect.Bottom),
                 Color.Yellow, thickness);
         }
 
+
+        // Initialise et crée les unités pour les deux équipes : joueur et ennemis
         private void CreateUnits()
         {
+            // --- 1️⃣ Vider les listes existantes ---
+            // On supprime toutes les unités précédemment créées pour repartir à zéro
             playerUnits.Clear();
             enemyUnits.Clear();
-            for (int i = 0; i < 6; i++)
+
+            // --- 2️⃣ Création des unités du joueur ---
+            for (int i = 0; i < 6; i++) // 6 unités
             {
+                // Chaque unité est placée sur la deuxième ligne depuis le bas : Y = gridHeight - 2
+                // X = 2 + i → positions espacées horizontalement
                 playerUnits.Add(
                     new Unit(
-                        new Point(2 + i, gridHeight - 2),
-                        Team.Player,
-                        "Soldier " + (i + 1),
-                        "Assault",
-                        "Rifle",
-                        weaponDatabase["Rifle"]
+                        new Point(2 + i, gridHeight - 2), // position dans la grille
+                        Team.Player,                      // équipe du joueur
+                        "Soldier " + (i + 1),             // nom unique "Soldier 1", "Soldier 2", etc.
+                        "Assault",                         // classe de l’unité
+                        "Rifle",                           // arme de base
+                        weaponDatabase["Rifle"]            // données de l’arme depuis la base de données
                     )
                 );
             }
-            for (int i = 0; i < 6; i++)
+
+            // --- 3️⃣ Création des unités ennemies ---
+            for (int i = 0; i < 6; i++) // 6 unités ennemies
             {
+                // On choisit un modèle d’ennemi au hasard dans la liste enemyPool
                 EnemyTemplate template =
                     enemyPool[random.Next(enemyPool.Count)];
+
+                // Création de l’unité ennemie
                 enemyUnits.Add(
                     new Unit(
-                        new Point(2 + i, 1),
-                        Team.Enemy,
-                        template.Name,
-                        template.Class,
-                        template.Weapon,
-                        weaponDatabase[template.Weapon]
+                        new Point(2 + i, 1),            // position sur la deuxième ligne depuis le haut
+                        Team.Enemy,                      // équipe ennemie
+                        template.Name,                   // nom selon le template choisi
+                        template.Class,                  // classe selon le template
+                        template.Weapon,                 // arme selon le template
+                        weaponDatabase[template.Weapon]  // données de l’arme depuis la base de données
                     )
                     {
-                        ActionPoints = template.ActionPoints
+                        ActionPoints = template.ActionPoints // personnalisation des points d'action
                     }
                 );
             }
+
+            // --- 4️⃣ Affichage console pour débogage ---
             Console.WriteLine("Units created: 6 player, 6 enemy");
         }
+
+
+        // Dessine toutes les unités présentes sur la grille
         private void DrawUnits()
         {
-            foreach (var unit in playerUnits)
-                DrawUnit(unit);
-            foreach (var unit in enemyUnits)
-                DrawUnit(unit);
+            // --- 1️⃣ Dessiner les unités du joueur ---
+            foreach (var unit in playerUnits)  // pour chaque unité dans la liste playerUnits
+                DrawUnit(unit);                // on appelle la méthode DrawUnit qui s’occupe du rendu
+
+            // --- 2️⃣ Dessiner les unités ennemies ---
+            foreach (var unit in enemyUnits)   // pour chaque unité dans la liste enemyUnits
+                DrawUnit(unit);                // même principe : DrawUnit gère le rendu
         }
+
+
+        // Dessine une unité sur la grille avec ses effets (tir, sélection, ciblage)
         private void DrawUnit(Unit unit)
         {
+            // --- 1️⃣ Rectangle de l’unité ---
+            // On crée un rectangle pour dessiner l’unité légèrement plus petit que la cellule
             Rectangle rect = new Rectangle(
-                unit.Cell.X * cellSize + 4,
+                unit.Cell.X * cellSize + 4,   // décalage à l’intérieur de la cellule
                 unit.Cell.Y * cellSize + 4,
-                cellSize - 8,
-                cellSize - 8
+                cellSize - 8,                 // largeur réduite
+                cellSize - 8                  // hauteur réduite
             );
+
+            // Couleur selon l’équipe : bleu pour joueur, rouge pour ennemi
             Color color = (unit.Team == Team.Player)
                 ? Color.Blue
                 : Color.Red;
+
+            // Dessin de l’unité (rectangle simple pour le moment)
             _spriteBatch.Draw(pixel, rect, color);
+
+            // --- 2️⃣ Tir en cours ---
             if (unit.IsFiring && unit.FireTarget.HasValue)
             {
                 Point target = unit.FireTarget.Value;
+
+                // Centre de la cellule de départ et de la cellule cible
                 Vector2 start = new Vector2(unit.Cell.X + 0.5f, unit.Cell.Y + 0.5f) * cellSize;
                 Vector2 end = new Vector2(target.X + 0.5f, target.Y + 0.5f) * cellSize;
+
+                // Position intermédiaire du projectile selon la progression du tir (0 → 1)
                 Vector2 pos = Vector2.Lerp(start, end, unit.FireProgress);
+
+                // Rectangle pour représenter le projectile
                 Rectangle proj = new Rectangle((int)pos.X - 4, (int)pos.Y - 4, 8, 8);
+
+                // Dessin du projectile
                 _spriteBatch.Draw(pixel, proj, Color.Yellow);
             }
+
+            // --- 3️⃣ Sélection de l’unité ---
             if (unit == selectedUnit)
             {
+                // Rectangle de la cellule entière pour le contour de sélection
                 Rectangle outline = new Rectangle(
                     unit.Cell.X * cellSize,
                     unit.Cell.Y * cellSize,
                     cellSize,
                     cellSize
                 );
+
+                // Dessin d’un contour semi-transparent cyan
                 _spriteBatch.Draw(pixel, outline, new Color(0, 255, 255, 80));
             }
+
+            // --- 4️⃣ Affichage de la cible sélectionnée pour tir ---
             if (selectedFireTarget != null)
             {
+                // Rectangle de la cellule cible
                 Rectangle targetRect = new Rectangle(
                     selectedFireTarget.Cell.X * cellSize,
                     selectedFireTarget.Cell.Y * cellSize,
                     cellSize,
                     cellSize
                 );
-                _spriteBatch.Draw(pixel, targetRect, Color.Red * 0.5f); // couleur semi-transparente
 
-                // contour plus visible (optionnel)
+                // Fond semi-transparent rouge
+                _spriteBatch.Draw(pixel, targetRect, Color.Red * 0.5f);
+
+                // Contour plus visible (optionnel)
                 int thickness = 3;
                 DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top), new Vector2(targetRect.Right, targetRect.Top), Color.Red, thickness);
                 DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Bottom), new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
                 DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top), new Vector2(targetRect.Left, targetRect.Bottom), Color.Red, thickness);
                 DrawLine(_spriteBatch, new Vector2(targetRect.Right, targetRect.Top), new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
             }
-            Unit targetToHighlight = selectedFireTarget ?? hoveredFireTarget;
+
+            // --- 5️⃣ Contour de la cible survolée ou sélectionnée ---
+            Unit targetToHighlight = selectedFireTarget ?? hoveredFireTarget; // priorise la cible sélectionnée
 
             if (targetToHighlight != null)
             {
@@ -828,10 +1085,10 @@ namespace XCOM_3
                     cellSize
                 );
 
-                // contour semi-transparent
+                // Fond semi-transparent pour indiquer la cible
                 _spriteBatch.Draw(pixel, targetRect, Color.Red * 0.5f);
 
-                // contour plus visible avec des lignes
+                // Contour plus visible pour accentuer le survol ou la sélection
                 int thickness = 3;
                 DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top), new Vector2(targetRect.Right, targetRect.Top), Color.Red, thickness);
                 DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Bottom), new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
@@ -839,55 +1096,95 @@ namespace XCOM_3
                 DrawLine(_spriteBatch, new Vector2(targetRect.Right, targetRect.Top), new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
             }
         }
+
+
+        // Retourne toutes les unités présentes sur la carte (joueur + ennemis)
+        // IEnumerable<Unit> permet d’itérer sur toutes les unités sans créer de nouvelle liste
         private IEnumerable<Unit> AllUnits()
         {
-            foreach (var u in playerUnits) yield return u;
-            foreach (var u in enemyUnits) yield return u;
+            // Parcourt toutes les unités du joueur et les "yield" une par une
+            foreach (var u in playerUnits)
+                yield return u;  // "yield return" renvoie l’élément courant à l’itérateur
+
+            // Parcourt toutes les unités ennemies et les "yield" une par une
+            foreach (var u in enemyUnits)
+                yield return u;
         }
+
+
+        // Retourne l'unité se trouvant sur une cellule donnée, ou null si aucune unité n'est présente
         private Unit GetUnitAtCell(Point cell)
         {
+            // Parcourt toutes les unités (joueur + ennemis) grâce à la méthode AllUnits()
             foreach (var unit in AllUnits())
+                // Si l'unité se trouve sur la cellule recherchée
                 if (unit.Cell == cell)
-                    return unit;
+                    return unit; // On renvoie immédiatement cette unité
+
+            // Si aucune unité n'a été trouvée sur la cellule, on retourne null
             return null;
         }
+
+
+        // Dessine le panneau d'information pour l'unité sélectionnée
         private void DrawUnitInfoPanel()
         {
+            // Si aucune unité n'est sélectionnée, ne rien dessiner
             if (selectedUnit == null)
                 return;
-            int margin = 10;
+
+            // --- Dimensions et position du panneau ---
+            int margin = 10; // marge par rapport aux bords de l'écran
             int panelWidth = 300;
             int panelHeight = 140;
             int panelX = margin;
             int panelY = GraphicsDevice.Viewport.Height - panelHeight - margin;
+            // placer le panneau en bas à gauche de l'écran
+
+            // Rectangle représentant le panneau
             Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
+
+            // Fond semi-transparent noir du panneau
             _spriteBatch.Draw(pixel, panel, new Color(0, 0, 0, 180));
+
+            // Position de départ pour le texte dans le panneau
             Vector2 textPos = new Vector2(panelX + 10, panelY + 10);
+
+            // Dessin du texte des informations de l'unité
             _spriteBatch.DrawString(font, "Name: " + selectedUnit.Name, textPos, Color.White);
             _spriteBatch.DrawString(font, "Class: " + selectedUnit.Class, textPos + new Vector2(0, 20), Color.White);
             _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White);
             _spriteBatch.DrawString(font, "AP: " + selectedUnit.ActionPoints, textPos + new Vector2(0, 60), Color.White);
             _spriteBatch.DrawString(font, "HP: " + selectedUnit.Health + " / " + selectedUnit.MaxHealth, textPos + new Vector2(0, 80), Color.White);
-            unitActionButtons.Clear(); // on vide la liste avant de la remplir
+
+            // --- Préparation des boutons d'action ---
+            unitActionButtons.Clear(); // vide la liste pour éviter les doublons
+
             int buttonWidth = 100;
             int buttonHeight = 36;
-            int marginBottom = 15;
+            int marginBottom = 15; // distance depuis le bas de l'écran
 
-            // Bouton "TIRER"
+            // Bouton "TIRER" centré horizontalement
             fireButton = new Rectangle(
                 (GraphicsDevice.Viewport.Width / 2) - (buttonWidth / 2),
                 GraphicsDevice.Viewport.Height - marginBottom - buttonHeight,
                 buttonWidth,
                 buttonHeight
             );
+
+            // Ajouter les boutons dans la liste des actions de l'unité
             unitActionButtons.Add(new Button("TIRER", new Vector2(fireButton.X, fireButton.Y)));
-            // Exemple : boutons vides pour plus tard
+
+            // Boutons vides pour plus tard (exemples)
             unitActionButtons.Add(new Button("COUVERT", new Vector2(fireButton.X - 110, fireButton.Y))); // bouton à gauche
             unitActionButtons.Add(new Button("RECHARGER", new Vector2(fireButton.X + 110, fireButton.Y))); // bouton à droite
 
-            MouseState mouse = Mouse.GetState();
+            // --- Gestion de l'affichage des boutons ---
+            MouseState mouse = Mouse.GetState(); // récupérer l'état de la souris
+
             foreach (var btn in unitActionButtons)
             {
+                // Rectangle du bouton (pour le dessiner et détecter le survol)
                 Rectangle rect = new Rectangle(
                     (int)btn.Position.X,
                     (int)btn.Position.Y,
@@ -895,155 +1192,252 @@ namespace XCOM_3
                     ActionButtonHeight
                 );
 
+                // Couleur du bouton selon si la souris le survole
                 Color color = rect.Contains(mouse.Position)
-                    ? Color.Orange
-                    : Color.DarkOrange;
+                    ? Color.Orange   // survol
+                    : Color.DarkOrange; // normal
 
+                // Dessin du fond du bouton
                 _spriteBatch.Draw(pixel, rect, color);
 
+                // Centrer le texte du bouton
                 Vector2 textSize = font.MeasureString(btn.Text);
                 _spriteBatch.DrawString(
                     font,
                     btn.Text,
                     new Vector2(
-                        rect.X + (rect.Width - textSize.X) / 2,
-                        rect.Y + (rect.Height - textSize.Y) / 2
+                        rect.X + (rect.Width - textSize.X) / 2,  // centrage horizontal
+                        rect.Y + (rect.Height - textSize.Y) / 2  // centrage vertical
                     ),
-                    Color.Black
+                    Color.Black // couleur du texte
                 );
             }
 
+            // Mettre à jour la position des icônes ou UI de cibles de tir si nécessaire
             UpdateFireTargetsUIPositions();
         }
 
 
 
+
+        // Retourne une liste de cellules sur lesquelles l'unité peut se déplacer
         private List<Point> GetMovableCells(Unit unit)
         {
-            List<Point> cells = new List<Point>();
+            List<Point> cells = new List<Point>(); // liste des cellules accessibles
+
+            // Si l'unité est null, on retourne une liste vide
             if (unit == null)
                 return cells;
-            int range = unit.MovementPoints;
+
+            int range = unit.MovementPoints; // nombre de cases que l'unité peut parcourir
+
+            // Si l'unité n'a plus de points de mouvement, aucune cellule n'est accessible
             if (unit.MovementPoints <= 0)
                 return cells;
+
+            // Boucle sur un carré autour de l'unité, de -range à +range en X et Y
             for (int dx = -range; dx <= range; dx++)
             {
                 for (int dy = -range; dy <= range; dy++)
                 {
-                    int distance = Math.Abs(dx) + Math.Abs(dy);
+                    int distance = Math.Abs(dx) + Math.Abs(dy); // distance de Manhattan
+
+                    // Ignorer la case de départ ou les cases hors de portée
                     if (distance == 0 || distance > range)
                         continue;
+
+                    // Coordonnées de la cellule candidate
                     int x = unit.Cell.X + dx;
                     int y = unit.Cell.Y + dy;
-                    if (x < 0 || x >= gridWidth ||
-                        y < 0 || y >= gridHeight)
+
+                    // Vérifier que la cellule est dans la grille
+                    if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight)
                         continue;
+
+                    // Vérifier qu'il n'y a pas d'unité déjà sur la cellule
                     if (GetUnitAtCell(new Point(x, y)) != null)
                         continue;
+
+                    // Vérifier qu'il n'y a pas d'obstacle sur la cellule
                     if (obstacles.Contains(new Point(x, y)))
                         continue;
+
+                    // Si toutes les conditions sont bonnes, ajouter la cellule à la liste
                     cells.Add(new Point(x, y));
                 }
             }
+
+            // Retourner toutes les cellules accessibles
             return cells;
         }
+
+
+        // Gère l'action de tir d'une unité (shooter) vers une cible valide
         private void HandleFire(Unit shooter)
         {
+            // Si l'unité n'a plus de points d'action, elle ne peut pas tirer
             if (shooter.ActionPoints <= 0)
                 return;
+
+            // Parcourt toutes les unités (joueurs et ennemis)
             foreach (var target in AllUnits())
             {
+                // Ignorer les alliés
                 if (target.Team == shooter.Team)
                     continue;
+
+                // Calcul de la distance de Manhattan entre le tireur et la cible
                 int distance =
                     Math.Abs(target.Cell.X - shooter.Cell.X) +
                     Math.Abs(target.Cell.Y - shooter.Cell.Y);
+
+                // Ignorer les cibles hors portée
                 if (distance > shooter.WeaponData.Range)
                     continue;
+
+                // Vérifier qu'il y a une ligne de vue (LOS) entre le tireur et la cible
                 if (!HasLineOfSight(shooter.Cell, target.Cell))
                     continue;
-                shooter.IsFiring = true;
-                shooter.FireTarget = target.Cell;
-                shooter.FireProgress = 0f;
-                int roll = random.Next(100);
+
+                // La cible est valide : on configure l'état de tir du tireur
+                shooter.IsFiring = true;               // l'unité est en train de tirer
+                shooter.FireTarget = target.Cell;      // cellule visée
+                shooter.FireProgress = 0f;             // progression du tir (animation)
+
+                // Calcul d'un jet aléatoire pour déterminer si le tir touche
+                int roll = random.Next(100);           // nombre aléatoire entre 0 et 99
                 int effectiveAccuracy =
-                    shooter.WeaponData.Accuracy - distance * 5;
-                effectiveAccuracy = Math.Max(effectiveAccuracy, 10);
+                    shooter.WeaponData.Accuracy - distance * 5; // pénalité de distance
+                effectiveAccuracy = Math.Max(effectiveAccuracy, 10); // min 10% de chance de toucher
+
+                // Déterminer si le tir touchera la cible
                 shooter.WillHit = roll < effectiveAccuracy;
+
+                // Sauvegarder l'unité ciblée
                 shooter.PendingTarget = target;
+
+                // Dépenser un point d'action
                 shooter.ActionPoints -= 1;
+
+                // On ne tire qu'une fois, donc on sort de la boucle
                 return;
             }
+
+            // Si aucune cible n'est valide (hors portée ou LOS bloqué)
             Console.WriteLine("Aucune cible valide (portée + LOS)");
         }
+
+
+        // Démarre le tour du joueur en réinitialisant les unités et l'état du jeu
         private void StartPlayerTurn()
         {
+            // Réinitialise les points d'action de toutes les unités du joueur
             foreach (var unit in playerUnits)
-                unit.ActionPoints = 3;
+                unit.ActionPoints = 3; // chaque unité commence son tour avec 3 PA
+
+            // Aucunité sélectionnée au début du tour
             selectedUnit = null;
+
+            // Vider le cache des cellules où les unités pouvaient se déplacer
             cachedMovableCells.Clear();
+
+            // Changer l'état du tour pour indiquer que c'est le tour du joueur
             currentTurn = TurnState.PlayerTurn;
         }
+
+
+        // Démarre le tour des ennemis en réinitialisant leurs unités et l'état du tour
         private void StartEnemyTurn()
         {
+            // Réinitialise les points d'action de toutes les unités ennemies
             foreach (var unit in enemyUnits)
-                unit.ActionPoints = 2;
+                unit.ActionPoints = 2; // chaque unité ennemie peut agir jusqu'à 2 fois par tour
+
+            // Réinitialise l'indice de l'ennemi actif
+            // (utile si tu fais tourner les ennemis un par un pendant leur tour)
             enemyTurnIndex = 0;
+
+            // Change l'état du tour pour indiquer que c'est le tour de l'ennemi
             currentTurn = TurnState.EnemyTurn;
         }
+
+
+        // Met à jour le tour de l'ennemi, appelé à chaque frame pendant le tour des ennemis
         private void UpdateEnemyTurn()
         {
+            // Si toutes les unités ennemies ont agi, on passe au tour du joueur
             if (enemyTurnIndex >= enemyUnits.Count)
             {
-                StartPlayerTurn();
+                StartPlayerTurn(); // réinitialise les AP des joueurs, change le tour
                 return;
             }
+
+            // On récupère l'ennemi actuel qui doit agir
             Unit enemy = enemyUnits[enemyTurnIndex];
+
+            // Si l'ennemi est en train de tirer, on attend la fin de son tir avant d'agir
             if (enemy.IsFiring)
                 return;
+
+            // Si l'ennemi n'a plus de points d'action, on passe à l'unité ennemie suivante
             if (enemy.ActionPoints <= 0)
             {
                 enemyTurnIndex++;
                 return;
             }
+
+            // Cherche le joueur le plus proche
             Unit closest = null;
-            int bestDist = int.MaxValue;
+            int bestDist = int.MaxValue; // distance minimale initialisée au maximum possible
             foreach (var player in playerUnits)
             {
+                // Calcul de la distance Manhattan (X + Y)
                 int dist = Math.Abs(player.Cell.X - enemy.Cell.X) +
                            Math.Abs(player.Cell.Y - enemy.Cell.Y);
+
+                // On garde le joueur le plus proche
                 if (dist < bestDist)
                 {
                     bestDist = dist;
                     closest = player;
                 }
             }
+
+            // Si aucun joueur n'a été trouvé (cas improbable), on passe à l'ennemi suivant
             if (closest == null)
             {
                 enemyTurnIndex++;
                 return;
             }
+
+            // Si le joueur le plus proche est à portée et visible
             if (bestDist <= enemy.WeaponData.Range && HasLineOfSight(enemy.Cell, closest.Cell))
             {
                 HandleFire(enemy); // démarre le tir
-                return; // attend la fin du tir avant d'agir
+                return; // on attend que le tir se termine avant d'agir
             }
+
+            // Déplacement vers le joueur le plus proche
             Point dir = new Point(
-                Math.Sign(closest.Cell.X - enemy.Cell.X),
-                Math.Sign(closest.Cell.Y - enemy.Cell.Y)
+                Math.Sign(closest.Cell.X - enemy.Cell.X), // +1 ou -1 en X
+                Math.Sign(closest.Cell.Y - enemy.Cell.Y)  // +1 ou -1 en Y
             );
             Point next = new Point(enemy.Cell.X + dir.X, enemy.Cell.Y + dir.Y);
+
+            // Vérifie que la case suivante est libre et dans la grille
             if (GetUnitAtCell(next) == null && !obstacles.Contains(next) &&
                 next.X >= 0 && next.X < gridWidth &&
                 next.Y >= 0 && next.Y < gridHeight)
             {
-                enemy.Cell = next;
-                enemy.ActionPoints--;
+                enemy.Cell = next; // déplace l'ennemi
+                enemy.ActionPoints--; // dépense 1 point d'action
             }
             else
             {
-                enemy.ActionPoints = 0; // bloqué, consomme les AP
+                enemy.ActionPoints = 0; // bloqué, consomme les AP pour éviter boucle infinie
             }
+
+            // Si l'ennemi n'a plus de points d'action après déplacement, on passe à l'unité suivante
             if (enemy.ActionPoints <= 0)
             {
                 enemyTurnIndex++;
@@ -1051,55 +1445,106 @@ namespace XCOM_3
         }
 
 
+
+        // Lance un tir d'une unité "shooter" sur une unité "target"
         private void FireAtTarget(Unit shooter, Unit target)
         {
+            // Si l'unité n'a plus de points d'action, elle ne peut pas tirer
             if (shooter.ActionPoints <= 0)
                 return;
+
+            // Vérifie que la ligne de vue est dégagée
             if (!HasLineOfSight(shooter.Cell, target.Cell))
                 return;
+
+            // Calcul de la distance Manhattan entre le tireur et la cible
             int distance =
                 Math.Abs(target.Cell.X - shooter.Cell.X) +
                 Math.Abs(target.Cell.Y - shooter.Cell.Y);
+
+            // Si la cible est hors portée de l'arme, on abandonne le tir
             if (distance > shooter.WeaponData.Range)
                 return;
+
+            // On marque qu'une action est en cours pour bloquer d'autres actions simultanées
             isActionInProgress = true;
+
+            // L'unité tire : état utilisé par l'animation ou mise à jour de projectile
             shooter.IsFiring = true;
+
+            // Position de la cible pour le tir
             shooter.FireTarget = target.Cell;
+
+            // Réinitialise la progression du tir (0 = début)
             shooter.FireProgress = 0f;
+
+            // Jet aléatoire pour déterminer si le tir touche
             int roll = random.Next(100);
+
+            // Calcul de l'accuracy effective en fonction de la distance
             int effectiveAccuracy =
                 shooter.WeaponData.Accuracy - distance * 5;
+
+            // Garantit une précision minimale de 10%
             effectiveAccuracy = Math.Max(effectiveAccuracy, 10);
+
+            // Détermine si le tir va toucher ou rater
             shooter.WillHit = roll < effectiveAccuracy;
+
+            // Référence vers la cible qui sera affectée par le tir
             shooter.PendingTarget = target;
+
+            // Consomme un point d'action pour le tir
             shooter.ActionPoints -= 1;
+
+            // Met à jour les cibles affichées à l'écran (UI)
             UpdateFireTargets();
+
+            // Réinitialise la cible sélectionnée pour le joueur
             selectedFireTarget = null;
-
-
         }
 
+
+        // Met à jour les animations de tir pour toutes les unités
         private void UpdateFiringAnimations(GameTime gameTime)
         {
+            // Vitesse de progression du tir (plus élevé = projectile plus rapide)
             float fireSpeed = 3f;
+
+            // Parcourt toutes les unités (joueur + ennemis)
             foreach (var unit in AllUnits())
             {
+                // Ignore les unités qui ne tirent pas ou n'ont pas de cible
                 if (!unit.IsFiring || !unit.FireTarget.HasValue)
                     continue;
+
+                // Avance la progression de l'animation du tir en fonction du temps écoulé
                 unit.FireProgress +=
                     (float)gameTime.ElapsedGameTime.TotalSeconds * fireSpeed;
+
+                // Quand le tir atteint la fin (progression >= 1)
                 if (unit.FireProgress >= 1f)
                 {
+                    // Le tir est terminé, on réinitialise l'état de tir
                     unit.IsFiring = false;
                     unit.FireProgress = 0f;
+
+                    // Si une cible est en attente d'être affectée par le tir
                     if (unit.PendingTarget != null)
                     {
+                        // Si le tir devait toucher
                         if (unit.WillHit)
                         {
                             int damage = unit.WeaponData.Damage;
+
+                            // Applique les dégâts à la cible
                             unit.PendingTarget.Health -= damage;
+
+                            // S'assure que la vie ne descende pas en dessous de 0
                             unit.PendingTarget.Health =
                                 Math.Max(unit.PendingTarget.Health, 0);
+
+                            // Si la cible est morte, on la retire de la liste de l'équipe
                             if (unit.PendingTarget.Health <= 0)
                             {
                                 if (unit.PendingTarget.Team == Team.Player)
@@ -1108,270 +1553,460 @@ namespace XCOM_3
                                     enemyUnits.Remove(unit.PendingTarget);
                             }
                         }
+
+                        // Réinitialise les informations de cible et de réussite du tir
                         unit.PendingTarget = null;
                         unit.WillHit = false;
                     }
+
+                    // Réinitialise la cible du tir et libère le flag d'action en cours
                     unit.FireTarget = null;
                     isActionInProgress = false;
+
+                    // On ne traite qu'un tir à la fois par frame
                     return;
                 }
             }
         }
+
+
+        // Génère des obstacles aléatoires sur la grille
         private void GenerateObstacles(int count)
         {
+            // Vide la liste d'obstacles existants
             obstacles.Clear();
+
+            // On crée des "clusters" de 3 obstacles pour éviter qu'ils soient dispersés individuellement
             int clusters = count / 3;
+
+            // Pour chaque cluster
             for (int i = 0; i < clusters; i++)
             {
+                // Position centrale du cluster aléatoire, en laissant 2 cases de marge sur les bords
                 int cx = random.Next(2, gridWidth - 2);
                 int cy = random.Next(2, gridHeight - 2);
+
+                // Pour chaque obstacle dans le cluster (ici 3 par cluster)
                 for (int j = 0; j < 3; j++)
                 {
+                    // Décalage aléatoire par rapport au centre (-1, 0 ou +1)
                     int x = cx + random.Next(-1, 2);
                     int y = cy + random.Next(-1, 2);
+
                     Point p = new Point(x, y);
+
+                    // Vérifie si la cellule est dans une zone de spawn de joueur/enemi (évite les bords)
                     bool spawnZone =
-                        y >= gridHeight - 2 ||
-                        y <= 1;
+                        y >= gridHeight - 2 ||  // zone de spawn joueur
+                        y <= 1;                  // zone de spawn ennemi
+
                     if (spawnZone)
-                        continue;
+                        continue; // ignore cette cellule pour ne pas bloquer le spawn
+
+                    // Vérifie que la cellule est dans la grille
                     if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight)
-                        obstacles.Add(p);
+                        obstacles.Add(p); // ajoute l'obstacle
                 }
             }
         }
+
+
+        // Vérifie s'il y a une ligne de vue directe entre deux cellules (sans obstacles)
         private bool HasLineOfSight(Point from, Point to)
         {
+            // Coordonnées de départ et d'arrivée
             int x0 = from.X;
             int y0 = from.Y;
             int x1 = to.X;
             int y1 = to.Y;
+
+            // Différences absolues en X et Y
             int dx = Math.Abs(x1 - x0);
             int dy = Math.Abs(y1 - y0);
+
+            // Direction du pas : +1 si on doit augmenter, -1 si on doit diminuer
             int sx = x0 < x1 ? 1 : -1;
             int sy = y0 < y1 ? 1 : -1;
+
+            // Erreur initiale pour l'algorithme de tracé de ligne (Bresenham)
             int err = dx - dy;
+
             while (true)
             {
+                // Ignore la cellule de départ, on ne veut pas la considérer comme obstacle
                 if (!(x0 == from.X && y0 == from.Y))
                 {
+                    // Si cette cellule contient un obstacle, la ligne de vue est bloquée
                     if (obstacles.Contains(new Point(x0, y0)))
                         return false;
                 }
+
+                // Si on est arrivé à la cellule cible, on sort de la boucle
                 if (x0 == x1 && y0 == y1)
                     break;
+
+                // Calcul de l'erreur doublée pour déterminer le pas suivant
                 int e2 = 2 * err;
+
+                // On ajuste l'erreur et on avance en X si nécessaire
                 if (e2 > -dy)
                 {
                     err -= dy;
                     x0 += sx;
                 }
+
+                // On ajuste l'erreur et on avance en Y si nécessaire
                 if (e2 < dx)
                 {
                     err += dx;
                     y0 += sy;
                 }
             }
+
+            // Si aucun obstacle n'a été rencontré, il y a une ligne de vue
             return true;
         }
 
+
+        // Retourne une liste des unités ennemies que le tireur peut viser
         private List<Unit> GetValidFireTargets(Unit shooter)
         {
+            // Liste qui contiendra les cibles valides
             List<Unit> targets = new();
 
+            // Parcours de toutes les unités ennemies
             foreach (var unit in enemyUnits)
             {
+                // Calcul de la distance Manhattan entre le tireur et l'unité
                 int distance =
                     Math.Abs(unit.Cell.X - shooter.Cell.X) +
                     Math.Abs(unit.Cell.Y - shooter.Cell.Y);
 
+                // Si l'unité est hors portée de l'arme du tireur, on l'ignore
                 if (distance > shooter.WeaponData.Range)
                     continue;
 
+                // Vérifie s'il n'y a pas d'obstacle entre le tireur et la cible
                 if (!HasLineOfSight(shooter.Cell, unit.Cell))
                     continue;
 
+                // Si la cible est à portée et visible, on l'ajoute à la liste
                 targets.Add(unit);
             }
 
+            // Retourne toutes les cibles valides pour ce tir
             return targets;
         }
 
+
+        // Met à jour la liste des cibles de tir disponibles pour l'unité sélectionnée
         void UpdateFireTargets()
         {
-            fireTargetsUI.Clear();
-            validFireTargets.Clear();
-            selectedFireTarget = null;
+            // On vide d'abord les anciennes UI de cibles et la liste de cibles valides
+            fireTargetsUI.Clear();     // UI graphique pour chaque cible
+            validFireTargets.Clear();  // liste logique des cibles valides
+            selectedFireTarget = null; // on désélectionne toute cible précédemment sélectionnée
 
+            // Si aucune unité n'est sélectionnée, on sort
             if (selectedUnit == null)
                 return;
 
+            // Si l'unité sélectionnée n'est pas du joueur, on ne fait rien
             if (selectedUnit.Team != Team.Player)
                 return;
 
+            // Si l'unité n'a plus de points d'action, elle ne peut pas tirer
             if (selectedUnit.ActionPoints <= 0)
                 return;
 
+            // Récupère toutes les cibles valides pour le tir depuis cette unité
             validFireTargets = GetValidFireTargets(selectedUnit);
 
+            // Affiche les cibles uniquement s'il y en a
             showFireTargets = validFireTargets.Count > 0;
 
+            // Pour chaque cible valide, on crée son UI correspondante
             foreach (var target in validFireTargets)
             {
+                // Calcul de la distance Manhattan entre le tireur et la cible
                 int distance = Math.Abs(target.Cell.X - selectedUnit.Cell.X) +
                                Math.Abs(target.Cell.Y - selectedUnit.Cell.Y);
 
+                // Calcul du pourcentage de chances de toucher
                 int hitChance = Math.Max(selectedUnit.WeaponData.Accuracy - distance * 5, 10);
+                // Limite minimale de chance de toucher à 10%
 
+                // Position du rectangle de l'UI pour cette cible (empilement vertical au-dessus du bouton "TIRER")
                 Rectangle bounds = new Rectangle(
-                    fireButton.X,
-                    fireButton.Y - 40 * (fireTargetsUI.Count + 1),
-                    fireButton.Width,
-                    32
+                    fireButton.X,                           // même X que le bouton TIRER
+                    fireButton.Y - 40 * (fireTargetsUI.Count + 1), // Y décalé vers le haut pour chaque nouvelle cible
+                    fireButton.Width,                       // largeur identique au bouton
+                    32                                      // hauteur fixe pour chaque cible
                 );
 
+                // Création et ajout de l'objet UI correspondant à la cible
                 fireTargetsUI.Add(new FireTargetUI
                 {
-                    Target = target,
-                    HitChance = hitChance,
-                    Bounds = bounds
+                    Target = target,     // unité cible
+                    HitChance = hitChance, // chance de toucher calculée
+                    Bounds = bounds       // rectangle de l'UI pour la souris
                 });
             }
         }
+
+
+        // Met à jour la position graphique (UI) des cibles de tir au-dessus du bouton "TIRER"
         private void UpdateFireTargetsUIPositions()
         {
+            // Si aucune cible UI n'existe, rien à faire
             if (fireTargetsUI.Count == 0) return;
 
-            int iconSize = 48;
-            int spacing = 10;
+            int iconSize = 48;  // taille d'une icône de cible (largeur et hauteur)
+            int spacing = 10;   // espacement entre les icônes
 
-            // centre le groupe d'icônes au-dessus du bouton TIRER
+            // --- CENTRAGE HORIZONTAL ---
+            // Calcul de la largeur totale du groupe d'icônes
             int totalWidth = fireTargetsUI.Count * iconSize + (fireTargetsUI.Count - 1) * spacing;
+
+            // Coordonnée X de départ pour centrer le groupe au-dessus du bouton TIRER
             int startX = fireButton.X + (fireButton.Width - totalWidth) / 2;
+
+            // Coordonnée Y fixe au-dessus du bouton TIRER, avec un petit décalage
             int y = fireButton.Y - iconSize - 10;
 
+            // Boucle pour placer chaque icône de cible
             for (int i = 0; i < fireTargetsUI.Count; i++)
             {
                 fireTargetsUI[i].Bounds = new Rectangle(
-                    startX + i * (iconSize + spacing),
-                    y,
-                    iconSize,
-                    iconSize
+                    startX + i * (iconSize + spacing), // X = départ + décalage selon l'index
+                    y,                                 // Y fixe au-dessus du bouton
+                    iconSize,                          // largeur de l'icône
+                    iconSize                           // hauteur de l'icône
                 );
             }
         }
 
+
+        // Vérifie si la souris se trouve actuellement au-dessus
+        // de l’un des boutons d’action de l’unité (TIRER, COUVERT, etc.)
         private bool IsMouseOverActionButton(MouseState mouse)
         {
+            // On parcourt tous les boutons d’action actuellement affichés
             foreach (var btn in unitActionButtons)
             {
+                // On reconstruit le rectangle cliquable du bouton
+                // à partir de sa position écran et de sa taille fixe
                 Rectangle rect = new Rectangle(
-                    (int)btn.Position.X,
-                    (int)btn.Position.Y,
-                    ActionButtonWidth,
-                    ActionButtonHeight
+                    (int)btn.Position.X,      // Position X du bouton à l’écran
+                    (int)btn.Position.Y,      // Position Y du bouton à l’écran
+                    ActionButtonWidth,        // Largeur du bouton
+                    ActionButtonHeight        // Hauteur du bouton
                 );
 
+                // Si la position actuelle de la souris est à l’intérieur
+                // du rectangle du bouton, alors la souris est sur un bouton UI
                 if (rect.Contains(mouse.Position))
-                    return true;
+                    return true; // On peut sortir immédiatement : on a trouvé un bouton
             }
+
+            // Aucun bouton d’action ne contient la souris
             return false;
         }
 
+
+        // Liste de modèles d'ennemis prédéfinis pour générer des unités ennemies aléatoires
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
         {
-            new EnemyTemplate("Alien Grunt", "Infantry", "Plasma Rifle", 3),
-            new EnemyTemplate("Alien Sniper", "Sniper", "Plasma Sniper", 2),
-            new EnemyTemplate("Alien Heavy", "Heavy", "Plasma Cannon", 2),
-            new EnemyTemplate("Alien Scout", "Scout", "SMG Plasma", 4)
+            // Chaque entrée crée un "template" d'ennemi avec : nom, classe, arme et points d'action (AP)
+            new EnemyTemplate("Alien Grunt", "Infantry", "Plasma Rifle", 3),  // Ennemi basique, AP = 3
+            new EnemyTemplate("Alien Sniper", "Sniper", "Plasma Sniper", 2),  // Ennemi tireur longue portée, AP = 2
+            new EnemyTemplate("Alien Heavy", "Heavy", "Plasma Cannon", 2),    // Ennemi lourd avec canon, AP = 2
+            new EnemyTemplate("Alien Scout", "Scout", "SMG Plasma", 4)        // Ennemi rapide, AP = 4
         };
+
+
+        // Initialise la "base de données" des armes du jeu
         private void InitializeWeapons()
         {
+            // Dictionnaire qui associe un nom d'arme (string) à ses données (WeaponData)
             weaponDatabase = new Dictionary<string, WeaponData>
             {
-                ["Rifle"] = new WeaponData("Rifle", 25, 80, 5),
-                ["Plasma Rifle"] = new WeaponData("Plasma Rifle", 30, 75, 5),
-                ["Plasma Sniper"] = new WeaponData("Plasma Sniper", 50, 90, 8),
-                ["Plasma Cannon"] = new WeaponData("Plasma Cannon", 40, 70, 4),
-                ["SMG Plasma"] = new WeaponData("SMG Plasma", 15, 60, 6)
+                // Chaque entrée crée une arme avec : nom, dégâts, précision (%), portée (en cases)
+                ["Rifle"] = new WeaponData("Rifle", 25, 80, 5),             // Fusil standard : 25 dégâts, 80% précision, portée 5
+                ["Plasma Rifle"] = new WeaponData("Plasma Rifle", 30, 75, 5), // Fusil plasma : 30 dégâts, 75% précision, portée 5
+                ["Plasma Sniper"] = new WeaponData("Plasma Sniper", 50, 90, 8), // Sniper plasma : 50 dégâts, 90% précision, portée 8
+                ["Plasma Cannon"] = new WeaponData("Plasma Cannon", 40, 70, 4), // Canon plasma : 40 dégâts, 70% précision, portée 4
+                ["SMG Plasma"] = new WeaponData("SMG Plasma", 15, 60, 6)    // Mitraillette plasma : 15 dégâts, 60% précision, portée 6
             };
         }
+
     }
+
+
+    // Représente un bouton UI simple basé sur du texte
+    // Utilisé pour les actions d’unité (TIRER, COUVERT, etc.)
     public class Button
     {
+        // Texte affiché sur le bouton
         public string Text;
+
+        // Position du bouton à l’écran (coordonnées écran, pas monde)
         public Vector2 Position;
+
+        // Largeur et hauteur "logiques" du bouton
+        // ⚠️ Actuellement NON utilisées pour le rendu ou le clic
         public int Width = 100;
         public int Height = 36;
+
+        // Rectangle cliquable réel du bouton
+        // Mis à jour dans Draw() à partir du texte mesuré
         private Rectangle bounds;
+
+        // Indique si le bouton est interactif
+        // false → grisé et non cliquable
         public bool IsEnabled = true;
+
+        // Constructeur : initialise le texte et la position du bouton
         public Button(string text, Vector2 position)
         {
             Text = text;
             Position = position;
         }
+
+        // Dessine le bouton et met à jour sa zone cliquable
         public void Draw(SpriteBatch spriteBatch, SpriteFont font, MouseState mouse)
         {
+            // Mesure la taille du texte avec la police utilisée
             Vector2 size = font.MeasureString(Text);
+
+            // Création du rectangle cliquable basé sur la taille du texte
+            // → le bouton s’adapte automatiquement à la longueur du texte
             bounds = new Rectangle(
                 (int)Position.X,
                 (int)Position.Y,
                 (int)size.X,
                 (int)size.Y
             );
+
             Color color;
+
+            // Si le bouton est désactivé, on le grise
             if (!IsEnabled)
             {
                 color = Color.Gray;
             }
             else
             {
+                // Si la souris est au-dessus du bouton :
+                // → surbrillance (hover)
+                // Sinon : couleur normale
                 color = bounds.Contains(mouse.Position)
                     ? Color.Yellow
                     : Color.White;
             }
+
+            // Dessin du texte du bouton
             spriteBatch.DrawString(font, Text, Position, color);
         }
+        // Détecte un clic gauche "propre" (press → release)
         public bool IsClicked(MouseState current, MouseState previous)
         {
+            // Un bouton désactivé ne peut jamais être cliqué
             if (!IsEnabled) return false;
+
             return
+                // La souris est dans le rectangle du bouton
                 bounds.Contains(current.Position) &&
+
+                // Le bouton gauche vient juste d’être pressé
                 current.LeftButton == ButtonState.Pressed &&
                 previous.LeftButton == ButtonState.Released;
         }
     }
+
+
+
+
+    // Enumération représentant les équipes dans le jeu
     public enum Team
     {
-        Player,
-        Enemy
+        Player, // Équipe du joueur
+        Enemy   // Équipe ennemie
     }
+
+
+    // Représente une unité (joueur ou ennemie) sur la grille tactique
+    // Contient à la fois l'état stratégique (PA, position, vie)
+    // et l'état temporaire lié aux animations (tir, projectiles)
     public class Unit
     {
+        // Position de l’unité sur la grille (coordonnées cellule, pas pixels)
         public Point Cell;
+
+        // Équipe de l’unité (Player ou Enemy)
         public Team Team;
+
+        // Nom affiché de l’unité (ex : "Soldat 1", "Alien")
         public string Name;
+
+        // Classe de l’unité (ex : "Rifleman", "Sniper")
+        // ⚠️ "Class" est un mot réservé en C#, mais utilisable comme champ
         public string Class;
+
+        // Nom de l’arme équipée (ex : "Rifle", "Plasma Gun")
         public string Weapon;
+
+        // Points d’action disponibles pour ce tour
+        // Consommés par les actions (déplacement, tir, etc.)
         public int ActionPoints = 3;
+
+        // Points de déplacement maximum par action
+        // Sert à limiter la distance de mouvement
         public int MovementPoints = 3;
+
+        // Données techniques de l’arme (portée, dégâts, précision, etc.)
         public WeaponData WeaponData;
+
+        // Points de vie actuels de l’unité
         public int Health = 100;
+
+        // Points de vie maximum
         public int MaxHealth = 100;
+
+        // Indique si l’unité est en train de tirer
+        // Utilisé pour bloquer les actions et jouer l’animation
         public bool IsFiring = false;
+
+        // Cellule ciblée par le tir en cours
+        // Nullable → null = aucun tir en préparation
         public Point? FireTarget = null;
+
+        // Avancement de l’animation de tir (0 → 1)
+        // Sert à interpoler le projectile
         public float FireProgress = 0f;
+
+        // Résultat du calcul de précision
+        // true = le tir touchera, false = il manquera
         public bool WillHit = false;
+
+        // Unité réellement visée par le tir
+        // Permet d’appliquer les dégâts à la fin de l’animation
         public Unit PendingTarget = null;
+
+        // Constructeur standard utilisé lors de la création d’une unité
+        // au début de la partie ou lors du spawn
         public Unit(Point cell, Team team, string name, string unitClass, string weapon, WeaponData weaponData)
         {
-            Cell = cell;
-            Team = team;
-            Name = name;
-            Class = unitClass;
-            Weapon = weapon;
-            WeaponData = weaponData;
+            Cell = cell;                 // Position initiale sur la grille
+            Team = team;                 // Équipe de l’unité
+            Name = name;                 // Nom affiché
+            Class = unitClass;           // Classe de l’unité
+            Weapon = weapon;             // Nom de l’arme
+            WeaponData = weaponData;     // Données complètes de l’arme
         }
+
+        // Constructeur de copie
+        // Utilisé pour du clonage d’unité (simulation, preview, IA, undo, etc.)
         public Unit(Unit other)
         {
             Cell = other.Cell;
@@ -1380,44 +2015,59 @@ namespace XCOM_3
             Class = other.Class;
             Weapon = other.Weapon;
             WeaponData = other.WeaponData;
+
             ActionPoints = other.ActionPoints;
             Health = other.Health;
             MaxHealth = other.MaxHealth;
         }
     }
+
+
+    // Classe servant de modèle pour créer des ennemis préconfigurés
     public class EnemyTemplate
     {
-        public string Name;
-        public string Class;
-        public string Weapon;
-        public int ActionPoints;
+        public string Name;         // Nom de l'ennemi (ex: "Alien Grunt")
+        public string Class;        // Type ou rôle de l'ennemi (ex: "Sniper", "Heavy")
+        public string Weapon;       // Arme équipée par défaut
+        public int ActionPoints;    // Points d'action initiaux (AP) à attribuer à l'ennemi
+
+        // Constructeur pour initialiser un modèle d'ennemi
         public EnemyTemplate(string name, string unitClass, string weapon, int ap)
         {
-            Name = name;
-            Class = unitClass;
-            Weapon = weapon;
-            ActionPoints = ap;
+            Name = name;            // Affecte le nom passé en paramètre
+            Class = unitClass;      // Affecte la classe passée en paramètre
+            Weapon = weapon;        // Affecte l'arme passée en paramètre
+            ActionPoints = ap;      // Définit les points d'action initiaux
         }
     }
+
+
+    // Classe représentant les données d'une arme
     public class WeaponData
     {
-        public string Name;
-        public int Damage;
-        public int Accuracy;
-        public int Range;
+        public string Name;      // Nom de l'arme (ex: "Rifle", "Plasma Cannon")
+        public int Damage;       // Dégâts infligés par l'arme
+        public int Accuracy;     // Pourcentage de chance de toucher (0-100)
+        public int Range;        // Portée maximale de l'arme (en nombre de cases)
+
+        // Constructeur pour initialiser les propriétés de l'arme
         public WeaponData(string name, int damage, int accuracy, int range)
         {
-            Name = name;
-            Damage = damage;
-            Accuracy = accuracy;
-            Range = range;
+            Name = name;         // Affecte le nom de l'arme
+            Damage = damage;     // Affecte la valeur de dégâts
+            Accuracy = accuracy; // Affecte la précision
+            Range = range;       // Affecte la portée
         }
     }
+
+
+    // Classe représentant l'interface utilisateur d'une cible pour le tir
     class FireTargetUI
     {
-        public Unit Target;
-        public Rectangle Bounds;
-        public int HitChance;
+        public Unit Target;       // La cible réelle (unité ennemie) associée à ce bouton/élément UI
+        public Rectangle Bounds;  // Zone à l'écran où le bouton/cible est affiché (pour détecter les clics)
+        public int HitChance;     // Chance de toucher cette cible en pourcentage (calculée depuis la distance et la précision de l'arme)
     }
+
 
 }
