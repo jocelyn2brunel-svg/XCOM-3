@@ -18,6 +18,7 @@ using System.Collections.Generic;
 
 // Fournit des extensions LINQ (Language Integrated Query) pour manipuler facilement les collections : Where, Select, Any, Count, FirstOrDefault, etc.
 using System.Linq;
+using System.Reflection;
 
 namespace XCOM_3
 {
@@ -217,64 +218,8 @@ namespace XCOM_3
             // Ce bloc ne s'exécute que si le jeu est dans l'état du menu principal.
             if (currentState == GameState.MainMenu)
             {
-                foreach (var button in menuButtons) // Parcourt tous les boutons du menu
-                {
-                    // Détecte si le bouton a été cliqué (en comparant l'état actuel et précédent de la souris)
-                    if (button.IsClicked(mouse, previousMouseState))
-                    {
-                        // Réagit en fonction du texte du bouton
-                        switch (button.Text)
-                        {
-                            case "New Game":
-                                MediaPlayer.Stop();           // Arrête la musique du menu
-                                currentState = GameState.Playing; // Passe à l'état de jeu
-                                LoadMap();                    // Charge une nouvelle carte
-                                CreateUnits();                // Crée les unités du joueur et de l'ennemi
-                                Console.WriteLine("New game launched !");
-                                break;
-
-                            case "Continue":
-                                if (hasSavedGame) // Vérifie s'il y a une partie sauvegardée
-                                {
-                                    // Recharge les unités du joueur à partir de la sauvegarde
-                                    playerUnits = new List<Unit>();
-                                    foreach (var u in savedPlayerUnits)
-                                        playerUnits.Add(new Unit(u));
-
-                                    // Recharge les unités ennemies à partir de la sauvegarde
-                                    enemyUnits = new List<Unit>();
-                                    foreach (var u in savedEnemyUnits)
-                                        enemyUnits.Add(new Unit(u));
-
-                                    currentState = GameState.Playing; // Passe à l'état de jeu
-                                    Console.WriteLine("Game continued!");
-                                }
-                                else
-                                {
-                                    // Message si aucune sauvegarde n'est disponible
-                                    Console.WriteLine("No saved game to continue!");
-                                }
-                                break;
-
-                            case "Encyclopedia":
-                                // Placeholder pour ouvrir l'encyclopédie
-                                Console.WriteLine("Opening encyclopedia...");
-                                break;
-
-                            case "Options":
-                                // Passe à l'état du menu Options
-                                currentState = GameState.OptionsMenu;
-                                Console.WriteLine("Options");
-                                break;
-
-                            case "Quit":
-                                Exit(); // Quitte complètement le jeu
-                                break;
-                        }
-                    }
-                }
+                HandleMainMenu(mouse);
             }
-
 
             // --- 3. Détection du clic gauche ---
             bool leftClick =
@@ -478,75 +423,7 @@ namespace XCOM_3
             // --- 7. GESTION DU MENU OPTIONS ---
             if (currentState == GameState.OptionsMenu)
             {
-                // Parcourt tous les boutons du menu Options
-                foreach (var button in optionsButtons)
-                {
-                    // Vérifie si le bouton a été cliqué (appui souris depuis le dernier frame)
-                    if (button.IsClicked(mouse, previousMouseState))
-                    {
-                        // Effectue une action selon le texte du bouton
-                        switch (button.Text)
-                        {
-                            case "Music Volume +":
-                                // Augmente le volume de 0.1 mais ne dépasse pas 1.0 (valeur max)
-                                musicVolume = Math.Min(musicVolume + 0.1f, 1f);
-                                MediaPlayer.Volume = musicVolume; // applique le volume
-                                Console.WriteLine("Volume: " + musicVolume); // debug
-                                break;
-
-                            case "Music Volume -":
-                                // Diminue le volume de 0.1 mais ne descend pas sous 0.0 (valeur min)
-                                musicVolume = Math.Max(musicVolume - 0.1f, 0f);
-                                MediaPlayer.Volume = musicVolume; // applique le volume
-                                Console.WriteLine("Volume: " + musicVolume); // debug
-                                break;
-
-                            case "Back":
-                                // Retour au menu principal
-                                currentState = GameState.MainMenu;
-                                break;
-                        }
-                    }
-                }
-
-                // --- Glisser le curseur de la barre de volume ---
-                // Commence le glissement si la souris est enfoncée sur la barre
-                if (mouse.LeftButton == ButtonState.Pressed &&
-                    volumeBar.Contains(mouse.Position)) draggingVolume = true;
-
-                // Stoppe le glissement dès que le bouton est relâché
-                if (mouse.LeftButton == ButtonState.Released) draggingVolume = false;
-
-                // Si le curseur est en train d'être glissé
-                if (draggingVolume)
-                {
-                    // Calcule le pourcentage selon la position de la souris sur la barre
-                    float percent = (mouse.X - volumeBar.X) / (float)volumeBar.Width;
-
-                    // Limite la valeur entre 0 et 1
-                    musicVolume = MathHelper.Clamp(percent, 0f, 1f);
-
-                    // Applique le volume à MediaPlayer
-                    MediaPlayer.Volume = musicVolume;
-                }
-
-                // --- Mise à jour de l'affichage de la barre de volume et du curseur ---
-                // Remplissage de la barre selon le volume
-                volumeFill = new Rectangle(
-                    volumeBar.X,
-                    volumeBar.Y,
-                    (int)(volumeBar.Width * musicVolume), // largeur proportionnelle au volume
-                    volumeBar.Height
-                );
-
-                // Position du curseur (handle)
-                int handleX = volumeBar.X + volumeFill.Width - 5; // léger décalage pour centrer
-                volumeHandle = new Rectangle(
-                    handleX,
-                    volumeBar.Y - 4,
-                    10, // largeur du curseur
-                    volumeBar.Height + 8 // hauteur du curseur légèrement plus grande que la barre
-                );
+                HandleOptionsMenu(mouse);
             }
 
 
@@ -1933,8 +1810,145 @@ namespace XCOM_3
             };
         }
 
-    }
+        private void HandleMainMenu(MouseState mouse)
+        {
+            foreach (var button in menuButtons) // Parcourt tous les boutons du menu
+            {
+                // Détecte si le bouton a été cliqué (en comparant l'état actuel et précédent de la souris)
+                if (button.IsClicked(mouse, previousMouseState))
+                {
+                    // Réagit en fonction du texte du bouton
+                    switch (button.Text)
+                    {
+                        case "New Game":
+                            MediaPlayer.Stop();           // Arrête la musique du menu
+                            currentState = GameState.Playing; // Passe à l'état de jeu
+                            LoadMap();                    // Charge une nouvelle carte
+                            CreateUnits();                // Crée les unités du joueur et de l'ennemi
+                            Console.WriteLine("New game launched !");
+                            break;
 
+                        case "Continue":
+                            if (hasSavedGame) // Vérifie s'il y a une partie sauvegardée
+                            {
+                                // Recharge les unités du joueur à partir de la sauvegarde
+                                playerUnits = new List<Unit>();
+                                foreach (var u in savedPlayerUnits)
+                                    playerUnits.Add(new Unit(u));
+
+                                // Recharge les unités ennemies à partir de la sauvegarde
+                                enemyUnits = new List<Unit>();
+                                foreach (var u in savedEnemyUnits)
+                                    enemyUnits.Add(new Unit(u));
+
+                                currentState = GameState.Playing; // Passe à l'état de jeu
+                                Console.WriteLine("Game continued!");
+                            }
+                            else
+                            {
+                                // Message si aucune sauvegarde n'est disponible
+                                Console.WriteLine("No saved game to continue!");
+                            }
+                            break;
+
+                        case "Encyclopedia":
+                            // Placeholder pour ouvrir l'encyclopédie
+                            Console.WriteLine("Opening encyclopedia...");
+                            break;
+
+                        case "Options":
+                            // Passe à l'état du menu Options
+                            currentState = GameState.OptionsMenu;
+                            Console.WriteLine("Options");
+                            break;
+
+                        case "Quit":
+                            Exit(); // Quitte complètement le jeu
+                            break;
+                    }
+                }
+            }
+        }
+
+        private void HandleOptionsMenu(MouseState mouse)
+        {
+            // Parcourt tous les boutons du menu Options
+            foreach (var button in optionsButtons)
+            {
+                // Vérifie si le bouton a été cliqué (appui souris depuis le dernier frame)
+                if (button.IsClicked(mouse, previousMouseState))
+                {
+                    // Effectue une action selon le texte du bouton
+                    switch (button.Text)
+                    {
+                        case "Music Volume +":
+                            // Augmente le volume de 0.1 mais ne dépasse pas 1.0 (valeur max)
+                            musicVolume = Math.Min(musicVolume + 0.1f, 1f);
+                            MediaPlayer.Volume = musicVolume; // applique le volume
+                            Console.WriteLine("Volume: " + musicVolume); // debug
+                            break;
+
+                        case "Music Volume -":
+                            // Diminue le volume de 0.1 mais ne descend pas sous 0.0 (valeur min)
+                            musicVolume = Math.Max(musicVolume - 0.1f, 0f);
+                            MediaPlayer.Volume = musicVolume; // applique le volume
+                            Console.WriteLine("Volume: " + musicVolume); // debug
+                            break;
+
+                        case "Back":
+                            // Retour au menu principal
+                            currentState = GameState.MainMenu;
+                            break;
+                    }
+                }
+            }
+
+            // --- Glisser le curseur de la barre de volume ---
+            // Commence le glissement si la souris est enfoncée sur la barre
+            if (mouse.LeftButton == ButtonState.Pressed &&
+                volumeBar.Contains(mouse.Position)) draggingVolume = true;
+
+            // Stoppe le glissement dès que le bouton est relâché
+            if (mouse.LeftButton == ButtonState.Released) draggingVolume = false;
+
+            // Si le curseur est en train d'être glissé
+            if (draggingVolume)
+            {
+                // Calcule le pourcentage selon la position de la souris sur la barre
+                float percent = (mouse.X - volumeBar.X) / (float)volumeBar.Width;
+
+                // Limite la valeur entre 0 et 1
+                musicVolume = MathHelper.Clamp(percent, 0f, 1f);
+
+                // Applique le volume à MediaPlayer
+                MediaPlayer.Volume = musicVolume;
+            }
+
+            // --- Mise à jour de l'affichage de la barre de volume et du curseur ---
+            // Remplissage de la barre selon le volume
+            volumeFill = new Rectangle(
+                volumeBar.X,
+                volumeBar.Y,
+                (int)(volumeBar.Width * musicVolume), // largeur proportionnelle au volume
+                volumeBar.Height
+            );
+
+            // Position du curseur (handle)
+            int handleX = volumeBar.X + volumeFill.Width - 5; // léger décalage pour centrer
+            volumeHandle = new Rectangle(
+                handleX,
+                volumeBar.Y - 4,
+                10, // largeur du curseur
+                volumeBar.Height + 8 // hauteur du curseur légèrement plus grande que la barre
+            );
+        }
+
+        private void HandlePlayerTurn(MouseState mouse, bool leftClick)
+        {
+
+        }
+
+    }
 
     // Représente un bouton UI simple basé sur du texte
     // Utilisé pour les actions d’unité (TIRER, COUVERT, etc.)
