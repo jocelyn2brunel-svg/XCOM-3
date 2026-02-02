@@ -72,6 +72,8 @@ namespace XCOM_3
         private Texture2D tileTexture;
         private Texture2D obstacleTexture;
         private HashSet<Point> obstacles = new HashSet<Point>();
+        List<FireTargetUI> fireTargetsUI = new();
+
 
         public Game1()
         {
@@ -205,17 +207,20 @@ namespace XCOM_3
                 }
                 if (isTargeting && leftClick)
                 {
-                    Point clickedCell = new Point(cellX, cellY);
-                    Unit target = GetUnitAtCell(clickedCell);
-
-                    if (target != null && validFireTargets.Contains(target))
+                    foreach (var ui in fireTargetsUI)
                     {
-                        FireAtTarget(selectedUnit, target);
-                        isTargeting = false;
-                        validFireTargets.Clear();
+                        if (ui.Bounds.Contains(mouse.Position))
+                        {
+                            FireAtTarget(selectedUnit, ui.Target);
+                            break;
+                        }
                     }
+
+                    isTargeting = false;
+                    fireTargetsUI.Clear();
                     return;
                 }
+
                 if (leftClick)
                 {
                     Point clickedCell = new Point(cellX, cellY);
@@ -276,9 +281,19 @@ namespace XCOM_3
                         fireButtonHovered = true;
                         if (leftClick)
                         {
-                            EnterTargetingMode(selectedUnit);
+                            validFireTargets = GetValidFireTargets(selectedUnit);
+
+                            if (validFireTargets.Count > 0)
+                            {
+                                EnterTargetingMode(selectedUnit);
+                            }
+                            else
+                            {
+                                Console.WriteLine("Aucune cible valide");
+                            }
                         }
                     }
+
                 }
                 endTurnHovered = endTurnButton.Contains(mouse.Position);
                 if (endTurnHovered && leftClick && !isActionInProgress)
@@ -441,22 +456,7 @@ namespace XCOM_3
                     Color arrowColor = Color.CornflowerBlue * (0.7f + pulse * 0.3f);
                     DrawArrow(_spriteBatch, fromWorld, toWorld, arrowColor);
                 }
-                if (selectedUnit != null && selectedUnit.ActionPoints > 0 && fireButtonHovered)
-                {
-                    if (isTargeting)
-                    {
-                        foreach (var target in validFireTargets)
-                        {
-                            Rectangle rect = new Rectangle(
-                                target.Cell.X * cellSize,
-                                target.Cell.Y * cellSize,
-                                cellSize,
-                                cellSize);
-
-                            _spriteBatch.Draw(pixel, rect, new Color(255, 0, 0, 80));
-                        }
-                    }
-                }
+                
                 _spriteBatch.End();
             }
             _spriteBatch.Begin();
@@ -529,6 +529,30 @@ namespace XCOM_3
                 _spriteBatch.Draw(pixel, volumeFill, Color.Yellow);
                 _spriteBatch.Draw(pixel, volumeHandle, Color.White);
             }
+            if (currentState == GameState.Playing &&
+                isTargeting &&
+                selectedUnit != null &&
+                selectedUnit.Team == Team.Player)
+                {
+                foreach (var ui in fireTargetsUI)
+                {
+                    _spriteBatch.Draw(pixel, ui.Bounds, Color.DarkRed);
+
+                    string txt = ui.HitChance + "%";
+                    Vector2 size = font.MeasureString(txt);
+
+                    _spriteBatch.DrawString(
+                        font,
+                        txt,
+                        new Vector2(
+                            ui.Bounds.Center.X - size.X / 2,
+                            ui.Bounds.Center.Y - size.Y / 2
+                        ),
+                        Color.White
+                    );
+                }
+            }
+
             _spriteBatch.End();
             base.Draw(gameTime);
         }
@@ -899,26 +923,47 @@ namespace XCOM_3
         }
         private void EnterTargetingMode(Unit shooter)
         {
-            validFireTargets.Clear();
-            foreach (var target in AllUnits())
+            fireTargetsUI.Clear();
+
+            int iconSize = 48;
+            int spacing = 10;
+
+            int startX =
+                (GraphicsDevice.Viewport.Width / 2)
+                - ((iconSize + spacing) * validFireTargets.Count) / 2;
+
+            int y = fireButton.Y - iconSize - 10;
+
+            int index = 0;
+            foreach (var target in validFireTargets)
             {
-                if (target.Team == shooter.Team)
-                    continue;
-                int distance = Math.Abs(target.Cell.X - shooter.Cell.X) + Math.Abs(target.Cell.Y - shooter.Cell.Y);
-                if (distance <= shooter.WeaponData.Range && HasLineOfSight(shooter.Cell, target.Cell))
+                int distance =
+                    Math.Abs(target.Cell.X - shooter.Cell.X) +
+                    Math.Abs(target.Cell.Y - shooter.Cell.Y);
+
+                int hitChance =
+                    Math.Max(shooter.WeaponData.Accuracy - distance * 5, 10);
+
+                Rectangle rect = new Rectangle(
+                    startX + index * (iconSize + spacing),
+                    y,
+                    iconSize,
+                    iconSize
+                );
+
+                fireTargetsUI.Add(new FireTargetUI
                 {
-                    validFireTargets.Add(target);
-                }
+                    Target = target,
+                    Bounds = rect,
+                    HitChance = hitChance
+                });
+
+                index++;
             }
-            if (validFireTargets.Count == 0)
-            {
-                Console.WriteLine("Aucune cible visible");
-                isTargeting = false;
-                return;
-            }
+
             isTargeting = true;
-            Console.WriteLine("Mode ciblage activé");
         }
+
         private void FireAtTarget(Unit shooter, Unit target)
         {
             if (shooter.ActionPoints <= 0)
@@ -1038,6 +1083,28 @@ namespace XCOM_3
             }
             return true;
         }
+        private List<Unit> GetValidFireTargets(Unit shooter)
+        {
+            List<Unit> targets = new();
+
+            foreach (var unit in enemyUnits)
+            {
+                int distance =
+                    Math.Abs(unit.Cell.X - shooter.Cell.X) +
+                    Math.Abs(unit.Cell.Y - shooter.Cell.Y);
+
+                if (distance > shooter.WeaponData.Range)
+                    continue;
+
+                if (!HasLineOfSight(shooter.Cell, unit.Cell))
+                    continue;
+
+                targets.Add(unit);
+            }
+
+            return targets;
+        }
+
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
         {
             new EnemyTemplate("Alien Grunt", "Infantry", "Plasma Rifle", 3),
@@ -1171,4 +1238,11 @@ namespace XCOM_3
             Range = range;
         }
     }
+    class FireTargetUI
+    {
+        public Unit Target;
+        public Rectangle Bounds;
+        public int HitChance;
+    }
+
 }
