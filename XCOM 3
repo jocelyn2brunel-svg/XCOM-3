@@ -75,7 +75,9 @@ namespace XCOM_3
         bool showFireTargets = false;
         Unit selectedFireTarget = null;
         private Unit hoveredFireTarget = null;
-
+        private List<Button> unitActionButtons = new List<Button>();
+        private const int ActionButtonWidth = 100;
+        private const int ActionButtonHeight = 36;
 
 
 
@@ -176,9 +178,11 @@ namespace XCOM_3
                     }
                 }
             }
+
             bool leftClick =
                 mouse.LeftButton == ButtonState.Pressed &&
                 previousMouseState.LeftButton == ButtonState.Released;
+
             if (currentState == GameState.Playing && currentTurn == TurnState.PlayerTurn)
             {
                 Vector2 mouseWorldPos = (new Vector2(mouse.X, mouse.Y) - new Vector2(GraphicsDevice.Viewport.Width / 2, GraphicsDevice.Viewport.Height / 2)) / zoom + cameraOffset;
@@ -210,10 +214,16 @@ namespace XCOM_3
                     arrowToCell = hoveredCell;
                     showMoveArrow = true;
                 }
-                if (leftClick)
+
+                bool clickOnUI =
+                    fireButton.Contains(mouse.Position) ||
+                    IsMouseOverActionButton(mouse);
+
+                if (leftClick && !clickOnUI)
                 {
                     Point clickedCell = new Point(cellX, cellY);
                     Unit clickedUnit = GetUnitAtCell(clickedCell);
+
                     if (clickedUnit != null)
                     {
                         selectedUnit = clickedUnit;
@@ -229,34 +239,54 @@ namespace XCOM_3
                             showMoveArrow = false;
                         }
                     }
-                    else if (selectedUnit != null)
+                    else if (selectedUnit != null && selectedUnit.ActionPoints > 0)
                     {
-                        if (selectedUnit.ActionPoints > 0)
+                        var movableCells = GetMovableCells(selectedUnit);
+                        if (movableCells.Contains(clickedCell))
                         {
-                            var movableCells = GetMovableCells(selectedUnit);
-                            if (movableCells.Contains(clickedCell))
-                            {
-                                int cost = Math.Abs(clickedCell.X - selectedUnit.Cell.X) +
-                                           Math.Abs(clickedCell.Y - selectedUnit.Cell.Y);
-                                if (cost <= selectedUnit.MovementPoints)
-                                {
-                                    selectedUnit.Cell = clickedCell;
-                                    selectedUnit.ActionPoints -= 1;
-                                    UpdateFireTargets();
+                            int cost = Math.Abs(clickedCell.X - selectedUnit.Cell.X) +
+                                       Math.Abs(clickedCell.Y - selectedUnit.Cell.Y);
 
-                                    if (selectedUnit.ActionPoints > 0)
-                                    {
-                                        cachedMovableCells = GetMovableCells(selectedUnit);
-                                    }
-                                    else
-                                    {
-                                        cachedMovableCells.Clear();
-                                    }
-                                }
+                            if (cost <= selectedUnit.MovementPoints)
+                            {
+                                selectedUnit.Cell = clickedCell;
+                                selectedUnit.ActionPoints--;
+                                UpdateFireTargets();
+
+                                cachedMovableCells = selectedUnit.ActionPoints > 0
+                                    ? GetMovableCells(selectedUnit)
+                                    : new List<Point>();
                             }
                         }
                     }
                 }
+
+                if (leftClick)
+                {
+                    foreach (var btn in unitActionButtons)
+                    {
+                        Rectangle rect = new Rectangle(
+                            (int)btn.Position.X,
+                            (int)btn.Position.Y,
+                            ActionButtonWidth,
+                            ActionButtonHeight
+                        );
+
+                        if (rect.Contains(mouse.Position))
+                        {
+                            Console.WriteLine($"Action future : {btn.Text}");
+
+                            // PLUS TARD :
+                            // switch(btn.Text)
+                            // {
+                            //     case "COUVERT": ...
+                            //     case "RECHARGER": ...
+                            // }
+                        }
+                    }
+                }
+
+
                 if (leftClick && showFireTargets)
                 {
                     foreach (var ui in fireTargetsUI)
@@ -268,6 +298,7 @@ namespace XCOM_3
                         }
                     }
                 }
+
                 if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released)
                 {
                     validFireTargets.Clear();
@@ -275,7 +306,9 @@ namespace XCOM_3
                     cachedMovableCells.Clear();
                     showMoveArrow = false;
                 }
+
                 fireButtonHovered = false;
+
                 if (fireButton.Contains(mouse.Position))
                 {
                     fireButtonHovered = true;
@@ -297,11 +330,13 @@ namespace XCOM_3
                     StartEnemyTurn();
                 }
             }
+
             if (currentState == GameState.Playing &&
                 currentTurn == TurnState.EnemyTurn)
             {
                 UpdateEnemyTurn();
             }
+
             if (currentState == GameState.Playing)
             {
                 MouseState mouseState = Mouse.GetState();
@@ -315,6 +350,7 @@ namespace XCOM_3
                     zoom = MathHelper.Clamp(zoom, minZoom, maxZoom);
                 }
             }
+
             if (currentState == GameState.OptionsMenu)
             {
                 foreach (var button in optionsButtons)
@@ -369,10 +405,12 @@ namespace XCOM_3
                     10,
                     volumeBar.Height + 8);
             }
+
             KeyboardState keyboardState = Keyboard.GetState();
             bool escapePressed =
                 keyboardState.IsKeyDown(Keys.Escape) &&
                 previousKeyboardState.IsKeyUp(Keys.Escape);
+
             Vector2 move = Vector2.Zero;
             if (keyboardState.IsKeyDown(Keys.W)) move.Y -= 1;
             if (keyboardState.IsKeyDown(Keys.S)) move.Y += 1;
@@ -385,6 +423,7 @@ namespace XCOM_3
                 Vector2 mouseDelta = new Vector2(mouse.X - previousMouseState.X, mouse.Y - previousMouseState.Y);
                 cameraOffset -= mouseDelta / zoom;
             }
+
             if (escapePressed && currentState == GameState.Playing)
             {
                 hasSavedGame = true;
@@ -397,10 +436,12 @@ namespace XCOM_3
                     savedEnemyUnits.Add(new Unit(u));
                 currentState = GameState.MainMenu;
             }
+
             if (escapePressed && currentState == GameState.OptionsMenu)
             {
                 currentState = GameState.MainMenu;
             }
+
             if (currentState == GameState.Playing)
             {
                 UpdateFiringAnimations(gameTime);
@@ -797,8 +838,6 @@ namespace XCOM_3
                 DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top), new Vector2(targetRect.Left, targetRect.Bottom), Color.Red, thickness);
                 DrawLine(_spriteBatch, new Vector2(targetRect.Right, targetRect.Top), new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
             }
-
-
         }
         private IEnumerable<Unit> AllUnits()
         {
@@ -829,35 +868,56 @@ namespace XCOM_3
             _spriteBatch.DrawString(font, "Weapon: " + selectedUnit.Weapon, textPos + new Vector2(0, 40), Color.White);
             _spriteBatch.DrawString(font, "AP: " + selectedUnit.ActionPoints, textPos + new Vector2(0, 60), Color.White);
             _spriteBatch.DrawString(font, "HP: " + selectedUnit.Health + " / " + selectedUnit.MaxHealth, textPos + new Vector2(0, 80), Color.White);
+            unitActionButtons.Clear(); // on vide la liste avant de la remplir
             int buttonWidth = 100;
             int buttonHeight = 36;
             int marginBottom = 15;
-            int centerX =
-                (GraphicsDevice.Viewport.Width / 2) - (buttonWidth / 2);
-            int bottomY =
-                GraphicsDevice.Viewport.Height - marginBottom - buttonHeight;
+
+            // Bouton "TIRER"
             fireButton = new Rectangle(
-                centerX,
-                bottomY,
+                (GraphicsDevice.Viewport.Width / 2) - (buttonWidth / 2),
+                GraphicsDevice.Viewport.Height - marginBottom - buttonHeight,
                 buttonWidth,
                 buttonHeight
             );
-            Color btnColor = fireButtonHovered
-                ? Color.Orange
-                : Color.DarkOrange;
-            _spriteBatch.Draw(pixel, fireButton, btnColor);
-            Vector2 textSize = font.MeasureString("TIRER");
-            _spriteBatch.DrawString(
-                font,
-                "TIRER",
-                new Vector2(
-                    fireButton.X + (buttonWidth - textSize.X) / 2,
-                    fireButton.Y + (buttonHeight - textSize.Y) / 2
-                ),
-                Color.Black
-            );
+            unitActionButtons.Add(new Button("TIRER", new Vector2(fireButton.X, fireButton.Y)));
+            // Exemple : boutons vides pour plus tard
+            unitActionButtons.Add(new Button("COUVERT", new Vector2(fireButton.X - 110, fireButton.Y))); // bouton à gauche
+            unitActionButtons.Add(new Button("RECHARGER", new Vector2(fireButton.X + 110, fireButton.Y))); // bouton à droite
+
+            MouseState mouse = Mouse.GetState();
+            foreach (var btn in unitActionButtons)
+            {
+                Rectangle rect = new Rectangle(
+                    (int)btn.Position.X,
+                    (int)btn.Position.Y,
+                    ActionButtonWidth,
+                    ActionButtonHeight
+                );
+
+                Color color = rect.Contains(mouse.Position)
+                    ? Color.Orange
+                    : Color.DarkOrange;
+
+                _spriteBatch.Draw(pixel, rect, color);
+
+                Vector2 textSize = font.MeasureString(btn.Text);
+                _spriteBatch.DrawString(
+                    font,
+                    btn.Text,
+                    new Vector2(
+                        rect.X + (rect.Width - textSize.X) / 2,
+                        rect.Y + (rect.Height - textSize.Y) / 2
+                    ),
+                    Color.Black
+                );
+            }
+
             UpdateFireTargetsUIPositions();
         }
+
+
+
         private List<Point> GetMovableCells(Unit unit)
         {
             List<Point> cells = new List<Point>();
@@ -1114,6 +1174,7 @@ namespace XCOM_3
             }
             return true;
         }
+
         private List<Unit> GetValidFireTargets(Unit shooter)
         {
             List<Unit> targets = new();
@@ -1135,6 +1196,7 @@ namespace XCOM_3
 
             return targets;
         }
+
         void UpdateFireTargets()
         {
             fireTargetsUI.Clear();
@@ -1199,6 +1261,22 @@ namespace XCOM_3
             }
         }
 
+        private bool IsMouseOverActionButton(MouseState mouse)
+        {
+            foreach (var btn in unitActionButtons)
+            {
+                Rectangle rect = new Rectangle(
+                    (int)btn.Position.X,
+                    (int)btn.Position.Y,
+                    ActionButtonWidth,
+                    ActionButtonHeight
+                );
+
+                if (rect.Contains(mouse.Position))
+                    return true;
+            }
+            return false;
+        }
 
         private List<EnemyTemplate> enemyPool = new List<EnemyTemplate>()
         {
@@ -1223,6 +1301,8 @@ namespace XCOM_3
     {
         public string Text;
         public Vector2 Position;
+        public int Width = 100;
+        public int Height = 36;
         private Rectangle bounds;
         public bool IsEnabled = true;
         public Button(string text, Vector2 position)
