@@ -209,7 +209,7 @@ namespace XCOM_3
                     arrowFromCell = selectedUnit.Cell;
                     arrowToCell = hoveredCell;
                     showMoveArrow = true;
-                }               
+                }
                 if (leftClick)
                 {
                     Point clickedCell = new Point(cellX, cellY);
@@ -425,7 +425,7 @@ namespace XCOM_3
                 _spriteBatch.Begin(transformMatrix: transform);
                 DrawGrid();
                 DrawUnits();
-                DrawHoveredCell();
+                DrawHoveredCell(gameTime);
 
                 // cellules accessibles
                 if (selectedUnit != null && selectedUnit.ActionPoints > 0 && currentTurn == TurnState.PlayerTurn)
@@ -640,18 +640,50 @@ namespace XCOM_3
             DrawLine(sb, to, left, color, thickness);
             DrawLine(sb, to, right, color, thickness);
         }
-        private void DrawHoveredCell()
+        private void DrawHoveredCell(GameTime gameTime)
         {
             if (hoveredCell.X < 0 || hoveredCell.Y < 0)
                 return;
+
             Rectangle cellRect = new Rectangle(
                 hoveredCell.X * cellSize,
                 hoveredCell.Y * cellSize,
                 cellSize,
                 cellSize);
-            Color highlightColor = new Color(255, 255, 0, 80);
-            _spriteBatch.Draw(pixel, cellRect, highlightColor);
+
+            // --- PULSATION ---
+            float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f);
+            float alpha = 0.4f + pulse * 0.2f; // entre 0.2 et 0.6
+            Color fillColor = Color.Yellow * alpha;
+            Color outlineColor = Color.Yellow * (alpha + 0.2f);
+
+            // léger fond (optionnel)
+            _spriteBatch.Draw(pixel, cellRect, Color.Yellow * 0.25f);
+
+            int thickness = 2;
+
+            // contour
+            DrawLine(_spriteBatch,
+                new Vector2(cellRect.Left, cellRect.Top),
+                new Vector2(cellRect.Right, cellRect.Top),
+                Color.Yellow, thickness);
+
+            DrawLine(_spriteBatch,
+                new Vector2(cellRect.Left, cellRect.Bottom),
+                new Vector2(cellRect.Right, cellRect.Bottom),
+                Color.Yellow, thickness);
+
+            DrawLine(_spriteBatch,
+                new Vector2(cellRect.Left, cellRect.Top),
+                new Vector2(cellRect.Left, cellRect.Bottom),
+                Color.Yellow, thickness);
+
+            DrawLine(_spriteBatch,
+                new Vector2(cellRect.Right, cellRect.Top),
+                new Vector2(cellRect.Right, cellRect.Bottom),
+                Color.Yellow, thickness);
         }
+
         private void CreateUnits()
         {
             playerUnits.Clear();
@@ -957,7 +989,7 @@ namespace XCOM_3
                 enemyTurnIndex++;
             }
         }
-        
+
 
         private void FireAtTarget(Unit shooter, Unit target)
         {
