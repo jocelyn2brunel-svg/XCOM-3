@@ -74,6 +74,8 @@ namespace XCOM_3
         List<FireTargetUI> fireTargetsUI = new();
         bool showFireTargets = false;
         Unit selectedFireTarget = null;
+        private Unit hoveredFireTarget = null;
+
 
 
 
@@ -120,6 +122,7 @@ namespace XCOM_3
             int barWidth = 200;
             int barHeight = 8;
             volumeBar = new Rectangle(0, 134, barWidth, barHeight);
+            Window.ClientSizeChanged += (s, e) => UpdateFireTargetsUIPositions();
 
             InitializeWeapons();
         }
@@ -409,151 +412,145 @@ namespace XCOM_3
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.Black);
+
+            // Transformation caméra
             Matrix transform =
                 Matrix.CreateTranslation(new Vector3(-cameraOffset, 0)) *
                 Matrix.CreateScale(zoom, zoom, 1) *
                 Matrix.CreateTranslation(new Vector3(GraphicsDevice.Viewport.Width / 2,
-                                                    GraphicsDevice.Viewport.Height / 2, 0));
+                                                     GraphicsDevice.Viewport.Height / 2, 0));
+
             if (currentState == GameState.Playing)
             {
                 _spriteBatch.Begin(transformMatrix: transform);
                 DrawGrid();
                 DrawUnits();
                 DrawHoveredCell();
+
+                // cellules accessibles
                 if (selectedUnit != null && selectedUnit.ActionPoints > 0 && currentTurn == TurnState.PlayerTurn)
                     if (selectedUnit.Team == Team.Player)
-                    {
                         foreach (var cell in cachedMovableCells)
                         {
-                            Rectangle rect = new Rectangle(
-                                cell.X * cellSize,
-                                cell.Y * cellSize,
-                                cellSize,
-                                cellSize);
+                            Rectangle rect = new Rectangle(cell.X * cellSize, cell.Y * cellSize, cellSize, cellSize);
                             _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));
                         }
-                    }
+
+                // flèche de déplacement
                 if (showMoveArrow && selectedUnit != null && selectedUnit.Team == Team.Player)
                 {
-                    Vector2 fromWorld = new Vector2(
-                        arrowFromCell.X * cellSize + cellSize / 2,
-                        arrowFromCell.Y * cellSize + cellSize / 2
-                    );
-                    Vector2 toWorld = new Vector2(
-                        arrowToCell.X * cellSize + cellSize / 2,
-                        arrowToCell.Y * cellSize + cellSize / 2
-                    );
-                    float pulse =
-                        (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.2f;
+                    Vector2 fromWorld = new Vector2(arrowFromCell.X * cellSize + cellSize / 2,
+                                                    arrowFromCell.Y * cellSize + cellSize / 2);
+                    Vector2 toWorld = new Vector2(arrowToCell.X * cellSize + cellSize / 2,
+                                                  arrowToCell.Y * cellSize + cellSize / 2);
+                    float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.2f;
                     Color arrowColor = Color.CornflowerBlue * (0.7f + pulse * 0.3f);
                     DrawArrow(_spriteBatch, fromWorld, toWorld, arrowColor);
                 }
-                
+
                 _spriteBatch.End();
             }
+
             _spriteBatch.Begin();
+
+            // Menu principal
             if (currentState == GameState.MainMenu)
             {
                 string title = "XCOM 3";
-                Vector2 position = new Vector2(0, 0);
-                float scale = 3f;
-                _spriteBatch.DrawString(
-                    font,
-                    title,
-                    new Vector2(0, 0),
-                    Color.White,
-                    0f,
-                    Vector2.Zero,
-                    3f,
-                    SpriteEffects.None,
-                    0f
-                );
+                _spriteBatch.DrawString(font, title, Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
                 MouseState mouse = Mouse.GetState();
-                foreach (var button in menuButtons)
-                {
-                    button.Draw(_spriteBatch, font, mouse);
-                }
+                foreach (var button in menuButtons) button.Draw(_spriteBatch, font, mouse);
             }
+            // Jeu
             else if (currentState == GameState.Playing)
             {
-                int btnWidth = 140;
-                int btnHeight = 36;
-                endTurnButton = new Rectangle(
-                    GraphicsDevice.Viewport.Width - btnWidth - 20,
-                    GraphicsDevice.Viewport.Height - btnHeight - 20,
-                    btnWidth,
-                    btnHeight
-                );
+                // Bouton FIN DU TOUR
+                int btnWidth = 140, btnHeight = 36;
+                endTurnButton = new Rectangle(GraphicsDevice.Viewport.Width - btnWidth - 20,
+                                              GraphicsDevice.Viewport.Height - btnHeight - 20,
+                                              btnWidth, btnHeight);
                 Color btnColor = endTurnHovered ? Color.DarkRed : Color.Red;
                 _spriteBatch.Draw(pixel, endTurnButton, btnColor);
                 Vector2 txtSize = font.MeasureString("FIN DU TOUR");
-                _spriteBatch.DrawString(
-                    font,
-                    "FIN DU TOUR",
-                    new Vector2(
-                        endTurnButton.X + (btnWidth - txtSize.X) / 2,
-                        endTurnButton.Y + (btnHeight - txtSize.Y) / 2
-                    ),
-                    Color.White
-                );
+                _spriteBatch.DrawString(font, "FIN DU TOUR",
+                    new Vector2(endTurnButton.X + (btnWidth - txtSize.X) / 2,
+                                endTurnButton.Y + (btnHeight - txtSize.Y) / 2),
+                    Color.White);
+
                 DrawUnitInfoPanel();
+
+                // Gestion des fire targets
+                if (showFireTargets && selectedUnit != null && selectedUnit.Team == Team.Player)
+                {
+                    MouseState mouse = Mouse.GetState();
+                    hoveredFireTarget = null;
+
+                    // détecte le survol d'une icône
+                    foreach (var ui in fireTargetsUI)
+                    {
+                        if (ui.Bounds.Contains(mouse.Position))
+                        {
+                            hoveredFireTarget = ui.Target;
+                            break;
+                        }
+                    }
+
+                    foreach (var ui in fireTargetsUI)
+                    {
+                        Color bg = ui.Target == selectedFireTarget ? Color.OrangeRed : Color.DarkRed;
+                        _spriteBatch.Draw(pixel, ui.Bounds, bg);
+
+                        string txt = ui.HitChance + "%";
+                        Vector2 size = font.MeasureString(txt);
+                        _spriteBatch.DrawString(font, txt,
+                            new Vector2(ui.Bounds.Center.X - size.X / 2, ui.Bounds.Center.Y - size.Y / 2),
+                            Color.White);
+                    }
+
+                    // contour autour de l'unité ciblée ou survolée
+                    Unit targetToHighlight = selectedFireTarget ?? hoveredFireTarget;
+                    if (targetToHighlight != null)
+                    {
+                        // trouve le UI correspondant à cette unité
+                        var ui = fireTargetsUI.FirstOrDefault(f => f.Target == targetToHighlight);
+                        if (ui != null)
+                        {
+                            Rectangle targetRect = ui.Bounds;
+
+                            // semi-transparent
+                            _spriteBatch.Draw(pixel, targetRect, Color.Red * 0.4f);
+
+                            // contour visible
+                            int thickness = 3;
+                            DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top),
+                                                new Vector2(targetRect.Right, targetRect.Top), Color.Red, thickness);
+                            DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Bottom),
+                                                new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
+                            DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top),
+                                                new Vector2(targetRect.Left, targetRect.Bottom), Color.Red, thickness);
+                            DrawLine(_spriteBatch, new Vector2(targetRect.Right, targetRect.Top),
+                                                new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
+                        }
+                    }
+
+                }
             }
+            // Options
             else if (currentState == GameState.OptionsMenu)
             {
                 string title = "Options";
-                _spriteBatch.DrawString(
-                    font,
-                    title,
-                    new Vector2(0, 0),
-                    Color.White,
-                    0f,
-                    Vector2.Zero,
-                    3f,
-                    SpriteEffects.None,
-                    0f
-                );
+                _spriteBatch.DrawString(font, title, Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
                 MouseState mouse = Mouse.GetState();
-                foreach (var button in optionsButtons)
-                {
-                    button.Draw(_spriteBatch, font, mouse);
-                }
+                foreach (var button in optionsButtons) button.Draw(_spriteBatch, font, mouse);
                 _spriteBatch.Draw(pixel, volumeBar, Color.Gray);
                 _spriteBatch.Draw(pixel, volumeFill, Color.Yellow);
                 _spriteBatch.Draw(pixel, volumeHandle, Color.White);
             }
-            if (currentState == GameState.Playing &&
-                showFireTargets &&
-                selectedUnit != null &&
-                selectedUnit.Team == Team.Player)
-            {
-                foreach (var ui in fireTargetsUI)
-                {
-                    Color bg =
-                        ui.Target == selectedFireTarget
-                        ? Color.OrangeRed
-                        : Color.DarkRed;
-
-                    _spriteBatch.Draw(pixel, ui.Bounds, bg);
-
-                    string txt = ui.HitChance + "%";
-                    Vector2 size = font.MeasureString(txt);
-
-                    _spriteBatch.DrawString(
-                        font,
-                        txt,
-                        new Vector2(
-                            ui.Bounds.Center.X - size.X / 2,
-                            ui.Bounds.Center.Y - size.Y / 2
-                        ),
-                        Color.White
-                    );
-                }
-            }
-
 
             _spriteBatch.End();
             base.Draw(gameTime);
         }
+
         private void LoadMap()
         {
             gridWidth = 20;
@@ -730,6 +727,46 @@ namespace XCOM_3
                 );
                 _spriteBatch.Draw(pixel, outline, new Color(0, 255, 255, 80));
             }
+            if (selectedFireTarget != null)
+            {
+                Rectangle targetRect = new Rectangle(
+                    selectedFireTarget.Cell.X * cellSize,
+                    selectedFireTarget.Cell.Y * cellSize,
+                    cellSize,
+                    cellSize
+                );
+                _spriteBatch.Draw(pixel, targetRect, Color.Red * 0.5f); // couleur semi-transparente
+
+                // contour plus visible (optionnel)
+                int thickness = 3;
+                DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top), new Vector2(targetRect.Right, targetRect.Top), Color.Red, thickness);
+                DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Bottom), new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
+                DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top), new Vector2(targetRect.Left, targetRect.Bottom), Color.Red, thickness);
+                DrawLine(_spriteBatch, new Vector2(targetRect.Right, targetRect.Top), new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
+            }
+            Unit targetToHighlight = selectedFireTarget ?? hoveredFireTarget;
+
+            if (targetToHighlight != null)
+            {
+                Rectangle targetRect = new Rectangle(
+                    targetToHighlight.Cell.X * cellSize,
+                    targetToHighlight.Cell.Y * cellSize,
+                    cellSize,
+                    cellSize
+                );
+
+                // contour semi-transparent
+                _spriteBatch.Draw(pixel, targetRect, Color.Red * 0.5f);
+
+                // contour plus visible avec des lignes
+                int thickness = 3;
+                DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top), new Vector2(targetRect.Right, targetRect.Top), Color.Red, thickness);
+                DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Bottom), new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
+                DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top), new Vector2(targetRect.Left, targetRect.Bottom), Color.Red, thickness);
+                DrawLine(_spriteBatch, new Vector2(targetRect.Right, targetRect.Top), new Vector2(targetRect.Right, targetRect.Bottom), Color.Red, thickness);
+            }
+
+
         }
         private IEnumerable<Unit> AllUnits()
         {
@@ -787,6 +824,7 @@ namespace XCOM_3
                 ),
                 Color.Black
             );
+            UpdateFireTargetsUIPositions();
         }
         private List<Point> GetMovableCells(Unit unit)
         {
@@ -944,6 +982,8 @@ namespace XCOM_3
             shooter.PendingTarget = target;
             shooter.ActionPoints -= 1;
             UpdateFireTargets();
+            selectedFireTarget = null;
+
 
         }
 
@@ -1102,6 +1142,28 @@ namespace XCOM_3
                     HitChance = hitChance,
                     Bounds = bounds
                 });
+            }
+        }
+        private void UpdateFireTargetsUIPositions()
+        {
+            if (fireTargetsUI.Count == 0) return;
+
+            int iconSize = 48;
+            int spacing = 10;
+
+            // centre le groupe d'icônes au-dessus du bouton TIRER
+            int totalWidth = fireTargetsUI.Count * iconSize + (fireTargetsUI.Count - 1) * spacing;
+            int startX = fireButton.X + (fireButton.Width - totalWidth) / 2;
+            int y = fireButton.Y - iconSize - 10;
+
+            for (int i = 0; i < fireTargetsUI.Count; i++)
+            {
+                fireTargetsUI[i].Bounds = new Rectangle(
+                    startX + i * (iconSize + spacing),
+                    y,
+                    iconSize,
+                    iconSize
+                );
             }
         }
 
