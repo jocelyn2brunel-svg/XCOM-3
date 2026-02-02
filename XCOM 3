@@ -151,22 +151,22 @@ namespace XCOM_3
 
             // Crée la liste des boutons du menu principal avec leur texte et position à l'écran
             menuButtons = new List<Button>
-    {
-        new Button("New Game", new Vector2(0, 100)),
-        new Button("Continue", new Vector2(0, 128)),
-        new Button("Encyclopedia", new Vector2(0, 156)),
-        new Button("Options", new Vector2(0, 184)),
-        new Button("Quit", new Vector2(0, 212))
-    };
+            {
+                new Button("New Game", new Vector2(0, 100)),
+                new Button("Continue", new Vector2(0, 128)),
+                new Button("Encyclopedia", new Vector2(0, 156)),
+                new Button("Options", new Vector2(0, 184)),
+                new Button("Quit", new Vector2(0, 212))
+            };
 
             // Crée et charge la liste de musiques pour le menu
             menuSongs = new List<Song>
-    {
-        Content.Load<Song>("menu_music_1"),
-        Content.Load<Song>("menu_music_2"),
-        Content.Load<Song>("menu_music_3"),
-        Content.Load<Song>("menu_music_4")
-    };
+            {
+                Content.Load<Song>("menu_music_1"),
+                Content.Load<Song>("menu_music_2"),
+                Content.Load<Song>("menu_music_3"),
+                Content.Load<Song>("menu_music_4")
+            };
 
             // Sélectionne une musique aléatoire parmi la liste et la joue
             currentSong = menuSongs[random.Next(menuSongs.Count)];
@@ -185,11 +185,11 @@ namespace XCOM_3
 
             // Crée les boutons de l'écran Options
             optionsButtons = new List<Button>
-    {
-        new Button("Music Volume +", new Vector2(0, 100)),
-        new Button("Music Volume -", new Vector2(0, 156)),
-        new Button("Back", new Vector2(0, 184))
-    };
+            {
+                new Button("Music Volume +", new Vector2(0, 100)),
+                new Button("Music Volume -", new Vector2(0, 156)),
+                new Button("Back", new Vector2(0, 184))
+            };
 
             // Définition d'une barre de volume (rectangle à l'écran)
             int barWidth = 200;
@@ -214,60 +214,67 @@ namespace XCOM_3
             menuButtons[1].IsEnabled = hasSavedGame;
 
             // --- 2. GESTION DU MENU PRINCIPAL ---
+            // Ce bloc ne s'exécute que si le jeu est dans l'état du menu principal.
             if (currentState == GameState.MainMenu)
             {
-                foreach (var button in menuButtons)
+                foreach (var button in menuButtons) // Parcourt tous les boutons du menu
                 {
-                    // Détecte un clic sur le bouton
+                    // Détecte si le bouton a été cliqué (en comparant l'état actuel et précédent de la souris)
                     if (button.IsClicked(mouse, previousMouseState))
                     {
+                        // Réagit en fonction du texte du bouton
                         switch (button.Text)
                         {
                             case "New Game":
-                                MediaPlayer.Stop(); // Arrête la musique du menu
+                                MediaPlayer.Stop();           // Arrête la musique du menu
                                 currentState = GameState.Playing; // Passe à l'état de jeu
-                                LoadMap(); // Charge une nouvelle carte
-                                CreateUnits(); // Crée les unités du joueur et de l'ennemi
+                                LoadMap();                    // Charge une nouvelle carte
+                                CreateUnits();                // Crée les unités du joueur et de l'ennemi
                                 Console.WriteLine("New game launched !");
                                 break;
 
                             case "Continue":
-                                if (hasSavedGame)
+                                if (hasSavedGame) // Vérifie s'il y a une partie sauvegardée
                                 {
-                                    // Recharge les unités sauvegardées
+                                    // Recharge les unités du joueur à partir de la sauvegarde
                                     playerUnits = new List<Unit>();
                                     foreach (var u in savedPlayerUnits)
                                         playerUnits.Add(new Unit(u));
 
+                                    // Recharge les unités ennemies à partir de la sauvegarde
                                     enemyUnits = new List<Unit>();
                                     foreach (var u in savedEnemyUnits)
                                         enemyUnits.Add(new Unit(u));
 
-                                    currentState = GameState.Playing;
+                                    currentState = GameState.Playing; // Passe à l'état de jeu
                                     Console.WriteLine("Game continued!");
                                 }
                                 else
                                 {
+                                    // Message si aucune sauvegarde n'est disponible
                                     Console.WriteLine("No saved game to continue!");
                                 }
                                 break;
 
                             case "Encyclopedia":
+                                // Placeholder pour ouvrir l'encyclopédie
                                 Console.WriteLine("Opening encyclopedia...");
                                 break;
 
                             case "Options":
+                                // Passe à l'état du menu Options
                                 currentState = GameState.OptionsMenu;
                                 Console.WriteLine("Options");
                                 break;
 
                             case "Quit":
-                                Exit(); // Quitte le jeu
+                                Exit(); // Quitte complètement le jeu
                                 break;
                         }
                     }
                 }
             }
+
 
             // --- 3. Détection du clic gauche ---
             bool leftClick =
@@ -275,81 +282,89 @@ namespace XCOM_3
                 previousMouseState.LeftButton == ButtonState.Released;
 
             // --- 4. GESTION DU TOUR DU JOUEUR ---
+            // Ce bloc ne s'exécute que si le jeu est en cours et que c'est le tour du joueur.
             if (currentState == GameState.Playing && currentTurn == TurnState.PlayerTurn)
             {
-                // Transforme les coordonnées de la souris en coordonnées de la grille
+                // --- Transformation des coordonnées de la souris en coordonnées de la grille ---
+                // La souris est dans les coordonnées écran, on la convertit en coordonnées du monde / grille
                 Vector2 mouseWorldPos = (new Vector2(mouse.X, mouse.Y)
                                         - new Vector2(GraphicsDevice.Viewport.Width / 2, GraphicsDevice.Viewport.Height / 2))
                                         / zoom + cameraOffset;
 
-                int mouseX = mouse.X;
-                int mouseY = mouse.Y;
-                int cellX = (int)(mouseWorldPos.X / cellSize);
-                int cellY = (int)(mouseWorldPos.Y / cellSize);
+                int mouseX = mouse.X; // position X en pixels
+                int mouseY = mouse.Y; // position Y en pixels
+                int cellX = (int)(mouseWorldPos.X / cellSize); // conversion en index de cellule X
+                int cellY = (int)(mouseWorldPos.Y / cellSize); // conversion en index de cellule Y
 
                 // Vérifie si la cellule survolée est dans la grille
                 if (cellX >= 0 && cellX < gridWidth && cellY >= 0 && cellY < gridHeight)
                     hoveredCell = new Point(cellX, cellY);
                 else
-                    hoveredCell = new Point(-1, -1);
+                    hoveredCell = new Point(-1, -1); // en dehors de la grille
 
                 // Si la souris est sur le bouton Tirer, on n'affiche pas le hover sur la grille
                 if (selectedUnit != null && fireButton.Contains(mouse.Position))
                     hoveredCell = new Point(-1, -1);
 
                 // --- Gestion de la flèche de mouvement ---
-                showMoveArrow = false;
+                showMoveArrow = false; // par défaut, pas de flèche
                 if (selectedUnit != null &&
-                    selectedUnit.ActionPoints > 0 &&
-                    hoveredCell.X != -1 &&
-                    cachedMovableCells.Contains(hoveredCell))
+                    selectedUnit.ActionPoints > 0 &&            // l'unité peut agir
+                    hoveredCell.X != -1 &&                       // souris sur une cellule valide
+                    cachedMovableCells.Contains(hoveredCell))   // cellule accessible par l'unité
                 {
-                    arrowFromCell = selectedUnit.Cell;
-                    arrowToCell = hoveredCell;
-                    showMoveArrow = true;
+                    arrowFromCell = selectedUnit.Cell; // départ de la flèche
+                    arrowToCell = hoveredCell;         // destination de la flèche
+                    showMoveArrow = true;              // active l'affichage de la flèche
                 }
 
-                // Vérifie si le clic est sur l'UI (boutons)
+                // Vérifie si le clic est sur un élément de l'UI (boutons)
                 bool clickOnUI =
                     fireButton.Contains(mouse.Position) ||
                     IsMouseOverActionButton(mouse);
 
                 // --- Clic gauche sur une cellule de la grille ---
-                if (leftClick && !clickOnUI)
+                if (leftClick && !clickOnUI) // uniquement si on ne clique pas sur l'UI
                 {
                     Point clickedCell = new Point(cellX, cellY);
-                    Unit clickedUnit = GetUnitAtCell(clickedCell);
+                    Unit clickedUnit = GetUnitAtCell(clickedCell); // récupère l'unité à cet endroit, si elle existe
 
                     if (clickedUnit != null)
                     {
+                        // On sélectionne l'unité cliquée
                         selectedUnit = clickedUnit;
 
                         if (selectedUnit.Team == Team.Player)
                         {
+                            // Si c'est une unité du joueur, on calcule ses déplacements possibles
                             cachedMovableCells = GetMovableCells(selectedUnit);
                             UpdateFireTargets(); // Met à jour les cibles potentielles à tirer
                         }
                         else
                         {
+                            // Sinon, vide les cellules accessibles et la flèche
                             cachedMovableCells.Clear();
                             showMoveArrow = false;
                         }
                     }
                     else if (selectedUnit != null && selectedUnit.ActionPoints > 0)
                     {
-                        // Déplace l'unité si la cellule est valide
+                        // Si on a sélectionné une unité et qu'on clique sur une cellule vide
                         var movableCells = GetMovableCells(selectedUnit);
                         if (movableCells.Contains(clickedCell))
                         {
+                            // Calcul du coût de mouvement (distance Manhattan)
                             int cost = Math.Abs(clickedCell.X - selectedUnit.Cell.X) +
                                        Math.Abs(clickedCell.Y - selectedUnit.Cell.Y);
 
                             if (cost <= selectedUnit.MovementPoints)
                             {
+                                // Déplace l'unité
                                 selectedUnit.Cell = clickedCell;
                                 selectedUnit.ActionPoints--;
-                                UpdateFireTargets();
+                                UpdateFireTargets(); // mise à jour des cibles après le déplacement
 
+                                // Recalcule les cellules accessibles si l'unité peut encore agir
                                 cachedMovableCells = selectedUnit.ActionPoints > 0
                                     ? GetMovableCells(selectedUnit)
                                     : new List<Point>();
@@ -358,7 +373,7 @@ namespace XCOM_3
                     }
                 }
 
-                // --- Clic gauche sur les boutons d'actions d'unité ---
+                // --- Clic gauche sur les boutons d'actions de l'unité ---
                 if (leftClick)
                 {
                     foreach (var btn in unitActionButtons)
@@ -373,21 +388,19 @@ namespace XCOM_3
                         if (rect.Contains(mouse.Position))
                         {
                             Console.WriteLine($"Action future : {btn.Text}");
-
-                            // À implémenter plus tard selon le bouton
-                            // switch(btn.Text) { case "COUVERT": ... }
+                            // À implémenter plus tard selon le bouton (COUVERT, RECHARGER…)
                         }
                     }
                 }
 
-                // --- Clic gauche sur les cibles à tirer ---
+                // --- Clic gauche sur les icônes des cibles à tirer ---
                 if (leftClick && showFireTargets)
                 {
                     foreach (var ui in fireTargetsUI)
                     {
                         if (ui.Bounds.Contains(mouse.Position))
                         {
-                            selectedFireTarget = ui.Target;
+                            selectedFireTarget = ui.Target; // sélection de la cible
                             break;
                         }
                     }
@@ -409,125 +422,200 @@ namespace XCOM_3
                     selectedUnit != null && selectedFireTarget != null &&
                     selectedUnit.ActionPoints > 0)
                 {
-                    FireAtTarget(selectedUnit, selectedFireTarget);
-                    UpdateFireTargets();
+                    FireAtTarget(selectedUnit, selectedFireTarget); // tire sur la cible sélectionnée
+                    UpdateFireTargets(); // met à jour les cibles disponibles après le tir
                 }
 
                 // --- Survol et clic sur le bouton Fin de tour ---
                 endTurnHovered = endTurnButton.Contains(mouse.Position);
                 if (endTurnHovered && leftClick && !isActionInProgress)
                 {
-                    StartEnemyTurn();
+                    StartEnemyTurn(); // passe au tour de l'ennemi
                 }
             }
 
+
             // --- 5. GESTION DU TOUR DE L'ENNEMI ---
+            // Vérifie que le jeu est en cours et que c'est le tour de l'ennemi
             if (currentState == GameState.Playing &&
                 currentTurn == TurnState.EnemyTurn)
             {
+                // Appelle la fonction qui fait agir tous les ennemis
+                // : déplacement, tir, consommation des points d'action
                 UpdateEnemyTurn();
             }
+
 
             // --- 6. ZOOM AVEC LA MOLETTE ---
             if (currentState == GameState.Playing)
             {
+                // Récupère l'état actuel de la souris
                 MouseState mouseState = Mouse.GetState();
+
+                // Valeur totale de la molette depuis le lancement du programme
                 float scroll = mouseState.ScrollWheelValue;
+
+                // Calcul du delta depuis la dernière frame
+                // 120 correspond à un "tick" standard de molette (1 cran = 120)
                 float scrollDelta = (scroll - previousScroll) / 120f;
+
+                // Sauvegarde la position actuelle de la molette pour le prochain update
                 previousScroll = scroll;
 
+                // Si la molette a été déplacée
                 if (scrollDelta != 0)
                 {
+                    // Ajuste le facteur de zoom
+                    // 0.1f = vitesse de zoom (chaque cran = +10% du zoom)
                     zoom += scrollDelta * 0.1f;
+
+                    // Limite le zoom pour qu'il reste entre minZoom et maxZoom
                     zoom = MathHelper.Clamp(zoom, minZoom, maxZoom);
                 }
             }
 
+
             // --- 7. GESTION DU MENU OPTIONS ---
             if (currentState == GameState.OptionsMenu)
             {
+                // Parcourt tous les boutons du menu Options
                 foreach (var button in optionsButtons)
                 {
+                    // Vérifie si le bouton a été cliqué (appui souris depuis le dernier frame)
                     if (button.IsClicked(mouse, previousMouseState))
                     {
+                        // Effectue une action selon le texte du bouton
                         switch (button.Text)
                         {
                             case "Music Volume +":
+                                // Augmente le volume de 0.1 mais ne dépasse pas 1.0 (valeur max)
                                 musicVolume = Math.Min(musicVolume + 0.1f, 1f);
-                                MediaPlayer.Volume = musicVolume;
-                                Console.WriteLine("Volume: " + musicVolume);
+                                MediaPlayer.Volume = musicVolume; // applique le volume
+                                Console.WriteLine("Volume: " + musicVolume); // debug
                                 break;
+
                             case "Music Volume -":
+                                // Diminue le volume de 0.1 mais ne descend pas sous 0.0 (valeur min)
                                 musicVolume = Math.Max(musicVolume - 0.1f, 0f);
-                                MediaPlayer.Volume = musicVolume;
-                                Console.WriteLine("Volume: " + musicVolume);
+                                MediaPlayer.Volume = musicVolume; // applique le volume
+                                Console.WriteLine("Volume: " + musicVolume); // debug
                                 break;
+
                             case "Back":
+                                // Retour au menu principal
                                 currentState = GameState.MainMenu;
                                 break;
                         }
                     }
                 }
 
-                // --- Glisser le curseur du volume ---
+                // --- Glisser le curseur de la barre de volume ---
+                // Commence le glissement si la souris est enfoncée sur la barre
                 if (mouse.LeftButton == ButtonState.Pressed &&
                     volumeBar.Contains(mouse.Position)) draggingVolume = true;
+
+                // Stoppe le glissement dès que le bouton est relâché
                 if (mouse.LeftButton == ButtonState.Released) draggingVolume = false;
 
+                // Si le curseur est en train d'être glissé
                 if (draggingVolume)
                 {
+                    // Calcule le pourcentage selon la position de la souris sur la barre
                     float percent = (mouse.X - volumeBar.X) / (float)volumeBar.Width;
+
+                    // Limite la valeur entre 0 et 1
                     musicVolume = MathHelper.Clamp(percent, 0f, 1f);
+
+                    // Applique le volume à MediaPlayer
                     MediaPlayer.Volume = musicVolume;
                 }
 
-                // Met à jour la barre de volume et le curseur
-                volumeFill = new Rectangle(volumeBar.X, volumeBar.Y, (int)(volumeBar.Width * musicVolume), volumeBar.Height);
-                int handleX = volumeBar.X + volumeFill.Width - 5;
-                volumeHandle = new Rectangle(handleX, volumeBar.Y - 4, 10, volumeBar.Height + 8);
+                // --- Mise à jour de l'affichage de la barre de volume et du curseur ---
+                // Remplissage de la barre selon le volume
+                volumeFill = new Rectangle(
+                    volumeBar.X,
+                    volumeBar.Y,
+                    (int)(volumeBar.Width * musicVolume), // largeur proportionnelle au volume
+                    volumeBar.Height
+                );
+
+                // Position du curseur (handle)
+                int handleX = volumeBar.X + volumeFill.Width - 5; // léger décalage pour centrer
+                volumeHandle = new Rectangle(
+                    handleX,
+                    volumeBar.Y - 4,
+                    10, // largeur du curseur
+                    volumeBar.Height + 8 // hauteur du curseur légèrement plus grande que la barre
+                );
             }
 
+
             // --- 8. GESTION DU CLAVIER POUR CAMERA ET ESCAPE ---
+
+            // Récupère l'état actuel du clavier
             KeyboardState keyboardState = Keyboard.GetState();
+
+            // Détecte si la touche ESCAPE vient juste d'être pressée
+            // true uniquement si la touche est enfoncée maintenant et était relâchée précédemment
             bool escapePressed = keyboardState.IsKeyDown(Keys.Escape) &&
                                  previousKeyboardState.IsKeyUp(Keys.Escape);
 
-            // Déplacement de la caméra avec WASD
-            Vector2 move = Vector2.Zero;
-            if (keyboardState.IsKeyDown(Keys.W)) move.Y -= 1;
-            if (keyboardState.IsKeyDown(Keys.S)) move.Y += 1;
-            if (keyboardState.IsKeyDown(Keys.A)) move.X -= 1;
-            if (keyboardState.IsKeyDown(Keys.D)) move.X += 1;
+            // --- Déplacement de la caméra avec WASD ---
+            Vector2 move = Vector2.Zero; // vecteur de déplacement initialisé à 0
+
+            // Ajuste le vecteur selon les touches enfoncées
+            if (keyboardState.IsKeyDown(Keys.W)) move.Y -= 1; // haut
+            if (keyboardState.IsKeyDown(Keys.S)) move.Y += 1; // bas
+            if (keyboardState.IsKeyDown(Keys.A)) move.X -= 1; // gauche
+            if (keyboardState.IsKeyDown(Keys.D)) move.X += 1; // droite
+
+            // Normalise le vecteur pour éviter que la diagonale soit plus rapide que les axes seuls
             if (move != Vector2.Zero) move.Normalize();
+
+            // Applique le déplacement à la caméra
+            // Multiplication par la vitesse de la caméra et le temps écoulé pour un mouvement fluide et indépendant du FPS
             cameraOffset += move * cameraSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // Déplacement de la caméra avec le clic du milieu de souris
+            // --- Déplacement de la caméra avec le clic du milieu de la souris ---
+            // Si le bouton du milieu est enfoncé
             if (mouse.MiddleButton == ButtonState.Pressed)
             {
+                // Calcul de la différence de mouvement de la souris depuis le dernier frame
                 Vector2 mouseDelta = new Vector2(mouse.X - previousMouseState.X, mouse.Y - previousMouseState.Y);
+
+                // Déplace la caméra dans le sens inverse du mouvement de la souris
+                // Divisé par le zoom pour que le déplacement reste proportionnel à l'affichage
                 cameraOffset -= mouseDelta / zoom;
             }
+
 
             // --- 9. ESCAPE : sauvegarde et retour au menu ---
             if (escapePressed && currentState == GameState.Playing)
             {
+                // Indique qu'une partie sauvegardée existe
                 hasSavedGame = true;
 
+                // Copie des unités du joueur dans une liste de sauvegarde
                 savedPlayerUnits = new List<Unit>();
                 foreach (var u in playerUnits)
-                    savedPlayerUnits.Add(new Unit(u));
+                    savedPlayerUnits.Add(new Unit(u)); // copie chaque unité pour ne pas modifier l’originale
 
+                // Copie des unités ennemies dans une liste de sauvegarde
                 savedEnemyUnits = new List<Unit>();
                 foreach (var u in enemyUnits)
                     savedEnemyUnits.Add(new Unit(u));
 
+                // Retour au menu principal
                 currentState = GameState.MainMenu;
             }
 
+            // Si Escape est pressé depuis le menu Options
             if (escapePressed && currentState == GameState.OptionsMenu)
             {
+                // Retour au menu principal sans sauvegarde (aucune partie en cours)
                 currentState = GameState.MainMenu;
             }
+
 
             // --- 10. MISE À JOUR DES ANIMATIONS DE TIR ---
             if (currentState == GameState.Playing)
@@ -536,10 +624,15 @@ namespace XCOM_3
             }
 
             // --- 11. Sauvegarde des états précédents pour le prochain frame ---
+            // On stocke l'état actuel de la souris et du clavier afin de pouvoir
+            // détecter les changements (clics ou touches pressées/released) lors du prochain Update.
             previousMouseState = mouse;
             previousKeyboardState = keyboardState;
 
-            base.Update(gameTime); // Appel obligatoire à la méthode parent
+            // Appel de la méthode Update de la classe parent (Game)
+            // Ceci est obligatoire pour que XNA/MonoGame gère correctement les composants et le cycle de jeu.
+            base.Update(gameTime);
+
         }
 
         protected override void Draw(GameTime gameTime)
@@ -1923,8 +2016,6 @@ namespace XCOM_3
                 previous.LeftButton == ButtonState.Released;
         }
     }
-
-
 
 
     // Enumération représentant les équipes dans le jeu
