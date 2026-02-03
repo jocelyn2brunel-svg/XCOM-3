@@ -79,6 +79,10 @@ namespace XCOM_3
         private Point arrowFromCell;                        // case de départ de la flèche
         private Point arrowToCell;                          // case d'arrivée de la flèche
 
+        // --- A* Pathfinding ---
+        private List<Point> currentPath = new();            // chemin A* actuel à afficher
+        private Dictionary<Point, int> pathCosts = new();   // coûts de déplacement pour chaque case du chemin
+
         private Dictionary<string, WeaponData> weaponDatabase; // base de données des armes
 
         // --- Caméra / Zoom ---
@@ -114,7 +118,7 @@ namespace XCOM_3
 
         public Game1()
         {
-            // Initialise le gestionnaire de la carte graphique et de l’écran (résolution, plein écran, etc.)
+            // Initialise le gestionnaire de la carte graphique et de l'écran (résolution, plein écran, etc.)
             _graphics = new GraphicsDeviceManager(this);
 
             // Définit le dossier racine où se trouvent les contenus (textures, polices, sons…) à charger via Content.Load<T>()
@@ -123,7 +127,7 @@ namespace XCOM_3
             // Rends le curseur de la souris visible dans la fenêtre du jeu
             IsMouseVisible = true;
 
-            // Permet à l’utilisateur de redimensionner la fenêtre du jeu
+            // Permet à l'utilisateur de redimensionner la fenêtre du jeu
             Window.AllowUserResizing = true;
         }
 
@@ -241,6 +245,7 @@ namespace XCOM_3
                 DrawUnits();
                 DrawHoveredCell(gameTime);
 
+                // Affichage des cellules accessibles
                 if (selectedUnit != null && selectedUnit.ActionPoints > 0 && currentTurn == TurnState.PlayerTurn &&
                     selectedUnit.Team == Team.Player)
                 {
@@ -249,6 +254,12 @@ namespace XCOM_3
                         _spriteBatch.Draw(pixel, new Rectangle(cell.X * cellSize, cell.Y * cellSize, cellSize, cellSize),
                                           new Color(0, 255, 0, 80));
                     }
+                }
+
+                // Affichage du chemin A*
+                if (currentPath.Count > 0 && selectedUnit != null && selectedUnit.Team == Team.Player)
+                {
+                    DrawPath(gameTime);
                 }
 
                 if (showMoveArrow && selectedUnit != null && selectedUnit.Team == Team.Player)
@@ -341,7 +352,45 @@ namespace XCOM_3
             }
         }
 
+        // Dessine le chemin A* avec effet visuel
+        private void DrawPath(GameTime gameTime)
+        {
+            float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.15f;
 
+            for (int i = 0; i < currentPath.Count; i++)
+            {
+                Point cell = currentPath[i];
+                Rectangle rect = new(cell.X * cellSize, cell.Y * cellSize, cellSize, cellSize);
+
+                // Dégradé de couleur selon la distance
+                float intensity = 1f - (i / (float)currentPath.Count) * 0.5f;
+                Color pathColor = new Color(100, 150, 255) * (0.4f + pulse) * intensity;
+
+                _spriteBatch.Draw(pixel, rect, pathColor);
+
+                // Affiche le coût de déplacement sur chaque case
+                if (pathCosts.ContainsKey(cell))
+                {
+                    string costText = pathCosts[cell].ToString();
+                    Vector2 textSize = font.MeasureString(costText);
+                    Vector2 textPos = new Vector2(
+                        cell.X * cellSize + (cellSize - textSize.X) / 2,
+                        cell.Y * cellSize + (cellSize - textSize.Y) / 2
+                    );
+                    _spriteBatch.DrawString(font, costText, textPos, Color.White * 0.8f);
+                }
+            }
+
+            // Ligne connectant les cases du chemin
+            for (int i = 0; i < currentPath.Count - 1; i++)
+            {
+                Vector2 from = new(currentPath[i].X * cellSize + cellSize / 2,
+                                  currentPath[i].Y * cellSize + cellSize / 2);
+                Vector2 to = new(currentPath[i + 1].X * cellSize + cellSize / 2,
+                                currentPath[i + 1].Y * cellSize + cellSize / 2);
+                DrawLine(_spriteBatch, from, to, Color.Cyan * (0.6f + pulse), 2f);
+            }
+        }
 
         private void LoadMap()
         {
@@ -584,30 +633,213 @@ namespace XCOM_3
             UpdateFireTargetsUIPositions();
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // A* PATHFINDING - Implémentation complète
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Classe représentant un nœud dans l'algorithme A*
+        /// </summary>
+        private class AStarNode
+        {
+            public Point Position;
+            public int GCost; // Coût depuis le départ
+            public int HCost; // Heuristique (distance estimée vers l'arrivée)
+            public int FCost => GCost + HCost; // Coût total
+            public AStarNode Parent;
+
+            public AStarNode(Point pos)
+            {
+                Position = pos;
+            }
+        }
+
+        /// <summary>
+        /// Calcule le chemin optimal avec A* entre deux points
+        /// </summary>
+        private List<Point> FindPathAStar(Point start, Point goal, int maxDistance)
+        {
+            // Listes ouvertes et fermées
+            List<AStarNode> openList = new List<AStarNode>();
+            HashSet<Point> closedList = new HashSet<Point>();
+
+            // Nœud de départ
+            AStarNode startNode = new AStarNode(start) { GCost = 0, HCost = ManhattanDistance(start, goal) };
+            openList.Add(startNode);
+
+            while (openList.Count > 0)
+            {
+                // Trouve le nœud avec le plus petit FCost
+                AStarNode currentNode = openList[0];
+                for (int i = 1; i < openList.Count; i++)
+                {
+                    if (openList[i].FCost < currentNode.FCost ||
+                        (openList[i].FCost == currentNode.FCost && openList[i].HCost < currentNode.HCost))
+                    {
+                        currentNode = openList[i];
+                    }
+                }
+
+                openList.Remove(currentNode);
+                closedList.Add(currentNode.Position);
+
+                // Si on a atteint la destination
+                if (currentNode.Position == goal)
+                {
+                    return RetracePath(startNode, currentNode);
+                }
+
+                // Explore les voisins (4 directions : haut, bas, gauche, droite)
+                foreach (Point neighbor in GetNeighbors(currentNode.Position))
+                {
+                    // Ignore si déjà visité
+                    if (closedList.Contains(neighbor))
+                        continue;
+
+                    // Ignore si obstacle ou hors limites
+                    if (!IsWalkable(neighbor))
+                        continue;
+
+                    // Calcule le nouveau coût
+                    int newGCost = currentNode.GCost + 1; // Coût de 1 par case
+
+                    // Vérifie si on dépasse la distance maximale
+                    if (newGCost > maxDistance)
+                        continue;
+
+                    // Cherche si le voisin est déjà dans la liste ouverte
+                    AStarNode neighborNode = openList.FirstOrDefault(n => n.Position == neighbor);
+
+                    if (neighborNode == null)
+                    {
+                        // Ajoute un nouveau nœud
+                        neighborNode = new AStarNode(neighbor)
+                        {
+                            GCost = newGCost,
+                            HCost = ManhattanDistance(neighbor, goal),
+                            Parent = currentNode
+                        };
+                        openList.Add(neighborNode);
+                    }
+                    else if (newGCost < neighborNode.GCost)
+                    {
+                        // Met à jour si on a trouvé un meilleur chemin
+                        neighborNode.GCost = newGCost;
+                        neighborNode.Parent = currentNode;
+                    }
+                }
+            }
+
+            // Aucun chemin trouvé
+            return new List<Point>();
+        }
+
+        /// <summary>
+        /// Retrace le chemin depuis le nœud final jusqu'au départ
+        /// </summary>
+        private List<Point> RetracePath(AStarNode startNode, AStarNode endNode)
+        {
+            List<Point> path = new List<Point>();
+            AStarNode currentNode = endNode;
+
+            while (currentNode != startNode)
+            {
+                path.Add(currentNode.Position);
+                currentNode = currentNode.Parent;
+            }
+
+            path.Reverse();
+            return path;
+        }
+
+        /// <summary>
+        /// Retourne les 4 voisins d'une case (haut, bas, gauche, droite)
+        /// </summary>
+        private List<Point> GetNeighbors(Point cell)
+        {
+            return new List<Point>
+            {
+                new Point(cell.X, cell.Y - 1), // Haut
+                new Point(cell.X, cell.Y + 1), // Bas
+                new Point(cell.X - 1, cell.Y), // Gauche
+                new Point(cell.X + 1, cell.Y)  // Droite
+            };
+        }
+
+        /// <summary>
+        /// Vérifie si une case est praticable (pas d'obstacle, pas d'unité, dans les limites)
+        /// </summary>
+        private bool IsWalkable(Point cell)
+        {
+            // Hors limites
+            if (cell.X < 0 || cell.Y < 0 || cell.X >= gridWidth || cell.Y >= gridHeight)
+                return false;
+
+            // Obstacle
+            if (obstacles.Contains(cell))
+                return false;
+
+            // Unité présente
+            if (GetUnitAtCell(cell) != null)
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Calcule la distance de Manhattan entre deux points
+        /// </summary>
+        private int ManhattanDistance(Point a, Point b)
+        {
+            return Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
+        }
+
+        /// <summary>
+        /// Obtient toutes les cellules accessibles avec A* dans un rayon donné
+        /// </summary>
         private List<Point> GetMovableCells(Unit u)
         {
             var cells = new List<Point>();
             if (u == null || u.MovementPoints <= 0) return cells;
 
-            int r = u.MovementPoints;
+            int maxRange = u.MovementPoints;
 
-            for (int dx = -r; dx <= r; dx++)
-                for (int dy = -r; dy <= r; dy++)
+            // Parcourt toutes les cases dans un carré englobant
+            for (int x = u.Cell.X - maxRange; x <= u.Cell.X + maxRange; x++)
+            {
+                for (int y = u.Cell.Y - maxRange; y <= u.Cell.Y + maxRange; y++)
                 {
-                    int d = Math.Abs(dx) + Math.Abs(dy);
-                    if (d == 0 || d > r) continue;
+                    Point targetCell = new Point(x, y);
 
-                    int x = u.Cell.X + dx, y = u.Cell.Y + dy;
-                    var p = new Point(x, y);
+                    // Ignore la case de départ
+                    if (targetCell == u.Cell)
+                        continue;
 
-                    if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight) continue;
-                    if (obstacles.Contains(p) || GetUnitAtCell(p) != null) continue;
+                    // Ignore hors limites
+                    if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight)
+                        continue;
 
-                    cells.Add(p);
+                    // Ignore obstacles et unités
+                    if (!IsWalkable(targetCell))
+                        continue;
+
+                    // Utilise A* pour trouver le chemin
+                    var path = FindPathAStar(u.Cell, targetCell, maxRange);
+
+                    // Si un chemin existe et qu'il est dans la portée
+                    if (path.Count > 0 && path.Count <= maxRange)
+                    {
+                        cells.Add(targetCell);
+                    }
                 }
+            }
 
             return cells;
         }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // FIN A* PATHFINDING
+        // ═══════════════════════════════════════════════════════════════════════
 
         private void HandleFire(Unit s)
         {
@@ -641,6 +873,8 @@ namespace XCOM_3
 
             selectedUnit = null;
             cachedMovableCells.Clear();
+            currentPath.Clear();
+            pathCosts.Clear();
             currentTurn = TurnState.PlayerTurn;
         }
 
@@ -673,19 +907,33 @@ namespace XCOM_3
             if (bestDist <= enemy.WeaponData.Range && HasLineOfSight(enemy.Cell, closest.Cell))
             { HandleFire(enemy); return; }
 
-            // Déplacement vers le joueur le plus proche
-            Point next = new Point(
-                enemy.Cell.X + Math.Sign(closest.Cell.X - enemy.Cell.X),
-                enemy.Cell.Y + Math.Sign(closest.Cell.Y - enemy.Cell.Y)
-            );
+            // Utilise A* pour se déplacer vers le joueur
+            var path = FindPathAStar(enemy.Cell, closest.Cell, enemy.MovementPoints);
 
-            if (next.X >= 0 && next.X < gridWidth && next.Y >= 0 && next.Y < gridHeight &&
-                GetUnitAtCell(next) == null && !obstacles.Contains(next))
+            if (path.Count > 0)
             {
-                enemy.Cell = next;
+                // Se déplace vers la première case du chemin
+                Point nextCell = path[0];
+                enemy.Cell = nextCell;
                 enemy.ActionPoints--;
             }
-            else enemy.ActionPoints = 0;
+            else
+            {
+                // Si aucun chemin, essaie déplacement simple (fallback)
+                Point next = new Point(
+                    enemy.Cell.X + Math.Sign(closest.Cell.X - enemy.Cell.X),
+                    enemy.Cell.Y + Math.Sign(closest.Cell.Y - enemy.Cell.Y)
+                );
+
+                if (next.X >= 0 && next.X < gridWidth && next.Y >= 0 && next.Y < gridHeight &&
+                    GetUnitAtCell(next) == null && !obstacles.Contains(next))
+                {
+                    enemy.Cell = next;
+                    enemy.ActionPoints--;
+                }
+                else
+                    enemy.ActionPoints = 0;
+            }
 
             if (enemy.ActionPoints <= 0) enemyTurnIndex++;
         }
@@ -935,13 +1183,31 @@ namespace XCOM_3
             hoveredCell = (cellX >= 0 && cellX < gridWidth && cellY >= 0 && cellY < gridHeight) ? new Point(cellX, cellY) : new Point(-1, -1);
             if (selectedUnit != null && fireButton.Contains(mouse.Position)) hoveredCell = new Point(-1, -1);
 
-            // 2️⃣ Aperçu de déplacement
+            // 2️⃣ Calcul du chemin A* en temps réel au survol
+            currentPath.Clear();
+            pathCosts.Clear();
             showMoveArrow = false;
-            if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 && cachedMovableCells.Contains(hoveredCell))
+
+            if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 &&
+                cachedMovableCells.Contains(hoveredCell) && selectedUnit.Team == Team.Player)
             {
-                arrowFromCell = selectedUnit.Cell;
-                arrowToCell = hoveredCell;
-                showMoveArrow = true;
+                // Calcule le chemin avec A*
+                currentPath = FindPathAStar(selectedUnit.Cell, hoveredCell, selectedUnit.MovementPoints);
+
+                // Calcule les coûts cumulés pour chaque case du chemin
+                pathCosts.Clear();
+                for (int i = 0; i < currentPath.Count; i++)
+                {
+                    pathCosts[currentPath[i]] = i + 1;
+                }
+
+                // Affiche aussi la flèche
+                if (currentPath.Count > 0)
+                {
+                    arrowFromCell = selectedUnit.Cell;
+                    arrowToCell = hoveredCell;
+                    showMoveArrow = true;
+                }
             }
 
             // 3️⃣ Détection clic sur UI
@@ -950,7 +1216,7 @@ namespace XCOM_3
             // 4️⃣ Clic gauche sur la grille
             if (leftClick && !clickOnUI) HandleGridClick(new Point(cellX, cellY));
 
-            // 5️⃣ Boutons d’action
+            // 5️⃣ Boutons d'action
             if (leftClick) HandleUnitActionButtons(mouse);
 
             // 6️⃣ Sélection cible tir
@@ -991,6 +1257,8 @@ namespace XCOM_3
                 {
                     cachedMovableCells.Clear();
                     showMoveArrow = false;
+                    currentPath.Clear();
+                    pathCosts.Clear();
                 }
             }
             else if (selectedUnit != null && selectedUnit.ActionPoints > 0)
@@ -998,13 +1266,17 @@ namespace XCOM_3
                 var movable = GetMovableCells(selectedUnit);
                 if (movable.Contains(clickedCell))
                 {
-                    int cost = Math.Abs(clickedCell.X - selectedUnit.Cell.X) + Math.Abs(clickedCell.Y - selectedUnit.Cell.Y);
-                    if (cost <= selectedUnit.MovementPoints)
+                    // Utilise A* pour calculer le vrai coût de déplacement
+                    var path = FindPathAStar(selectedUnit.Cell, clickedCell, selectedUnit.MovementPoints);
+
+                    if (path.Count > 0 && path.Count <= selectedUnit.MovementPoints)
                     {
                         selectedUnit.Cell = clickedCell;
                         selectedUnit.ActionPoints--;
                         UpdateFireTargets();
                         cachedMovableCells = selectedUnit.ActionPoints > 0 ? GetMovableCells(selectedUnit) : new List<Point>();
+                        currentPath.Clear();
+                        pathCosts.Clear();
                     }
                 }
             }
@@ -1027,6 +1299,8 @@ namespace XCOM_3
             selectedFireTarget = null;
             cachedMovableCells.Clear();
             showMoveArrow = false;
+            currentPath.Clear();
+            pathCosts.Clear();
         }
 
         private void HandleZoom()
