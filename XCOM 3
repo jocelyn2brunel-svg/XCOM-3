@@ -268,7 +268,7 @@ namespace XCOM_3
             // Détecte si la touche ESCAPE vient juste d'être pressée
             // true uniquement si la touche est enfoncée maintenant et était relâchée précédemment
             bool escapePressed = keyboardState.IsKeyDown(Keys.Escape) &&
-                                 previousKeyboardState.IsKeyUp(Keys.Escape);       
+                                 previousKeyboardState.IsKeyUp(Keys.Escape);
 
 
             // --- 9. ESCAPE : sauvegarde et retour au menu ---
@@ -333,107 +333,168 @@ namespace XCOM_3
             // --- 3. DESSIN DU JEU EN COURS ---
             if (currentState == GameState.Playing)
             {
-                _spriteBatch.Begin(transformMatrix: transform); // commence le batch avec transformation caméra
+                // Démarre un SpriteBatch avec transformation caméra
+                // transformMatrix permet de déplacer et zoomer la vue selon cameraOffset et zoom
+                _spriteBatch.Begin(transformMatrix: transform);
 
-                DrawGrid();        // dessine la grille
-                DrawUnits();       // dessine toutes les unités
-                DrawHoveredCell(gameTime); // dessine la cellule survolée avec pulsation
+                // Dessine la grille de jeu (fond, cases, etc.)
+                DrawGrid();
+
+                // Dessine toutes les unités (joueur + ennemis) sur la grille
+                DrawUnits();
+
+                // Dessine la cellule survolée par la souris avec un effet visuel pulsant
+                DrawHoveredCell(gameTime);
 
                 // --- 3a. Cellules accessibles pour le mouvement ---
                 if (selectedUnit != null && selectedUnit.ActionPoints > 0 && currentTurn == TurnState.PlayerTurn)
                     if (selectedUnit.Team == Team.Player)
-                        foreach (var cell in cachedMovableCells)
+                        foreach (var cell in cachedMovableCells) // pour chaque cellule que l'unité peut atteindre
                         {
+                            // Transforme la cellule en rectangle de pixels pour le dessin
                             Rectangle rect = new Rectangle(cell.X * cellSize, cell.Y * cellSize, cellSize, cellSize);
-                            _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80)); // vert semi-transparent
+
+                            // Dessine un rectangle vert semi-transparent pour indiquer la cellule accessible
+                            _spriteBatch.Draw(pixel, rect, new Color(0, 255, 0, 80));
                         }
 
                 // --- 3b. Flèche de déplacement ---
                 if (showMoveArrow && selectedUnit != null && selectedUnit.Team == Team.Player)
                 {
+                    // Point de départ de la flèche (centre de la cellule de l’unité)
                     Vector2 fromWorld = new Vector2(arrowFromCell.X * cellSize + cellSize / 2,
                                                     arrowFromCell.Y * cellSize + cellSize / 2);
+
+                    // Point d’arrivée de la flèche (centre de la cellule survolée)
                     Vector2 toWorld = new Vector2(arrowToCell.X * cellSize + cellSize / 2,
                                                   arrowToCell.Y * cellSize + cellSize / 2);
-                    // pulsation pour effet visuel
+
+                    // Crée un effet de pulsation pour rendre la flèche plus visible
                     float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.2f;
                     Color arrowColor = Color.CornflowerBlue * (0.7f + pulse * 0.3f);
+
+                    // Dessine la flèche entre les deux points
                     DrawArrow(_spriteBatch, fromWorld, toWorld, arrowColor);
                 }
 
-                _spriteBatch.End(); // fin du batch pour le monde
+                // Fin du SpriteBatch pour tout ce qui est relatif au monde (grille, unités, flèches, etc.)
+                _spriteBatch.End();
             }
 
+
             // --- 4. DESSIN DE L'UI (toujours sans transformation caméra) ---
-            _spriteBatch.Begin();
+            _spriteBatch.Begin(); // Démarre le batch de rendu pour dessiner les sprites et textes
 
             // --- 4a. Menu principal ---
             if (currentState == GameState.MainMenu)
             {
+                // Titre du jeu affiché en haut à gauche
                 string title = "XCOM 3";
+
+                // Dessine le texte "XCOM 3"
+                // Paramètres :
+                // - font : police utilisée
+                // - title : texte à afficher
+                // - Vector2.Zero : position (coin supérieur gauche)
+                // - Color.White : couleur du texte
+                // - 0f : rotation
+                // - Vector2.Zero : origine pour la rotation/scaling
+                // - 3f : facteur d'échelle (texte agrandi)
+                // - SpriteEffects.None : pas d'effet spécial
+                // - 0f : couche de profondeur (pour l'ordre de rendu)
                 _spriteBatch.DrawString(font, title, Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
 
+                // Récupère l'état actuel de la souris pour détecter survols et clics
                 MouseState mouse = Mouse.GetState();
-                foreach (var button in menuButtons) button.Draw(_spriteBatch, font, mouse);
+
+                // Parcourt tous les boutons du menu principal et les dessine
+                foreach (var button in menuButtons)
+                    button.Draw(_spriteBatch, font, mouse);
+                // button.Draw : gère l'affichage du bouton (rectangle + texte)
+                // Passe le SpriteBatch, la police et l'état de la souris pour le survol/clic
             }
+
 
             // --- 4b. UI du jeu ---
             else if (currentState == GameState.Playing)
             {
                 // --- Bouton FIN DU TOUR ---
                 int btnWidth = 140, btnHeight = 36;
-                endTurnButton = new Rectangle(GraphicsDevice.Viewport.Width - btnWidth - 20,
-                                              GraphicsDevice.Viewport.Height - btnHeight - 20,
-                                              btnWidth, btnHeight);
+
+                // Définit la position et la taille du bouton "Fin du tour"
+                endTurnButton = new Rectangle(
+                    GraphicsDevice.Viewport.Width - btnWidth - 20,   // position X (20 px du bord droit)
+                    GraphicsDevice.Viewport.Height - btnHeight - 20, // position Y (20 px du bord bas)
+                    btnWidth, btnHeight);                             // largeur et hauteur
+
+                // Change la couleur du bouton si la souris le survole
                 Color btnColor = endTurnHovered ? Color.DarkRed : Color.Red;
+
+                // Dessine le rectangle du bouton
                 _spriteBatch.Draw(pixel, endTurnButton, btnColor);
+
+                // Centre le texte "FIN DU TOUR" à l'intérieur du bouton
                 Vector2 txtSize = font.MeasureString("FIN DU TOUR");
-                _spriteBatch.DrawString(font, "FIN DU TOUR",
-                    new Vector2(endTurnButton.X + (btnWidth - txtSize.X) / 2,
-                                endTurnButton.Y + (btnHeight - txtSize.Y) / 2),
+                _spriteBatch.DrawString(
+                    font,
+                    "FIN DU TOUR",
+                    new Vector2(
+                        endTurnButton.X + (btnWidth - txtSize.X) / 2,
+                        endTurnButton.Y + (btnHeight - txtSize.Y) / 2),
                     Color.White);
 
-                DrawUnitInfoPanel(); // panneau d'info de l'unité sélectionnée
+                // Dessine le panneau d'informations de l'unité sélectionnée
+                DrawUnitInfoPanel();
 
                 // --- Gestion des fire targets ---
                 if (showFireTargets && selectedUnit != null && selectedUnit.Team == Team.Player)
                 {
                     MouseState mouse = Mouse.GetState();
-                    hoveredFireTarget = null;
+                    hoveredFireTarget = null; // reset du survol
 
-                    // détecte le survol d'une icône de cible
+                    // --- Détecte la cible survolée ---
                     foreach (var ui in fireTargetsUI)
                     {
                         if (ui.Bounds.Contains(mouse.Position))
                         {
-                            hoveredFireTarget = ui.Target;
+                            hoveredFireTarget = ui.Target; // l'unité survolée
                             break;
                         }
                     }
 
-                    // dessine toutes les icônes de fire target
+                    // --- Dessine toutes les icônes de fire target ---
                     foreach (var ui in fireTargetsUI)
                     {
+                        // Couleur différente si c'est la cible sélectionnée
                         Color bg = ui.Target == selectedFireTarget ? Color.OrangeRed : Color.DarkRed;
                         _spriteBatch.Draw(pixel, ui.Bounds, bg);
 
+                        // Affiche le pourcentage de chance de toucher
                         string txt = ui.HitChance + "%";
                         Vector2 size = font.MeasureString(txt);
-                        _spriteBatch.DrawString(font, txt,
-                            new Vector2(ui.Bounds.Center.X - size.X / 2, ui.Bounds.Center.Y - size.Y / 2),
+                        _spriteBatch.DrawString(
+                            font,
+                            txt,
+                            new Vector2(
+                                ui.Bounds.Center.X - size.X / 2,
+                                ui.Bounds.Center.Y - size.Y / 2),
                             Color.White);
                     }
 
-                    // contour autour de l'unité ciblée ou survolée
+                    // --- Contour autour de la cible sélectionnée ou survolée ---
                     Unit targetToHighlight = selectedFireTarget ?? hoveredFireTarget;
                     if (targetToHighlight != null)
                     {
+                        // Récupère l'UI correspondant à cette unité
                         var ui = fireTargetsUI.FirstOrDefault(f => f.Target == targetToHighlight);
                         if (ui != null)
                         {
                             Rectangle targetRect = ui.Bounds;
 
-                            _spriteBatch.Draw(pixel, targetRect, Color.Red * 0.4f); // semi-transparent
+                            // Fond semi-transparent sur la cible
+                            _spriteBatch.Draw(pixel, targetRect, Color.Red * 0.4f);
+
+                            // Dessine un contour visible autour de la cible
                             int thickness = 3;
                             DrawLine(_spriteBatch, new Vector2(targetRect.Left, targetRect.Top),
                                                 new Vector2(targetRect.Right, targetRect.Top), Color.Red, thickness);
@@ -447,6 +508,7 @@ namespace XCOM_3
                     }
                 }
             }
+
 
             // --- 4c. Menu Options ---
             else if (currentState == GameState.OptionsMenu)
@@ -1750,129 +1812,214 @@ namespace XCOM_3
 
         private void HandlePlayerTurn(MouseState mouse, bool leftClick)
         {
-            // --- Conversion souris écran → monde / grille ---
+            // =========================================================
+            // 1. Conversion de la souris : écran → monde → grille
+            // =========================================================
+            // La souris est en coordonnées écran (pixels).
+            // On la recentre par rapport au viewport, on applique le zoom,
+            // puis on ajoute le décalage caméra pour obtenir des coordonnées monde.
             Vector2 mouseWorldPos =
                 (new Vector2(mouse.X, mouse.Y)
                 - new Vector2(GraphicsDevice.Viewport.Width / 2,
                               GraphicsDevice.Viewport.Height / 2))
                 / zoom + cameraOffset;
 
+            // Conversion des coordonnées monde en indices de cellule de la grille
             int cellX = (int)(mouseWorldPos.X / cellSize);
             int cellY = (int)(mouseWorldPos.Y / cellSize);
 
-            // --- Cellule survolée ---
+            // =========================================================
+            // 2. Détermination de la cellule actuellement survolée
+            // =========================================================
+            // Si la cellule est dans les limites de la grille,
+            // on l’enregistre comme cellule survolée
             if (cellX >= 0 && cellX < gridWidth &&
                 cellY >= 0 && cellY < gridHeight)
                 hoveredCell = new Point(cellX, cellY);
             else
+                // En dehors de la grille : aucune cellule valide
                 hoveredCell = new Point(-1, -1);
 
-            // Si la souris est sur le bouton Tirer, on annule le hover grille
+            // Si la souris survole le bouton "Tirer",
+            // on désactive le survol de la grille
+            // (évite les conflits UI / monde)
             if (selectedUnit != null && fireButton.Contains(mouse.Position))
                 hoveredCell = new Point(-1, -1);
 
-            // --- Flèche de déplacement ---
+            // =========================================================
+            // 3. Gestion de la flèche de déplacement (preview)
+            // =========================================================
+            // Par défaut, aucune flèche n’est affichée
             showMoveArrow = false;
+
+            // On affiche une flèche uniquement si :
+            // - une unité est sélectionnée
+            // - elle a encore des points d’action
+            // - la souris est sur une cellule valide
+            // - la cellule est accessible
             if (selectedUnit != null &&
                 selectedUnit.ActionPoints > 0 &&
                 hoveredCell.X != -1 &&
                 cachedMovableCells.Contains(hoveredCell))
             {
+                // Origine : cellule actuelle de l’unité
                 arrowFromCell = selectedUnit.Cell;
+
+                // Destination : cellule survolée
                 arrowToCell = hoveredCell;
+
+                // Active l’affichage de la flèche
                 showMoveArrow = true;
             }
 
-            // --- Détection clic UI ---
+            // =========================================================
+            // 4. Détection d’un clic sur l’interface utilisateur
+            // =========================================================
+            // Empêche les clics sur la grille si on clique sur l’UI
             bool clickOnUI =
                 fireButton.Contains(mouse.Position) ||
                 IsMouseOverActionButton(mouse);
 
-            // --- Clic gauche sur la grille ---
+            // =========================================================
+            // 5. Clic gauche sur la grille
+            // =========================================================
+            // Le clic n’est pris en compte que si on ne clique pas sur l’UI
             if (leftClick && !clickOnUI)
             {
+                // Délègue toute la logique de sélection / déplacement
                 HandleGridClick(new Point(cellX, cellY));
             }
 
-            // --- Boutons d'action d'unité ---
+            // =========================================================
+            // 6. Boutons d’actions de l’unité (recharger, couverture, etc.)
+            // =========================================================
             if (leftClick)
             {
+                // Gestion centralisée des boutons d’actions contextuelles
                 HandleUnitActionButtons(mouse);
             }
 
-            // --- Sélection des cibles de tir ---
+            // =========================================================
+            // 7. Sélection d’une cible de tir
+            // =========================================================
+            // Si les cibles de tir sont affichées,
+            // on vérifie si le joueur clique sur l’une d’elles
             if (leftClick && showFireTargets)
             {
                 foreach (var ui in fireTargetsUI)
                 {
                     if (ui.Bounds.Contains(mouse.Position))
                     {
+                        // Enregistre la cible sélectionnée
                         selectedFireTarget = ui.Target;
                         break;
                     }
                 }
             }
 
-            // --- Clic droit : annulation ---
+            // =========================================================
+            // 8. Clic droit : annulation de la sélection
+            // =========================================================
+            // Clic droit = reset du contexte courant
             if (mouse.RightButton == ButtonState.Pressed &&
                 previousMouseState.RightButton == ButtonState.Released)
             {
                 CancelSelection();
             }
 
-            // --- Bouton Tirer ---
+            // =========================================================
+            // 9. Bouton "Tirer"
+            // =========================================================
+            // Détection du survol du bouton
             fireButtonHovered = fireButton.Contains(mouse.Position);
+
+            // Tir uniquement si :
+            // - clic gauche
+            // - une unité est sélectionnée
+            // - une cible est sélectionnée
+            // - l’unité a encore des points d’action
             if (fireButtonHovered && leftClick &&
                 selectedUnit != null &&
                 selectedFireTarget != null &&
                 selectedUnit.ActionPoints > 0)
             {
+                // Exécute l’attaque
                 FireAtTarget(selectedUnit, selectedFireTarget);
+
+                // Met à jour les cibles restantes après le tir
                 UpdateFireTargets();
             }
 
-            // --- Bouton Fin de tour ---
+            // =========================================================
+            // 10. Bouton "Fin de tour"
+            // =========================================================
             endTurnHovered = endTurnButton.Contains(mouse.Position);
+
+            // Passe au tour ennemi si aucune action n’est en cours
             if (endTurnHovered && leftClick && !isActionInProgress)
             {
                 StartEnemyTurn();
             }
         }
 
+
         private void HandleGridClick(Point clickedCell)
         {
+            // Récupère l’unité présente sur la cellule cliquée (null s’il n’y en a pas)
             Unit clickedUnit = GetUnitAtCell(clickedCell);
 
+            // --- CAS 1 : une unité est cliquée ---
             if (clickedUnit != null)
             {
+                // Cette unité devient l’unité actuellement sélectionnée
                 selectedUnit = clickedUnit;
 
+                // Si l’unité appartient au joueur
                 if (selectedUnit.Team == Team.Player)
                 {
+                    // Calcule et mémorise toutes les cellules accessibles par cette unité
                     cachedMovableCells = GetMovableCells(selectedUnit);
+
+                    // Met à jour les cibles potentielles que cette unité peut attaquer
                     UpdateFireTargets();
                 }
                 else
                 {
+                    // Si l’unité est ennemie :
+                    // → aucune cellule accessible à afficher
                     cachedMovableCells.Clear();
+
+                    // → on désactive la flèche de déplacement
                     showMoveArrow = false;
                 }
             }
+            // --- CAS 2 : aucune unité cliquée, mais une unité est déjà sélectionnée ---
             else if (selectedUnit != null && selectedUnit.ActionPoints > 0)
             {
+                // Récupère les cellules accessibles à l’unité sélectionnée
                 var movableCells = GetMovableCells(selectedUnit);
+
+                // Vérifie que la cellule cliquée fait partie des déplacements possibles
                 if (movableCells.Contains(clickedCell))
                 {
+                    // Calcul du coût du déplacement (distance Manhattan)
                     int cost =
                         Math.Abs(clickedCell.X - selectedUnit.Cell.X) +
                         Math.Abs(clickedCell.Y - selectedUnit.Cell.Y);
 
+                    // Vérifie que le coût ne dépasse pas les points de mouvement
                     if (cost <= selectedUnit.MovementPoints)
                     {
+                        // Déplace réellement l’unité sur la nouvelle cellule
                         selectedUnit.Cell = clickedCell;
+
+                        // Consomme un point d’action
                         selectedUnit.ActionPoints--;
+
+                        // Met à jour les cibles de tir après le déplacement
                         UpdateFireTargets();
 
+                        // Recalcule les cellules accessibles uniquement si l’unité peut encore agir
                         cachedMovableCells = selectedUnit.ActionPoints > 0
                             ? GetMovableCells(selectedUnit)
                             : new List<Point>();
@@ -1881,32 +2028,61 @@ namespace XCOM_3
             }
         }
 
+
         private void HandleUnitActionButtons(MouseState mouse)
         {
+            // Parcourt tous les boutons d'action disponibles pour l'unité sélectionnée
             foreach (var btn in unitActionButtons)
             {
+                // Crée un rectangle correspondant à la zone du bouton à l'écran
+                // Cela servira pour détecter si la souris survole le bouton
                 Rectangle rect = new Rectangle(
-                    (int)btn.Position.X,
-                    (int)btn.Position.Y,
-                    ActionButtonWidth,
-                    ActionButtonHeight);
+                    (int)btn.Position.X,        // position X du coin supérieur gauche
+                    (int)btn.Position.Y,        // position Y du coin supérieur gauche
+                    ActionButtonWidth,          // largeur du bouton
+                    ActionButtonHeight);        // hauteur du bouton
 
+                // Vérifie si la souris se trouve à l'intérieur du rectangle du bouton
                 if (rect.Contains(mouse.Position))
                 {
+                    // Affiche dans la console le nom de l'action qui serait déclenchée
                     Console.WriteLine($"Action future : {btn.Text}");
-                    // À implémenter plus tard
+
+                    // Ici, c'est l'endroit où tu implémenteras la logique réelle de l'action :
+                    // par exemple :
+                    // switch(btn.Text)
+                    // {
+                    //     case "COUVERT": ...
+                    //     case "RECHARGER": ...
+                    // }
                 }
             }
         }
 
+
         private void CancelSelection()
         {
+            // --- Réinitialisation des cibles valides ---
+            // Vide la liste des unités que la sélection actuelle pouvait attaquer
             validFireTargets.Clear();
+
+            // --- Désélection de l'unité ---
+            // Plus aucune unité n'est sélectionnée
             selectedUnit = null;
+
+            // --- Désélection de la cible de tir ---
+            // Plus aucune cible n'est sélectionnée
             selectedFireTarget = null;
+
+            // --- Réinitialisation des cellules accessibles ---
+            // Vide la liste des cellules sur lesquelles l'unité sélectionnée pouvait se déplacer
             cachedMovableCells.Clear();
+
+            // --- Masquage de la flèche de déplacement ---
+            // La flèche qui indiquait un mouvement possible disparaît
             showMoveArrow = false;
         }
+
 
 
         private void HandleZoom()
