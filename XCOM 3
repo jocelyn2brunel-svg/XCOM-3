@@ -34,6 +34,12 @@ namespace XCOM_3
         // Textures
         private Texture2D tileTexture;
 
+        // --- NOUVEAU: Cycle jour/nuit ---
+        private float timeOfDay = 0f; // 0 = minuit, 0.5 = midi, 1 = minuit
+        private float dayNightSpeed = 0.05f; // Vitesse du cycle (plus petit = plus lent)
+        private Color ambientLight = Color.White;
+        private Color directionalLight = Color.White;
+
         // --- Caméra 3D ---
         private Vector3 cameraPosition;
         private Vector3 cameraTarget;
@@ -67,10 +73,10 @@ namespace XCOM_3
         enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu }
         private GameState currentState = GameState.MainMenu;
 
-        // --- Grille 3D ---
+        // --- Grille 3D (MODIFIÉ: tailles aléatoires) ---
         private int cellSize = 2; // Taille en unités 3D
-        private int gridWidth = 20;
-        private int gridHeight = 15;
+        private int gridWidth = 20;  // Sera aléatoire
+        private int gridHeight = 15; // Sera aléatoire
         private Point hoveredCell = new Point(-1, -1);
         private HashSet<Point> obstacles = new HashSet<Point>();
 
@@ -147,7 +153,7 @@ namespace XCOM_3
             // Initialisation des primitives 3D
             CreateCubePrimitive();
             CreatePlanePrimitive();
-            CreateTexturedPlanePrimitive(); // NOUVEAU
+            CreateTexturedPlanePrimitive();
 
             base.Initialize();
         }
@@ -161,7 +167,7 @@ namespace XCOM_3
             pixel = new Texture2D(GraphicsDevice, 1, 1);
             pixel.SetData(new[] { Color.White });
 
-            // NOUVEAU: Chargement de la texture
+            // Chargement de la texture
             tileTexture = Content.Load<Texture2D>("TileParchment32x32");
 
             // Configuration de l'effet 3D de base (pour couleurs)
@@ -170,7 +176,7 @@ namespace XCOM_3
             basicEffect.LightingEnabled = true;
             basicEffect.EnableDefaultLighting();
 
-            // NOUVEAU: Configuration de l'effet pour textures
+            // Configuration de l'effet pour textures
             texturedEffect = new BasicEffect(GraphicsDevice);
             texturedEffect.TextureEnabled = true;
             texturedEffect.LightingEnabled = true;
@@ -259,6 +265,9 @@ namespace XCOM_3
                     HandleCameraControls(keyboard, mouse, gameTime);
                     UpdateFiringAnimations(gameTime);
 
+                    // NOUVEAU: Mise à jour du cycle jour/nuit
+                    UpdateDayNightCycle(gameTime);
+
                     if (escapePressed)
                     {
                         hasSavedGame = true;
@@ -280,9 +289,77 @@ namespace XCOM_3
             base.Update(gameTime);
         }
 
+        // NOUVEAU: Mise à jour du cycle jour/nuit
+        private void UpdateDayNightCycle(GameTime gameTime)
+        {
+            // Avance le temps
+            timeOfDay += (float)gameTime.ElapsedGameTime.TotalSeconds * dayNightSpeed;
+            if (timeOfDay >= 1f) timeOfDay -= 1f; // Boucle le cycle
+
+            // Calcule l'éclairage basé sur l'heure
+            float sunIntensity = CalculateSunIntensity(timeOfDay);
+
+            // Lumière ambiante (varie de sombre à clair)
+            ambientLight = new Color(
+                sunIntensity * 0.8f,
+                sunIntensity * 0.85f,
+                sunIntensity
+            );
+
+            // Lumière directionnelle
+            directionalLight = new Color(
+                sunIntensity,
+                sunIntensity * 0.95f,
+                sunIntensity * 0.9f
+            );
+
+            // Applique aux effets
+            basicEffect.AmbientLightColor = ambientLight.ToVector3();
+            basicEffect.DirectionalLight0.DiffuseColor = directionalLight.ToVector3();
+
+            texturedEffect.AmbientLightColor = ambientLight.ToVector3();
+            texturedEffect.DirectionalLight0.DiffuseColor = directionalLight.ToVector3();
+        }
+
+        private float CalculateSunIntensity(float time)
+        {
+            // 0.0 = minuit (sombre)
+            // 0.25 = aube (transition)
+            // 0.5 = midi (lumineux)
+            // 0.75 = crépuscule (transition)
+            // 1.0 = minuit (sombre)
+
+            float intensity;
+
+            if (time < 0.25f)
+            {
+                // Nuit → Aube
+                intensity = MathHelper.Lerp(0.3f, 0.7f, time / 0.25f);
+            }
+            else if (time < 0.5f)
+            {
+                // Aube → Midi
+                intensity = MathHelper.Lerp(0.7f, 1.0f, (time - 0.25f) / 0.25f);
+            }
+            else if (time < 0.75f)
+            {
+                // Midi → Crépuscule
+                intensity = MathHelper.Lerp(1.0f, 0.7f, (time - 0.5f) / 0.25f);
+            }
+            else
+            {
+                // Crépuscule → Nuit
+                intensity = MathHelper.Lerp(0.7f, 0.3f, (time - 0.75f) / 0.25f);
+            }
+
+            return intensity;
+        }
+
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.Black);
+            // MODIFIÉ: Couleur de fond change selon l'heure
+            Color backgroundColor = GetSkyColor(timeOfDay);
+            GraphicsDevice.Clear(backgroundColor);
 
             if (currentState == GameState.Playing)
             {
@@ -335,9 +412,14 @@ namespace XCOM_3
                     if (showFireTargets && selectedUnit != null && selectedUnit.Team == Team.Player)
                         DrawFireTargets();
 
-                    // Instructions de contrôle
+                    // Instructions de contrôle + NOUVEAU: Info jour/nuit
                     _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle Mouse: Deplacement",
                         new Vector2(10, 10), Color.White);
+
+                    // Affiche l'heure et la taille de la carte
+                    string timeStr = GetTimeOfDayString(timeOfDay);
+                    _spriteBatch.DrawString(font, $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}",
+                        new Vector2(10, 30), Color.Yellow);
                     break;
 
                 case GameState.OptionsMenu:
@@ -352,6 +434,39 @@ namespace XCOM_3
             _spriteBatch.End();
 
             base.Draw(gameTime);
+        }
+
+        // NOUVEAU: Obtient la couleur du ciel selon l'heure
+        private Color GetSkyColor(float time)
+        {
+            if (time < 0.25f)
+            {
+                // Nuit (bleu très sombre)
+                return Color.Lerp(new Color(10, 10, 30), new Color(100, 120, 180), time / 0.25f);
+            }
+            else if (time < 0.5f)
+            {
+                // Aube → Jour (orange → bleu clair)
+                return Color.Lerp(new Color(100, 120, 180), new Color(135, 206, 235), (time - 0.25f) / 0.25f);
+            }
+            else if (time < 0.75f)
+            {
+                // Jour → Crépuscule (bleu clair → orange/rouge)
+                return Color.Lerp(new Color(135, 206, 235), new Color(100, 120, 180), (time - 0.5f) / 0.25f);
+            }
+            else
+            {
+                // Crépuscule → Nuit
+                return Color.Lerp(new Color(100, 120, 180), new Color(10, 10, 30), (time - 0.75f) / 0.25f);
+            }
+        }
+
+        // NOUVEAU: Convertit le temps en string lisible
+        private string GetTimeOfDayString(float time)
+        {
+            int hours = (int)(time * 24);
+            int minutes = (int)((time * 24 - hours) * 60);
+            return $"{hours:D2}:{minutes:D2}";
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -397,7 +512,6 @@ namespace XCOM_3
             planeIndices = new short[] { 0, 1, 2, 0, 2, 3 };
         }
 
-        // NOUVEAU: Primitive plane avec support de texture
         private void CreateTexturedPlanePrimitive()
         {
             planeTexturedVertices = new VertexPositionNormalTexture[4];
@@ -471,7 +585,6 @@ namespace XCOM_3
             }
         }
 
-        // NOUVEAU: Méthode pour dessiner un plan avec texture
         private void DrawTexturedPlane(Vector3 position, Vector3 scale, Texture2D texture)
         {
             Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
@@ -547,43 +660,36 @@ namespace XCOM_3
             Vector2 moveInput = Vector2.Zero;
 
             // WASD
-            if (keyboard.IsKeyDown(Keys.W)) moveInput.Y += 1; // Avant (relatif à la caméra)
-            if (keyboard.IsKeyDown(Keys.S)) moveInput.Y -= 1; // Arrière
-            if (keyboard.IsKeyDown(Keys.A)) moveInput.X += 1; // Gauche (CORRIGÉ)
-            if (keyboard.IsKeyDown(Keys.D)) moveInput.X -= 1; // Droite (CORRIGÉ)
+            if (keyboard.IsKeyDown(Keys.W)) moveInput.Y += 1;
+            if (keyboard.IsKeyDown(Keys.S)) moveInput.Y -= 1;
+            if (keyboard.IsKeyDown(Keys.A)) moveInput.X += 1;
+            if (keyboard.IsKeyDown(Keys.D)) moveInput.X -= 1;
 
-            // Middle mouse button (déplacement comme WASD)
+            // Middle mouse button
             if (mouse.MiddleButton == ButtonState.Pressed && previousMouseState.MiddleButton == ButtonState.Pressed)
             {
-                // Delta de la souris converti en direction
                 Vector2 mouseDelta = new Vector2(
                     mouse.X - previousMouseState.X,
                     mouse.Y - previousMouseState.Y
                 );
 
-                // Inverse le mouvement pour que ça suive la souris naturellement
-                moveInput.X += mouseDelta.X * 0.5f; // Augmenté de 0.1 à 0.5
-                moveInput.Y += mouseDelta.Y * 0.5f; // Augmenté de 0.1 à 0.5
+                moveInput.X += mouseDelta.X * 0.5f;
+                moveInput.Y += mouseDelta.Y * 0.5f;
             }
 
-            // Applique le mouvement si non nul
+            // Applique le mouvement
             if (moveInput != Vector2.Zero)
             {
-                // Normalise pour éviter mouvement diagonal plus rapide
                 if (moveInput.LengthSquared() > 1f)
                     moveInput.Normalize();
 
-                // Calcule la direction de mouvement selon l'angle de la caméra
-                // L'angle de la caméra détermine "l'avant"
-                float moveAngle = cameraAngle + MathHelper.PiOver2; // +90° car caméra regarde vers le centre
+                float moveAngle = cameraAngle + MathHelper.PiOver2;
 
-                // Rotation du vecteur de mouvement selon l'angle de la caméra
                 Vector2 rotatedMove = new Vector2(
                     moveInput.X * (float)Math.Cos(moveAngle) - moveInput.Y * (float)Math.Sin(moveAngle),
                     moveInput.X * (float)Math.Sin(moveAngle) + moveInput.Y * (float)Math.Cos(moveAngle)
                 );
 
-                // Applique le déplacement
                 cameraOffset += rotatedMove * cameraMoveSpeed * deltaTime;
             }
         }
@@ -594,14 +700,11 @@ namespace XCOM_3
 
         private void DrawGrid3D()
         {
-            // Dessine les tuiles du sol AVEC TEXTURE
             for (int x = 0; x < gridWidth; x++)
             {
                 for (int z = 0; z < gridHeight; z++)
                 {
                     Vector3 position = new Vector3(x * cellSize + cellSize / 2f, 0, z * cellSize + cellSize / 2f);
-
-                    // Utilise la texture de parchemin pour toutes les tuiles
                     DrawTexturedPlane(position, new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f), tileTexture);
                 }
             }
@@ -617,7 +720,7 @@ namespace XCOM_3
                     cell.Y * cellSize + cellSize / 2f
                 );
 
-                DrawCube(position, new Vector3(cellSize * 0.8f), new Color(139, 69, 19)); // Marron pour obstacles
+                DrawCube(position, new Vector3(cellSize * 0.8f), new Color(139, 69, 19));
             }
         }
 
@@ -640,7 +743,6 @@ namespace XCOM_3
 
             Vector3 visualOffset = Vector3.Zero;
 
-            // === Animation d'attaque ===
             if (unit.IsFiring && unit.FireTarget.HasValue)
             {
                 Vector3 targetPos = new Vector3(
@@ -649,14 +751,11 @@ namespace XCOM_3
                     unit.FireTarget.Value.Y * cellSize + cellSize / 2f
                 );
 
-                // --- CAS ZOMBIE : CHARGE ---
                 if (unit.Weapon == "Zombie Claws")
                 {
                     Vector3 chargeVector = targetPos - basePosition;
-
                     float t = unit.FireProgress;
 
-                    // Aller (0 → 0.5) / Retour (0.5 → 1)
                     if (t < 0.5f)
                     {
                         float forwardT = t / 0.5f;
@@ -668,7 +767,6 @@ namespace XCOM_3
                         visualOffset = Vector3.Lerp(chargeVector, Vector3.Zero, returnT);
                     }
                 }
-                // --- AUTRES ARMES : PROJECTILE ---
                 else
                 {
                     Vector3 projectilePos = Vector3.Lerp(basePosition, targetPos, unit.FireProgress);
@@ -676,11 +774,8 @@ namespace XCOM_3
                 }
             }
 
-            // === Dessin de l'unité (avec offset éventuel) ===
             Vector3 finalPos = basePosition + visualOffset;
-
             Color unitColor = unit.Team == Team.Player ? Color.Blue : Color.Red;
-
             float sizeMultiplier = (unit.IsFiring && unit.Weapon == "Zombie Claws") ? 1.2f : 1.0f;
 
             DrawCube(
@@ -693,30 +788,19 @@ namespace XCOM_3
                 unitColor
             );
 
-            // === Sélection ===
             if (unit == selectedUnit)
             {
                 Vector3 selectionPos = new Vector3(basePosition.X, 0.05f, basePosition.Z);
-                DrawPlane(
-                    selectionPos,
-                    new Vector3(cellSize * 1.1f, 1, cellSize * 1.1f),
-                    new Color(0, 255, 255, 128)
-                );
+                DrawPlane(selectionPos, new Vector3(cellSize * 1.1f, 1, cellSize * 1.1f), new Color(0, 255, 255, 128));
             }
 
-            // === Cible surlignée ===
             Unit targetHighlight = selectedFireTarget ?? hoveredFireTarget;
             if (targetHighlight == unit)
             {
                 Vector3 highlightPos = new Vector3(basePosition.X, 0.1f, basePosition.Z);
-                DrawPlane(
-                    highlightPos,
-                    new Vector3(cellSize * 1.2f, 1, cellSize * 1.2f),
-                    new Color(255, 0, 0, 128)
-                );
+                DrawPlane(highlightPos, new Vector3(cellSize * 1.2f, 1, cellSize * 1.2f), new Color(255, 0, 0, 128));
             }
         }
-
 
         private void DrawMovableCells3D(GameTime gameTime)
         {
@@ -769,7 +853,6 @@ namespace XCOM_3
 
         private Point GetCellFromMouseRaycast(MouseState mouse)
         {
-            // Crée un rayon depuis la position de la souris
             Vector3 nearPoint = GraphicsDevice.Viewport.Unproject(
                 new Vector3(mouse.X, mouse.Y, 0),
                 projectionMatrix,
@@ -786,13 +869,11 @@ namespace XCOM_3
 
             Vector3 direction = Vector3.Normalize(farPoint - nearPoint);
 
-            // Intersection avec le plan Y=0 (sol)
             if (Math.Abs(direction.Y) > 0.001f)
             {
                 float t = -nearPoint.Y / direction.Y;
                 Vector3 intersection = nearPoint + direction * t;
 
-                // Convertit la position 3D en coordonnées de grille
                 int cellX = (int)(intersection.X / cellSize);
                 int cellZ = (int)(intersection.Z / cellSize);
 
@@ -806,7 +887,7 @@ namespace XCOM_3
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // UI 2D (identique à l'original)
+        // UI 2D
         // ═══════════════════════════════════════════════════════════════════════
 
         private void DrawEndTurnButton()
@@ -917,17 +998,25 @@ namespace XCOM_3
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // LOGIQUE DE JEU (inchangée)
+        // LOGIQUE DE JEU
         // ═══════════════════════════════════════════════════════════════════════
 
+        // MODIFIÉ: Taille de carte aléatoire + heure de départ aléatoire
         private void LoadMap()
         {
-            gridWidth = 20;
-            gridHeight = 15;
+            // Taille aléatoire entre 15x12 et 30x25
+            gridWidth = random.Next(15, 31);   // 15 à 30
+            gridHeight = random.Next(12, 26);  // 12 à 25
             cellSize = 2;
 
-            GenerateObstacles(30);
-            Console.WriteLine("Map loaded in 3D");
+            // Heure de départ aléatoire
+            timeOfDay = (float)random.NextDouble();
+
+            // Vitesse du cycle jour/nuit aléatoire (entre très lent et rapide)
+            dayNightSpeed = (float)(random.NextDouble() * 0.08 + 0.02); // 0.02 à 0.1
+
+            GenerateObstacles(gridWidth * gridHeight / 10); // Proportionnel à la taille
+            Console.WriteLine($"Map loaded: {gridWidth}x{gridHeight}, Starting time: {GetTimeOfDayString(timeOfDay)}");
         }
 
         private class AStarNode
@@ -1569,10 +1658,8 @@ namespace XCOM_3
 
         private void HandlePlayerTurn(MouseState mouse, bool leftClick, KeyboardState keyboard)
         {
-            // Utilise le raycast pour obtenir la cellule survolée
             hoveredCell = GetCellFromMouseRaycast(mouse);
 
-            // Calcul du chemin A* en temps réel au survol
             currentPath.Clear();
             pathCosts.Clear();
             showMoveArrow = false;
@@ -1686,7 +1773,7 @@ namespace XCOM_3
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // CLASSES AUXILIAIRES (inchangées)
+    // CLASSES AUXILIAIRES
     // ═══════════════════════════════════════════════════════════════════════
 
     public class Button
@@ -1725,11 +1812,10 @@ namespace XCOM_3
         public Point? FireTarget = null;
         public float FireProgress = 0f;
         public Unit PendingTarget = null;
-        public Vector3 VisualOffset = Vector3.Zero; // Décalage temporaire
+        public Vector3 VisualOffset = Vector3.Zero;
         public Vector3 ChargeStart;
         public Vector3 ChargeTarget;
         public bool IsChargingForward = true;
-
 
         public Unit(Point cell, Team team, string name, string unitClass, string weapon, WeaponData weaponData)
         {
