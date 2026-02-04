@@ -1,139 +1,138 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
 
-
 namespace XCOM_3
 {
-    // Déclaration de la classe principale du jeu
-    // héritée de Game (classe de base de MonoGame)
     public class Game1 : Game
     {
-        // --- Gestion graphique et rendu ---
-        private GraphicsDeviceManager _graphics; // gère les paramètres graphiques (résolution, plein écran, etc.)
-        private SpriteBatch _spriteBatch;        // permet de dessiner des textures et du texte
-        private SpriteFont font;                 // police pour dessiner du texte
+        // --- Gestion graphique et rendu 3D ---
+        private GraphicsDeviceManager _graphics;
+        private SpriteBatch _spriteBatch;
+        private SpriteFont font;
+
+        // --- Modèles et effets 3D ---
+        private BasicEffect basicEffect;
+        private Model cubeModel;  // Pour les unités et obstacles
+        private Model planeModel; // Pour le sol
+
+        // Primitives 3D personnalisées
+        private VertexPositionColor[] cubeVertices;
+        private short[] cubeIndices;
+        private VertexPositionColor[] planeVertices;
+        private short[] planeIndices;
+
+        // --- Caméra 3D ---
+        private Vector3 cameraPosition;
+        private Vector3 cameraTarget;
+        private Matrix viewMatrix;
+        private Matrix projectionMatrix;
+        private float cameraAngle = MathHelper.PiOver4; // 45° pour vue isométrique
+        private float cameraDistance = 30f;
+        private float cameraHeight = 20f;
+        private float cameraRotationSpeed = 1.5f;
 
         // --- Menu principal ---
-        private List<Button> menuButtons;        // boutons du menu principal
-        private MouseState previousMouseState;   // pour détecter les clics et survols de la souris
-        private List<Song> menuSongs;            // liste des musiques du menu
-        private Song currentSong;                // musique actuellement jouée
-        private Random random = new Random();    // générateur de nombres aléatoires
+        private List<Button> menuButtons;
+        private MouseState previousMouseState;
+        private List<Song> menuSongs;
+        private Song currentSong;
+        private Random random = new Random();
 
         // --- Menu de sélection de mission ---
-        private List<Button> missionButtons;     // boutons de sélection de mission
-        private string selectedMission = "";     // mission sélectionnée
+        private List<Button> missionButtons;
+        private string selectedMission = "";
 
         // --- États du jeu ---
-        enum GameState
-        {
-            MainMenu,        // menu principal
-            MissionSelect,   // sélection de mission
-            Playing,         // partie en cours
-            OptionsMenu      // menu options
-        }
-        private GameState currentState = GameState.MainMenu; // état courant du jeu
+        enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu }
+        private GameState currentState = GameState.MainMenu;
 
-        // --- Textures utilitaires ---
-        private Texture2D pixel;                 // pixel blanc utilisé pour dessiner des formes simples (rectangles, lignes)
-        private Texture2D tileTexture;           // texture pour les cases de la grille
-        private Texture2D obstacleTexture;       // texture pour obstacles
-
-        // --- Grille ---
-        private int cellSize = 32;               // taille d'une case (en pixels)
-        private int gridWidth = 20;              // nombre de colonnes
-        private int gridHeight = 15;             // nombre de lignes
-        private Point hoveredCell = new Point(-1, -1); // cellule actuellement survolée par la souris
-        private HashSet<Point> obstacles = new HashSet<Point>(); // positions des obstacles
+        // --- Grille 3D ---
+        private int cellSize = 2; // Taille en unités 3D
+        private int gridWidth = 20;
+        private int gridHeight = 15;
+        private Point hoveredCell = new Point(-1, -1);
+        private HashSet<Point> obstacles = new HashSet<Point>();
 
         // --- Options / Volume ---
-        private List<Button> optionsButtons;     // boutons du menu Options
-        private float musicVolume = 0.5f;        // volume initial de la musique
-        private Rectangle volumeBar;             // barre de fond du volume
-        private Rectangle volumeFill;            // portion remplie représentant le volume actuel
-        private Rectangle volumeHandle;          // poignée de contrôle du volume
-        private bool draggingVolume = false;     // indique si l'utilisateur fait glisser la poignée
+        private List<Button> optionsButtons;
+        private float musicVolume = 0.5f;
+        private Rectangle volumeBar;
+        private Rectangle volumeFill;
+        private Rectangle volumeHandle;
+        private bool draggingVolume = false;
 
         // --- Unités et combat ---
-        private List<Unit> playerUnits = new List<Unit>();   // unités du joueur
-        private List<Unit> enemyUnits = new List<Unit>();    // unités ennemies
-        private Unit selectedUnit = null;                    // unité actuellement sélectionnée
-        private List<Point> cachedMovableCells = new();      // cellules accessibles pour le déplacement de l'unité sélectionnée
-        private List<Unit> savedPlayerUnits;                // sauvegarde des unités joueur
-        private List<Unit> savedEnemyUnits;                 // sauvegarde des unités ennemies
-        private bool hasSavedGame = false;                  // si une partie sauvegardée existe
+        private List<Unit> playerUnits = new List<Unit>();
+        private List<Unit> enemyUnits = new List<Unit>();
+        private Unit selectedUnit = null;
+        private List<Point> cachedMovableCells = new();
+        private List<Unit> savedPlayerUnits;
+        private List<Unit> savedEnemyUnits;
+        private bool hasSavedGame = false;
 
         // --- Boutons et UI de combat ---
-        private Rectangle fireButton;                        // bouton "TIRER"
-        private bool fireButtonHovered = false;             // survol du bouton
-        private List<Unit> validFireTargets = new();        // cibles possibles pour le tir
-        private Unit selectedFireTarget = null;             // cible sélectionnée pour tirer
-        private Unit hoveredFireTarget = null;              // cible survolée pour indication
+        private Rectangle fireButton;
+        private bool fireButtonHovered = false;
+        private List<Unit> validFireTargets = new();
+        private Unit selectedFireTarget = null;
+        private Unit hoveredFireTarget = null;
 
-        private List<Button> unitActionButtons = new List<Button>(); // boutons actions spécifiques (COUVERT, RECHARGER, etc.)
+        private List<Button> unitActionButtons = new List<Button>();
         private const int ActionButtonWidth = 100;
         private const int ActionButtonHeight = 36;
 
-        private bool showMoveArrow = false;                 // afficher la flèche de déplacement
-        private Point arrowFromCell;                        // case de départ de la flèche
-        private Point arrowToCell;                          // case d'arrivée de la flèche
+        private bool showMoveArrow = false;
+        private Point arrowFromCell;
+        private Point arrowToCell;
 
         // --- A* Pathfinding ---
-        private List<Point> currentPath = new();            // chemin A* actuel à afficher
-        private Dictionary<Point, int> pathCosts = new();   // coûts de déplacement pour chaque case du chemin
+        private List<Point> currentPath = new();
+        private Dictionary<Point, int> pathCosts = new();
 
-        private Dictionary<string, WeaponData> weaponDatabase; // base de données des armes
-
-        // --- Caméra / Zoom ---
-        Vector2 cameraPosition = Vector2.Zero;             // position de la caméra
-        private Vector2 cameraOffset = Vector2.Zero;       // décalage utilisé pour suivre la caméra
-        float zoom = 1f;                                   // zoom actuel
-        float minZoom = 0.5f;                              // zoom minimum
-        float maxZoom = 3f;                                // zoom maximum
-        private float cameraSpeed = 200f;                  // vitesse de déplacement caméra
-        private float previousScroll = 0f;                 // pour gérer le zoom via la molette de la souris
+        private Dictionary<string, WeaponData> weaponDatabase;
 
         // --- Gestion des tours ---
-        enum TurnState
-        {
-            PlayerTurn,   // tour du joueur
-            EnemyTurn,    // tour de l'IA
-            Busy          // en animation ou action en cours
-        }
-        private TurnState currentTurn = TurnState.PlayerTurn; // état du tour actuel
-        private int enemyTurnIndex = 0;                       // index de l'ennemi courant lors du tour IA
-        private bool isActionInProgress = false;             // une action (tir, déplacement) est en cours
+        enum TurnState { PlayerTurn, EnemyTurn, Busy }
+        private TurnState currentTurn = TurnState.PlayerTurn;
+        private int enemyTurnIndex = 0;
+        private bool isActionInProgress = false;
 
         // --- Bouton Fin du tour ---
         private Rectangle endTurnButton;
-        private bool endTurnHovered = false;                  // survol du bouton
+        private bool endTurnHovered = false;
 
         // --- Interface Fire Targets ---
-        List<FireTargetUI> fireTargetsUI = new();            // UI pour représenter les cibles à portée
-        private bool showFireTargets = false;                // afficher les cibles possibles
+        List<FireTargetUI> fireTargetsUI = new();
+        private bool showFireTargets = false;
 
         // --- Entrées clavier ---
-        KeyboardState previousKeyboardState;                // pour détecter les touches pressées / relâchées
+        KeyboardState previousKeyboardState;
+
+        // --- Raycast pour sélection 3D ---
+        private Texture2D pixel;
 
         public Game1()
         {
-            // Initialise le gestionnaire de la carte graphique et de l'écran (résolution, plein écran, etc.)
             _graphics = new GraphicsDeviceManager(this);
-
-            // Définit le dossier racine où se trouvent les contenus (textures, polices, sons…) à charger via Content.Load<T>()
+            _graphics.PreferredBackBufferWidth = 1280;
+            _graphics.PreferredBackBufferHeight = 720;
             Content.RootDirectory = "Content";
-
-            // Rends le curseur de la souris visible dans la fenêtre du jeu
             IsMouseVisible = true;
-
-            // Permet à l'utilisateur de redimensionner la fenêtre du jeu
             Window.AllowUserResizing = true;
+        }
+
+        protected override void Initialize()
+        {
+            // Initialisation des primitives 3D
+            CreateCubePrimitive();
+            CreatePlanePrimitive();
+
+            base.Initialize();
         }
 
         protected override void LoadContent()
@@ -141,7 +140,25 @@ namespace XCOM_3
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             font = Content.Load<SpriteFont>("Arial");
 
-            // Crée les boutons du menu principal
+            // Pixel blanc pour UI 2D
+            pixel = new Texture2D(GraphicsDevice, 1, 1);
+            pixel.SetData(new[] { Color.White });
+
+            // Configuration de l'effet 3D de base
+            basicEffect = new BasicEffect(GraphicsDevice);
+            basicEffect.VertexColorEnabled = true;
+            basicEffect.LightingEnabled = true;
+            basicEffect.EnableDefaultLighting();
+
+            // Configuration de la matrice de projection
+            projectionMatrix = Matrix.CreatePerspectiveFieldOfView(
+                MathHelper.ToRadians(45f),
+                GraphicsDevice.Viewport.AspectRatio,
+                0.1f,
+                1000f
+            );
+
+            // Boutons du menu principal
             string[] mainMenuLabels = { "New Game", "Continue", "Encyclopedia", "Options", "Quit" };
             menuButtons = mainMenuLabels
                 .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
@@ -153,12 +170,6 @@ namespace XCOM_3
             currentSong = menuSongs[random.Next(menuSongs.Count)];
             MediaPlayer.Play(currentSong);
             MediaPlayer.Volume = 0.5f;
-
-            // Charge les textures
-            tileTexture = Content.Load<Texture2D>("TileParchment32x32");
-            obstacleTexture = Content.Load<Texture2D>("Crate32x32");
-            pixel = new Texture2D(GraphicsDevice, 1, 1);
-            pixel.SetData(new[] { Color.White });
 
             // Boutons Options
             string[] optionsLabels = { "Music Volume +", "Music Volume -", "Back" };
@@ -173,13 +184,19 @@ namespace XCOM_3
                 .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
                 .ToList();
 
-            // Barre de volume
             volumeBar = new Rectangle(0, 134, 200, 8);
 
-            // Événement pour mettre à jour les positions de cibles
-            Window.ClientSizeChanged += (s, e) => UpdateFireTargetsUIPositions();
+            Window.ClientSizeChanged += (s, e) =>
+            {
+                UpdateFireTargetsUIPositions();
+                projectionMatrix = Matrix.CreatePerspectiveFieldOfView(
+                    MathHelper.ToRadians(45f),
+                    GraphicsDevice.Viewport.AspectRatio,
+                    0.1f,
+                    1000f
+                );
+            };
 
-            // Initialise la base de données d'armes
             InitializeWeapons();
         }
 
@@ -192,7 +209,6 @@ namespace XCOM_3
             bool escapePressed = keyboard.IsKeyDown(Keys.Escape) &&
                                  previousKeyboardState.IsKeyUp(Keys.Escape);
 
-            // --- Bouton "Continue" actif seulement si une partie sauvegardée existe ---
             menuButtons[1].IsEnabled = hasSavedGame;
 
             switch (currentState)
@@ -203,42 +219,31 @@ namespace XCOM_3
 
                 case GameState.MissionSelect:
                     HandleMissionSelect(mouse);
-
-                    if (escapePressed)
-                        currentState = GameState.MainMenu; // Retour au menu principal
+                    if (escapePressed) currentState = GameState.MainMenu;
                     break;
 
                 case GameState.Playing:
-                    // Tour du joueur ou de l'ennemi
-                    if (currentTurn == TurnState.PlayerTurn) HandlePlayerTurn(mouse, leftClick);
+                    if (currentTurn == TurnState.PlayerTurn) HandlePlayerTurn(mouse, leftClick, keyboard);
                     else if (currentTurn == TurnState.EnemyTurn) UpdateEnemyTurn();
 
-                    // Gestion du jeu
-                    HandleZoom();
-                    HandleCameraMovement(gameTime, mouse);
+                    HandleCameraRotation(keyboard, gameTime);
                     UpdateFiringAnimations(gameTime);
 
-                    // ESCAPE : sauvegarde et retour au menu
                     if (escapePressed)
                     {
                         hasSavedGame = true;
-
                         savedPlayerUnits = playerUnits.Select(u => new Unit(u)).ToList();
                         savedEnemyUnits = enemyUnits.Select(u => new Unit(u)).ToList();
-
                         currentState = GameState.MainMenu;
                     }
                     break;
 
                 case GameState.OptionsMenu:
                     HandleOptionsMenu(mouse);
-
-                    if (escapePressed)
-                        currentState = GameState.MainMenu; // Retour au menu sans sauvegarde
+                    if (escapePressed) currentState = GameState.MainMenu;
                     break;
             }
 
-            // Sauvegarde des états pour le prochain frame
             previousMouseState = mouse;
             previousKeyboardState = keyboard;
 
@@ -247,51 +252,35 @@ namespace XCOM_3
 
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.Black);
+            GraphicsDevice.Clear(Color.CornflowerBlue);
 
-            // --- Transformation caméra ---
-            Matrix transform = Matrix.CreateTranslation(new Vector3(-cameraOffset, 0)) *
-                               Matrix.CreateScale(zoom, zoom, 1) *
-                               Matrix.CreateTranslation(new Vector3(GraphicsDevice.Viewport.Width / 2,
-                                                                    GraphicsDevice.Viewport.Height / 2, 0));
-
-            // --- Dessin du monde (grille, unités, flèches) ---
             if (currentState == GameState.Playing)
             {
-                _spriteBatch.Begin(transformMatrix: transform);
-                DrawGrid();
-                DrawUnits();
-                DrawHoveredCell(gameTime);
+                // Mise à jour de la caméra
+                UpdateCamera();
 
-                // Affichage des cellules accessibles
-                if (selectedUnit != null && selectedUnit.ActionPoints > 0 && currentTurn == TurnState.PlayerTurn &&
-                    selectedUnit.Team == Team.Player)
-                {
-                    foreach (var cell in cachedMovableCells)
-                    {
-                        _spriteBatch.Draw(pixel, new Rectangle(cell.X * cellSize, cell.Y * cellSize, cellSize, cellSize),
-                                          new Color(0, 255, 0, 80));
-                    }
-                }
+                // Configuration de l'effet 3D
+                basicEffect.View = viewMatrix;
+                basicEffect.Projection = projectionMatrix;
 
-                // Affichage du chemin A*
-                if (currentPath.Count > 0 && selectedUnit != null && selectedUnit.Team == Team.Player)
-                {
-                    DrawPath(gameTime);
-                }
+                // Désactive le culling pour voir les deux faces
+                RasterizerState rasterizerState = new RasterizerState();
+                rasterizerState.CullMode = CullMode.None;
+                GraphicsDevice.RasterizerState = rasterizerState;
 
-                if (showMoveArrow && selectedUnit != null && selectedUnit.Team == Team.Player)
-                {
-                    Vector2 from = new(arrowFromCell.X * cellSize + cellSize / 2, arrowFromCell.Y * cellSize + cellSize / 2);
-                    Vector2 to = new(arrowToCell.X * cellSize + cellSize / 2, arrowToCell.Y * cellSize + cellSize / 2);
-                    float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.2f;
-                    DrawArrow(_spriteBatch, from, to, Color.CornflowerBlue * (0.7f + pulse * 0.3f));
-                }
+                // Active le depth buffer
+                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-                _spriteBatch.End();
+                // Dessine la scène 3D
+                DrawGrid3D();
+                DrawObstacles3D();
+                DrawUnits3D();
+                DrawMovableCells3D(gameTime);
+                DrawPath3D(gameTime);
+                DrawHoveredCell3D(gameTime);
             }
 
-            // --- UI (sans transformation) ---
+            // UI 2D (par-dessus le rendu 3D)
             _spriteBatch.Begin();
             switch (currentState)
             {
@@ -312,6 +301,9 @@ namespace XCOM_3
                     DrawUnitInfoPanel();
                     if (showFireTargets && selectedUnit != null && selectedUnit.Team == Team.Player)
                         DrawFireTargets();
+
+                    // Instructions de contrôle
+                    _spriteBatch.DrawString(font, "Q/E: Rotation camera", new Vector2(10, 10), Color.White);
                     break;
 
                 case GameState.OptionsMenu:
@@ -328,7 +320,324 @@ namespace XCOM_3
             base.Draw(gameTime);
         }
 
-        // --- Méthodes privées pour compacter le Draw ---
+        // ═══════════════════════════════════════════════════════════════════════
+        // PRIMITIVES 3D
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private void CreateCubePrimitive()
+        {
+            // Création d'un cube unitaire
+            cubeVertices = new VertexPositionColor[8];
+
+            // Sommets du cube
+            cubeVertices[0] = new VertexPositionColor(new Vector3(-0.5f, -0.5f, -0.5f), Color.White);
+            cubeVertices[1] = new VertexPositionColor(new Vector3(-0.5f, -0.5f, 0.5f), Color.White);
+            cubeVertices[2] = new VertexPositionColor(new Vector3(0.5f, -0.5f, 0.5f), Color.White);
+            cubeVertices[3] = new VertexPositionColor(new Vector3(0.5f, -0.5f, -0.5f), Color.White);
+            cubeVertices[4] = new VertexPositionColor(new Vector3(-0.5f, 0.5f, -0.5f), Color.White);
+            cubeVertices[5] = new VertexPositionColor(new Vector3(-0.5f, 0.5f, 0.5f), Color.White);
+            cubeVertices[6] = new VertexPositionColor(new Vector3(0.5f, 0.5f, 0.5f), Color.White);
+            cubeVertices[7] = new VertexPositionColor(new Vector3(0.5f, 0.5f, -0.5f), Color.White);
+
+            // Indices pour les triangles (12 triangles = 6 faces * 2 triangles)
+            cubeIndices = new short[]
+            {
+                0, 1, 2, 0, 2, 3, // Bas
+                4, 6, 5, 4, 7, 6, // Haut
+                0, 4, 5, 0, 5, 1, // Gauche
+                3, 2, 6, 3, 6, 7, // Droite
+                1, 5, 6, 1, 6, 2, // Devant
+                0, 3, 7, 0, 7, 4  // Derrière
+            };
+        }
+
+        private void CreatePlanePrimitive()
+        {
+            // Création d'un plan pour le sol
+            planeVertices = new VertexPositionColor[4];
+            planeVertices[0] = new VertexPositionColor(new Vector3(-0.5f, 0, -0.5f), Color.White);
+            planeVertices[1] = new VertexPositionColor(new Vector3(-0.5f, 0, 0.5f), Color.White);
+            planeVertices[2] = new VertexPositionColor(new Vector3(0.5f, 0, 0.5f), Color.White);
+            planeVertices[3] = new VertexPositionColor(new Vector3(0.5f, 0, -0.5f), Color.White);
+
+            planeIndices = new short[] { 0, 1, 2, 0, 2, 3 };
+        }
+
+        private void DrawCube(Vector3 position, Vector3 scale, Color color)
+        {
+            // Crée une copie des vertices avec la couleur appropriée
+            VertexPositionColor[] coloredVertices = new VertexPositionColor[8];
+            for (int i = 0; i < 8; i++)
+            {
+                coloredVertices[i] = new VertexPositionColor(cubeVertices[i].Position, color);
+            }
+
+            // Matrice de transformation
+            Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
+            basicEffect.World = world;
+
+            foreach (EffectPass pass in basicEffect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.DrawUserIndexedPrimitives(
+                    PrimitiveType.TriangleList,
+                    coloredVertices,
+                    0,
+                    8,
+                    cubeIndices,
+                    0,
+                    12
+                );
+            }
+        }
+
+        private void DrawPlane(Vector3 position, Vector3 scale, Color color)
+        {
+            VertexPositionColor[] coloredVertices = new VertexPositionColor[4];
+            for (int i = 0; i < 4; i++)
+            {
+                coloredVertices[i] = new VertexPositionColor(planeVertices[i].Position, color);
+            }
+
+            Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
+            basicEffect.World = world;
+
+            foreach (EffectPass pass in basicEffect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.DrawUserIndexedPrimitives(
+                    PrimitiveType.TriangleList,
+                    coloredVertices,
+                    0,
+                    4,
+                    planeIndices,
+                    0,
+                    2
+                );
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CAMÉRA 3D
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private void UpdateCamera()
+        {
+            // Position de la caméra en orbite autour du centre de la grille
+            float centerX = (gridWidth * cellSize) / 2f;
+            float centerZ = (gridHeight * cellSize) / 2f;
+
+            cameraTarget = new Vector3(centerX, 0, centerZ);
+
+            cameraPosition = new Vector3(
+                centerX + (float)Math.Cos(cameraAngle) * cameraDistance,
+                cameraHeight,
+                centerZ + (float)Math.Sin(cameraAngle) * cameraDistance
+            );
+
+            viewMatrix = Matrix.CreateLookAt(cameraPosition, cameraTarget, Vector3.Up);
+        }
+
+        private void HandleCameraRotation(KeyboardState keyboard, GameTime gameTime)
+        {
+            float rotationAmount = cameraRotationSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (keyboard.IsKeyDown(Keys.Q))
+            {
+                cameraAngle += rotationAmount;
+            }
+            if (keyboard.IsKeyDown(Keys.E))
+            {
+                cameraAngle -= rotationAmount;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // RENDU 3D DE LA SCÈNE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private void DrawGrid3D()
+        {
+            // Dessine les tuiles du sol
+            for (int x = 0; x < gridWidth; x++)
+            {
+                for (int z = 0; z < gridHeight; z++)
+                {
+                    Vector3 position = new Vector3(x * cellSize + cellSize / 2f, 0, z * cellSize + cellSize / 2f);
+
+                    // Couleur en damier
+                    Color tileColor = ((x + z) % 2 == 0) ? new Color(200, 180, 150) : new Color(180, 160, 130);
+
+                    DrawPlane(position, new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f), tileColor);
+                }
+            }
+        }
+
+        private void DrawObstacles3D()
+        {
+            foreach (var cell in obstacles)
+            {
+                Vector3 position = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    cellSize / 2f,
+                    cell.Y * cellSize + cellSize / 2f
+                );
+
+                DrawCube(position, new Vector3(cellSize * 0.8f), new Color(139, 69, 19)); // Marron pour obstacles
+            }
+        }
+
+        private void DrawUnits3D()
+        {
+            foreach (var unit in playerUnits)
+                DrawUnit3D(unit);
+
+            foreach (var unit in enemyUnits)
+                DrawUnit3D(unit);
+        }
+
+        private void DrawUnit3D(Unit unit)
+        {
+            Vector3 basePosition = new Vector3(
+                unit.Cell.X * cellSize + cellSize / 2f,
+                cellSize * 0.75f,
+                unit.Cell.Y * cellSize + cellSize / 2f
+            );
+
+            // Animation de tir (projectile ou charge)
+            if (unit.IsFiring && unit.FireTarget.HasValue)
+            {
+                Vector3 targetPos = new Vector3(
+                    unit.FireTarget.Value.X * cellSize + cellSize / 2f,
+                    cellSize * 0.75f,
+                    unit.FireTarget.Value.Y * cellSize + cellSize / 2f
+                );
+
+                Vector3 projectilePos = Vector3.Lerp(basePosition, targetPos, unit.FireProgress);
+
+                if (unit.Weapon == "Zombie Claws")
+                {
+                    // Zombie en charge (plus gros)
+                    DrawCube(projectilePos, new Vector3(cellSize * 1.2f, cellSize * 1.2f, cellSize * 1.2f), Color.DarkGreen);
+                }
+                else
+                {
+                    // Projectile
+                    DrawCube(projectilePos, new Vector3(cellSize * 0.3f), Color.Yellow);
+                }
+            }
+
+            // Dessine l'unité
+            Color unitColor = unit.Team == Team.Player ? Color.Blue : Color.Red;
+            DrawCube(basePosition, new Vector3(cellSize * 0.7f, cellSize * 1.2f, cellSize * 0.7f), unitColor);
+
+            // Sélection
+            if (unit == selectedUnit)
+            {
+                Vector3 selectionPos = new Vector3(basePosition.X, 0.05f, basePosition.Z);
+                DrawPlane(selectionPos, new Vector3(cellSize * 1.1f, 1, cellSize * 1.1f), new Color(0, 255, 255, 128));
+            }
+
+            // Cible surlignée
+            Unit targetHighlight = selectedFireTarget ?? hoveredFireTarget;
+            if (targetHighlight == unit)
+            {
+                Vector3 highlightPos = new Vector3(basePosition.X, 0.1f, basePosition.Z);
+                DrawPlane(highlightPos, new Vector3(cellSize * 1.2f, 1, cellSize * 1.2f), new Color(255, 0, 0, 128));
+            }
+        }
+
+        private void DrawMovableCells3D(GameTime gameTime)
+        {
+            if (selectedUnit != null && selectedUnit.ActionPoints > 0 &&
+                currentTurn == TurnState.PlayerTurn && selectedUnit.Team == Team.Player)
+            {
+                float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 3f) * 0.3f + 0.7f;
+
+                foreach (var cell in cachedMovableCells)
+                {
+                    Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, 0.05f, cell.Y * cellSize + cellSize / 2f);
+                    DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), Color.Green * pulse);
+                }
+            }
+        }
+
+        private void DrawPath3D(GameTime gameTime)
+        {
+            if (currentPath.Count == 0 || selectedUnit == null || selectedUnit.Team != Team.Player)
+                return;
+
+            float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.2f + 0.8f;
+
+            for (int i = 0; i < currentPath.Count; i++)
+            {
+                Point cell = currentPath[i];
+                Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, 0.1f, cell.Y * cellSize + cellSize / 2f);
+
+                float intensity = 1f - (i / (float)currentPath.Count) * 0.5f;
+                Color pathColor = new Color(100, 150, 255) * pulse * intensity;
+
+                DrawPlane(position, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), pathColor);
+            }
+        }
+
+        private void DrawHoveredCell3D(GameTime gameTime)
+        {
+            if (hoveredCell.X < 0 || hoveredCell.Y < 0)
+                return;
+
+            float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
+            Vector3 position = new Vector3(hoveredCell.X * cellSize + cellSize / 2f, 0.15f, hoveredCell.Y * cellSize + cellSize / 2f);
+
+            DrawPlane(position, new Vector3(cellSize, 1, cellSize), Color.Yellow * pulse);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // RAYCAST POUR SÉLECTION 3D
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private Point GetCellFromMouseRaycast(MouseState mouse)
+        {
+            // Crée un rayon depuis la position de la souris
+            Vector3 nearPoint = GraphicsDevice.Viewport.Unproject(
+                new Vector3(mouse.X, mouse.Y, 0),
+                projectionMatrix,
+                viewMatrix,
+                Matrix.Identity
+            );
+
+            Vector3 farPoint = GraphicsDevice.Viewport.Unproject(
+                new Vector3(mouse.X, mouse.Y, 1),
+                projectionMatrix,
+                viewMatrix,
+                Matrix.Identity
+            );
+
+            Vector3 direction = Vector3.Normalize(farPoint - nearPoint);
+
+            // Intersection avec le plan Y=0 (sol)
+            if (Math.Abs(direction.Y) > 0.001f)
+            {
+                float t = -nearPoint.Y / direction.Y;
+                Vector3 intersection = nearPoint + direction * t;
+
+                // Convertit la position 3D en coordonnées de grille
+                int cellX = (int)(intersection.X / cellSize);
+                int cellZ = (int)(intersection.Z / cellSize);
+
+                if (cellX >= 0 && cellX < gridWidth && cellZ >= 0 && cellZ < gridHeight)
+                {
+                    return new Point(cellX, cellZ);
+                }
+            }
+
+            return new Point(-1, -1);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // UI 2D (identique à l'original)
+        // ═══════════════════════════════════════════════════════════════════════
+
         private void DrawEndTurnButton()
         {
             int w = 140, h = 36;
@@ -376,85 +685,6 @@ namespace XCOM_3
             }
         }
 
-        // Dessine le chemin A* avec effet visuel
-        private void DrawPath(GameTime gameTime)
-        {
-            float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.15f;
-
-            for (int i = 0; i < currentPath.Count; i++)
-            {
-                Point cell = currentPath[i];
-                Rectangle rect = new(cell.X * cellSize, cell.Y * cellSize, cellSize, cellSize);
-
-                // Dégradé de couleur selon la distance
-                float intensity = 1f - (i / (float)currentPath.Count) * 0.5f;
-                Color pathColor = new Color(100, 150, 255) * (0.4f + pulse) * intensity;
-
-                _spriteBatch.Draw(pixel, rect, pathColor);
-
-                // Affiche le coût de déplacement sur chaque case
-                if (pathCosts.ContainsKey(cell))
-                {
-                    string costText = pathCosts[cell].ToString();
-                    Vector2 textSize = font.MeasureString(costText);
-                    Vector2 textPos = new Vector2(
-                        cell.X * cellSize + (cellSize - textSize.X) / 2,
-                        cell.Y * cellSize + (cellSize - textSize.Y) / 2
-                    );
-                    _spriteBatch.DrawString(font, costText, textPos, Color.White * 0.8f);
-                }
-            }
-
-            // Ligne connectant les cases du chemin
-            for (int i = 0; i < currentPath.Count - 1; i++)
-            {
-                Vector2 from = new(currentPath[i].X * cellSize + cellSize / 2,
-                                  currentPath[i].Y * cellSize + cellSize / 2);
-                Vector2 to = new(currentPath[i + 1].X * cellSize + cellSize / 2,
-                                currentPath[i + 1].Y * cellSize + cellSize / 2);
-                DrawLine(_spriteBatch, from, to, Color.Cyan * (0.6f + pulse), 2f);
-            }
-        }
-
-        private void LoadMap()
-        {
-            gridWidth = 20;
-            gridHeight = 15;
-            cellSize = 32;
-
-            GenerateObstacles(30);
-            Console.WriteLine("Map loaded");
-        }
-
-
-
-        private void DrawGrid()
-        {
-            // Fonction utilitaire pour convertir cellule → rectangle écran
-            Rectangle CellRect(Point p) => new(p.X * cellSize, p.Y * cellSize, cellSize, cellSize);
-
-            // 1️⃣ Dessin des tuiles de sol
-            for (int x = 0; x < gridWidth; x++)
-                for (int y = 0; y < gridHeight; y++)
-                    _spriteBatch.Draw(tileTexture, CellRect(new Point(x, y)), Color.White);
-
-            // 2️⃣ Dessin des obstacles
-            foreach (var cell in obstacles)
-                _spriteBatch.Draw(obstacleTexture, CellRect(cell), Color.White);
-
-            // 3️⃣ Dessin de la grille (overlay)
-            Color gridColor = new Color(255, 255, 255, 80);
-
-            for (int x = 0; x <= gridWidth; x++)
-                _spriteBatch.Draw(pixel, new Rectangle(x * cellSize, 0, 1, gridHeight * cellSize), gridColor);
-
-            for (int y = 0; y <= gridHeight; y++)
-                _spriteBatch.Draw(pixel, new Rectangle(0, y * cellSize, gridWidth * cellSize, 1), gridColor);
-        }
-
-
-
-        // Dessine une ligne entre deux points écran à partir d'une texture 1x1
         private void DrawLine(SpriteBatch sb, Vector2 start, Vector2 end, Color color, float thickness)
         {
             Vector2 delta = end - start;
@@ -463,234 +693,6 @@ namespace XCOM_3
             sb.Draw(pixel, start, null, color, rotation, Vector2.Zero, new Vector2(length, thickness), SpriteEffects.None, 0f);
         }
 
-        // Dessine une flèche entre deux points écran
-        private void DrawArrow(SpriteBatch sb, Vector2 from, Vector2 to, Color color)
-        {
-            float thickness = 3f, headLength = 12f;
-            float headAngle = MathHelper.ToRadians(30f);
-            DrawLine(sb, from, to, color, thickness);
-
-            Vector2 dir = Vector2.Normalize(from - to);
-            float angle = (float)Math.Atan2(dir.Y, dir.X);
-
-            Vector2 left = to + new Vector2((float)Math.Cos(angle + headAngle), (float)Math.Sin(angle + headAngle)) * headLength;
-            Vector2 right = to + new Vector2((float)Math.Cos(angle - headAngle), (float)Math.Sin(angle - headAngle)) * headLength;
-
-            DrawLine(sb, to, left, color, thickness);
-            DrawLine(sb, to, right, color, thickness);
-        }
-
-
-
-        private void DrawHoveredCell(GameTime gameTime)
-        {
-            if (hoveredCell.X < 0 || hoveredCell.Y < 0) return;
-
-            Rectangle rect = new(hoveredCell.X * cellSize, hoveredCell.Y * cellSize, cellSize, cellSize);
-
-            float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f);
-            float alpha = 0.4f + pulse * 0.2f;
-
-            _spriteBatch.Draw(pixel, rect, Color.Yellow * 0.25f);
-
-            int t = 2;
-            Vector2 topLeft = new(rect.Left, rect.Top);
-            Vector2 topRight = new(rect.Right, rect.Top);
-            Vector2 bottomLeft = new(rect.Left, rect.Bottom);
-            Vector2 bottomRight = new(rect.Right, rect.Bottom);
-
-            DrawLine(_spriteBatch, topLeft, topRight, Color.Yellow, t);
-            DrawLine(_spriteBatch, bottomLeft, bottomRight, Color.Yellow, t);
-            DrawLine(_spriteBatch, topLeft, bottomLeft, Color.Yellow, t);
-            DrawLine(_spriteBatch, topRight, bottomRight, Color.Yellow, t);
-        }
-
-
-
-        // Initialise et crée les unités pour les deux équipes : joueur et ennemis
-        private void CreateUnits(string missionType = "Tutorial")
-        {
-            playerUnits.Clear();
-            enemyUnits.Clear();
-
-            // Création des unités du joueur (identique pour toutes les missions)
-            for (int i = 0; i < 6; i++)
-                playerUnits.Add(new Unit(
-                    new Point(2 + i, gridHeight - 2),
-                    Team.Player,
-                    "Soldier " + (i + 1),
-                    "Assault",
-                    "Rifle",
-                    weaponDatabase["Rifle"]
-                ));
-
-            // Création des unités ennemies selon le type de mission
-            switch (missionType)
-            {
-                case "Tutorial":
-                    // Mission tutoriel : 6 ennemis variés aléatoires
-                    for (int i = 0; i < 6; i++)
-                    {
-                        var template = enemyPool[random.Next(enemyPool.Count)];
-                        enemyUnits.Add(new Unit(
-                            new Point(2 + i, 1),
-                            Team.Enemy,
-                            template.Name,
-                            template.Class,
-                            template.Weapon,
-                            weaponDatabase[template.Weapon]
-                        )
-                        {
-                            ActionPoints = template.ActionPoints
-                        });
-                    }
-                    break;
-
-                case "Survival":
-                    // Mission survie : 10 ennemis (mélange)
-                    for (int i = 0; i < 10; i++)
-                    {
-                        var template = enemyPool[random.Next(enemyPool.Count)];
-                        int x = 2 + (i % 8);
-                        int y = i < 8 ? 1 : 2;
-                        enemyUnits.Add(new Unit(
-                            new Point(x, y),
-                            Team.Enemy,
-                            template.Name,
-                            template.Class,
-                            template.Weapon,
-                            weaponDatabase[template.Weapon]
-                        )
-                        {
-                            ActionPoints = template.ActionPoints
-                        });
-                    }
-                    break;
-
-                case "Assault":
-                    // Mission assault : 8 aliens (pas de zombies)
-                    for (int i = 0; i < 8; i++)
-                    {
-                        var alienTemplates = enemyPool.Where(e => e.Name != "Zombie").ToList();
-                        var template = alienTemplates[random.Next(alienTemplates.Count)];
-                        int x = 2 + i;
-                        enemyUnits.Add(new Unit(
-                            new Point(x, 1),
-                            Team.Enemy,
-                            template.Name,
-                            template.Class,
-                            template.Weapon,
-                            weaponDatabase[template.Weapon]
-                        )
-                        {
-                            ActionPoints = template.ActionPoints
-                        });
-                    }
-                    break;
-
-                case "Defense":
-                    // Mission défense : 12 zombies uniquement !
-                    var zombieTemplate = enemyPool.First(e => e.Name == "Zombie");
-                    for (int i = 0; i < 12; i++)
-                    {
-                        int x = 2 + (i % 8);
-                        int y = i < 8 ? 1 : 2;
-                        enemyUnits.Add(new Unit(
-                            new Point(x, y),
-                            Team.Enemy,
-                            zombieTemplate.Name,
-                            zombieTemplate.Class,
-                            zombieTemplate.Weapon,
-                            weaponDatabase[zombieTemplate.Weapon]
-                        )
-                        {
-                            ActionPoints = zombieTemplate.ActionPoints
-                        });
-                    }
-                    break;
-            }
-
-            Console.WriteLine($"Units created for {missionType}: 6 player, {enemyUnits.Count} enemy");
-        }
-
-
-
-        private void DrawUnits()
-        {
-            foreach (var unit in playerUnits) DrawUnit(unit);
-            foreach (var unit in enemyUnits) DrawUnit(unit);
-        }
-
-        private void DrawUnit(Unit unit)
-        {
-            // Rectangle de l'unité
-            Rectangle rect = new(unit.Cell.X * cellSize + 4, unit.Cell.Y * cellSize + 4, cellSize - 8, cellSize - 8);
-            _spriteBatch.Draw(pixel, rect, unit.Team == Team.Player ? Color.Blue : Color.Red);
-
-            // Animation d'attaque en cours
-            if (unit.IsFiring && unit.FireTarget.HasValue)
-            {
-                // Animation spéciale pour le zombie (tackle/charge)
-                if (unit.Weapon == "Zombie Claws")
-                {
-                    Vector2 start = (unit.Cell.ToVector2() + new Vector2(0.5f)) * cellSize;
-                    Vector2 end = (unit.FireTarget.Value.ToVector2() + new Vector2(0.5f)) * cellSize;
-                    Vector2 pos = Vector2.Lerp(start, end, unit.FireProgress);
-
-                    // Dessine le zombie en mouvement (plus gros pour l'effet de charge)
-                    int tackleSize = (int)(cellSize * 0.7f);
-                    _spriteBatch.Draw(pixel,
-                        new Rectangle((int)pos.X - tackleSize / 2, (int)pos.Y - tackleSize / 2, tackleSize, tackleSize),
-                        Color.DarkGreen * 0.8f);
-                }
-                else
-                {
-                    // Animation normale de tir (projectile)
-                    Vector2 start = (unit.Cell.ToVector2() + new Vector2(0.5f)) * cellSize;
-                    Vector2 end = (unit.FireTarget.Value.ToVector2() + new Vector2(0.5f)) * cellSize;
-                    Vector2 pos = Vector2.Lerp(start, end, unit.FireProgress);
-                    _spriteBatch.Draw(pixel, new Rectangle((int)pos.X - 4, (int)pos.Y - 4, 8, 8), Color.Yellow);
-                }
-            }
-
-            // Sélection de l'unité
-            if (unit == selectedUnit)
-                _spriteBatch.Draw(pixel, new Rectangle(unit.Cell.X * cellSize, unit.Cell.Y * cellSize, cellSize, cellSize),
-                                  new Color(0, 255, 255, 80));
-
-            // Dessin des cibles (sélectionnée ou survolée)
-            DrawTargetHighlight(selectedFireTarget ?? hoveredFireTarget);
-        }
-
-        // Helper pour dessiner la cible survolée/sélectionnée avec contour
-        private void DrawTargetHighlight(Unit target)
-        {
-            if (target == null) return;
-            Rectangle rect = new(target.Cell.X * cellSize, target.Cell.Y * cellSize, cellSize, cellSize);
-            _spriteBatch.Draw(pixel, rect, Color.Red * 0.5f);
-            int t = 3;
-            Vector2 tl = new(rect.Left, rect.Top), tr = new(rect.Right, rect.Top),
-                    bl = new(rect.Left, rect.Bottom), br = new(rect.Right, rect.Bottom);
-            DrawLine(_spriteBatch, tl, tr, Color.Red, t);
-            DrawLine(_spriteBatch, bl, br, Color.Red, t);
-            DrawLine(_spriteBatch, tl, bl, Color.Red, t);
-            DrawLine(_spriteBatch, tr, br, Color.Red, t);
-        }
-
-        private IEnumerable<Unit> AllUnits()
-        {
-            foreach (var u in playerUnits) yield return u;
-            foreach (var u in enemyUnits) yield return u;
-        }
-
-        private Unit GetUnitAtCell(Point cell)
-        {
-            foreach (var u in AllUnits())
-                if (u.Cell == cell) return u;
-            return null;
-        }
-
-        // Dessine le panneau d'information pour l'unité sélectionnée
         private void DrawUnitInfoPanel()
         {
             if (selectedUnit == null) return;
@@ -718,10 +720,10 @@ namespace XCOM_3
 
             unitActionButtons.AddRange(new[]
             {
-        new Button("COUVERT",   new Vector2(bx - 110, by)),
-        new Button("TIRER",     new Vector2(bx, by)),
-        new Button("RECHARGER", new Vector2(bx + 110, by))
-    });
+                new Button("COUVERT",   new Vector2(bx - 110, by)),
+                new Button("TIRER",     new Vector2(bx, by)),
+                new Button("RECHARGER", new Vector2(bx + 110, by))
+            });
 
             MouseState mouse = Mouse.GetState();
 
@@ -744,18 +746,25 @@ namespace XCOM_3
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // A* PATHFINDING - Implémentation complète
+        // LOGIQUE DE JEU (inchangée)
         // ═══════════════════════════════════════════════════════════════════════
 
-        /// <summary>
-        /// Classe représentant un nœud dans l'algorithme A*
-        /// </summary>
+        private void LoadMap()
+        {
+            gridWidth = 20;
+            gridHeight = 15;
+            cellSize = 2;
+
+            GenerateObstacles(30);
+            Console.WriteLine("Map loaded in 3D");
+        }
+
         private class AStarNode
         {
             public Point Position;
-            public int GCost; // Coût depuis le départ
-            public int HCost; // Heuristique (distance estimée vers l'arrivée)
-            public int FCost => GCost + HCost; // Coût total
+            public int GCost;
+            public int HCost;
+            public int FCost => GCost + HCost;
             public AStarNode Parent;
 
             public AStarNode(Point pos)
@@ -764,22 +773,16 @@ namespace XCOM_3
             }
         }
 
-        /// <summary>
-        /// Calcule le chemin optimal avec A* entre deux points
-        /// </summary>
         private List<Point> FindPathAStar(Point start, Point goal, int maxDistance)
         {
-            // Listes ouvertes et fermées
             List<AStarNode> openList = new List<AStarNode>();
             HashSet<Point> closedList = new HashSet<Point>();
 
-            // Nœud de départ
             AStarNode startNode = new AStarNode(start) { GCost = 0, HCost = ManhattanDistance(start, goal) };
             openList.Add(startNode);
 
             while (openList.Count > 0)
             {
-                // Trouve le nœud avec le plus petit FCost
                 AStarNode currentNode = openList[0];
                 for (int i = 1; i < openList.Count; i++)
                 {
@@ -793,36 +796,28 @@ namespace XCOM_3
                 openList.Remove(currentNode);
                 closedList.Add(currentNode.Position);
 
-                // Si on a atteint la destination
                 if (currentNode.Position == goal)
                 {
                     return RetracePath(startNode, currentNode);
                 }
 
-                // Explore les voisins (4 directions : haut, bas, gauche, droite)
                 foreach (Point neighbor in GetNeighbors(currentNode.Position))
                 {
-                    // Ignore si déjà visité
                     if (closedList.Contains(neighbor))
                         continue;
 
-                    // Ignore si obstacle ou hors limites
                     if (!IsWalkable(neighbor))
                         continue;
 
-                    // Calcule le nouveau coût
-                    int newGCost = currentNode.GCost + 1; // Coût de 1 par case
+                    int newGCost = currentNode.GCost + 1;
 
-                    // Vérifie si on dépasse la distance maximale
                     if (newGCost > maxDistance)
                         continue;
 
-                    // Cherche si le voisin est déjà dans la liste ouverte
                     AStarNode neighborNode = openList.FirstOrDefault(n => n.Position == neighbor);
 
                     if (neighborNode == null)
                     {
-                        // Ajoute un nouveau nœud
                         neighborNode = new AStarNode(neighbor)
                         {
                             GCost = newGCost,
@@ -833,20 +828,15 @@ namespace XCOM_3
                     }
                     else if (newGCost < neighborNode.GCost)
                     {
-                        // Met à jour si on a trouvé un meilleur chemin
                         neighborNode.GCost = newGCost;
                         neighborNode.Parent = currentNode;
                     }
                 }
             }
 
-            // Aucun chemin trouvé
             return new List<Point>();
         }
 
-        /// <summary>
-        /// Retrace le chemin depuis le nœud final jusqu'au départ
-        /// </summary>
         private List<Point> RetracePath(AStarNode startNode, AStarNode endNode)
         {
             List<Point> path = new List<Point>();
@@ -862,51 +852,36 @@ namespace XCOM_3
             return path;
         }
 
-        /// <summary>
-        /// Retourne les 4 voisins d'une case (haut, bas, gauche, droite)
-        /// </summary>
         private List<Point> GetNeighbors(Point cell)
         {
             return new List<Point>
             {
-                new Point(cell.X, cell.Y - 1), // Haut
-                new Point(cell.X, cell.Y + 1), // Bas
-                new Point(cell.X - 1, cell.Y), // Gauche
-                new Point(cell.X + 1, cell.Y)  // Droite
+                new Point(cell.X, cell.Y - 1),
+                new Point(cell.X, cell.Y + 1),
+                new Point(cell.X - 1, cell.Y),
+                new Point(cell.X + 1, cell.Y)
             };
         }
 
-        /// <summary>
-        /// Vérifie si une case est praticable (pas d'obstacle, pas d'unité, dans les limites)
-        /// </summary>
         private bool IsWalkable(Point cell)
         {
-            // Hors limites
             if (cell.X < 0 || cell.Y < 0 || cell.X >= gridWidth || cell.Y >= gridHeight)
                 return false;
 
-            // Obstacle
             if (obstacles.Contains(cell))
                 return false;
 
-            // Unité présente
             if (GetUnitAtCell(cell) != null)
                 return false;
 
             return true;
         }
 
-        /// <summary>
-        /// Calcule la distance de Manhattan entre deux points
-        /// </summary>
         private int ManhattanDistance(Point a, Point b)
         {
             return Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
         }
 
-        /// <summary>
-        /// Obtient toutes les cellules accessibles avec A* dans un rayon donné
-        /// </summary>
         private List<Point> GetMovableCells(Unit u)
         {
             var cells = new List<Point>();
@@ -914,29 +889,23 @@ namespace XCOM_3
 
             int maxRange = u.MovementPoints;
 
-            // Parcourt toutes les cases dans un carré englobant
             for (int x = u.Cell.X - maxRange; x <= u.Cell.X + maxRange; x++)
             {
                 for (int y = u.Cell.Y - maxRange; y <= u.Cell.Y + maxRange; y++)
                 {
                     Point targetCell = new Point(x, y);
 
-                    // Ignore la case de départ
                     if (targetCell == u.Cell)
                         continue;
 
-                    // Ignore hors limites
                     if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight)
                         continue;
 
-                    // Ignore obstacles et unités
                     if (!IsWalkable(targetCell))
                         continue;
 
-                    // Utilise A* pour trouver le chemin
                     var path = FindPathAStar(u.Cell, targetCell, maxRange);
 
-                    // Si un chemin existe et qu'il est dans la portée
                     if (path.Count > 0 && path.Count <= maxRange)
                     {
                         cells.Add(targetCell);
@@ -947,9 +916,117 @@ namespace XCOM_3
             return cells;
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // FIN A* PATHFINDING
-        // ═══════════════════════════════════════════════════════════════════════
+        private void CreateUnits(string missionType = "Tutorial")
+        {
+            playerUnits.Clear();
+            enemyUnits.Clear();
+
+            for (int i = 0; i < 6; i++)
+                playerUnits.Add(new Unit(
+                    new Point(2 + i, gridHeight - 2),
+                    Team.Player,
+                    "Soldier " + (i + 1),
+                    "Assault",
+                    "Rifle",
+                    weaponDatabase["Rifle"]
+                ));
+
+            switch (missionType)
+            {
+                case "Tutorial":
+                    for (int i = 0; i < 6; i++)
+                    {
+                        var template = enemyPool[random.Next(enemyPool.Count)];
+                        enemyUnits.Add(new Unit(
+                            new Point(2 + i, 1),
+                            Team.Enemy,
+                            template.Name,
+                            template.Class,
+                            template.Weapon,
+                            weaponDatabase[template.Weapon]
+                        )
+                        {
+                            ActionPoints = template.ActionPoints
+                        });
+                    }
+                    break;
+
+                case "Survival":
+                    for (int i = 0; i < 10; i++)
+                    {
+                        var template = enemyPool[random.Next(enemyPool.Count)];
+                        int x = 2 + (i % 8);
+                        int y = i < 8 ? 1 : 2;
+                        enemyUnits.Add(new Unit(
+                            new Point(x, y),
+                            Team.Enemy,
+                            template.Name,
+                            template.Class,
+                            template.Weapon,
+                            weaponDatabase[template.Weapon]
+                        )
+                        {
+                            ActionPoints = template.ActionPoints
+                        });
+                    }
+                    break;
+
+                case "Assault":
+                    for (int i = 0; i < 8; i++)
+                    {
+                        var alienTemplates = enemyPool.Where(e => e.Name != "Zombie").ToList();
+                        var template = alienTemplates[random.Next(alienTemplates.Count)];
+                        int x = 2 + i;
+                        enemyUnits.Add(new Unit(
+                            new Point(x, 1),
+                            Team.Enemy,
+                            template.Name,
+                            template.Class,
+                            template.Weapon,
+                            weaponDatabase[template.Weapon]
+                        )
+                        {
+                            ActionPoints = template.ActionPoints
+                        });
+                    }
+                    break;
+
+                case "Defense":
+                    var zombieTemplate = enemyPool.First(e => e.Name == "Zombie");
+                    for (int i = 0; i < 12; i++)
+                    {
+                        int x = 2 + (i % 8);
+                        int y = i < 8 ? 1 : 2;
+                        enemyUnits.Add(new Unit(
+                            new Point(x, y),
+                            Team.Enemy,
+                            zombieTemplate.Name,
+                            zombieTemplate.Class,
+                            zombieTemplate.Weapon,
+                            weaponDatabase[zombieTemplate.Weapon]
+                        )
+                        {
+                            ActionPoints = zombieTemplate.ActionPoints
+                        });
+                    }
+                    break;
+            }
+
+            Console.WriteLine($"Units created for {missionType}: 6 player, {enemyUnits.Count} enemy");
+        }
+
+        private IEnumerable<Unit> AllUnits()
+        {
+            foreach (var u in playerUnits) yield return u;
+            foreach (var u in enemyUnits) yield return u;
+        }
+
+        private Unit GetUnitAtCell(Point cell)
+        {
+            foreach (var u in AllUnits())
+                if (u.Cell == cell) return u;
+            return null;
+        }
 
         private void HandleFire(Unit s)
         {
@@ -1003,7 +1080,6 @@ namespace XCOM_3
             if (enemy.IsFiring) return;
             if (enemy.ActionPoints <= 0) { enemyTurnIndex++; return; }
 
-            // Trouve le joueur le plus proche
             Unit closest = null;
             int bestDist = int.MaxValue;
             foreach (var p in playerUnits)
@@ -1013,23 +1089,19 @@ namespace XCOM_3
             }
             if (closest == null) { enemyTurnIndex++; return; }
 
-            // Tir si à portée et visible
             if (bestDist <= enemy.WeaponData.Range && HasLineOfSight(enemy.Cell, closest.Cell))
             { HandleFire(enemy); return; }
 
-            // Utilise A* pour se déplacer vers le joueur
             var path = FindPathAStar(enemy.Cell, closest.Cell, enemy.MovementPoints);
 
             if (path.Count > 0)
             {
-                // Se déplace vers la première case du chemin
                 Point nextCell = path[0];
                 enemy.Cell = nextCell;
                 enemy.ActionPoints--;
             }
             else
             {
-                // Si aucun chemin, essaie déplacement simple (fallback)
                 Point next = new Point(
                     enemy.Cell.X + Math.Sign(closest.Cell.X - enemy.Cell.X),
                     enemy.Cell.Y + Math.Sign(closest.Cell.Y - enemy.Cell.Y)
@@ -1098,7 +1170,7 @@ namespace XCOM_3
 
                 u.FireTarget = null;
                 isActionInProgress = false;
-                return; // un tir par frame
+                return;
             }
         }
 
@@ -1112,7 +1184,7 @@ namespace XCOM_3
                 for (int j = 0; j < 3; j++)
                 {
                     int x = cx + random.Next(-1, 2), y = cy + random.Next(-1, 2);
-                    if (y >= gridHeight - 2 || y <= 1) continue; // ignore zone de spawn
+                    if (y >= gridHeight - 2 || y <= 1) continue;
                     if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight)
                         obstacles.Add(new Point(x, y));
                 }
@@ -1287,8 +1359,7 @@ namespace XCOM_3
             currentState = GameState.Playing;
             LoadMap();
             CreateUnits(missionType);
-            CenterCameraOnPlayerSpawn();
-            Console.WriteLine($"Mission '{missionType}' launched!");
+            Console.WriteLine($"Mission '{missionType}' launched in 3D!");
         }
 
         private void HandleOptionsMenu(MouseState mouse)
@@ -1312,7 +1383,6 @@ namespace XCOM_3
                             break;
                     }
 
-            // Glisser le curseur de volume
             draggingVolume = mouse.LeftButton == ButtonState.Pressed && volumeBar.Contains(mouse.Position) || draggingVolume;
             if (mouse.LeftButton == ButtonState.Released) draggingVolume = false;
 
@@ -1326,15 +1396,12 @@ namespace XCOM_3
             volumeHandle = new Rectangle(volumeBar.X + volumeFill.Width - 5, volumeBar.Y - 4, 10, volumeBar.Height + 8);
         }
 
-        private void HandlePlayerTurn(MouseState mouse, bool leftClick)
+        private void HandlePlayerTurn(MouseState mouse, bool leftClick, KeyboardState keyboard)
         {
-            // 1️⃣ Souris → coordonnées monde → cellule
-            Vector2 mouseWorld = (new Vector2(mouse.X, mouse.Y) - new Vector2(GraphicsDevice.Viewport.Width / 2, GraphicsDevice.Viewport.Height / 2)) / zoom + cameraOffset;
-            int cellX = (int)(mouseWorld.X / cellSize), cellY = (int)(mouseWorld.Y / cellSize);
-            hoveredCell = (cellX >= 0 && cellX < gridWidth && cellY >= 0 && cellY < gridHeight) ? new Point(cellX, cellY) : new Point(-1, -1);
-            if (selectedUnit != null && fireButton.Contains(mouse.Position)) hoveredCell = new Point(-1, -1);
+            // Utilise le raycast pour obtenir la cellule survolée
+            hoveredCell = GetCellFromMouseRaycast(mouse);
 
-            // 2️⃣ Calcul du chemin A* en temps réel au survol
+            // Calcul du chemin A* en temps réel au survol
             currentPath.Clear();
             pathCosts.Clear();
             showMoveArrow = false;
@@ -1342,17 +1409,14 @@ namespace XCOM_3
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 &&
                 cachedMovableCells.Contains(hoveredCell) && selectedUnit.Team == Team.Player)
             {
-                // Calcule le chemin avec A*
                 currentPath = FindPathAStar(selectedUnit.Cell, hoveredCell, selectedUnit.MovementPoints);
 
-                // Calcule les coûts cumulés pour chaque case du chemin
                 pathCosts.Clear();
                 for (int i = 0; i < currentPath.Count; i++)
                 {
                     pathCosts[currentPath[i]] = i + 1;
                 }
 
-                // Affiche aussi la flèche
                 if (currentPath.Count > 0)
                 {
                     arrowFromCell = selectedUnit.Cell;
@@ -1361,25 +1425,21 @@ namespace XCOM_3
                 }
             }
 
-            // 3️⃣ Détection clic sur UI
             bool clickOnUI = fireButton.Contains(mouse.Position) || IsMouseOverActionButton(mouse);
 
-            // 4️⃣ Clic gauche sur la grille
-            if (leftClick && !clickOnUI) HandleGridClick(new Point(cellX, cellY));
+            if (leftClick && !clickOnUI && hoveredCell.X != -1)
+                HandleGridClick(hoveredCell);
 
-            // 5️⃣ Boutons d'action
-            if (leftClick) HandleUnitActionButtons(mouse);
+            if (leftClick)
+                HandleUnitActionButtons(mouse);
 
-            // 6️⃣ Sélection cible tir
             if (leftClick && showFireTargets)
                 foreach (var ui in fireTargetsUI)
                     if (ui.Bounds.Contains(mouse.Position)) { selectedFireTarget = ui.Target; break; }
 
-            // 7️⃣ Clic droit : annulation
             if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released)
                 CancelSelection();
 
-            // 8️⃣ Bouton "Tirer"
             fireButtonHovered = fireButton.Contains(mouse.Position);
             if (fireButtonHovered && leftClick && selectedUnit != null && selectedFireTarget != null && selectedUnit.ActionPoints > 0)
             {
@@ -1387,9 +1447,9 @@ namespace XCOM_3
                 UpdateFireTargets();
             }
 
-            // 9️⃣ Bouton "Fin de tour"
             endTurnHovered = endTurnButton.Contains(mouse.Position);
-            if (endTurnHovered && leftClick && !isActionInProgress) StartEnemyTurn();
+            if (endTurnHovered && leftClick && !isActionInProgress)
+                StartEnemyTurn();
         }
 
         private void HandleGridClick(Point clickedCell)
@@ -1417,7 +1477,6 @@ namespace XCOM_3
                 var movable = GetMovableCells(selectedUnit);
                 if (movable.Contains(clickedCell))
                 {
-                    // Utilise A* pour calculer le vrai coût de déplacement
                     var path = FindPathAStar(selectedUnit.Cell, clickedCell, selectedUnit.MovementPoints);
 
                     if (path.Count > 0 && path.Count <= selectedUnit.MovementPoints)
@@ -1439,7 +1498,7 @@ namespace XCOM_3
             {
                 var rect = new Rectangle((int)btn.Position.X, (int)btn.Position.Y, ActionButtonWidth, ActionButtonHeight);
                 if (rect.Contains(mouse.Position))
-                    Console.WriteLine($"Action future : {btn.Text}"); // logique réelle à implémenter
+                    Console.WriteLine($"Action future : {btn.Text}");
             }
         }
 
@@ -1453,39 +1512,11 @@ namespace XCOM_3
             currentPath.Clear();
             pathCosts.Clear();
         }
-
-        private void CenterCameraOnPlayerSpawn()
-        {
-            // Centre la caméra sur le milieu du spawn des joueurs (y = gridHeight - 2)
-            float centerX = (gridWidth / 2f) * cellSize;
-            float centerY = (gridHeight - 2) * cellSize;
-            cameraOffset = new Vector2(centerX, centerY);
-        }
-
-        private void HandleZoom()
-        {
-            float scrollDelta = (Mouse.GetState().ScrollWheelValue - previousScroll) / 120f;
-            previousScroll += scrollDelta * 120f;
-            if (scrollDelta != 0f)
-                zoom = MathHelper.Clamp(zoom + scrollDelta * 0.1f, minZoom, maxZoom);
-        }
-
-        private void HandleCameraMovement(GameTime gameTime, MouseState mouse)
-        {
-            Vector2 move = Vector2.Zero;
-            KeyboardState ks = Keyboard.GetState();
-            if (ks.IsKeyDown(Keys.W)) move.Y -= 1;
-            if (ks.IsKeyDown(Keys.S)) move.Y += 1;
-            if (ks.IsKeyDown(Keys.A)) move.X -= 1;
-            if (ks.IsKeyDown(Keys.D)) move.X += 1;
-            if (move != Vector2.Zero) move.Normalize();
-            cameraOffset += move * cameraSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            if (mouse.MiddleButton == ButtonState.Pressed)
-                cameraOffset -= new Vector2(mouse.X - previousMouseState.X, mouse.Y - previousMouseState.Y) / zoom;
-        }
-
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CLASSES AUXILIAIRES (inchangées)
+    // ═══════════════════════════════════════════════════════════════════════
 
     public class Button
     {
