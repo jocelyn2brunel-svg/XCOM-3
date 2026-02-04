@@ -17,9 +17,9 @@ namespace XCOM_3
 
         // --- Modèles et effets 3D ---
         private BasicEffect basicEffect;
-        private BasicEffect texturedEffect; // Effet pour les textures
-        private Model cubeModel;  // Pour les unités et obstacles
-        private Model planeModel; // Pour le sol
+        private BasicEffect texturedEffect;
+        private Model cubeModel;
+        private Model planeModel;
 
         // Primitives 3D personnalisées
         private VertexPositionColor[] cubeVertices;
@@ -34,23 +34,31 @@ namespace XCOM_3
         // Textures
         private Texture2D tileTexture;
 
-        // --- NOUVEAU: Cycle jour/nuit ---
-        private float timeOfDay = 0f; // 0 = minuit, 0.5 = midi, 1 = minuit
-        private float dayNightSpeed = 0.01f; // Vitesse du cycle (plus petit = plus lent)
+        // --- Cycle jour/nuit ---
+        private float timeOfDay = 0f;
+        private float dayNightSpeed = 0.01f;
         private Color ambientLight = Color.White;
         private Color directionalLight = Color.White;
+
+        // --- NOUVEAU: Système d'inventaire ---
+        private bool showInventory = false;
+        private Rectangle inventoryPanel;
+        private Dictionary<string, ItemData> itemDatabase;
+        private List<Item> availableItems = new List<Item>();
+        private Item draggedItem = null;
+        private Point dragOffset;
 
         // --- Caméra 3D ---
         private Vector3 cameraPosition;
         private Vector3 cameraTarget;
-        private Vector2 cameraOffset = Vector2.Zero; // Décalage sur le plan horizontal
+        private Vector2 cameraOffset = Vector2.Zero;
         private Matrix viewMatrix;
         private Matrix projectionMatrix;
-        private float cameraAngle = MathHelper.PiOver4; // 45° pour vue isométrique
+        private float cameraAngle = MathHelper.PiOver4;
         private float cameraDistance = 30f;
         private float cameraHeight = 20f;
         private float cameraRotationSpeed = 1.5f;
-        private float cameraMoveSpeed = 35f; // Vitesse de déplacement horizontal
+        private float cameraMoveSpeed = 35f;
 
         // Zoom
         private float zoomLevel = 1f;
@@ -73,10 +81,10 @@ namespace XCOM_3
         enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu }
         private GameState currentState = GameState.MainMenu;
 
-        // --- Grille 3D (MODIFIÉ: tailles aléatoires) ---
-        private int cellSize = 2; // Taille en unités 3D
-        private int gridWidth = 20;  // Sera aléatoire
-        private int gridHeight = 15; // Sera aléatoire
+        // --- Grille 3D ---
+        private int cellSize = 2;
+        private int gridWidth = 20;
+        private int gridHeight = 15;
         private Point hoveredCell = new Point(-1, -1);
         private HashSet<Point> obstacles = new HashSet<Point>();
 
@@ -106,7 +114,7 @@ namespace XCOM_3
 
         private List<Button> unitActionButtons = new List<Button>();
         private const int ActionButtonWidth = 100;
-        private const int ActionButtonHeight = 36;    
+        private const int ActionButtonHeight = 36;
 
         // --- A* Pathfinding ---
         private List<Point> currentPath = new();
@@ -146,11 +154,9 @@ namespace XCOM_3
 
         protected override void Initialize()
         {
-            // Initialisation des primitives 3D
             CreateCubePrimitive();
             CreatePlanePrimitive();
             CreateTexturedPlanePrimitive();
-
             base.Initialize();
         }
 
@@ -159,26 +165,21 @@ namespace XCOM_3
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             font = Content.Load<SpriteFont>("Arial");
 
-            // Pixel blanc pour UI 2D
             pixel = new Texture2D(GraphicsDevice, 1, 1);
             pixel.SetData(new[] { Color.White });
 
-            // Chargement de la texture
             tileTexture = Content.Load<Texture2D>("TileParchment32x32");
 
-            // Configuration de l'effet 3D de base (pour couleurs)
             basicEffect = new BasicEffect(GraphicsDevice);
             basicEffect.VertexColorEnabled = true;
             basicEffect.LightingEnabled = true;
             basicEffect.EnableDefaultLighting();
 
-            // Configuration de l'effet pour textures
             texturedEffect = new BasicEffect(GraphicsDevice);
             texturedEffect.TextureEnabled = true;
             texturedEffect.LightingEnabled = true;
             texturedEffect.EnableDefaultLighting();
 
-            // Configuration de la matrice de projection
             projectionMatrix = Matrix.CreatePerspectiveFieldOfView(
                 MathHelper.ToRadians(45f),
                 GraphicsDevice.Viewport.AspectRatio,
@@ -186,35 +187,29 @@ namespace XCOM_3
                 1000f
             );
 
-            // Boutons du menu principal
             string[] mainMenuLabels = { "New Game", "Continue", "Encyclopedia", "Options", "Quit" };
             menuButtons = mainMenuLabels
                 .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
                 .ToList();
 
-            // Charge les musiques du menu
             string[] songFiles = { "menu_music_1", "menu_music_2", "menu_music_3", "menu_music_4" };
             menuSongs = songFiles.Select(f => Content.Load<Song>(f)).ToList();
             currentSong = menuSongs[random.Next(menuSongs.Count)];
             MediaPlayer.Play(currentSong);
             MediaPlayer.Volume = 0.5f;
 
-            // Boutons Options
             string[] optionsLabels = { "Music Volume +", "Music Volume -", "Back" };
             int[] optionsY = { 100, 156, 184 };
             optionsButtons = optionsLabels
                 .Select((text, i) => new Button(text, new Vector2(0, optionsY[i])))
                 .ToList();
 
-            // Boutons de sélection de mission
             string[] missionLabels = { "Tutorial", "Survival", "Assault", "Defense", "Back" };
             missionButtons = missionLabels
                 .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
                 .ToList();
 
             volumeBar = new Rectangle(0, 134, 200, 8);
-
-            // Initialisation de la valeur de scroll
             previousScrollValue = Mouse.GetState().ScrollWheelValue;
 
             Window.ClientSizeChanged += (s, e) =>
@@ -229,6 +224,8 @@ namespace XCOM_3
             };
 
             InitializeWeapons();
+            InitializeItems();
+            InitializeInventoryItems();
         }
 
         protected override void Update(GameTime gameTime)
@@ -239,6 +236,17 @@ namespace XCOM_3
                              previousMouseState.LeftButton == ButtonState.Released;
             bool escapePressed = keyboard.IsKeyDown(Keys.Escape) &&
                                  previousKeyboardState.IsKeyUp(Keys.Escape);
+
+            // Touche I pour ouvrir/fermer l'inventaire
+            bool iPressed = keyboard.IsKeyDown(Keys.I) && previousKeyboardState.IsKeyUp(Keys.I);
+            if (iPressed && currentState == GameState.Playing && selectedUnit != null && selectedUnit.Team == Team.Player)
+            {
+                showInventory = !showInventory;
+                if (!showInventory)
+                {
+                    draggedItem = null;
+                }
+            }
 
             menuButtons[1].IsEnabled = hasSavedGame;
 
@@ -254,22 +262,27 @@ namespace XCOM_3
                     break;
 
                 case GameState.Playing:
-                    // Tour du joueur ou de l'ennemi
-                    if (currentTurn == TurnState.PlayerTurn) HandlePlayerTurn(mouse, leftClick, keyboard);
-                    else if (currentTurn == TurnState.EnemyTurn) UpdateEnemyTurn();
-
-                    HandleCameraControls(keyboard, mouse, gameTime);
-                    UpdateFiringAnimations(gameTime);
-
-                    // NOUVEAU: Mise à jour du cycle jour/nuit
-                    UpdateDayNightCycle(gameTime);
-
-                    if (escapePressed)
+                    if (showInventory)
                     {
-                        hasSavedGame = true;
-                        savedPlayerUnits = playerUnits.Select(u => new Unit(u)).ToList();
-                        savedEnemyUnits = enemyUnits.Select(u => new Unit(u)).ToList();
-                        currentState = GameState.MainMenu;
+                        HandleInventory(mouse, leftClick);
+                        if (escapePressed) showInventory = false;
+                    }
+                    else
+                    {
+                        if (currentTurn == TurnState.PlayerTurn) HandlePlayerTurn(mouse, leftClick, keyboard);
+                        else if (currentTurn == TurnState.EnemyTurn) UpdateEnemyTurn();
+
+                        HandleCameraControls(keyboard, mouse, gameTime);
+                        UpdateFiringAnimations(gameTime);
+                        UpdateDayNightCycle(gameTime);
+
+                        if (escapePressed)
+                        {
+                            hasSavedGame = true;
+                            savedPlayerUnits = playerUnits.Select(u => new Unit(u)).ToList();
+                            savedEnemyUnits = enemyUnits.Select(u => new Unit(u)).ToList();
+                            currentState = GameState.MainMenu;
+                        }
                     }
                     break;
 
@@ -285,31 +298,25 @@ namespace XCOM_3
             base.Update(gameTime);
         }
 
-        // NOUVEAU: Mise à jour du cycle jour/nuit
         private void UpdateDayNightCycle(GameTime gameTime)
         {
-            // Avance le temps
             timeOfDay += (float)gameTime.ElapsedGameTime.TotalSeconds * dayNightSpeed;
-            if (timeOfDay >= 1f) timeOfDay -= 1f; // Boucle le cycle
+            if (timeOfDay >= 1f) timeOfDay -= 1f;
 
-            // Calcule l'éclairage basé sur l'heure
             float sunIntensity = CalculateSunIntensity(timeOfDay);
 
-            // Lumière ambiante (varie de sombre à clair)
             ambientLight = new Color(
                 sunIntensity * 0.8f,
                 sunIntensity * 0.85f,
                 sunIntensity
             );
 
-            // Lumière directionnelle
             directionalLight = new Color(
                 sunIntensity,
                 sunIntensity * 0.95f,
                 sunIntensity * 0.9f
             );
 
-            // Applique aux effets
             basicEffect.AmbientLightColor = ambientLight.ToVector3();
             basicEffect.DirectionalLight0.DiffuseColor = directionalLight.ToVector3();
 
@@ -319,32 +326,22 @@ namespace XCOM_3
 
         private float CalculateSunIntensity(float time)
         {
-            // 0.0 = minuit (sombre)
-            // 0.25 = aube (transition)
-            // 0.5 = midi (lumineux)
-            // 0.75 = crépuscule (transition)
-            // 1.0 = minuit (sombre)
-
             float intensity;
 
             if (time < 0.25f)
             {
-                // Nuit → Aube
                 intensity = MathHelper.Lerp(0.3f, 0.7f, time / 0.25f);
             }
             else if (time < 0.5f)
             {
-                // Aube → Midi
                 intensity = MathHelper.Lerp(0.7f, 1.0f, (time - 0.25f) / 0.25f);
             }
             else if (time < 0.75f)
             {
-                // Midi → Crépuscule
                 intensity = MathHelper.Lerp(1.0f, 0.7f, (time - 0.5f) / 0.25f);
             }
             else
             {
-                // Crépuscule → Nuit
                 intensity = MathHelper.Lerp(0.7f, 0.3f, (time - 0.75f) / 0.25f);
             }
 
@@ -353,31 +350,25 @@ namespace XCOM_3
 
         protected override void Draw(GameTime gameTime)
         {
-            // MODIFIÉ: Couleur de fond change selon l'heure
             Color backgroundColor = GetSkyColor(timeOfDay);
             GraphicsDevice.Clear(backgroundColor);
 
             if (currentState == GameState.Playing)
             {
-                // Mise à jour de la caméra
                 UpdateCamera();
 
-                // Configuration des effets 3D
                 basicEffect.View = viewMatrix;
                 basicEffect.Projection = projectionMatrix;
 
                 texturedEffect.View = viewMatrix;
                 texturedEffect.Projection = projectionMatrix;
 
-                // Désactive le culling pour voir les deux faces
                 RasterizerState rasterizerState = new RasterizerState();
                 rasterizerState.CullMode = CullMode.None;
                 GraphicsDevice.RasterizerState = rasterizerState;
 
-                // Active le depth buffer
                 GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-                // Dessine la scène 3D
                 DrawGrid3D();
                 DrawObstacles3D();
                 DrawUnits3D();
@@ -386,7 +377,6 @@ namespace XCOM_3
                 DrawHoveredCell3D(gameTime);
             }
 
-            // UI 2D (par-dessus le rendu 3D)
             _spriteBatch.Begin();
             switch (currentState)
             {
@@ -403,19 +393,24 @@ namespace XCOM_3
                     break;
 
                 case GameState.Playing:
-                    DrawEndTurnButton();
-                    DrawUnitInfoPanel();
-                    if (showFireTargets && selectedUnit != null && selectedUnit.Team == Team.Player)
-                        DrawFireTargets();
+                    if (showInventory)
+                    {
+                        DrawInventory();
+                    }
+                    else
+                    {
+                        DrawEndTurnButton();
+                        DrawUnitInfoPanel();
+                        if (showFireTargets && selectedUnit != null && selectedUnit.Team == Team.Player)
+                            DrawFireTargets();
 
-                    // Instructions de contrôle + NOUVEAU: Info jour/nuit
-                    _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle Mouse: Deplacement",
-                        new Vector2(10, 10), Color.White);
+                        _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle Mouse: Deplacement | I: Inventaire",
+                            new Vector2(10, 10), Color.White);
 
-                    // Affiche l'heure et la taille de la carte
-                    string timeStr = GetTimeOfDayString(timeOfDay);
-                    _spriteBatch.DrawString(font, $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}",
-                        new Vector2(10, 30), Color.Yellow);
+                        string timeStr = GetTimeOfDayString(timeOfDay);
+                        _spriteBatch.DrawString(font, $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}",
+                            new Vector2(10, 30), Color.Yellow);
+                    }
                     break;
 
                 case GameState.OptionsMenu:
@@ -432,32 +427,26 @@ namespace XCOM_3
             base.Draw(gameTime);
         }
 
-        // NOUVEAU: Obtient la couleur du ciel selon l'heure
         private Color GetSkyColor(float time)
         {
             if (time < 0.25f)
             {
-                // Nuit (bleu très sombre)
                 return Color.Lerp(new Color(10, 10, 30), new Color(100, 120, 180), time / 0.25f);
             }
             else if (time < 0.5f)
             {
-                // Aube → Jour (orange → bleu clair)
                 return Color.Lerp(new Color(100, 120, 180), new Color(135, 206, 235), (time - 0.25f) / 0.25f);
             }
             else if (time < 0.75f)
             {
-                // Jour → Crépuscule (bleu clair → orange/rouge)
                 return Color.Lerp(new Color(135, 206, 235), new Color(100, 120, 180), (time - 0.5f) / 0.25f);
             }
             else
             {
-                // Crépuscule → Nuit
                 return Color.Lerp(new Color(100, 120, 180), new Color(10, 10, 30), (time - 0.75f) / 0.25f);
             }
         }
 
-        // NOUVEAU: Convertit le temps en string lisible
         private string GetTimeOfDayString(float time)
         {
             int hours = (int)(time * 24);
@@ -466,15 +455,355 @@ namespace XCOM_3
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        // SYSTÈME D'INVENTAIRE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private void InitializeItems()
+        {
+            itemDatabase = new Dictionary<string, ItemData>
+            {
+                // Armes
+                ["Rifle"] = new ItemData("Rifle", ItemType.Weapon, new WeaponData("Rifle", 25, 80, 5)),
+                ["Plasma Rifle"] = new ItemData("Plasma Rifle", ItemType.Weapon, new WeaponData("Plasma Rifle", 30, 75, 5)),
+                ["Plasma Sniper"] = new ItemData("Plasma Sniper", ItemType.Weapon, new WeaponData("Plasma Sniper", 50, 90, 8)),
+                ["Shotgun"] = new ItemData("Shotgun", ItemType.Weapon, new WeaponData("Shotgun", 45, 70, 3)),
+                ["SMG"] = new ItemData("SMG", ItemType.Weapon, new WeaponData("SMG", 20, 75, 4)),
+
+                // Armures
+                ["Helmet"] = new ItemData("Helmet", ItemType.Armor, armorValue: 10, armorSlot: ArmorSlot.Head),
+                ["Ballistic Vest"] = new ItemData("Ballistic Vest", ItemType.Armor, armorValue: 25, armorSlot: ArmorSlot.Torso),
+                ["Combat Helmet"] = new ItemData("Combat Helmet", ItemType.Armor, armorValue: 15, armorSlot: ArmorSlot.Head),
+                ["Kevlar Vest"] = new ItemData("Kevlar Vest", ItemType.Armor, armorValue: 20, armorSlot: ArmorSlot.Torso),
+                ["Tactical Vest"] = new ItemData("Tactical Vest", ItemType.Armor, armorValue: 30, armorSlot: ArmorSlot.Torso)
+            };
+        }
+
+        private void InitializeInventoryItems()
+        {
+            availableItems.Add(new Item(itemDatabase["Plasma Rifle"], new Point(50, 50)));
+            availableItems.Add(new Item(itemDatabase["Shotgun"], new Point(150, 50)));
+            availableItems.Add(new Item(itemDatabase["SMG"], new Point(250, 50)));
+            availableItems.Add(new Item(itemDatabase["Helmet"], new Point(50, 150)));
+            availableItems.Add(new Item(itemDatabase["Ballistic Vest"], new Point(150, 150)));
+            availableItems.Add(new Item(itemDatabase["Combat Helmet"], new Point(250, 150)));
+            availableItems.Add(new Item(itemDatabase["Kevlar Vest"], new Point(350, 150)));
+            availableItems.Add(new Item(itemDatabase["Tactical Vest"], new Point(450, 150)));
+        }
+
+        private void HandleInventory(MouseState mouse, bool leftClick)
+        {
+            if (selectedUnit == null) return;
+
+            if (leftClick && draggedItem == null)
+            {
+                foreach (var item in availableItems)
+                {
+                    if (item.Bounds.Contains(mouse.Position))
+                    {
+                        draggedItem = item;
+                        dragOffset = new Point(mouse.X - item.Position.X, mouse.Y - item.Position.Y);
+                        break;
+                    }
+                }
+
+                if (draggedItem == null && selectedUnit.EquippedWeapon != null)
+                {
+                    Rectangle weaponSlot = GetWeaponSlotBounds();
+                    if (weaponSlot.Contains(mouse.Position))
+                    {
+                        draggedItem = selectedUnit.EquippedWeapon;
+                        dragOffset = new Point(mouse.X - weaponSlot.X, mouse.Y - weaponSlot.Y);
+                        selectedUnit.EquippedWeapon = null;
+                    }
+                }
+
+                if (draggedItem == null && selectedUnit.EquippedHelmet != null)
+                {
+                    Rectangle helmetSlot = GetHelmetSlotBounds();
+                    if (helmetSlot.Contains(mouse.Position))
+                    {
+                        draggedItem = selectedUnit.EquippedHelmet;
+                        dragOffset = new Point(mouse.X - helmetSlot.X, mouse.Y - helmetSlot.Y);
+                        selectedUnit.EquippedHelmet = null;
+                    }
+                }
+
+                if (draggedItem == null && selectedUnit.EquippedArmor != null)
+                {
+                    Rectangle armorSlot = GetArmorSlotBounds();
+                    if (armorSlot.Contains(mouse.Position))
+                    {
+                        draggedItem = selectedUnit.EquippedArmor;
+                        dragOffset = new Point(mouse.X - armorSlot.X, mouse.Y - armorSlot.Y);
+                        selectedUnit.EquippedArmor = null;
+                    }
+                }
+            }
+
+            if (draggedItem != null && mouse.LeftButton == ButtonState.Pressed)
+            {
+                draggedItem.Position = new Point(mouse.X - dragOffset.X, mouse.Y - dragOffset.Y);
+            }
+
+            if (draggedItem != null && mouse.LeftButton == ButtonState.Released)
+            {
+                bool equipped = false;
+
+                if (draggedItem.Data.Type == ItemType.Weapon)
+                {
+                    Rectangle weaponSlot = GetWeaponSlotBounds();
+                    if (weaponSlot.Contains(mouse.Position))
+                    {
+                        if (selectedUnit.EquippedWeapon != null && selectedUnit.EquippedWeapon != draggedItem)
+                        {
+                            selectedUnit.EquippedWeapon.Position = FindFreePosition();
+                            if (!availableItems.Contains(selectedUnit.EquippedWeapon))
+                                availableItems.Add(selectedUnit.EquippedWeapon);
+                        }
+
+                        selectedUnit.EquippedWeapon = draggedItem;
+                        selectedUnit.Weapon = draggedItem.Data.Name;
+                        selectedUnit.WeaponData = draggedItem.Data.WeaponData;
+                        availableItems.Remove(draggedItem);
+                        equipped = true;
+                        UpdateFireTargets();
+                    }
+                }
+                else if (draggedItem.Data.Type == ItemType.Armor)
+                {
+                    Rectangle targetSlot = Rectangle.Empty;
+
+                    if (draggedItem.Data.ArmorSlot == ArmorSlot.Head)
+                    {
+                        targetSlot = GetHelmetSlotBounds();
+                        if (targetSlot.Contains(mouse.Position))
+                        {
+                            if (selectedUnit.EquippedHelmet != null && selectedUnit.EquippedHelmet != draggedItem)
+                            {
+                                selectedUnit.EquippedHelmet.Position = FindFreePosition();
+                                if (!availableItems.Contains(selectedUnit.EquippedHelmet))
+                                    availableItems.Add(selectedUnit.EquippedHelmet);
+                            }
+                            selectedUnit.EquippedHelmet = draggedItem;
+                            availableItems.Remove(draggedItem);
+                            equipped = true;
+                        }
+                    }
+                    else if (draggedItem.Data.ArmorSlot == ArmorSlot.Torso)
+                    {
+                        targetSlot = GetArmorSlotBounds();
+                        if (targetSlot.Contains(mouse.Position))
+                        {
+                            if (selectedUnit.EquippedArmor != null && selectedUnit.EquippedArmor != draggedItem)
+                            {
+                                selectedUnit.EquippedArmor.Position = FindFreePosition();
+                                if (!availableItems.Contains(selectedUnit.EquippedArmor))
+                                    availableItems.Add(selectedUnit.EquippedArmor);
+                            }
+                            selectedUnit.EquippedArmor = draggedItem;
+                            availableItems.Remove(draggedItem);
+                            equipped = true;
+                        }
+                    }
+                }
+
+                if (!equipped)
+                {
+                    if (!availableItems.Contains(draggedItem))
+                    {
+                        draggedItem.Position = FindFreePosition();
+                        availableItems.Add(draggedItem);
+                    }
+                }
+
+                draggedItem = null;
+            }
+        }
+
+        private Point FindFreePosition()
+        {
+            int gridX = 50;
+            int gridY = 50;
+            int cellSize = 60;
+
+            for (int y = 0; y < 10; y++)
+            {
+                for (int x = 0; x < 10; x++)
+                {
+                    Point testPos = new Point(gridX + x * cellSize, gridY + y * cellSize);
+                    Rectangle testRect = new Rectangle(testPos.X, testPos.Y, 50, 50);
+
+                    bool occupied = false;
+                    foreach (var item in availableItems)
+                    {
+                        if (item.Bounds.Intersects(testRect))
+                        {
+                            occupied = true;
+                            break;
+                        }
+                    }
+
+                    if (!occupied) return testPos;
+                }
+            }
+
+            return new Point(50, 50);
+        }
+
+        private Rectangle GetWeaponSlotBounds()
+        {
+            int panelX = GraphicsDevice.Viewport.Width / 2 - 300;
+            int panelY = GraphicsDevice.Viewport.Height / 2 - 200;
+            return new Rectangle(panelX + 450, panelY + 100, 80, 80);
+        }
+
+        private Rectangle GetHelmetSlotBounds()
+        {
+            int panelX = GraphicsDevice.Viewport.Width / 2 - 300;
+            int panelY = GraphicsDevice.Viewport.Height / 2 - 200;
+            return new Rectangle(panelX + 450, panelY + 200, 80, 80);
+        }
+
+        private Rectangle GetArmorSlotBounds()
+        {
+            int panelX = GraphicsDevice.Viewport.Width / 2 - 300;
+            int panelY = GraphicsDevice.Viewport.Height / 2 - 200;
+            return new Rectangle(panelX + 450, panelY + 300, 80, 80);
+        }
+
+        private void DrawInventory()
+        {
+            if (selectedUnit == null) return;
+
+            int panelWidth = 650;
+            int panelHeight = 450;
+            int panelX = GraphicsDevice.Viewport.Width / 2 - panelWidth / 2;
+            int panelY = GraphicsDevice.Viewport.Height / 2 - panelHeight / 2;
+            inventoryPanel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
+
+            _spriteBatch.Draw(pixel, inventoryPanel, new Color(20, 20, 20, 240));
+            DrawRectangleBorder(inventoryPanel, Color.Gold, 3);
+
+            string title = $"Inventaire - {selectedUnit.Name}";
+            Vector2 titleSize = font.MeasureString(title);
+            _spriteBatch.DrawString(font, title,
+                new Vector2(inventoryPanel.Center.X - titleSize.X / 2, panelY + 10),
+                Color.Gold, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
+
+            Rectangle itemsArea = new Rectangle(panelX + 20, panelY + 60, 400, 360);
+            _spriteBatch.Draw(pixel, itemsArea, new Color(40, 40, 40, 200));
+            DrawRectangleBorder(itemsArea, Color.Gray, 2);
+
+            _spriteBatch.DrawString(font, "Items Disponibles:",
+                new Vector2(itemsArea.X + 5, itemsArea.Y - 20), Color.White);
+
+            foreach (var item in availableItems)
+            {
+                if (item != draggedItem)
+                {
+                    DrawItem(item);
+                }
+            }
+
+            Rectangle equipArea = new Rectangle(panelX + 440, panelY + 60, 190, 360);
+            _spriteBatch.Draw(pixel, equipArea, new Color(40, 40, 40, 200));
+            DrawRectangleBorder(equipArea, Color.Gray, 2);
+
+            _spriteBatch.DrawString(font, "Equipement:",
+                new Vector2(equipArea.X + 5, equipArea.Y - 20), Color.White);
+
+            DrawEquipmentSlot(GetWeaponSlotBounds(), "Arme", selectedUnit.EquippedWeapon);
+            DrawEquipmentSlot(GetHelmetSlotBounds(), "Casque", selectedUnit.EquippedHelmet);
+            DrawEquipmentSlot(GetArmorSlotBounds(), "Armure", selectedUnit.EquippedArmor);
+
+            int totalArmor = 0;
+            if (selectedUnit.EquippedHelmet != null) totalArmor += selectedUnit.EquippedHelmet.Data.ArmorValue;
+            if (selectedUnit.EquippedArmor != null) totalArmor += selectedUnit.EquippedArmor.Data.ArmorValue;
+
+            if (draggedItem != null)
+            {
+                DrawItem(draggedItem, 0.7f);
+            }
+
+            _spriteBatch.DrawString(font, "Glissez les items pour les equiper",
+                new Vector2(panelX + 20, panelY + panelHeight - 30), Color.Yellow);
+            _spriteBatch.DrawString(font, "Appuyez sur I ou ESC pour fermer",
+                new Vector2(panelX + 20, panelY + panelHeight - 15), Color.Yellow);
+        }
+
+        private void DrawItem(Item item, float alpha = 1f)
+        {
+            Color itemColor = item.Data.Type == ItemType.Weapon ?
+                new Color(100, 150, 255) : new Color(150, 100, 50);
+
+            itemColor *= alpha;
+
+            _spriteBatch.Draw(pixel, item.Bounds, itemColor);
+            DrawRectangleBorder(item.Bounds, Color.White * alpha, 2);
+
+            Vector2 nameSize = font.MeasureString(item.Data.Name);
+            float scale = Math.Min(1f, (item.Bounds.Width - 10) / nameSize.X);
+
+            _spriteBatch.DrawString(font, item.Data.Name,
+                new Vector2(item.Bounds.X + 5, item.Bounds.Y + item.Bounds.Height / 2 - 10),
+                Color.White * alpha, 0f, Vector2.Zero, scale * 0.6f, SpriteEffects.None, 0f);
+
+            string info = item.Data.Type == ItemType.Weapon ?
+                $"Dmg:{item.Data.WeaponData.Damage}" :
+                $"Arm:{item.Data.ArmorValue}";
+
+            _spriteBatch.DrawString(font, info,
+                new Vector2(item.Bounds.X + 5, item.Bounds.Y + item.Bounds.Height / 2 + 5),
+                Color.Yellow * alpha, 0f, Vector2.Zero, 0.5f, SpriteEffects.None, 0f);
+        }
+
+        private void DrawEquipmentSlot(Rectangle slot, string label, Item equippedItem)
+        {
+            _spriteBatch.Draw(pixel, slot, new Color(60, 60, 60, 200));
+            DrawRectangleBorder(slot, Color.Gray, 2);
+
+            _spriteBatch.DrawString(font, label,
+                new Vector2(slot.X, slot.Y - 20), Color.White, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+
+            if (equippedItem != null && equippedItem != draggedItem)
+            {
+                Color itemColor = equippedItem.Data.Type == ItemType.Weapon ?
+                    new Color(100, 150, 255) : new Color(150, 100, 50);
+
+                Rectangle itemRect = new Rectangle(slot.X + 5, slot.Y + 5, slot.Width - 10, slot.Height - 10);
+                _spriteBatch.Draw(pixel, itemRect, itemColor);
+
+                Vector2 nameSize = font.MeasureString(equippedItem.Data.Name);
+                float scale = Math.Min(1f, (itemRect.Width - 4) / nameSize.X);
+
+                _spriteBatch.DrawString(font, equippedItem.Data.Name,
+                    new Vector2(itemRect.X + 2, itemRect.Y + itemRect.Height / 2 - 8),
+                    Color.White, 0f, Vector2.Zero, scale * 0.5f, SpriteEffects.None, 0f);
+            }
+            else if (equippedItem == null)
+            {
+                _spriteBatch.DrawString(font, "Vide",
+                    new Vector2(slot.Center.X - 20, slot.Center.Y - 8),
+                    Color.Gray, 0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0f);
+            }
+        }
+
+        private void DrawRectangleBorder(Rectangle rect, Color color, int thickness)
+        {
+            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Y, rect.Width, thickness), color);
+            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Bottom - thickness, rect.Width, thickness), color);
+            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Y, thickness, rect.Height), color);
+            _spriteBatch.Draw(pixel, new Rectangle(rect.Right - thickness, rect.Y, thickness, rect.Height), color);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // PRIMITIVES 3D
         // ═══════════════════════════════════════════════════════════════════════
 
         private void CreateCubePrimitive()
         {
-            // Création d'un cube unitaire
             cubeVertices = new VertexPositionColor[8];
 
-            // Sommets du cube
             cubeVertices[0] = new VertexPositionColor(new Vector3(-0.5f, -0.5f, -0.5f), Color.White);
             cubeVertices[1] = new VertexPositionColor(new Vector3(-0.5f, -0.5f, 0.5f), Color.White);
             cubeVertices[2] = new VertexPositionColor(new Vector3(0.5f, -0.5f, 0.5f), Color.White);
@@ -484,21 +813,19 @@ namespace XCOM_3
             cubeVertices[6] = new VertexPositionColor(new Vector3(0.5f, 0.5f, 0.5f), Color.White);
             cubeVertices[7] = new VertexPositionColor(new Vector3(0.5f, 0.5f, -0.5f), Color.White);
 
-            // Indices pour les triangles (12 triangles = 6 faces * 2 triangles)
             cubeIndices = new short[]
             {
-                0, 1, 2, 0, 2, 3, // Bas
-                4, 6, 5, 4, 7, 6, // Haut
-                0, 4, 5, 0, 5, 1, // Gauche
-                3, 2, 6, 3, 6, 7, // Droite
-                1, 5, 6, 1, 6, 2, // Devant
-                0, 3, 7, 0, 7, 4  // Derrière
+                0, 1, 2, 0, 2, 3,
+                4, 6, 5, 4, 7, 6,
+                0, 4, 5, 0, 5, 1,
+                3, 2, 6, 3, 6, 7,
+                1, 5, 6, 1, 6, 2,
+                0, 3, 7, 0, 7, 4
             };
         }
 
         private void CreatePlanePrimitive()
         {
-            // Création d'un plan pour le sol
             planeVertices = new VertexPositionColor[4];
             planeVertices[0] = new VertexPositionColor(new Vector3(-0.5f, 0, -0.5f), Color.White);
             planeVertices[1] = new VertexPositionColor(new Vector3(-0.5f, 0, 0.5f), Color.White);
@@ -512,9 +839,8 @@ namespace XCOM_3
         {
             planeTexturedVertices = new VertexPositionNormalTexture[4];
 
-            Vector3 normal = Vector3.Up; // Normal pointant vers le haut
+            Vector3 normal = Vector3.Up;
 
-            // Coins du plan avec coordonnées UV
             planeTexturedVertices[0] = new VertexPositionNormalTexture(
                 new Vector3(-0.5f, 0, -0.5f), normal, new Vector2(0, 0));
             planeTexturedVertices[1] = new VertexPositionNormalTexture(
@@ -529,14 +855,12 @@ namespace XCOM_3
 
         private void DrawCube(Vector3 position, Vector3 scale, Color color)
         {
-            // Crée une copie des vertices avec la couleur appropriée
             VertexPositionColor[] coloredVertices = new VertexPositionColor[8];
             for (int i = 0; i < 8; i++)
             {
                 coloredVertices[i] = new VertexPositionColor(cubeVertices[i].Position, color);
             }
 
-            // Matrice de transformation
             Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
             basicEffect.World = world;
 
@@ -608,13 +932,11 @@ namespace XCOM_3
 
         private void UpdateCamera()
         {
-            // Position de la caméra en orbite autour du centre de la grille + offset
             float centerX = (gridWidth * cellSize) / 2f + cameraOffset.X;
             float centerZ = (gridHeight * cellSize) / 2f + cameraOffset.Y;
 
             cameraTarget = new Vector3(centerX, 0, centerZ);
 
-            // Applique le zoom en ajustant la distance
             float adjustedDistance = cameraDistance / zoomLevel;
             float adjustedHeight = cameraHeight / zoomLevel;
 
@@ -631,7 +953,6 @@ namespace XCOM_3
         {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // ═══ ROTATION (Q/E) ═══
             float rotationAmount = cameraRotationSpeed * deltaTime;
 
             if (keyboard.IsKeyDown(Keys.Q))
@@ -643,7 +964,6 @@ namespace XCOM_3
                 cameraAngle -= rotationAmount;
             }
 
-            // ═══ ZOOM (Molette de la souris) ═══
             float scrollDelta = (mouse.ScrollWheelValue - previousScrollValue) / 120f;
             previousScrollValue = mouse.ScrollWheelValue;
 
@@ -652,16 +972,13 @@ namespace XCOM_3
                 zoomLevel = MathHelper.Clamp(zoomLevel + scrollDelta * 0.1f, minZoom, maxZoom);
             }
 
-            // ═══ DÉPLACEMENT HORIZONTAL ═══
             Vector2 moveInput = Vector2.Zero;
 
-            // WASD
             if (keyboard.IsKeyDown(Keys.W)) moveInput.Y += 1;
             if (keyboard.IsKeyDown(Keys.S)) moveInput.Y -= 1;
             if (keyboard.IsKeyDown(Keys.A)) moveInput.X += 1;
             if (keyboard.IsKeyDown(Keys.D)) moveInput.X -= 1;
 
-            // Middle mouse button
             if (mouse.MiddleButton == ButtonState.Pressed && previousMouseState.MiddleButton == ButtonState.Pressed)
             {
                 Vector2 mouseDelta = new Vector2(
@@ -673,7 +990,6 @@ namespace XCOM_3
                 moveInput.Y += mouseDelta.Y * 0.5f;
             }
 
-            // Applique le mouvement
             if (moveInput != Vector2.Zero)
             {
                 if (moveInput.LengthSquared() > 1f)
@@ -945,7 +1261,7 @@ namespace XCOM_3
         {
             if (selectedUnit == null) return;
 
-            int m = 10, w = 300, h = 140;
+            int m = 10, w = 300, h = 160;
             int x = m, y = GraphicsDevice.Viewport.Height - h - m;
             Rectangle panel = new(x, y, w, h);
 
@@ -957,6 +1273,10 @@ namespace XCOM_3
             _spriteBatch.DrawString(font, $"Weapon: {selectedUnit.Weapon}", p + new Vector2(0, 40), Color.White);
             _spriteBatch.DrawString(font, $"AP: {selectedUnit.ActionPoints}", p + new Vector2(0, 60), Color.White);
             _spriteBatch.DrawString(font, $"HP: {selectedUnit.Health} / {selectedUnit.MaxHealth}", p + new Vector2(0, 80), Color.White);
+
+            // NOUVEAU: Affiche l'armure totale
+            int totalArmor = selectedUnit.GetTotalArmor();
+            _spriteBatch.DrawString(font, $"Armor: {totalArmor}", p + new Vector2(0, 100), Color.Cyan);
 
             unitActionButtons.Clear();
 
@@ -997,21 +1317,16 @@ namespace XCOM_3
         // LOGIQUE DE JEU
         // ═══════════════════════════════════════════════════════════════════════
 
-        // MODIFIÉ: Taille de carte aléatoire + heure de départ aléatoire
         private void LoadMap()
         {
-            // Taille aléatoire entre 15x12 et 30x25
-            gridWidth = random.Next(15, 31);   // 15 à 30
-            gridHeight = random.Next(12, 26);  // 12 à 25
+            gridWidth = random.Next(15, 31);
+            gridHeight = random.Next(12, 26);
             cellSize = 2;
 
-            // Heure de départ aléatoire
             timeOfDay = (float)random.NextDouble();
-
-            // Vitesse du cycle jour/nuit en temps réel
             dayNightSpeed = 1f / 86400f;
 
-            GenerateObstacles(gridWidth * gridHeight / 10); // Proportionnel à la taille
+            GenerateObstacles(gridWidth * gridHeight / 10);
             Console.WriteLine($"Map loaded: {gridWidth}x{gridHeight}, Starting time: {GetTimeOfDayString(timeOfDay)}");
         }
 
@@ -1416,7 +1731,10 @@ namespace XCOM_3
                     if (u.WillHit)
                     {
                         var t = u.PendingTarget;
-                        t.Health = Math.Max(t.Health - u.WeaponData.Damage, 0);
+                        // MODIFIÉ: Les dégâts sont réduits par l'armure (minimum 1)
+                        int damage = Math.Max(u.WeaponData.Damage - t.GetTotalArmor(), 1);
+                        t.Health = Math.Max(t.Health - damage, 0);
+
                         if (t.Health <= 0)
                             (t.Team == Team.Player ? playerUnits : enemyUnits).Remove(t);
                     }
@@ -1540,7 +1858,9 @@ namespace XCOM_3
             ["Plasma Sniper"] = new("Plasma Sniper", 50, 90, 8),
             ["Plasma Cannon"] = new("Plasma Cannon", 40, 70, 4),
             ["SMG Plasma"] = new("SMG Plasma", 15, 60, 6),
-            ["Zombie Claws"] = new("Zombie Claws", 35, 70, 1)
+            ["Zombie Claws"] = new("Zombie Claws", 35, 70, 1),
+            ["Shotgun"] = new("Shotgun", 45, 70, 3),
+            ["SMG"] = new("SMG", 20, 75, 4)
         };
 
         private void HandleMainMenu(MouseState mouse)
@@ -1669,11 +1989,10 @@ namespace XCOM_3
                 {
                     pathCosts[currentPath[i]] = i + 1;
                 }
-
-               
             }
 
-            bool clickOnUI = fireButton.Contains(mouse.Position) || IsMouseOverActionButton(mouse);
+            bool clickOnUI = fireButton.Contains(mouse.Position) || IsMouseOverActionButton(mouse) ||
+                            (showInventory && inventoryPanel.Contains(mouse.Position));
 
             if (leftClick && !clickOnUI && hoveredCell.X != -1)
                 HandleGridClick(hoveredCell);
@@ -1788,35 +2107,6 @@ namespace XCOM_3
     }
 
     public enum Team { Player, Enemy }
-
-    public class Unit
-    {
-        public Point Cell;
-        public Team Team;
-        public string Name, Class, Weapon;
-        public int ActionPoints = 3, MovementPoints = 3, Health = 100, MaxHealth = 100;
-        public WeaponData WeaponData;
-        public bool IsFiring = false, WillHit = false;
-        public Point? FireTarget = null;
-        public float FireProgress = 0f;
-        public Unit PendingTarget = null;
-        public Vector3 VisualOffset = Vector3.Zero;
-        public Vector3 ChargeStart;
-        public Vector3 ChargeTarget;
-        public bool IsChargingForward = true;
-
-        public Unit(Point cell, Team team, string name, string unitClass, string weapon, WeaponData weaponData)
-        {
-            Cell = cell; Team = team; Name = name; Class = unitClass; Weapon = weapon; WeaponData = weaponData;
-        }
-
-        public Unit(Unit other)
-        {
-            Cell = other.Cell; Team = other.Team; Name = other.Name; Class = other.Class;
-            Weapon = other.Weapon; WeaponData = other.WeaponData;
-            ActionPoints = other.ActionPoints; Health = other.Health; MaxHealth = other.MaxHealth;
-        }
-    }
 
     public class EnemyTemplate
     {
