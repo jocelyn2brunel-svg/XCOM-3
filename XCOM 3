@@ -1114,6 +1114,8 @@ namespace XCOM_3
                             currentState = GameState.Playing;
                             LoadMap();
                             CreateUnits();
+                            // Centre la caméra sur le spawn des humains
+                            CenterCameraOnPlayerSpawn();
                             Console.WriteLine("New game launched !");
                             break;
 
@@ -1301,6 +1303,14 @@ namespace XCOM_3
             showMoveArrow = false;
             currentPath.Clear();
             pathCosts.Clear();
+        }
+
+        private void CenterCameraOnPlayerSpawn()
+        {
+            // Centre la caméra sur le milieu du spawn des joueurs (y = gridHeight - 2)
+            float centerX = (gridWidth / 2f) * cellSize;
+            float centerY = (gridHeight - 2) * cellSize;
+            cameraOffset = new Vector2(centerX, centerY);
         }
 
         private void HandleZoom()
