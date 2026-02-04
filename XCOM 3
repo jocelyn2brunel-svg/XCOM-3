@@ -29,12 +29,20 @@ namespace XCOM_3
         // --- Caméra 3D ---
         private Vector3 cameraPosition;
         private Vector3 cameraTarget;
+        private Vector2 cameraOffset = Vector2.Zero; // Décalage sur le plan horizontal
         private Matrix viewMatrix;
         private Matrix projectionMatrix;
         private float cameraAngle = MathHelper.PiOver4; // 45° pour vue isométrique
         private float cameraDistance = 30f;
         private float cameraHeight = 20f;
         private float cameraRotationSpeed = 1.5f;
+        private float cameraMoveSpeed = 15f; // Vitesse de déplacement horizontal
+
+        // Zoom
+        private float zoomLevel = 1f;
+        private float minZoom = 0.3f;
+        private float maxZoom = 3f;
+        private float previousScrollValue = 0f;
 
         // --- Menu principal ---
         private List<Button> menuButtons;
@@ -186,6 +194,9 @@ namespace XCOM_3
 
             volumeBar = new Rectangle(0, 134, 200, 8);
 
+            // Initialisation de la valeur de scroll
+            previousScrollValue = Mouse.GetState().ScrollWheelValue;
+
             Window.ClientSizeChanged += (s, e) =>
             {
                 UpdateFireTargetsUIPositions();
@@ -223,10 +234,11 @@ namespace XCOM_3
                     break;
 
                 case GameState.Playing:
+                    // Tour du joueur ou de l'ennemi
                     if (currentTurn == TurnState.PlayerTurn) HandlePlayerTurn(mouse, leftClick, keyboard);
                     else if (currentTurn == TurnState.EnemyTurn) UpdateEnemyTurn();
 
-                    HandleCameraRotation(keyboard, gameTime);
+                    HandleCameraControls(keyboard, mouse, gameTime);
                     UpdateFiringAnimations(gameTime);
 
                     if (escapePressed)
@@ -252,7 +264,7 @@ namespace XCOM_3
 
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.Black);
+            GraphicsDevice.Clear(Color.CornflowerBlue);
 
             if (currentState == GameState.Playing)
             {
@@ -303,7 +315,8 @@ namespace XCOM_3
                         DrawFireTargets();
 
                     // Instructions de contrôle
-                    _spriteBatch.DrawString(font, "Q/E: Rotation camera", new Vector2(10, 10), Color.White);
+                    _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle Mouse: Deplacement",
+                        new Vector2(10, 10), Color.White);
                     break;
 
                 case GameState.OptionsMenu:
@@ -423,24 +436,31 @@ namespace XCOM_3
 
         private void UpdateCamera()
         {
-            // Position de la caméra en orbite autour du centre de la grille
-            float centerX = (gridWidth * cellSize) / 2f;
-            float centerZ = (gridHeight * cellSize) / 2f;
+            // Position de la caméra en orbite autour du centre de la grille + offset
+            float centerX = (gridWidth * cellSize) / 2f + cameraOffset.X;
+            float centerZ = (gridHeight * cellSize) / 2f + cameraOffset.Y;
 
             cameraTarget = new Vector3(centerX, 0, centerZ);
 
+            // Applique le zoom en ajustant la distance
+            float adjustedDistance = cameraDistance / zoomLevel;
+            float adjustedHeight = cameraHeight / zoomLevel;
+
             cameraPosition = new Vector3(
-                centerX + (float)Math.Cos(cameraAngle) * cameraDistance,
-                cameraHeight,
-                centerZ + (float)Math.Sin(cameraAngle) * cameraDistance
+                centerX + (float)Math.Cos(cameraAngle) * adjustedDistance,
+                adjustedHeight,
+                centerZ + (float)Math.Sin(cameraAngle) * adjustedDistance
             );
 
             viewMatrix = Matrix.CreateLookAt(cameraPosition, cameraTarget, Vector3.Up);
         }
 
-        private void HandleCameraRotation(KeyboardState keyboard, GameTime gameTime)
+        private void HandleCameraControls(KeyboardState keyboard, MouseState mouse, GameTime gameTime)
         {
-            float rotationAmount = cameraRotationSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds;
+            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            // ═══ ROTATION (Q/E) ═══
+            float rotationAmount = cameraRotationSpeed * deltaTime;
 
             if (keyboard.IsKeyDown(Keys.Q))
             {
@@ -449,6 +469,59 @@ namespace XCOM_3
             if (keyboard.IsKeyDown(Keys.E))
             {
                 cameraAngle -= rotationAmount;
+            }
+
+            // ═══ ZOOM (Molette de la souris) ═══
+            float scrollDelta = (mouse.ScrollWheelValue - previousScrollValue) / 120f;
+            previousScrollValue = mouse.ScrollWheelValue;
+
+            if (scrollDelta != 0f)
+            {
+                zoomLevel = MathHelper.Clamp(zoomLevel + scrollDelta * 0.1f, minZoom, maxZoom);
+            }
+
+            // ═══ DÉPLACEMENT HORIZONTAL ═══
+            Vector2 moveInput = Vector2.Zero;
+
+            // WASD
+            if (keyboard.IsKeyDown(Keys.W)) moveInput.Y += 1; // Avant (relatif à la caméra)
+            if (keyboard.IsKeyDown(Keys.S)) moveInput.Y -= 1; // Arrière
+            if (keyboard.IsKeyDown(Keys.A)) moveInput.X += 1; // Gauche (CORRIGÉ)
+            if (keyboard.IsKeyDown(Keys.D)) moveInput.X -= 1; // Droite (CORRIGÉ)
+
+            // Middle mouse button (déplacement comme WASD)
+            if (mouse.MiddleButton == ButtonState.Pressed && previousMouseState.MiddleButton == ButtonState.Pressed)
+            {
+                // Delta de la souris converti en direction
+                Vector2 mouseDelta = new Vector2(
+                    mouse.X - previousMouseState.X,
+                    mouse.Y - previousMouseState.Y
+                );
+
+                // Inverse le mouvement pour que ça suive la souris naturellement
+                moveInput.X += mouseDelta.X * 0.5f; // Augmenté de 0.1 à 0.5
+                moveInput.Y += mouseDelta.Y * 0.5f; // Augmenté de 0.1 à 0.5
+            }
+
+            // Applique le mouvement si non nul
+            if (moveInput != Vector2.Zero)
+            {
+                // Normalise pour éviter mouvement diagonal plus rapide
+                if (moveInput.LengthSquared() > 1f)
+                    moveInput.Normalize();
+
+                // Calcule la direction de mouvement selon l'angle de la caméra
+                // L'angle de la caméra détermine "l'avant"
+                float moveAngle = cameraAngle + MathHelper.PiOver2; // +90° car caméra regarde vers le centre
+
+                // Rotation du vecteur de mouvement selon l'angle de la caméra
+                Vector2 rotatedMove = new Vector2(
+                    moveInput.X * (float)Math.Cos(moveAngle) - moveInput.Y * (float)Math.Sin(moveAngle),
+                    moveInput.X * (float)Math.Sin(moveAngle) + moveInput.Y * (float)Math.Cos(moveAngle)
+                );
+
+                // Applique le déplacement
+                cameraOffset += rotatedMove * cameraMoveSpeed * deltaTime;
             }
         }
 
