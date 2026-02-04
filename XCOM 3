@@ -106,11 +106,7 @@ namespace XCOM_3
 
         private List<Button> unitActionButtons = new List<Button>();
         private const int ActionButtonWidth = 100;
-        private const int ActionButtonHeight = 36;
-
-        private bool showMoveArrow = false;
-        private Point arrowFromCell;
-        private Point arrowToCell;
+        private const int ActionButtonHeight = 36;    
 
         // --- A* Pathfinding ---
         private List<Point> currentPath = new();
@@ -1012,7 +1008,7 @@ namespace XCOM_3
             // Heure de départ aléatoire
             timeOfDay = (float)random.NextDouble();
 
-            // Vitesse du cycle jour/nuit aléatoire (entre très lent et rapide)
+            // Vitesse du cycle jour/nuit en temps réel
             dayNightSpeed = 1f / 86400f;
 
             GenerateObstacles(gridWidth * gridHeight / 10); // Proportionnel à la taille
@@ -1662,7 +1658,6 @@ namespace XCOM_3
 
             currentPath.Clear();
             pathCosts.Clear();
-            showMoveArrow = false;
 
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 &&
                 cachedMovableCells.Contains(hoveredCell) && selectedUnit.Team == Team.Player)
@@ -1675,12 +1670,7 @@ namespace XCOM_3
                     pathCosts[currentPath[i]] = i + 1;
                 }
 
-                if (currentPath.Count > 0)
-                {
-                    arrowFromCell = selectedUnit.Cell;
-                    arrowToCell = hoveredCell;
-                    showMoveArrow = true;
-                }
+               
             }
 
             bool clickOnUI = fireButton.Contains(mouse.Position) || IsMouseOverActionButton(mouse);
@@ -1725,7 +1715,6 @@ namespace XCOM_3
                 else
                 {
                     cachedMovableCells.Clear();
-                    showMoveArrow = false;
                     currentPath.Clear();
                     pathCosts.Clear();
                 }
@@ -1766,7 +1755,6 @@ namespace XCOM_3
             selectedUnit = null;
             selectedFireTarget = null;
             cachedMovableCells.Clear();
-            showMoveArrow = false;
             currentPath.Clear();
             pathCosts.Clear();
         }
