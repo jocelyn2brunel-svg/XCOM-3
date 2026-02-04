@@ -36,7 +36,7 @@ namespace XCOM_3
 
         // --- NOUVEAU: Cycle jour/nuit ---
         private float timeOfDay = 0f; // 0 = minuit, 0.5 = midi, 1 = minuit
-        private float dayNightSpeed = 0.05f; // Vitesse du cycle (plus petit = plus lent)
+        private float dayNightSpeed = 0.01f; // Vitesse du cycle (plus petit = plus lent)
         private Color ambientLight = Color.White;
         private Color directionalLight = Color.White;
 
@@ -1013,7 +1013,7 @@ namespace XCOM_3
             timeOfDay = (float)random.NextDouble();
 
             // Vitesse du cycle jour/nuit aléatoire (entre très lent et rapide)
-            dayNightSpeed = (float)(random.NextDouble() * 0.08 + 0.02); // 0.02 à 0.1
+            dayNightSpeed = 1f / 86400f;
 
             GenerateObstacles(gridWidth * gridHeight / 10); // Proportionnel à la taille
             Console.WriteLine($"Map loaded: {gridWidth}x{gridHeight}, Starting time: {GetTimeOfDayString(timeOfDay)}");
