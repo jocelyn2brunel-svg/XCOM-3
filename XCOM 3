@@ -534,13 +534,30 @@ namespace XCOM_3
             Rectangle rect = new(unit.Cell.X * cellSize + 4, unit.Cell.Y * cellSize + 4, cellSize - 8, cellSize - 8);
             _spriteBatch.Draw(pixel, rect, unit.Team == Team.Player ? Color.Blue : Color.Red);
 
-            // Tir en cours
+            // Animation d'attaque en cours
             if (unit.IsFiring && unit.FireTarget.HasValue)
             {
-                Vector2 start = (unit.Cell.ToVector2() + new Vector2(0.5f)) * cellSize;
-                Vector2 end = (unit.FireTarget.Value.ToVector2() + new Vector2(0.5f)) * cellSize;
-                Vector2 pos = Vector2.Lerp(start, end, unit.FireProgress);
-                _spriteBatch.Draw(pixel, new Rectangle((int)pos.X - 4, (int)pos.Y - 4, 8, 8), Color.Yellow);
+                // Animation spéciale pour le zombie (tackle/charge)
+                if (unit.Weapon == "Zombie Claws")
+                {
+                    Vector2 start = (unit.Cell.ToVector2() + new Vector2(0.5f)) * cellSize;
+                    Vector2 end = (unit.FireTarget.Value.ToVector2() + new Vector2(0.5f)) * cellSize;
+                    Vector2 pos = Vector2.Lerp(start, end, unit.FireProgress);
+
+                    // Dessine le zombie en mouvement (plus gros pour l'effet de charge)
+                    int tackleSize = (int)(cellSize * 0.7f);
+                    _spriteBatch.Draw(pixel,
+                        new Rectangle((int)pos.X - tackleSize / 2, (int)pos.Y - tackleSize / 2, tackleSize, tackleSize),
+                        Color.DarkGreen * 0.8f);
+                }
+                else
+                {
+                    // Animation normale de tir (projectile)
+                    Vector2 start = (unit.Cell.ToVector2() + new Vector2(0.5f)) * cellSize;
+                    Vector2 end = (unit.FireTarget.Value.ToVector2() + new Vector2(0.5f)) * cellSize;
+                    Vector2 pos = Vector2.Lerp(start, end, unit.FireProgress);
+                    _spriteBatch.Draw(pixel, new Rectangle((int)pos.X - 4, (int)pos.Y - 4, 8, 8), Color.Yellow);
+                }
             }
 
             // Sélection de l'unité
@@ -1091,7 +1108,8 @@ namespace XCOM_3
             new("Alien Grunt","Infantry","Plasma Rifle",3),
             new("Alien Sniper","Sniper","Plasma Sniper",2),
             new("Alien Heavy","Heavy","Plasma Cannon",2),
-            new("Alien Scout","Scout","SMG Plasma",4)
+            new("Alien Scout","Scout","SMG Plasma",4),
+            new("Zombie","Undead","Zombie Claws",2)
         };
 
         private void InitializeWeapons() => weaponDatabase = new Dictionary<string, WeaponData>
@@ -1100,7 +1118,8 @@ namespace XCOM_3
             ["Plasma Rifle"] = new("Plasma Rifle", 30, 75, 5),
             ["Plasma Sniper"] = new("Plasma Sniper", 50, 90, 8),
             ["Plasma Cannon"] = new("Plasma Cannon", 40, 70, 4),
-            ["SMG Plasma"] = new("SMG Plasma", 15, 60, 6)
+            ["SMG Plasma"] = new("SMG Plasma", 15, 60, 6),
+            ["Zombie Claws"] = new("Zombie Claws", 35, 70, 1)
         };
 
         private void HandleMainMenu(MouseState mouse)
