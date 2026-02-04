@@ -17,6 +17,7 @@ namespace XCOM_3
 
         // --- Modèles et effets 3D ---
         private BasicEffect basicEffect;
+        private BasicEffect texturedEffect; // Effet pour les textures
         private Model cubeModel;  // Pour les unités et obstacles
         private Model planeModel; // Pour le sol
 
@@ -25,6 +26,13 @@ namespace XCOM_3
         private short[] cubeIndices;
         private VertexPositionColor[] planeVertices;
         private short[] planeIndices;
+
+        // Primitives avec texture
+        private VertexPositionNormalTexture[] planeTexturedVertices;
+        private short[] planeTexturedIndices;
+
+        // Textures
+        private Texture2D tileTexture;
 
         // --- Caméra 3D ---
         private Vector3 cameraPosition;
@@ -139,6 +147,7 @@ namespace XCOM_3
             // Initialisation des primitives 3D
             CreateCubePrimitive();
             CreatePlanePrimitive();
+            CreateTexturedPlanePrimitive(); // NOUVEAU
 
             base.Initialize();
         }
@@ -152,11 +161,20 @@ namespace XCOM_3
             pixel = new Texture2D(GraphicsDevice, 1, 1);
             pixel.SetData(new[] { Color.White });
 
-            // Configuration de l'effet 3D de base
+            // NOUVEAU: Chargement de la texture
+            tileTexture = Content.Load<Texture2D>("TileParchment32x32");
+
+            // Configuration de l'effet 3D de base (pour couleurs)
             basicEffect = new BasicEffect(GraphicsDevice);
             basicEffect.VertexColorEnabled = true;
             basicEffect.LightingEnabled = true;
             basicEffect.EnableDefaultLighting();
+
+            // NOUVEAU: Configuration de l'effet pour textures
+            texturedEffect = new BasicEffect(GraphicsDevice);
+            texturedEffect.TextureEnabled = true;
+            texturedEffect.LightingEnabled = true;
+            texturedEffect.EnableDefaultLighting();
 
             // Configuration de la matrice de projection
             projectionMatrix = Matrix.CreatePerspectiveFieldOfView(
@@ -271,9 +289,12 @@ namespace XCOM_3
                 // Mise à jour de la caméra
                 UpdateCamera();
 
-                // Configuration de l'effet 3D
+                // Configuration des effets 3D
                 basicEffect.View = viewMatrix;
                 basicEffect.Projection = projectionMatrix;
+
+                texturedEffect.View = viewMatrix;
+                texturedEffect.Projection = projectionMatrix;
 
                 // Désactive le culling pour voir les deux faces
                 RasterizerState rasterizerState = new RasterizerState();
@@ -376,6 +397,26 @@ namespace XCOM_3
             planeIndices = new short[] { 0, 1, 2, 0, 2, 3 };
         }
 
+        // NOUVEAU: Primitive plane avec support de texture
+        private void CreateTexturedPlanePrimitive()
+        {
+            planeTexturedVertices = new VertexPositionNormalTexture[4];
+
+            Vector3 normal = Vector3.Up; // Normal pointant vers le haut
+
+            // Coins du plan avec coordonnées UV
+            planeTexturedVertices[0] = new VertexPositionNormalTexture(
+                new Vector3(-0.5f, 0, -0.5f), normal, new Vector2(0, 0));
+            planeTexturedVertices[1] = new VertexPositionNormalTexture(
+                new Vector3(-0.5f, 0, 0.5f), normal, new Vector2(0, 1));
+            planeTexturedVertices[2] = new VertexPositionNormalTexture(
+                new Vector3(0.5f, 0, 0.5f), normal, new Vector2(1, 1));
+            planeTexturedVertices[3] = new VertexPositionNormalTexture(
+                new Vector3(0.5f, 0, -0.5f), normal, new Vector2(1, 0));
+
+            planeTexturedIndices = new short[] { 0, 1, 2, 0, 2, 3 };
+        }
+
         private void DrawCube(Vector3 position, Vector3 scale, Color color)
         {
             // Crée une copie des vertices avec la couleur appropriée
@@ -424,6 +465,28 @@ namespace XCOM_3
                     0,
                     4,
                     planeIndices,
+                    0,
+                    2
+                );
+            }
+        }
+
+        // NOUVEAU: Méthode pour dessiner un plan avec texture
+        private void DrawTexturedPlane(Vector3 position, Vector3 scale, Texture2D texture)
+        {
+            Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
+            texturedEffect.World = world;
+            texturedEffect.Texture = texture;
+
+            foreach (EffectPass pass in texturedEffect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                GraphicsDevice.DrawUserIndexedPrimitives(
+                    PrimitiveType.TriangleList,
+                    planeTexturedVertices,
+                    0,
+                    4,
+                    planeTexturedIndices,
                     0,
                     2
                 );
@@ -531,17 +594,15 @@ namespace XCOM_3
 
         private void DrawGrid3D()
         {
-            // Dessine les tuiles du sol
+            // Dessine les tuiles du sol AVEC TEXTURE
             for (int x = 0; x < gridWidth; x++)
             {
                 for (int z = 0; z < gridHeight; z++)
                 {
                     Vector3 position = new Vector3(x * cellSize + cellSize / 2f, 0, z * cellSize + cellSize / 2f);
 
-                    // Couleur en damier
-                    Color tileColor = ((x + z) % 2 == 0) ? new Color(200, 180, 150) : new Color(180, 160, 130);
-
-                    DrawPlane(position, new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f), tileColor);
+                    // Utilise la texture de parchemin pour toutes les tuiles
+                    DrawTexturedPlane(position, new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f), tileTexture);
                 }
             }
         }
