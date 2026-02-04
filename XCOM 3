@@ -44,7 +44,7 @@ namespace XCOM_3
         private float cameraDistance = 30f;
         private float cameraHeight = 20f;
         private float cameraRotationSpeed = 1.5f;
-        private float cameraMoveSpeed = 15f; // Vitesse de déplacement horizontal
+        private float cameraMoveSpeed = 35f; // Vitesse de déplacement horizontal
 
         // Zoom
         private float zoomLevel = 1f;
@@ -282,7 +282,7 @@ namespace XCOM_3
 
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.CornflowerBlue);
+            GraphicsDevice.Clear(Color.Black);
 
             if (currentState == GameState.Playing)
             {
