@@ -638,7 +638,9 @@ namespace XCOM_3
                 unit.Cell.Y * cellSize + cellSize / 2f
             );
 
-            // Animation de tir (projectile ou charge)
+            Vector3 visualOffset = Vector3.Zero;
+
+            // === Animation d'attaque ===
             if (unit.IsFiring && unit.FireTarget.HasValue)
             {
                 Vector3 targetPos = new Vector3(
@@ -647,39 +649,74 @@ namespace XCOM_3
                     unit.FireTarget.Value.Y * cellSize + cellSize / 2f
                 );
 
-                Vector3 projectilePos = Vector3.Lerp(basePosition, targetPos, unit.FireProgress);
-
+                // --- CAS ZOMBIE : CHARGE ---
                 if (unit.Weapon == "Zombie Claws")
                 {
-                    // Zombie en charge (plus gros)
-                    DrawCube(projectilePos, new Vector3(cellSize * 1.2f, cellSize * 1.2f, cellSize * 1.2f), Color.DarkGreen);
+                    Vector3 chargeVector = targetPos - basePosition;
+
+                    float t = unit.FireProgress;
+
+                    // Aller (0 → 0.5) / Retour (0.5 → 1)
+                    if (t < 0.5f)
+                    {
+                        float forwardT = t / 0.5f;
+                        visualOffset = Vector3.Lerp(Vector3.Zero, chargeVector, forwardT);
+                    }
+                    else
+                    {
+                        float returnT = (t - 0.5f) / 0.5f;
+                        visualOffset = Vector3.Lerp(chargeVector, Vector3.Zero, returnT);
+                    }
                 }
+                // --- AUTRES ARMES : PROJECTILE ---
                 else
                 {
-                    // Projectile
-                    DrawCube(projectilePos, new Vector3(cellSize * 0.3f), Color.Yellow);
+                    Vector3 projectilePos = Vector3.Lerp(basePosition, targetPos, unit.FireProgress);
+                    DrawCube(projectilePos, new Vector3(cellSize * 0.2f), Color.Yellow);
                 }
             }
 
-            // Dessine l'unité
-            Color unitColor = unit.Team == Team.Player ? Color.Blue : Color.Red;
-            DrawCube(basePosition, new Vector3(cellSize * 0.7f, cellSize * 1.2f, cellSize * 0.7f), unitColor);
+            // === Dessin de l'unité (avec offset éventuel) ===
+            Vector3 finalPos = basePosition + visualOffset;
 
-            // Sélection
+            Color unitColor = unit.Team == Team.Player ? Color.Blue : Color.Red;
+
+            float sizeMultiplier = (unit.IsFiring && unit.Weapon == "Zombie Claws") ? 1.2f : 1.0f;
+
+            DrawCube(
+                finalPos,
+                new Vector3(
+                    cellSize * 0.7f * sizeMultiplier,
+                    cellSize * 1.2f * sizeMultiplier,
+                    cellSize * 0.7f * sizeMultiplier
+                ),
+                unitColor
+            );
+
+            // === Sélection ===
             if (unit == selectedUnit)
             {
                 Vector3 selectionPos = new Vector3(basePosition.X, 0.05f, basePosition.Z);
-                DrawPlane(selectionPos, new Vector3(cellSize * 1.1f, 1, cellSize * 1.1f), new Color(0, 255, 255, 128));
+                DrawPlane(
+                    selectionPos,
+                    new Vector3(cellSize * 1.1f, 1, cellSize * 1.1f),
+                    new Color(0, 255, 255, 128)
+                );
             }
 
-            // Cible surlignée
+            // === Cible surlignée ===
             Unit targetHighlight = selectedFireTarget ?? hoveredFireTarget;
             if (targetHighlight == unit)
             {
                 Vector3 highlightPos = new Vector3(basePosition.X, 0.1f, basePosition.Z);
-                DrawPlane(highlightPos, new Vector3(cellSize * 1.2f, 1, cellSize * 1.2f), new Color(255, 0, 0, 128));
+                DrawPlane(
+                    highlightPos,
+                    new Vector3(cellSize * 1.2f, 1, cellSize * 1.2f),
+                    new Color(255, 0, 0, 128)
+                );
             }
         }
+
 
         private void DrawMovableCells3D(GameTime gameTime)
         {
@@ -1688,6 +1725,11 @@ namespace XCOM_3
         public Point? FireTarget = null;
         public float FireProgress = 0f;
         public Unit PendingTarget = null;
+        public Vector3 VisualOffset = Vector3.Zero; // Décalage temporaire
+        public Vector3 ChargeStart;
+        public Vector3 ChargeTarget;
+        public bool IsChargingForward = true;
+
 
         public Unit(Point cell, Team team, string name, string unitClass, string weapon, WeaponData weaponData)
         {
