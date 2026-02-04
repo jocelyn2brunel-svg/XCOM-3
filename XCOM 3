@@ -26,12 +26,17 @@ namespace XCOM_3
         private Song currentSong;                // musique actuellement jouée
         private Random random = new Random();    // générateur de nombres aléatoires
 
+        // --- Menu de sélection de mission ---
+        private List<Button> missionButtons;     // boutons de sélection de mission
+        private string selectedMission = "";     // mission sélectionnée
+
         // --- États du jeu ---
         enum GameState
         {
-            MainMenu,     // menu principal
-            Playing,      // partie en cours
-            OptionsMenu   // menu options
+            MainMenu,        // menu principal
+            MissionSelect,   // sélection de mission
+            Playing,         // partie en cours
+            OptionsMenu      // menu options
         }
         private GameState currentState = GameState.MainMenu; // état courant du jeu
 
@@ -162,6 +167,12 @@ namespace XCOM_3
                 .Select((text, i) => new Button(text, new Vector2(0, optionsY[i])))
                 .ToList();
 
+            // Boutons de sélection de mission
+            string[] missionLabels = { "Tutorial", "Survival", "Assault", "Defense", "Back" };
+            missionButtons = missionLabels
+                .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
+                .ToList();
+
             // Barre de volume
             volumeBar = new Rectangle(0, 134, 200, 8);
 
@@ -188,6 +199,13 @@ namespace XCOM_3
             {
                 case GameState.MainMenu:
                     HandleMainMenu(mouse);
+                    break;
+
+                case GameState.MissionSelect:
+                    HandleMissionSelect(mouse);
+
+                    if (escapePressed)
+                        currentState = GameState.MainMenu; // Retour au menu principal
                     break;
 
                 case GameState.Playing:
@@ -281,6 +299,12 @@ namespace XCOM_3
                     _spriteBatch.DrawString(font, "XCOM 3", Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
                     MouseState mouse = Mouse.GetState();
                     foreach (var button in menuButtons) button.Draw(_spriteBatch, font, mouse);
+                    break;
+
+                case GameState.MissionSelect:
+                    _spriteBatch.DrawString(font, "Select Mission", Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
+                    mouse = Mouse.GetState();
+                    foreach (var button in missionButtons) button.Draw(_spriteBatch, font, mouse);
                     break;
 
                 case GameState.Playing:
@@ -484,12 +508,12 @@ namespace XCOM_3
 
 
         // Initialise et crée les unités pour les deux équipes : joueur et ennemis
-        private void CreateUnits()
+        private void CreateUnits(string missionType = "Tutorial")
         {
             playerUnits.Clear();
             enemyUnits.Clear();
 
-            // Création des unités du joueur
+            // Création des unités du joueur (identique pour toutes les missions)
             for (int i = 0; i < 6; i++)
                 playerUnits.Add(new Unit(
                     new Point(2 + i, gridHeight - 2),
@@ -500,24 +524,93 @@ namespace XCOM_3
                     weaponDatabase["Rifle"]
                 ));
 
-            // Création des unités ennemies
-            for (int i = 0; i < 6; i++)
+            // Création des unités ennemies selon le type de mission
+            switch (missionType)
             {
-                var template = enemyPool[random.Next(enemyPool.Count)];
-                enemyUnits.Add(new Unit(
-                    new Point(2 + i, 1),
-                    Team.Enemy,
-                    template.Name,
-                    template.Class,
-                    template.Weapon,
-                    weaponDatabase[template.Weapon]
-                )
-                {
-                    ActionPoints = template.ActionPoints
-                });
+                case "Tutorial":
+                    // Mission tutoriel : 6 ennemis variés aléatoires
+                    for (int i = 0; i < 6; i++)
+                    {
+                        var template = enemyPool[random.Next(enemyPool.Count)];
+                        enemyUnits.Add(new Unit(
+                            new Point(2 + i, 1),
+                            Team.Enemy,
+                            template.Name,
+                            template.Class,
+                            template.Weapon,
+                            weaponDatabase[template.Weapon]
+                        )
+                        {
+                            ActionPoints = template.ActionPoints
+                        });
+                    }
+                    break;
+
+                case "Survival":
+                    // Mission survie : 10 ennemis (mélange)
+                    for (int i = 0; i < 10; i++)
+                    {
+                        var template = enemyPool[random.Next(enemyPool.Count)];
+                        int x = 2 + (i % 8);
+                        int y = i < 8 ? 1 : 2;
+                        enemyUnits.Add(new Unit(
+                            new Point(x, y),
+                            Team.Enemy,
+                            template.Name,
+                            template.Class,
+                            template.Weapon,
+                            weaponDatabase[template.Weapon]
+                        )
+                        {
+                            ActionPoints = template.ActionPoints
+                        });
+                    }
+                    break;
+
+                case "Assault":
+                    // Mission assault : 8 aliens (pas de zombies)
+                    for (int i = 0; i < 8; i++)
+                    {
+                        var alienTemplates = enemyPool.Where(e => e.Name != "Zombie").ToList();
+                        var template = alienTemplates[random.Next(alienTemplates.Count)];
+                        int x = 2 + i;
+                        enemyUnits.Add(new Unit(
+                            new Point(x, 1),
+                            Team.Enemy,
+                            template.Name,
+                            template.Class,
+                            template.Weapon,
+                            weaponDatabase[template.Weapon]
+                        )
+                        {
+                            ActionPoints = template.ActionPoints
+                        });
+                    }
+                    break;
+
+                case "Defense":
+                    // Mission défense : 12 zombies uniquement !
+                    var zombieTemplate = enemyPool.First(e => e.Name == "Zombie");
+                    for (int i = 0; i < 12; i++)
+                    {
+                        int x = 2 + (i % 8);
+                        int y = i < 8 ? 1 : 2;
+                        enemyUnits.Add(new Unit(
+                            new Point(x, y),
+                            Team.Enemy,
+                            zombieTemplate.Name,
+                            zombieTemplate.Class,
+                            zombieTemplate.Weapon,
+                            weaponDatabase[zombieTemplate.Weapon]
+                        )
+                        {
+                            ActionPoints = zombieTemplate.ActionPoints
+                        });
+                    }
+                    break;
             }
 
-            Console.WriteLine("Units created: 6 player, 6 enemy");
+            Console.WriteLine($"Units created for {missionType}: 6 player, {enemyUnits.Count} enemy");
         }
 
 
@@ -1129,13 +1222,8 @@ namespace XCOM_3
                     switch (btn.Text)
                     {
                         case "New Game":
-                            MediaPlayer.Stop();
-                            currentState = GameState.Playing;
-                            LoadMap();
-                            CreateUnits();
-                            // Centre la caméra sur le spawn des humains
-                            CenterCameraOnPlayerSpawn();
-                            Console.WriteLine("New game launched !");
+                            currentState = GameState.MissionSelect;
+                            Console.WriteLine("Opening mission select...");
                             break;
 
                         case "Continue":
@@ -1159,6 +1247,48 @@ namespace XCOM_3
                             Exit();
                             break;
                     }
+        }
+
+        private void HandleMissionSelect(MouseState mouse)
+        {
+            foreach (var btn in missionButtons)
+                if (btn.IsClicked(mouse, previousMouseState))
+                    switch (btn.Text)
+                    {
+                        case "Tutorial":
+                            selectedMission = "Tutorial";
+                            StartMission(selectedMission);
+                            break;
+
+                        case "Survival":
+                            selectedMission = "Survival";
+                            StartMission(selectedMission);
+                            break;
+
+                        case "Assault":
+                            selectedMission = "Assault";
+                            StartMission(selectedMission);
+                            break;
+
+                        case "Defense":
+                            selectedMission = "Defense";
+                            StartMission(selectedMission);
+                            break;
+
+                        case "Back":
+                            currentState = GameState.MainMenu;
+                            break;
+                    }
+        }
+
+        private void StartMission(string missionType)
+        {
+            MediaPlayer.Stop();
+            currentState = GameState.Playing;
+            LoadMap();
+            CreateUnits(missionType);
+            CenterCameraOnPlayerSpawn();
+            Console.WriteLine($"Mission '{missionType}' launched!");
         }
 
         private void HandleOptionsMenu(MouseState mouse)
