@@ -87,7 +87,10 @@ namespace XCOM_3
         private int gridWidth = 20;
         private int gridHeight = 15;
         private Point hoveredCell = new Point(-1, -1);
-        private HashSet<Point> obstacles = new HashSet<Point>();
+
+        // --- Murs sur les edges des cases ---
+        private HashSet<WallSegment> wallSegments = new HashSet<WallSegment>();
+        private EdgeWallGenerator edgeWallGenerator;
 
         // --- Options / Volume ---
         private List<Button> optionsButtons;
@@ -232,6 +235,9 @@ namespace XCOM_3
             InitializeWeapons();
             InitializeItems();
             InitializeInventoryItems();
+
+            // Initialiser le générateur de murs sur edges
+            edgeWallGenerator = new EdgeWallGenerator(random);
         }
 
         protected override void Update(GameTime gameTime)
@@ -376,7 +382,7 @@ namespace XCOM_3
                 GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
                 DrawGrid3D();
-                DrawObstacles3D();
+                DrawWalls3D();
                 DrawUnits3D();
                 DrawMovableCells3D(gameTime);
                 DrawPath3D(gameTime);
@@ -1028,17 +1034,59 @@ namespace XCOM_3
             }
         }
 
-        private void DrawObstacles3D()
+        private void DrawWalls3D()
         {
-            foreach (var cell in obstacles)
+            foreach (var segment in wallSegments)
             {
-                Vector3 position = new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
-                    cellSize / 2f,
-                    cell.Y * cellSize + cellSize / 2f
-                );
+                Vector3 start3D, end3D;
 
-                DrawCube(position, new Vector3(cellSize * 0.8f), new Color(139, 69, 19));
+                if (segment.IsHorizontal)
+                {
+                    // Mur horizontal (sépare les cases verticalement)
+                    start3D = new Vector3(
+                        segment.Start.X * cellSize,
+                        cellSize * 0.75f,
+                        segment.Start.Y * cellSize
+                    );
+                    end3D = new Vector3(
+                        segment.End.X * cellSize,
+                        cellSize * 0.75f,
+                        segment.End.Y * cellSize
+                    );
+                }
+                else
+                {
+                    // Mur vertical (sépare les cases horizontalement)
+                    start3D = new Vector3(
+                        segment.Start.X * cellSize,
+                        cellSize * 0.75f,
+                        segment.Start.Y * cellSize
+                    );
+                    end3D = new Vector3(
+                        segment.End.X * cellSize,
+                        cellSize * 0.75f,
+                        segment.End.Y * cellSize
+                    );
+                }
+
+                // Position au centre du segment
+                Vector3 center = (start3D + end3D) / 2f;
+
+                // Dimensions du mur
+                Vector3 scale;
+                if (segment.IsHorizontal)
+                {
+                    // Mur horizontal : long en X, mince en Z
+                    scale = new Vector3(cellSize, cellSize * 1.5f, cellSize * 0.1f);
+                }
+                else
+                {
+                    // Mur vertical : mince en X, long en Z
+                    scale = new Vector3(cellSize * 0.1f, cellSize * 1.5f, cellSize);
+                }
+
+                // Dessiner le mur
+                DrawCube(center, scale, new Color(120, 120, 120));
             }
         }
 
@@ -1342,7 +1390,7 @@ namespace XCOM_3
             timeOfDay = (float)random.NextDouble();
             dayNightSpeed = 1f / 86400f;
 
-            GenerateObstacles(gridWidth * gridHeight / 10);
+            GenerateWalls(gridWidth * gridHeight / 10);
             Console.WriteLine($"Map loaded: {gridWidth}x{gridHeight}, Starting time: {GetTimeOfDayString(timeOfDay)}");
         }
 
@@ -1441,13 +1489,31 @@ namespace XCOM_3
 
         private List<Point> GetNeighbors(Point cell)
         {
-            return new List<Point>
+            List<Point> neighbors = new List<Point>();
+
+            Point[] potentialNeighbors = new Point[]
             {
-                new Point(cell.X, cell.Y - 1),
-                new Point(cell.X, cell.Y + 1),
-                new Point(cell.X - 1, cell.Y),
-                new Point(cell.X + 1, cell.Y)
+                new Point(cell.X, cell.Y - 1), // Nord
+                new Point(cell.X, cell.Y + 1), // Sud
+                new Point(cell.X - 1, cell.Y), // Ouest
+                new Point(cell.X + 1, cell.Y)  // Est
             };
+
+            foreach (var neighbor in potentialNeighbors)
+            {
+                // Vérifier que le voisin est dans la grille
+                if (neighbor.X >= 0 && neighbor.X < gridWidth &&
+                    neighbor.Y >= 0 && neighbor.Y < gridHeight)
+                {
+                    // Vérifier qu'il n'y a pas de mur entre les deux cases
+                    if (!HasWallBetween(cell, neighbor))
+                    {
+                        neighbors.Add(neighbor);
+                    }
+                }
+            }
+
+            return neighbors;
         }
 
         private bool IsWalkable(Point cell)
@@ -1455,13 +1521,54 @@ namespace XCOM_3
             if (cell.X < 0 || cell.Y < 0 || cell.X >= gridWidth || cell.Y >= gridHeight)
                 return false;
 
-            if (obstacles.Contains(cell))
-                return false;
-
             if (GetUnitAtCell(cell) != null)
                 return false;
 
             return true;
+        }
+
+        /// <summary>
+        /// Vérifie s'il y a un mur entre deux cases adjacentes
+        /// </summary>
+        private bool HasWallBetween(Point from, Point to)
+        {
+            // Vérifier si les cases sont adjacentes
+            int dx = to.X - from.X;
+            int dy = to.Y - from.Y;
+
+            if (Math.Abs(dx) + Math.Abs(dy) != 1)
+                return false; // Pas adjacentes
+
+            WallSegment segment;
+
+            if (dy != 0) // Mouvement vertical
+            {
+                // Chercher un mur horizontal
+                int wallY = Math.Min(from.Y, to.Y);
+                if (dy > 0) wallY = to.Y; // Mouvement vers le bas
+                else wallY = from.Y; // Mouvement vers le haut
+
+                segment = new WallSegment(
+                    new Point(from.X, wallY),
+                    new Point(from.X + 1, wallY),
+                    true
+                );
+            }
+            else // Mouvement horizontal
+            {
+                // Chercher un mur vertical
+                int wallX = Math.Min(from.X, to.X);
+                if (dx > 0) wallX = to.X; // Mouvement vers la droite
+                else wallX = from.X; // Mouvement vers la gauche
+
+                segment = new WallSegment(
+                    new Point(wallX, from.Y),
+                    new Point(wallX, from.Y + 1),
+                    false
+                );
+            }
+
+            return wallSegments.Contains(segment);
         }
 
         private int ManhattanDistance(Point a, Point b)
@@ -1689,20 +1796,56 @@ namespace XCOM_3
             }
             else
             {
+                // Calcul du déplacement d'une case vers le joueur
                 Point next = new Point(
                     enemy.Cell.X + Math.Sign(closest.Cell.X - enemy.Cell.X),
                     enemy.Cell.Y + Math.Sign(closest.Cell.Y - enemy.Cell.Y)
                 );
 
-                if (next.X >= 0 && next.X < gridWidth && next.Y >= 0 && next.Y < gridHeight &&
-                    GetUnitAtCell(next) == null && !obstacles.Contains(next))
+                // Vérifie si le mouvement est dans la grille
+                bool inBounds = next.X >= 0 && next.X < gridWidth && next.Y >= 0 && next.Y < gridHeight;
+
+                // Vérifie si une unité est déjà sur la case
+                bool unitBlocked = GetUnitAtCell(next) != null;
+
+                // Vérifie si un mur bloque le mouvement
+                bool wallBlocked = wallSegments.Any(w =>
+                {
+                    // Déplacement vertical
+                    if (next.Y != enemy.Cell.Y && w.IsHorizontal)
+                    {
+                        // Mur horizontal entre enemy.Cell et next ?
+                        if ((w.Start.Y == Math.Min(enemy.Cell.Y, next.Y) + 1) &&
+                            w.Start.X <= Math.Max(enemy.Cell.X, next.X) &&
+                            w.End.X > Math.Min(enemy.Cell.X, next.X))
+                            return true;
+                    }
+
+                    // Déplacement horizontal
+                    if (next.X != enemy.Cell.X && !w.IsHorizontal)
+                    {
+                        // Mur vertical entre enemy.Cell et next ?
+                        if ((w.Start.X == Math.Min(enemy.Cell.X, next.X) + 1) &&
+                            w.Start.Y <= Math.Max(enemy.Cell.Y, next.Y) &&
+                            w.End.Y > Math.Min(enemy.Cell.Y, next.Y))
+                            return true;
+                    }
+
+                    return false;
+                });
+
+                if (inBounds && !unitBlocked && !wallBlocked)
                 {
                     enemy.Cell = next;
                     enemy.ActionPoints--;
                 }
                 else
+                {
+                    // Impossible de se déplacer → fin du tour
                     enemy.ActionPoints = 0;
+                }
             }
+
 
             if (enemy.ActionPoints <= 0) enemyTurnIndex++;
         }
@@ -1764,39 +1907,76 @@ namespace XCOM_3
             }
         }
 
-        private void GenerateObstacles(int count)
+        private void GenerateWalls(int count)
         {
-            obstacles.Clear();
-            int clusters = count / 3;
-            for (int i = 0; i < clusters; i++)
+            wallSegments.Clear();
+
+            // Choisir le pattern selon le type de mission
+            EdgeWallGenerator.WallPattern pattern;
+
+            switch (selectedMission)
             {
-                int cx = random.Next(2, gridWidth - 2), cy = random.Next(2, gridHeight - 2);
-                for (int j = 0; j < 3; j++)
-                {
-                    int x = cx + random.Next(-1, 2), y = cy + random.Next(-1, 2);
-                    if (y >= gridHeight - 2 || y <= 1) continue;
-                    if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight)
-                        obstacles.Add(new Point(x, y));
-                }
+                case "Tutorial":
+                    pattern = EdgeWallGenerator.WallPattern.Scattered;
+                    break;
+                case "Survival":
+                    pattern = EdgeWallGenerator.WallPattern.Bunker;
+                    break;
+                case "Assault":
+                    pattern = EdgeWallGenerator.WallPattern.Urban;
+                    break;
+                case "Defense":
+                    pattern = EdgeWallGenerator.WallPattern.Trenches;
+                    break;
+                default:
+                    var patterns = Enum.GetValues(typeof(EdgeWallGenerator.WallPattern));
+                    pattern = (EdgeWallGenerator.WallPattern)patterns.GetValue(random.Next(patterns.Length));
+                    break;
             }
+
+            // Générer les segments de murs
+            wallSegments = edgeWallGenerator.GenerateWalls(gridWidth, gridHeight, pattern, count);
+
+            // Nettoyer les zones de spawn
+            edgeWallGenerator.ClearSpawnZones(wallSegments, gridWidth, gridHeight);
+
+            Console.WriteLine($"Generated {wallSegments.Count} wall segments using pattern: {pattern}");
         }
 
         private bool HasLineOfSight(Point from, Point to)
         {
+            // Algorithme de Bresenham pour ligne de vue
             int x0 = from.X, y0 = from.Y, x1 = to.X, y1 = to.Y;
             int dx = Math.Abs(x1 - x0), dy = Math.Abs(y1 - y0);
             int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
             int err = dx - dy;
 
+            Point current = new Point(x0, y0);
+            Point previous = current;
+
             while (true)
             {
-                if ((x0 != from.X || y0 != from.Y) && obstacles.Contains(new Point(x0, y0)))
+                if (current != from && HasWallBetween(previous, current))
                     return false;
-                if (x0 == x1 && y0 == y1) break;
+
+                if (current.X == x1 && current.Y == y1)
+                    break;
+
+                previous = current;
+
                 int e2 = 2 * err;
-                if (e2 > -dy) { err -= dy; x0 += sx; }
-                if (e2 < dx) { err += dx; y0 += sy; }
+                if (e2 > -dy)
+                {
+                    err -= dy;
+                    current.X += sx;
+                }
+                if (e2 < dx)
+                {
+                    err += dx;
+                    current.Y += sy;
+                }
             }
+
             return true;
         }
 
