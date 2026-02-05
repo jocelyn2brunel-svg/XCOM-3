@@ -3,10 +3,10 @@ using Microsoft.Xna.Framework;
 namespace XCOM_3
 {
     // ═══════════════════════════════════════════════════════════════════════
-    // CLASSE UNIT MODIFIÉE AVEC INVENTAIRE
+    // CLASSE UNIT MODIFIÉE AVEC INVENTAIRE ET GRENADES
+    // IMPORTANT: Ajout du mot-clé "partial" pour supporter les grenades
     // ═══════════════════════════════════════════════════════════════════════
-
-    public class Unit
+    public partial class Unit
     {
         public Point Cell;
         public Team Team;
@@ -22,40 +22,44 @@ namespace XCOM_3
         public Vector3 ChargeTarget;
         public bool IsChargingForward = true;
 
-        // NOUVEAU: Système d'inventaire
+        // Système d'inventaire
         public Item EquippedWeapon = null;
         public Item EquippedHelmet = null;
         public Item EquippedArmor = null;
 
         public Unit(Point cell, Team team, string name, string unitClass, string weapon, WeaponData weaponData)
         {
-            Cell = cell; 
-            Team = team; 
-            Name = name; 
-            Class = unitClass; 
-            Weapon = weapon; 
+            Cell = cell;
+            Team = team;
+            Name = name;
+            Class = unitClass;
+            Weapon = weapon;
             WeaponData = weaponData;
         }
 
         public Unit(Unit other)
         {
-            Cell = other.Cell; 
-            Team = other.Team; 
-            Name = other.Name; 
+            Cell = other.Cell;
+            Team = other.Team;
+            Name = other.Name;
             Class = other.Class;
-            Weapon = other.Weapon; 
+            Weapon = other.Weapon;
             WeaponData = other.WeaponData;
-            ActionPoints = other.ActionPoints; 
-            Health = other.Health; 
+            ActionPoints = other.ActionPoints;
+            Health = other.Health;
             MaxHealth = other.MaxHealth;
-            
+
             // Copie les items équipés
             EquippedWeapon = other.EquippedWeapon;
             EquippedHelmet = other.EquippedHelmet;
             EquippedArmor = other.EquippedArmor;
+
+            // Copie les grenades
+            Grenades = new System.Collections.Generic.List<GrenadeData>(other.Grenades);
+            MaxGrenades = other.MaxGrenades;
         }
 
-        // NOUVEAU: Calcule l'armure totale
+        // Calcule l'armure totale
         public int GetTotalArmor()
         {
             int total = 0;
