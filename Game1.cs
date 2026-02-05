@@ -1408,7 +1408,7 @@ namespace XCOM_3
             }
         }
 
-        private List<Point> FindPathAStar(Point start, Point goal, int maxDistance)
+        private List<Point> FindPathAStar(Point start, Point goal, int maxDistance, Unit movingUnit = null)
         {
             List<AStarNode> openList = new List<AStarNode>();
             HashSet<Point> closedList = new HashSet<Point>();
@@ -1441,13 +1441,13 @@ namespace XCOM_3
                     if (closedList.Contains(neighbor))
                         continue;
 
-                    if (!IsWalkable(neighbor))
+                    if (neighbor != goal && !IsWalkable(neighbor, movingUnit))
                         continue;
+
 
                     int newGCost = currentNode.GCost + 1;
 
-                    if (newGCost > maxDistance)
-                        continue;
+                 
 
                     AStarNode neighborNode = openList.FirstOrDefault(n => n.Position == neighbor);
 
@@ -1471,6 +1471,7 @@ namespace XCOM_3
 
             return new List<Point>();
         }
+
 
         private List<Point> RetracePath(AStarNode startNode, AStarNode endNode)
         {
@@ -1516,60 +1517,67 @@ namespace XCOM_3
             return neighbors;
         }
 
-        private bool IsWalkable(Point cell)
+        private bool IsWalkable(Point cell, Unit movingUnit = null)
         {
             if (cell.X < 0 || cell.Y < 0 || cell.X >= gridWidth || cell.Y >= gridHeight)
                 return false;
 
-            if (GetUnitAtCell(cell) != null)
+            var unit = GetUnitAtCell(cell);
+            if (unit != null && unit != movingUnit)
                 return false;
 
             return true;
         }
+
+
+
 
         /// <summary>
         /// Vérifie s'il y a un mur entre deux cases adjacentes
         /// </summary>
         private bool HasWallBetween(Point from, Point to)
         {
-            // Vérifier si les cases sont adjacentes
             int dx = to.X - from.X;
             int dy = to.Y - from.Y;
 
+            // Doivent être adjacentes
             if (Math.Abs(dx) + Math.Abs(dy) != 1)
-                return false; // Pas adjacentes
+                return false;
 
-            WallSegment segment;
-
-            if (dy != 0) // Mouvement vertical
+            foreach (var w in wallSegments)
             {
-                // Chercher un mur horizontal
-                int wallY = Math.Min(from.Y, to.Y);
-                if (dy > 0) wallY = to.Y; // Mouvement vers le bas
-                else wallY = from.Y; // Mouvement vers le haut
-
-                segment = new WallSegment(
-                    new Point(from.X, wallY),
-                    new Point(from.X + 1, wallY),
-                    true
-                );
+                if (dy == 1 && w.IsHorizontal) // vers le bas
+                {
+                    if (w.Start.Y == to.Y &&
+                        from.X >= w.Start.X && from.X < w.End.X)
+                        return true;
+                }
+                if (dy == -1 && w.IsHorizontal) // vers le haut
+                {
+                    if (w.Start.Y == from.Y &&
+                        from.X >= w.Start.X && from.X < w.End.X)
+                        return true;
+                }
+                if (dx == 1 && !w.IsHorizontal) // vers la droite
+                {
+                    if (w.Start.X == to.X &&
+                        from.Y >= w.Start.Y && from.Y < w.End.Y)
+                        return true;
+                }
+                if (dx == -1 && !w.IsHorizontal) // vers la gauche
+                {
+                    if (w.Start.X == from.X &&
+                        from.Y >= w.Start.Y && from.Y < w.End.Y)
+                        return true;
+                }
             }
-            else // Mouvement horizontal
-            {
-                // Chercher un mur vertical
-                int wallX = Math.Min(from.X, to.X);
-                if (dx > 0) wallX = to.X; // Mouvement vers la droite
-                else wallX = from.X; // Mouvement vers la gauche
 
-                segment = new WallSegment(
-                    new Point(wallX, from.Y),
-                    new Point(wallX, from.Y + 1),
-                    false
-                );
-            }
-
-            return wallSegments.Contains(segment);
+            return false;
         }
+
+
+
+
 
         private int ManhattanDistance(Point a, Point b)
         {
@@ -1786,12 +1794,13 @@ namespace XCOM_3
             if (bestDist <= enemy.WeaponData.Range && HasLineOfSight(enemy.Cell, closest.Cell))
             { HandleFire(enemy); return; }
 
-            var path = FindPathAStar(enemy.Cell, closest.Cell, enemy.MovementPoints);
+            var path = FindPathAStar(enemy.Cell, closest.Cell, int.MaxValue, enemy);
 
             if (path.Count > 0)
             {
-                Point nextCell = path[0];
-                enemy.Cell = nextCell;
+                int steps = Math.Min(enemy.MovementPoints, path.Count);
+
+                enemy.Cell = path[steps - 1];
                 enemy.ActionPoints--;
             }
             else
