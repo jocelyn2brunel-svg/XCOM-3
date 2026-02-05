@@ -78,6 +78,26 @@ namespace XCOM_3
         private List<Button> missionButtons;
         private string selectedMission = "";
 
+        // --- Système de grenades ---
+        private Dictionary<string, GrenadeData> grenadeDatabase;
+        private List<GrenadeItem> availableGrenades = new List<GrenadeItem>();
+        private ExplosionManager explosionManager;
+
+        // Grenades en vol et explosions
+        private List<Grenade> activeGrenades = new List<Grenade>();
+        private List<Crater> craters = new List<Crater>();
+
+        // Mode lancer de grenade
+        private bool throwMode = false;
+        private GrenadeData selectedGrenade = null;
+        private Point throwTarget = new Point(-1, -1);
+        private List<Point> throwableCells = new List<Point>();
+        private List<Point> explosionPreview = new List<Point>();
+        private List<Vector3> trajectoryPreview = new List<Vector3>();
+
+        // Constantes
+        private const int MaxThrowRange = 8;
+
         // --- États du jeu ---
         enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu }
         private GameState currentState = GameState.MainMenu;
@@ -236,6 +256,9 @@ namespace XCOM_3
             InitializeItems();
             InitializeInventoryItems();
 
+            InitializeGrenades();
+            explosionManager = new ExplosionManager(random);
+
             // Initialiser le générateur de murs sur edges
             edgeWallGenerator = new EdgeWallGenerator(random);
         }
@@ -259,6 +282,8 @@ namespace XCOM_3
                     draggedItem = null;
                 }
             }
+
+            UpdateGrenades(gameTime);
 
             menuButtons[1].IsEnabled = hasSavedGame;
 
@@ -387,6 +412,10 @@ namespace XCOM_3
                 DrawMovableCells3D(gameTime);
                 DrawPath3D(gameTime);
                 DrawHoveredCell3D(gameTime);
+                DrawCraters3D();
+                DrawGrenades3D();
+                DrawThrowMode3D(gameTime);
+          
             }
 
             _spriteBatch.Begin();
@@ -416,8 +445,8 @@ namespace XCOM_3
                         if (showFireTargets && selectedUnit != null && selectedUnit.Team == Team.Player)
                             DrawFireTargets();
 
-                        _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle Mouse: Deplacement | I: Inventaire",
-                            new Vector2(10, 10), Color.White);
+                        _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | I: Inventaire | G: Grenade",
+                                        new Vector2(10, 10), Color.White);
 
                         string timeStr = GetTimeOfDayString(timeOfDay);
                         _spriteBatch.DrawString(font, $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}",
@@ -1374,6 +1403,22 @@ namespace XCOM_3
                 );
             }
 
+            // Afficher les grenades
+            Vector2 grenadePos = p + new Vector2(0, 120);
+            _spriteBatch.DrawString(font, $"Grenades: {selectedUnit.Grenades.Count}/{selectedUnit.MaxGrenades}",
+                                   grenadePos, Color.Orange);
+
+            for (int i = 0; i < selectedUnit.Grenades.Count; i++)
+            {
+                var grenade = selectedUnit.Grenades[i];
+                string symbol = GrenadeDatabase.GetGrenadeSymbol(grenade.Type);
+                Color color = GrenadeDatabase.GetGrenadeColor(grenade.Type);
+
+                _spriteBatch.DrawString(font, symbol,
+                                       grenadePos + new Vector2(i * 30, 20),
+                                       color, 0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0f);
+            }
+
             UpdateFireTargetsUIPositions();
         }
 
@@ -1632,6 +1677,15 @@ namespace XCOM_3
                     "Rifle",
                     weaponDatabase["Rifle"]
                 ));
+
+            // Équiper les unités joueur avec des grenades
+            foreach (var unit in playerUnits)
+            {
+                unit.AddGrenade(grenadeDatabase["Frag Grenade"]);
+
+                if (random.Next(100) < 50)
+                    unit.AddGrenade(grenadeDatabase["Smoke Grenade"]);
+            }
 
             switch (missionType)
             {
@@ -2196,6 +2250,38 @@ namespace XCOM_3
                 }
             }
 
+            // Touche G pour mode grenade
+            bool gPressed = keyboard.IsKeyDown(Keys.G) && previousKeyboardState.IsKeyUp(Keys.G);
+            if (gPressed && selectedUnit != null && selectedUnit.Team == Team.Player && selectedUnit.Grenades.Count > 0)
+            {
+                throwMode = !throwMode;
+
+                if (throwMode)
+                {
+                    selectedGrenade = selectedUnit.Grenades[0]; // Sélectionner la première grenade
+                    throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(
+                        selectedUnit.Cell,
+                        MaxThrowRange,
+                        gridWidth,
+                        gridHeight
+                    );
+                    Console.WriteLine($"Grenade throw mode: {selectedGrenade.Name}");
+                }
+                else
+                {
+                    selectedGrenade = null;
+                    throwableCells.Clear();
+                    explosionPreview.Clear();
+                    trajectoryPreview.Clear();
+                }
+            }
+
+            // Mode lancer de grenade
+            if (throwMode)
+            {
+                HandleGrenadeThrow(mouse, leftClick);
+            }
+
             bool clickOnUI = fireButton.Contains(mouse.Position) || IsMouseOverActionButton(mouse) ||
                             (showInventory && inventoryPanel.Contains(mouse.Position));
 
@@ -2282,6 +2368,262 @@ namespace XCOM_3
             currentPath.Clear();
             pathCosts.Clear();
         }
+
+        private void InitializeGrenades()
+        {
+            grenadeDatabase = GrenadeDatabase.GetAllGrenades();
+
+            // Ajouter quelques grenades disponibles dans l'inventaire
+            availableGrenades.Add(new GrenadeItem(grenadeDatabase["Frag Grenade"], new Point(50, 300)));
+            availableGrenades.Add(new GrenadeItem(grenadeDatabase["HE Grenade"], new Point(110, 300)));
+            availableGrenades.Add(new GrenadeItem(grenadeDatabase["Plasma Grenade"], new Point(170, 300)));
+            availableGrenades.Add(new GrenadeItem(grenadeDatabase["Smoke Grenade"], new Point(230, 300)));
+            availableGrenades.Add(new GrenadeItem(grenadeDatabase["Demolition Charge"], new Point(290, 300)));
+        }
+
+        private void EquipGrenadeToUnit(Unit unit, GrenadeData grenade)
+        {
+            if (unit.AddGrenade(grenade))
+            {
+                Console.WriteLine($"{unit.Name} equipped {grenade.Name}");
+            }
+            else
+            {
+                Console.WriteLine($"{unit.Name} grenade slots full!");
+            }
+        }
+
+        private void HandleGrenadeThrow(MouseState mouse, bool leftClick)
+        {
+            if (selectedUnit == null || selectedGrenade == null) return;
+
+            // Calculer la case survolée
+            throwTarget = GetCellFromMouseRaycast(mouse);
+
+            if (throwTarget.X >= 0)
+            {
+                // Mettre à jour la prévisualisation de l'explosion
+                explosionPreview = ThrowTrajectoryCalculator.GetExplosionPreview(
+                    throwTarget,
+                    selectedGrenade.Radius,
+                    gridWidth,
+                    gridHeight
+                );
+
+                // Calculer la trajectoire pour affichage
+                Vector3 startPos = new Vector3(
+                    selectedUnit.Cell.X * cellSize + cellSize / 2f,
+                    cellSize * 1.5f,
+                    selectedUnit.Cell.Y * cellSize + cellSize / 2f
+                );
+
+                Vector3 targetPos = new Vector3(
+                    throwTarget.X * cellSize + cellSize / 2f,
+                    0,
+                    throwTarget.Y * cellSize + cellSize / 2f
+                );
+
+                trajectoryPreview = ThrowTrajectoryCalculator.CalculateArcPoints(startPos, targetPos);
+            }
+
+            // Clic gauche pour lancer
+            if (leftClick && throwTarget.X >= 0)
+            {
+                if (ThrowTrajectoryCalculator.IsInThrowRange(selectedUnit.Cell, throwTarget, MaxThrowRange))
+                {
+                    LaunchGrenade(selectedUnit, selectedGrenade, throwTarget);
+
+                    selectedUnit.ActionPoints -= selectedGrenade.AOCost;
+                    selectedUnit.RemoveGrenade(selectedGrenade);
+
+                    // Quitter le mode lancer
+                    throwMode = false;
+                    selectedGrenade = null;
+                    throwableCells.Clear();
+                    explosionPreview.Clear();
+                    trajectoryPreview.Clear();
+                }
+            }
+
+        }
+
+        private void LaunchGrenade(Unit thrower, GrenadeData grenadeData, Point targetCell)
+        {
+            Vector3 startPos = new Vector3(
+                thrower.Cell.X * cellSize + cellSize / 2f,
+                cellSize * 1.5f,
+                thrower.Cell.Y * cellSize + cellSize / 2f
+            );
+
+            Vector3 targetPos = new Vector3(
+                targetCell.X * cellSize + cellSize / 2f,
+                0,
+                targetCell.Y * cellSize + cellSize / 2f
+            );
+
+            Grenade grenade = new Grenade(grenadeData, startPos, targetPos, thrower);
+            activeGrenades.Add(grenade);
+
+            Console.WriteLine($"{thrower.Name} threw {grenadeData.Name} at {targetCell}");
+        }
+
+        private void UpdateGrenades(GameTime gameTime)
+        {
+            float grenadeSpeed = 2.5f;
+
+            for (int i = activeGrenades.Count - 1; i >= 0; i--)
+            {
+                var grenade = activeGrenades[i];
+                grenade.Progress += (float)gameTime.ElapsedGameTime.TotalSeconds * grenadeSpeed;
+
+                if (grenade.Progress >= 1f)
+                {
+                    // Explosion!
+                    Point explosionCell = new Point(
+                        (int)(grenade.TargetPosition.X / cellSize),
+                        (int)(grenade.TargetPosition.Z / cellSize)
+                    );
+
+                    TriggerExplosion(explosionCell, grenade.Data);
+                    activeGrenades.RemoveAt(i);
+                }
+                else
+                {
+                    grenade.Position = grenade.GetCurrentPosition();
+                }
+            }
+
+            // Vieillir les cratères
+            foreach (var crater in craters)
+            {
+                crater.Age += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            }
+        }
+
+        private void TriggerExplosion(Point center, GrenadeData grenadeData)
+        {
+            Console.WriteLine($"EXPLOSION at {center} - {grenadeData.Name}");
+
+            // Appliquer les dégâts aux unités
+            List<Point> affectedCells = explosionManager.GetExplosionCells(center, grenadeData.Radius);
+
+            foreach (var cell in affectedCells)
+            {
+                Unit unit = GetUnitAtCell(cell);
+                if (unit != null)
+                {
+                    int damage = explosionManager.CalculateExplosionDamage(
+                        grenadeData.Damage,
+                        center,
+                        cell,
+                        grenadeData.Radius
+                    );
+
+                    unit.Health = Math.Max(0, unit.Health - damage);
+                    Console.WriteLine($"{unit.Name} took {damage} explosion damage! HP: {unit.Health}");
+
+                    if (unit.Health <= 0)
+                    {
+                        (unit.Team == Team.Player ? playerUnits : enemyUnits).Remove(unit);
+                        Console.WriteLine($"{unit.Name} killed by explosion!");
+                    }
+                }
+            }
+
+            // Détruire les murs
+            if (grenadeData.DestroyWalls)
+            {
+                List<WallSegment> destroyedWalls = explosionManager.GetDestroyedWalls(
+                    wallSegments,
+                    center,
+                    grenadeData.Radius
+                );
+
+                foreach (var wall in destroyedWalls)
+                {
+                    wallSegments.Remove(wall);
+                }
+
+                Console.WriteLine($"Destroyed {destroyedWalls.Count} wall segments");
+            }
+
+            // Créer des cratères
+            if (grenadeData.DigsTerrain)
+            {
+                List<Crater> newCraters = explosionManager.CreateCraters(
+                    center,
+                    grenadeData.DigDepth,
+                    grenadeData.Radius
+                );
+
+                craters.AddRange(newCraters);
+                Console.WriteLine($"Created {newCraters.Count} craters");
+            }
+        }
+
+        private void DrawGrenades3D()
+        {
+            foreach (var grenade in activeGrenades)
+            {
+                Color grenadeColor = GrenadeDatabase.GetGrenadeColor(grenade.Data.Type);
+                DrawCube(grenade.Position, new Vector3(cellSize * 0.2f), grenadeColor);
+            }
+        }
+
+        private void DrawCraters3D()
+        {
+            foreach (var crater in craters)
+            {
+                Vector3 position = new Vector3(
+                    crater.Cell.X * cellSize + cellSize / 2f,
+                    -crater.Depth * 0.2f, // Enfoncer dans le sol
+                    crater.Cell.Y * cellSize + cellSize / 2f
+                );
+
+                // Cratère plus foncé selon la profondeur
+                Color craterColor = new Color(60, 50, 40) * (0.5f + crater.Depth * 0.15f);
+
+                DrawPlane(position,
+                         new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f),
+                         craterColor);
+            }
+        }
+
+        private void DrawThrowMode3D(GameTime gameTime)
+        {
+            if (!throwMode) return;
+
+            float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.3f + 0.7f;
+
+            // Dessiner les cases où on peut lancer
+            foreach (var cell in throwableCells)
+            {
+                Vector3 position = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    0.2f,
+                    cell.Y * cellSize + cellSize / 2f
+                );
+                DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), Color.Yellow * 0.3f * pulse);
+            }
+
+            // Dessiner la zone d'explosion prévisionnelle
+            foreach (var cell in explosionPreview)
+            {
+                Vector3 position = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    0.25f,
+                    cell.Y * cellSize + cellSize / 2f
+                );
+                DrawPlane(position, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), Color.Red * 0.5f * pulse);
+            }
+
+            // Dessiner la trajectoire
+            for (int i = 0; i < trajectoryPreview.Count - 1; i++)
+            {
+                DrawCube(trajectoryPreview[i], new Vector3(cellSize * 0.1f), Color.White * 0.7f);
+            }
+        }
+
     }
 
     // ═══════════════════════════════════════════════════════════════════════
