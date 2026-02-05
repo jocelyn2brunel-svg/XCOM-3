@@ -1,10 +1,11 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
+using NVorbis.Contracts;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace XCOM_3
 {
@@ -142,6 +143,9 @@ namespace XCOM_3
         // --- Raycast pour sélection 3D ---
         private Texture2D pixel;
 
+        private HumanoidModelAdvanced humanoidModel;
+
+
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
@@ -179,6 +183,8 @@ namespace XCOM_3
             texturedEffect.TextureEnabled = true;
             texturedEffect.LightingEnabled = true;
             texturedEffect.EnableDefaultLighting();
+
+            humanoidModel = new HumanoidModelAdvanced();
 
             projectionMatrix = Matrix.CreatePerspectiveFieldOfView(
                 MathHelper.ToRadians(45f),
@@ -1049,12 +1055,13 @@ namespace XCOM_3
         {
             Vector3 basePosition = new Vector3(
                 unit.Cell.X * cellSize + cellSize / 2f,
-                cellSize * 0.75f,
+                0,
                 unit.Cell.Y * cellSize + cellSize / 2f
             );
 
             Vector3 visualOffset = Vector3.Zero;
 
+            // Animation de tir existante
             if (unit.IsFiring && unit.FireTarget.HasValue)
             {
                 Vector3 targetPos = new Vector3(
@@ -1088,29 +1095,38 @@ namespace XCOM_3
 
             Vector3 finalPos = basePosition + visualOffset;
             Color unitColor = unit.Team == Team.Player ? Color.Blue : Color.Red;
-            float sizeMultiplier = (unit.IsFiring && unit.Weapon == "Zombie Claws") ? 1.2f : 1.0f;
 
-            DrawCube(
-                finalPos,
-                new Vector3(
-                    cellSize * 0.7f * sizeMultiplier,
-                    cellSize * 1.2f * sizeMultiplier,
-                    cellSize * 0.7f * sizeMultiplier
-                ),
-                unitColor
-            );
+            // Déterminer le type d'unité
+            HumanoidModelAdvanced.UnitType unitType = HumanoidModelAdvanced.UnitType.Soldier;
 
+            if (unit.Class == "Assault" || unit.Class == "Infantry")
+                unitType = HumanoidModelAdvanced.UnitType.Soldier;
+            else if (unit.Class == "Heavy")
+                unitType = HumanoidModelAdvanced.UnitType.Heavy;
+            else if (unit.Class == "Scout")
+                unitType = HumanoidModelAdvanced.UnitType.Scout;
+            else if (unit.Class == "Undead")
+                unitType = HumanoidModelAdvanced.UnitType.Zombie;
+            else if (unit.Team == Team.Enemy && unit.Name.Contains("Alien"))
+                unitType = HumanoidModelAdvanced.UnitType.Alien;
+
+            // Dessiner le modèle humanoïde
+            humanoidModel.Draw(GraphicsDevice, basicEffect, finalPos, unitColor, cellSize * 0.8f, unitType);
+
+            // Indicateurs de sélection (inchangés)
             if (unit == selectedUnit)
             {
                 Vector3 selectionPos = new Vector3(basePosition.X, 0.05f, basePosition.Z);
-                DrawPlane(selectionPos, new Vector3(cellSize * 1.1f, 1, cellSize * 1.1f), new Color(0, 255, 255, 128));
+                DrawPlane(selectionPos, new Vector3(cellSize * 1.1f, 1, cellSize * 1.1f),
+                         new Color(0, 255, 255, 128));
             }
 
             Unit targetHighlight = selectedFireTarget ?? hoveredFireTarget;
             if (targetHighlight == unit)
             {
                 Vector3 highlightPos = new Vector3(basePosition.X, 0.1f, basePosition.Z);
-                DrawPlane(highlightPos, new Vector3(cellSize * 1.2f, 1, cellSize * 1.2f), new Color(255, 0, 0, 128));
+                DrawPlane(highlightPos, new Vector3(cellSize * 1.2f, 1, cellSize * 1.2f),
+                         new Color(255, 0, 0, 128));
             }
         }
 
