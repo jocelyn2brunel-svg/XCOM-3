@@ -11,6 +11,10 @@ namespace XCOM_3
 {
     public class Game1 : Game
     {
+        // NOUVEAU: Import pour créer une console
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        static extern bool AllocConsole();
+
         // --- Gestion graphique et rendu 3D ---
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
@@ -99,7 +103,7 @@ namespace XCOM_3
         private const int MaxThrowRange = 8;
 
         // --- États du jeu ---
-        enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu }
+        enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu, GameOver }
         private GameState currentState = GameState.MainMenu;
 
         // --- Grille 3D ---
@@ -171,6 +175,9 @@ namespace XCOM_3
 
         public Game1()
         {
+            // NOUVEAU: Créer une console Windows
+            AllocConsole();
+
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreferredBackBufferWidth = 1280;
             _graphics.PreferredBackBufferHeight = 720;
@@ -327,6 +334,16 @@ namespace XCOM_3
                     HandleOptionsMenu(mouse);
                     if (escapePressed) currentState = GameState.MainMenu;
                     break;
+
+                // NOUVEAU: État Game Over
+                case GameState.GameOver:
+                    if (escapePressed || leftClick)
+                    {
+                        currentState = GameState.MainMenu;
+                    }
+                    break;
+
+
             }
 
             previousMouseState = mouse;
@@ -415,7 +432,7 @@ namespace XCOM_3
                 DrawCraters3D();
                 DrawGrenades3D();
                 DrawThrowMode3D(gameTime);
-          
+
             }
 
             _spriteBatch.Begin();
@@ -445,8 +462,8 @@ namespace XCOM_3
                         if (showFireTargets && selectedUnit != null && selectedUnit.Team == Team.Player)
                             DrawFireTargets();
 
-                        _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | I: Inventaire | G: Grenade",
-                                        new Vector2(10, 10), Color.White);
+                        _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | I: Inventaire",
+                                                                new Vector2(10, 10), Color.White);
 
                         string timeStr = GetTimeOfDayString(timeOfDay);
                         _spriteBatch.DrawString(font, $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}",
@@ -461,6 +478,31 @@ namespace XCOM_3
                     _spriteBatch.Draw(pixel, volumeBar, Color.Gray);
                     _spriteBatch.Draw(pixel, volumeFill, Color.Yellow);
                     _spriteBatch.Draw(pixel, volumeHandle, Color.White);
+                    break;
+
+                // NOUVEAU: Écran Game Over
+                case GameState.GameOver:
+                    // Fond semi-transparent rouge
+                    _spriteBatch.Draw(pixel, new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height),
+                                     new Color(100, 0, 0, 180));
+
+                    // Texte GAME OVER
+                    string gameOverText = "GAME OVER";
+                    Vector2 gameOverSize = font.MeasureString(gameOverText);
+                    Vector2 gameOverPos = new Vector2(
+                        (GraphicsDevice.Viewport.Width - gameOverSize.X * 4f) / 2,
+                        GraphicsDevice.Viewport.Height / 2 - 100
+                    );
+                    _spriteBatch.DrawString(font, gameOverText, gameOverPos, Color.Red, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0f);
+
+                    // Texte instructions
+                    string continueText = "Appuyez sur ESC ou cliquez pour retourner au menu";
+                    Vector2 continueSize = font.MeasureString(continueText);
+                    Vector2 continuePos = new Vector2(
+                        (GraphicsDevice.Viewport.Width - continueSize.X) / 2,
+                        GraphicsDevice.Viewport.Height / 2 + 50
+                    );
+                    _spriteBatch.DrawString(font, continueText, continuePos, Color.White, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
                     break;
             }
             _spriteBatch.End();
@@ -1187,8 +1229,8 @@ namespace XCOM_3
             else if (unit.Team == Team.Enemy && unit.Name.Contains("Alien"))
                 unitType = HumanoidModelAdvanced.UnitType.Alien;
 
-            // Dessiner le modèle humanoïde
-            humanoidModel.Draw(GraphicsDevice, basicEffect, finalPos, unitColor, cellSize * 0.8f, unitType);
+            // MODIFIÉ: Dessiner le modèle humanoïde avec orientation
+            humanoidModel.Draw(GraphicsDevice, basicEffect, finalPos, unitColor, cellSize * 0.8f, unitType, unit.Orientation);
 
             // Indicateurs de sélection (inchangés)
             if (unit == selectedUnit)
@@ -1367,7 +1409,6 @@ namespace XCOM_3
             _spriteBatch.DrawString(font, $"AP: {selectedUnit.ActionPoints}", p + new Vector2(0, 60), Color.White);
             _spriteBatch.DrawString(font, $"HP: {selectedUnit.Health} / {selectedUnit.MaxHealth}", p + new Vector2(0, 80), Color.White);
 
-            // NOUVEAU: Affiche l'armure totale
             int totalArmor = selectedUnit.GetTotalArmor();
             _spriteBatch.DrawString(font, $"Armor: {totalArmor}", p + new Vector2(0, 100), Color.Cyan);
 
@@ -1377,14 +1418,21 @@ namespace XCOM_3
             int by = GraphicsDevice.Viewport.Height - bh - 15;
             int bx = (GraphicsDevice.Viewport.Width - bw) / 2;
 
-            fireButton = new Rectangle(bx, by, bw, bh);
+            // Créer les boutons d'action de base
+            var buttons = new List<Button>
+    {
+        new Button("COUVERT", new Vector2(bx - 220, by)),
+        new Button("TIRER", new Vector2(bx - 110, by)),
+        new Button("RECHARGER", new Vector2(bx, by))
+    };
 
-            unitActionButtons.AddRange(new[]
+            // Ajouter le bouton GRENADE si l'unité a des grenades
+            if (selectedUnit.Grenades.Count > 0)
             {
-                new Button("COUVERT",   new Vector2(bx - 110, by)),
-                new Button("TIRER",     new Vector2(bx, by)),
-                new Button("RECHARGER", new Vector2(bx + 110, by))
-            });
+                buttons.Add(new Button("GRENADE", new Vector2(bx + 110, by)));
+            }
+
+            unitActionButtons.AddRange(buttons);
 
             MouseState mouse = Mouse.GetState();
 
@@ -1403,7 +1451,37 @@ namespace XCOM_3
                 );
             }
 
-            // Afficher les grenades
+            // NOUVEAU: Dessiner le grand bouton TIRER CONFIRMER si une cible est sélectionnée
+            if (selectedFireTarget != null && selectedUnit.ActionPoints > 0)
+            {
+                int fireConfirmWidth = 140;
+                int fireConfirmHeight = 50;
+                fireButton = new Rectangle(
+                    GraphicsDevice.Viewport.Width / 2 - fireConfirmWidth / 2,
+                    by - fireConfirmHeight - 10,
+                    fireConfirmWidth,
+                    fireConfirmHeight
+                );
+
+                Color fireColor = fireButton.Contains(mouse.Position) ? Color.Red : Color.DarkRed;
+                _spriteBatch.Draw(pixel, fireButton, fireColor);
+
+                string fireText = "CONFIRMER TIR";
+                Vector2 fireTextSize = font.MeasureString(fireText);
+                _spriteBatch.DrawString(
+                    font, fireText,
+                    new Vector2(fireButton.X + (fireConfirmWidth - fireTextSize.X) / 2,
+                               fireButton.Y + (fireConfirmHeight - fireTextSize.Y) / 2),
+                    Color.White
+                );
+            }
+            else
+            {
+                // Pas de cible sélectionnée, pas de bouton CONFIRMER
+                fireButton = Rectangle.Empty;
+            }
+
+            // Afficher les grenades disponibles
             Vector2 grenadePos = p + new Vector2(0, 120);
             _spriteBatch.DrawString(font, $"Grenades: {selectedUnit.Grenades.Count}/{selectedUnit.MaxGrenades}",
                                    grenadePos, Color.Orange);
@@ -1492,7 +1570,7 @@ namespace XCOM_3
 
                     int newGCost = currentNode.GCost + 1;
 
-                 
+
 
                     AStarNode neighborNode = openList.FirstOrDefault(n => n.Position == neighbor);
 
@@ -1854,52 +1932,53 @@ namespace XCOM_3
             {
                 int steps = Math.Min(enemy.MovementPoints, path.Count);
 
-                enemy.Cell = path[steps - 1];
+                // CORRECTION: Ne pas se déplacer sur la dernière case si elle est occupée
+                Point targetCell = path[steps - 1];
+
+                // Vérifier si la case cible est occupée
+                if (GetUnitAtCell(targetCell) != null)
+                {
+                    // Trouver la case la plus proche non occupée sur le chemin
+                    for (int i = steps - 2; i >= 0; i--)
+                    {
+                        if (GetUnitAtCell(path[i]) == null)
+                        {
+                            targetCell = path[i];
+                            break;
+                        }
+                    }
+
+                    // Si aucune case n'est libre sur le chemin, ne pas bouger
+                    if (GetUnitAtCell(targetCell) != null)
+                    {
+                        enemy.ActionPoints = 0;
+                        enemyTurnIndex++;
+                        return;
+                    }
+                }
+
+                enemy.Cell = targetCell;
                 enemy.ActionPoints--;
             }
             else
             {
-                // Calcul du déplacement d'une case vers le joueur
-                Point next = new Point(
-                    enemy.Cell.X + Math.Sign(closest.Cell.X - enemy.Cell.X),
-                    enemy.Cell.Y + Math.Sign(closest.Cell.Y - enemy.Cell.Y)
-                );
+                // Essayer de se déplacer d'une case vers le joueur
+                int dx = Math.Sign(closest.Cell.X - enemy.Cell.X);
+                int dy = Math.Sign(closest.Cell.Y - enemy.Cell.Y);
 
-                // Vérifie si le mouvement est dans la grille
-                bool inBounds = next.X >= 0 && next.X < gridWidth && next.Y >= 0 && next.Y < gridHeight;
+                Point nextX = new Point(enemy.Cell.X + dx, enemy.Cell.Y);
+                Point nextY = new Point(enemy.Cell.X, enemy.Cell.Y + dy);
 
-                // Vérifie si une unité est déjà sur la case
-                bool unitBlocked = GetUnitAtCell(next) != null;
-
-                // Vérifie si un mur bloque le mouvement
-                bool wallBlocked = wallSegments.Any(w =>
+                // Essayer le mouvement horizontal d'abord
+                if (dx != 0 && IsWalkable(nextX, enemy) && !HasWallBetween(enemy.Cell, nextX))
                 {
-                    // Déplacement vertical
-                    if (next.Y != enemy.Cell.Y && w.IsHorizontal)
-                    {
-                        // Mur horizontal entre enemy.Cell et next ?
-                        if ((w.Start.Y == Math.Min(enemy.Cell.Y, next.Y) + 1) &&
-                            w.Start.X <= Math.Max(enemy.Cell.X, next.X) &&
-                            w.End.X > Math.Min(enemy.Cell.X, next.X))
-                            return true;
-                    }
-
-                    // Déplacement horizontal
-                    if (next.X != enemy.Cell.X && !w.IsHorizontal)
-                    {
-                        // Mur vertical entre enemy.Cell et next ?
-                        if ((w.Start.X == Math.Min(enemy.Cell.X, next.X) + 1) &&
-                            w.Start.Y <= Math.Max(enemy.Cell.Y, next.Y) &&
-                            w.End.Y > Math.Min(enemy.Cell.Y, next.Y))
-                            return true;
-                    }
-
-                    return false;
-                });
-
-                if (inBounds && !unitBlocked && !wallBlocked)
+                    enemy.Cell = nextX;
+                    enemy.ActionPoints--;
+                }
+                // Sinon essayer le mouvement vertical
+                else if (dy != 0 && IsWalkable(nextY, enemy) && !HasWallBetween(enemy.Cell, nextY))
                 {
-                    enemy.Cell = next;
+                    enemy.Cell = nextY;
                     enemy.ActionPoints--;
                 }
                 else
@@ -1908,7 +1987,6 @@ namespace XCOM_3
                     enemy.ActionPoints = 0;
                 }
             }
-
 
             if (enemy.ActionPoints <= 0) enemyTurnIndex++;
         }
@@ -1953,12 +2031,33 @@ namespace XCOM_3
                     if (u.WillHit)
                     {
                         var t = u.PendingTarget;
-                        // MODIFIÉ: Les dégâts sont réduits par l'armure (minimum 1)
                         int damage = Math.Max(u.WeaponData.Damage - t.GetTotalArmor(), 1);
                         t.Health = Math.Max(t.Health - damage, 0);
 
                         if (t.Health <= 0)
-                            (t.Team == Team.Player ? playerUnits : enemyUnits).Remove(t);
+                        {
+                            if (t.Team == Team.Player)
+                            {
+                                playerUnits.Remove(t);
+
+                                // NOUVEAU: Vérifier Game Over
+                                if (playerUnits.Count == 0)
+                                {
+                                    currentState = GameState.GameOver;
+                                    Console.WriteLine("GAME OVER - All player units eliminated!");
+                                }
+                            }
+                            else
+                            {
+                                enemyUnits.Remove(t);
+
+                                // NOUVEAU: Vérifier Victoire
+                                if (enemyUnits.Count == 0)
+                                {
+                                    Console.WriteLine("VICTORY - All enemies eliminated!");
+                                }
+                            }
+                        }
                     }
                     u.PendingTarget = null;
                     u.WillHit = false;
@@ -2084,9 +2183,37 @@ namespace XCOM_3
         private void UpdateFireTargetsUIPositions()
         {
             if (fireTargetsUI.Count == 0) return;
-            int icon = 48, space = 10, total = fireTargetsUI.Count * icon + (fireTargetsUI.Count - 1) * space;
-            int startX = fireButton.X + (fireButton.Width - total) / 2;
-            int y = fireButton.Y - icon - 10;
+
+            int icon = 48, space = 10;
+            int total = fireTargetsUI.Count * icon + (fireTargetsUI.Count - 1) * space;
+
+            int startX, y;
+
+            // Si une cible est sélectionnée et le bouton de confirmation existe
+            if (selectedFireTarget != null && selectedUnit != null && selectedUnit.ActionPoints > 0)
+            {
+                // Positionner au-dessus du bouton CONFIRMER TIR
+                int fireConfirmWidth = 140;
+                int fireConfirmHeight = 50;
+                int bw = ActionButtonWidth, bh = ActionButtonHeight;
+                int by = GraphicsDevice.Viewport.Height - bh - 15;
+
+                int fireButtonX = GraphicsDevice.Viewport.Width / 2 - fireConfirmWidth / 2;
+                int fireButtonY = by - fireConfirmHeight - 10;
+
+                startX = fireButtonX + (fireConfirmWidth - total) / 2;
+                y = fireButtonY - icon - 10;
+            }
+            else
+            {
+                // Sinon, positionner au-dessus du bouton TIRER des actions
+                int bw = ActionButtonWidth, bh = ActionButtonHeight;
+                int by = GraphicsDevice.Viewport.Height - bh - 15;
+                int bx = (GraphicsDevice.Viewport.Width - bw) / 2;
+
+                startX = bx - 110 + (bw - total) / 2;
+                y = by - icon - 10;
+            }
 
             for (int i = 0; i < fireTargetsUI.Count; i++)
                 fireTargetsUI[i].Bounds = new Rectangle(startX + i * (icon + space), y, icon, icon);
@@ -2250,50 +2377,63 @@ namespace XCOM_3
                 }
             }
 
-            // Touche G pour mode grenade
-            bool gPressed = keyboard.IsKeyDown(Keys.G) && previousKeyboardState.IsKeyUp(Keys.G);
-            if (gPressed && selectedUnit != null && selectedUnit.Team == Team.Player && selectedUnit.Grenades.Count > 0)
-            {
-                throwMode = !throwMode;
-
-                if (throwMode)
-                {
-                    selectedGrenade = selectedUnit.Grenades[0]; // Sélectionner la première grenade
-                    throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(
-                        selectedUnit.Cell,
-                        MaxThrowRange,
-                        gridWidth,
-                        gridHeight
-                    );
-                    Console.WriteLine($"Grenade throw mode: {selectedGrenade.Name}");
-                }
-                else
-                {
-                    selectedGrenade = null;
-                    throwableCells.Clear();
-                    explosionPreview.Clear();
-                    trajectoryPreview.Clear();
-                }
-            }
-
             // Mode lancer de grenade
             if (throwMode)
             {
                 HandleGrenadeThrow(mouse, leftClick);
             }
 
-            bool clickOnUI = fireButton.Contains(mouse.Position) || IsMouseOverActionButton(mouse) ||
-                            (showInventory && inventoryPanel.Contains(mouse.Position));
+            // Vérifier tous les éléments d'UI qui peuvent être cliqués
+            bool clickOnUI = endTurnButton.Contains(mouse.Position) ||
+                             fireButton.Contains(mouse.Position) ||
+                             IsMouseOverActionButton(mouse) ||
+                             IsMouseOverFireTargets(mouse) ||
+                             (showInventory && inventoryPanel.Contains(mouse.Position));
 
-            if (leftClick && !clickOnUI && hoveredCell.X != -1)
-                HandleGridClick(hoveredCell);
-
+            // Gérer les clics sur les boutons d'action AVANT de bloquer les clics UI
             if (leftClick)
                 HandleUnitActionButtons(mouse);
 
+            // Gérer les clics sur les cibles ennemies AVANT de bloquer les clics UI
             if (leftClick && showFireTargets)
+            {
                 foreach (var ui in fireTargetsUI)
-                    if (ui.Bounds.Contains(mouse.Position)) { selectedFireTarget = ui.Target; break; }
+                {
+                    if (ui.Bounds.Contains(mouse.Position))
+                    {
+                        selectedFireTarget = ui.Target;
+
+                        // NOUVEAU: Faire tourner l'unité vers la cible
+                        if (selectedUnit != null && selectedFireTarget != null)
+                        {
+                            // En 3D MonoGame: X = gauche/droite, Z = haut/bas de la grille
+                            // L'axe Z pointe vers le BAS de l'écran (Y positif en 2D)
+                            float deltaX = selectedFireTarget.Cell.X - selectedUnit.Cell.X;
+                            float deltaZ = selectedFireTarget.Cell.Y - selectedUnit.Cell.Y;
+
+                            // Calculer l'angle en utilisant Z,X au lieu de Y,X
+                            // Et ajouter Pi/2 pour que Z+ soit "devant"
+                            selectedUnit.Orientation = (float)Math.Atan2(deltaX, deltaZ);
+
+                            // Debug détaillé
+                            Console.WriteLine($"=== ORIENTATION DEBUG ===");
+                            Console.WriteLine($"Unit: {selectedUnit.Name} à ({selectedUnit.Cell.X}, {selectedUnit.Cell.Y})");
+                            Console.WriteLine($"Target: {selectedFireTarget.Name} à ({selectedFireTarget.Cell.X}, {selectedFireTarget.Cell.Y})");
+                            Console.WriteLine($"Delta X (gauche/droite): {deltaX}");
+                            Console.WriteLine($"Delta Z (haut/bas grille): {deltaZ}");
+                            Console.WriteLine($"Orientation (radians): {selectedUnit.Orientation}");
+                            Console.WriteLine($"Orientation (degrés): {MathHelper.ToDegrees(selectedUnit.Orientation)}");
+                            Console.WriteLine($"========================");
+                        }
+
+                        break;
+                    }
+                }
+            }
+
+            // Clic sur la grille seulement si pas sur l'UI
+            if (leftClick && !clickOnUI && hoveredCell.X != -1)
+                HandleGridClick(hoveredCell);
 
             if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released)
                 CancelSelection();
@@ -2308,6 +2448,19 @@ namespace XCOM_3
             endTurnHovered = endTurnButton.Contains(mouse.Position);
             if (endTurnHovered && leftClick && !isActionInProgress)
                 StartEnemyTurn();
+        }
+
+        private bool IsMouseOverFireTargets(MouseState mouse)
+        {
+            if (!showFireTargets) return false;
+
+            foreach (var ui in fireTargetsUI)
+            {
+                if (ui.Bounds.Contains(mouse.Position))
+                    return true;
+            }
+
+            return false;
         }
 
         private void HandleGridClick(Point clickedCell)
@@ -2351,11 +2504,57 @@ namespace XCOM_3
 
         private void HandleUnitActionButtons(MouseState mouse)
         {
+            if (mouse.LeftButton != ButtonState.Pressed || previousMouseState.LeftButton != ButtonState.Released)
+                return;
+
             foreach (var btn in unitActionButtons)
             {
                 var rect = new Rectangle((int)btn.Position.X, (int)btn.Position.Y, ActionButtonWidth, ActionButtonHeight);
                 if (rect.Contains(mouse.Position))
-                    Console.WriteLine($"Action future : {btn.Text}");
+                {
+                    switch (btn.Text)
+                    {
+                        case "TIRER":
+                            if (selectedUnit != null && selectedUnit.ActionPoints > 0)
+                            {
+                                UpdateFireTargets();
+                                if (validFireTargets.Count > 0)
+                                {
+                                    Console.WriteLine($"Mode tir activé - {validFireTargets.Count} cibles disponibles");
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Aucune cible à portée");
+                                }
+                            }
+                            break;
+
+                        case "GRENADE":
+                            if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
+                            {
+                                throwMode = true;
+                                selectedGrenade = selectedUnit.Grenades[0];
+                                throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(
+                                    selectedUnit.Cell,
+                                    MaxThrowRange,
+                                    gridWidth,
+                                    gridHeight
+                                );
+                                Console.WriteLine($"Mode grenade activé: {selectedGrenade.Name}");
+                            }
+                            break;
+
+                        case "COUVERT":
+                            Console.WriteLine("Action future : COUVERT");
+                            break;
+
+                        case "RECHARGER":
+                            Console.WriteLine("Action future : RECHARGER");
+                            break;
+                    }
+
+                    return; // Sortir dès qu'un bouton est cliqué
+                }
             }
         }
 
