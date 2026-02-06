@@ -12,7 +12,7 @@ namespace XCOM_3
         public Point Start;      // Case de départ
         public Point End;        // Case d'arrivée
         public bool IsHorizontal; // true = horizontal, false = vertical
-        
+
         public WallSegment(Point start, Point end, bool isHorizontal)
         {
             Start = start;
@@ -121,7 +121,7 @@ namespace XCOM_3
             {
                 int roomWidth = random.Next(4, Math.Min(9, gridWidth - 6));
                 int roomHeight = random.Next(4, Math.Min(8, gridHeight - 6));
-                
+
                 int startX = random.Next(3, Math.Max(4, gridWidth - roomWidth - 3));
                 int startY = random.Next(3, Math.Max(4, gridHeight - roomHeight - 3));
 
@@ -144,7 +144,7 @@ namespace XCOM_3
                 for (int d = 0; d < numDoors; d++)
                 {
                     int side = random.Next(4);
-                    
+
                     switch (side)
                     {
                         case 0: // Nord - retirer un segment horizontal
@@ -320,69 +320,100 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Génère des bâtiments urbains
+        /// Génère des bâtiments urbains ordonnés sur une grille régulière
         /// </summary>
         private HashSet<WallSegment> GenerateUrban(int gridWidth, int gridHeight)
         {
             HashSet<WallSegment> walls = new HashSet<WallSegment>();
-            int numBuildings = random.Next(3, 7);
 
-            for (int i = 0; i < numBuildings; i++)
+            // Taille standard des bâtiments et espacement
+            int buildingWidth = 6;
+            int buildingHeight = 6;
+            int streetWidth = 3; // Largeur des rues entre les bâtiments
+
+            // Calculer combien de bâtiments peuvent tenir
+            int blocWidth = buildingWidth + streetWidth;
+            int blocHeight = buildingHeight + streetWidth;
+
+            int numBuildingsX = Math.Max(1, (gridWidth - 4) / blocWidth);
+            int numBuildingsY = Math.Max(1, (gridHeight - 8) / blocHeight); // -8 pour zones de spawn
+
+            // Centrer la grille
+            int startX = (gridWidth - (numBuildingsX * blocWidth - streetWidth)) / 2;
+            int startY = 4 + (gridHeight - 8 - (numBuildingsY * blocHeight - streetWidth)) / 2;
+
+            // Créer les bâtiments sur la grille
+            for (int by = 0; by < numBuildingsY; by++)
             {
-                int buildingWidth = random.Next(4, Math.Min(9, gridWidth / 3));
-                int buildingHeight = random.Next(4, Math.Min(9, gridHeight / 3));
-                
-                int x = random.Next(2, Math.Max(3, gridWidth - buildingWidth - 2));
-                int y = random.Next(2, Math.Max(3, gridHeight - buildingHeight - 2));
-
-                // Murs extérieurs
-                for (int bx = x; bx < x + buildingWidth; bx++)
+                for (int bx = 0; bx < numBuildingsX; bx++)
                 {
-                    AddHorizontalWall(walls, bx, y);
-                    AddHorizontalWall(walls, bx, y + buildingHeight);
-                }
+                    int x = startX + bx * blocWidth;
+                    int y = startY + by * blocHeight;
 
-                for (int by = y; by < y + buildingHeight; by++)
-                {
-                    AddVerticalWall(walls, x, by);
-                    AddVerticalWall(walls, x + buildingWidth, by);
-                }
+                    // Murs extérieurs du bâtiment
+                    for (int i = x; i < x + buildingWidth; i++)
+                    {
+                        AddHorizontalWall(walls, i, y);
+                        AddHorizontalWall(walls, i, y + buildingHeight);
+                    }
 
-                // Porte principale
-                int doorSide = random.Next(4);
-                switch (doorSide)
-                {
-                    case 0: // Nord
-                        walls.Remove(new WallSegment(new Point(x + buildingWidth / 2, y), new Point(x + buildingWidth / 2 + 1, y), true));
-                        break;
-                    case 1: // Sud
-                        walls.Remove(new WallSegment(new Point(x + buildingWidth / 2, y + buildingHeight), new Point(x + buildingWidth / 2 + 1, y + buildingHeight), true));
-                        break;
-                    case 2: // Ouest
-                        walls.Remove(new WallSegment(new Point(x, y + buildingHeight / 2), new Point(x, y + buildingHeight / 2 + 1), false));
-                        break;
-                    case 3: // Est
-                        walls.Remove(new WallSegment(new Point(x + buildingWidth, y + buildingHeight / 2), new Point(x + buildingWidth, y + buildingHeight / 2 + 1), false));
-                        break;
-                }
+                    for (int i = y; i < y + buildingHeight; i++)
+                    {
+                        AddVerticalWall(walls, x, i);
+                        AddVerticalWall(walls, x + buildingWidth, i);
+                    }
 
-                // Murs intérieurs si assez grand
-                if (buildingWidth > 5 && buildingHeight > 5)
-                {
+                    // Porte orientée vers la rue la plus proche
+                    bool hasRightStreet = bx < numBuildingsX - 1;
+                    bool hasBottomStreet = by < numBuildingsY - 1;
+
+                    if (hasRightStreet && hasBottomStreet)
+                    {
+                        // Deux portes : une à droite, une en bas
+                        walls.Remove(new WallSegment(new Point(x + buildingWidth, y + buildingHeight / 2),
+                                                     new Point(x + buildingWidth, y + buildingHeight / 2 + 1), false));
+                        walls.Remove(new WallSegment(new Point(x + buildingWidth / 2, y + buildingHeight),
+                                                     new Point(x + buildingWidth / 2 + 1, y + buildingHeight), true));
+                    }
+                    else if (hasRightStreet)
+                    {
+                        // Porte à droite
+                        walls.Remove(new WallSegment(new Point(x + buildingWidth, y + buildingHeight / 2),
+                                                     new Point(x + buildingWidth, y + buildingHeight / 2 + 1), false));
+                    }
+                    else if (hasBottomStreet)
+                    {
+                        // Porte en bas
+                        walls.Remove(new WallSegment(new Point(x + buildingWidth / 2, y + buildingHeight),
+                                                     new Point(x + buildingWidth / 2 + 1, y + buildingHeight), true));
+                    }
+                    else
+                    {
+                        // Dernier bâtiment (coin bas-droit), porte au sud ou à l'est
+                        if (random.Next(2) == 0)
+                            walls.Remove(new WallSegment(new Point(x + buildingWidth / 2, y + buildingHeight),
+                                                         new Point(x + buildingWidth / 2 + 1, y + buildingHeight), true));
+                        else
+                            walls.Remove(new WallSegment(new Point(x + buildingWidth, y + buildingHeight / 2),
+                                                         new Point(x + buildingWidth, y + buildingHeight / 2 + 1), false));
+                    }
+
+                    // Murs intérieurs : division en 4 pièces égales
                     int midX = x + buildingWidth / 2;
                     int midY = y + buildingHeight / 2;
 
-                    // Murs intérieurs avec portes
-                    for (int by = y + 1; by < y + buildingHeight - 1; by++)
+                    // Couloir vertical central avec portes
+                    for (int i = y + 1; i < y + buildingHeight - 1; i++)
                     {
-                        if (by != midY)
-                            AddVerticalWall(walls, midX, by);
+                        if (i != midY - 1 && i != midY) // Portes au milieu
+                            AddVerticalWall(walls, midX, i);
                     }
 
-                    for (int bx = x + 1; bx < x + buildingWidth - 1; bx++)
+                    // Couloir horizontal central avec portes
+                    for (int i = x + 1; i < x + buildingWidth - 1; i++)
                     {
-                        if (bx != midX)
-                            AddHorizontalWall(walls, bx, midY);
+                        if (i != midX - 1 && i != midX) // Portes au milieu
+                            AddHorizontalWall(walls, i, midY);
                     }
                 }
             }
@@ -407,7 +438,7 @@ namespace XCOM_3
 
                 if (random.Next(100) < 20)
                     currentY += random.Next(-1, 2);
-                
+
                 currentY = Math.Max(4, Math.Min(gridHeight - 5, currentY));
             }
 
