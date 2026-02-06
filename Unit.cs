@@ -26,6 +26,9 @@ namespace XCOM_3
         public Item EquippedWeapon = null;
         public Item EquippedHelmet = null;
         public Item EquippedArmor = null;
+        public Item EquippedShield = null;  // Nouveau slot pour bouclier
+        public Item EquippedShirt = null;   // Nouveau slot pour chemise tactique
+
 
         // Orientation et animation
         public float Orientation = 0f;
@@ -85,6 +88,8 @@ namespace XCOM_3
             EquippedWeapon = other.EquippedWeapon;
             EquippedHelmet = other.EquippedHelmet;
             EquippedArmor = other.EquippedArmor;
+            EquippedShield = other.EquippedShield;  // NOUVEAU
+            EquippedShirt = other.EquippedShirt;    // NOUVEAU
 
             Grenades = new System.Collections.Generic.List<GrenadeData>(other.Grenades);
             MaxGrenades = other.MaxGrenades;
@@ -103,8 +108,18 @@ namespace XCOM_3
             int total = 0;
             if (EquippedHelmet != null) total += EquippedHelmet.Data.ArmorValue;
             if (EquippedArmor != null) total += EquippedArmor.Data.ArmorValue;
+            if (EquippedShield != null) total += EquippedShield.Data.ArmorValue; // NOUVEAU
+            if (EquippedShirt != null) total += EquippedShirt.Data.ArmorValue;   // NOUVEAU
             total += Skills.GetDefenseBonus();
             return total;
+        }
+
+        public int GetMobilityPenalty()
+        {
+            int penalty = 0;
+            if (EquippedArmor != null) penalty += EquippedArmor.Data.MobilityPenalty;
+            if (EquippedShield != null) penalty += EquippedShield.Data.MobilityPenalty;
+            return penalty;
         }
 
         public int GetMaxHealth()
@@ -114,7 +129,9 @@ namespace XCOM_3
 
         public int GetMaxMovementPoints()
         {
-            return MovementPoints + Skills.GetMovementBonus();
+            int baseMovement = MovementPoints + Skills.GetMovementBonus();
+            int penalty = GetMobilityPenalty();
+            return Math.Max(1, baseMovement - penalty); // Minimum 1 PM
         }
 
         public void UpdateVisualPosition(int cellSize = 2)
