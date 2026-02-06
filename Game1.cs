@@ -103,7 +103,7 @@ namespace XCOM_3
         private const int MaxThrowRange = 8;
 
         // --- États du jeu ---
-        enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu, GameOver }
+        enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu, GameOver, Encyclopedia }
         private GameState currentState = GameState.MainMenu;
 
         // --- Grille 3D ---
@@ -171,6 +171,10 @@ namespace XCOM_3
         private Texture2D pixel;
 
         private HumanoidModelAdvanced humanoidModel;
+
+        // --- Encyclopédie ---
+        private List<Button> encyclopediaButtons;
+        private string encyclopediaCategory = "Weapons"; // "Weapons", "Armor", "Units"
 
 
         public Game1()
@@ -242,6 +246,11 @@ namespace XCOM_3
 
             string[] missionLabels = { "Tutorial", "Survival", "Assault", "Defense", "Back" };
             missionButtons = missionLabels
+                .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
+                .ToList();
+
+            string[] encyclopediaLabels = { "Armes", "Armures", "Unités", "Retour" };
+            encyclopediaButtons = encyclopediaLabels
                 .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
                 .ToList();
 
@@ -335,6 +344,11 @@ namespace XCOM_3
                     if (escapePressed) currentState = GameState.MainMenu;
                     break;
 
+                case GameState.Encyclopedia:
+                    HandleEncyclopedia(mouse);
+                    if (escapePressed) currentState = GameState.MainMenu;
+                    break;
+
                 // NOUVEAU: État Game Over
                 case GameState.GameOver:
                     if (escapePressed || leftClick)
@@ -376,6 +390,33 @@ namespace XCOM_3
 
             texturedEffect.AmbientLightColor = ambientLight.ToVector3();
             texturedEffect.DirectionalLight0.DiffuseColor = directionalLight.ToVector3();
+        }
+
+        private void HandleEncyclopedia(MouseState mouse)
+        {
+            foreach (var btn in encyclopediaButtons)
+                if (btn.IsClicked(mouse, previousMouseState))
+                    switch (btn.Text)
+                    {
+                        case "Armes":
+                            encyclopediaCategory = "Weapons";
+                            Console.WriteLine("Affichage des armes");
+                            break;
+
+                        case "Armures":
+                            encyclopediaCategory = "Armor";
+                            Console.WriteLine("Affichage des armures");
+                            break;
+
+                        case "Unités":
+                            encyclopediaCategory = "Units";
+                            Console.WriteLine("Affichage des unités");
+                            break;
+
+                        case "Retour":
+                            currentState = GameState.MainMenu;
+                            break;
+                    }
         }
 
         private float CalculateSunIntensity(float time)
@@ -478,6 +519,10 @@ namespace XCOM_3
                     _spriteBatch.Draw(pixel, volumeBar, Color.Gray);
                     _spriteBatch.Draw(pixel, volumeFill, Color.Yellow);
                     _spriteBatch.Draw(pixel, volumeHandle, Color.White);
+                    break;
+
+                case GameState.Encyclopedia:
+                    DrawEncyclopedia();
                     break;
 
                 // NOUVEAU: Écran Game Over
@@ -1500,6 +1545,116 @@ namespace XCOM_3
             UpdateFireTargetsUIPositions();
         }
 
+        private void DrawEncyclopedia()
+        {
+            MouseState mouse = Mouse.GetState();
+
+            // Titre
+            _spriteBatch.DrawString(font, "ENCYCLOPEDIE", Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
+
+            // Boutons de catégorie à gauche
+            foreach (var button in encyclopediaButtons)
+                button.Draw(_spriteBatch, font, mouse);
+
+            // Zone de contenu à droite
+            int contentX = 250;
+            int contentY = 100;
+            int contentWidth = GraphicsDevice.Viewport.Width - contentX - 20;
+            int lineHeight = 25;
+            int y = contentY;
+
+            switch (encyclopediaCategory)
+            {
+                case "Weapons":
+                    _spriteBatch.DrawString(font, "=== ARMES ===", new Vector2(contentX, y), Color.Yellow, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
+                    y += 40;
+
+                    foreach (var weapon in weaponDatabase.Values.OrderBy(w => w.Name))
+                    {
+                        _spriteBatch.DrawString(font, weapon.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f);
+                        y += lineHeight;
+
+                        _spriteBatch.DrawString(font, $"  Dégâts: {weapon.Damage}", new Vector2(contentX + 20, y), Color.White);
+                        y += lineHeight;
+
+                        _spriteBatch.DrawString(font, $"  Précision: {weapon.Accuracy}%", new Vector2(contentX + 20, y), Color.White);
+                        y += lineHeight;
+
+                        _spriteBatch.DrawString(font, $"  Portée: {weapon.Range} cases", new Vector2(contentX + 20, y), Color.White);
+                        y += lineHeight + 10;
+                    }
+                    break;
+
+                case "Armor":
+                    _spriteBatch.DrawString(font, "=== ARMURES ===", new Vector2(contentX, y), Color.Yellow, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
+                    y += 40;
+
+                    var armors = itemDatabase.Values.Where(item => item.Type == ItemType.Armor).OrderBy(a => a.Name);
+
+                    foreach (var armor in armors)
+                    {
+                        _spriteBatch.DrawString(font, armor.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f);
+                        y += lineHeight;
+
+                        _spriteBatch.DrawString(font, $"  Protection: {armor.ArmorValue}", new Vector2(contentX + 20, y), Color.White);
+                        y += lineHeight;
+
+                        string slot = armor.ArmorSlot == ArmorSlot.Head ? "Tête" : "Torse";
+                        _spriteBatch.DrawString(font, $"  Emplacement: {slot}", new Vector2(contentX + 20, y), Color.White);
+                        y += lineHeight + 10;
+                    }
+                    break;
+
+                case "Units":
+                    _spriteBatch.DrawString(font, "=== UNITÉS ===", new Vector2(contentX, y), Color.Yellow, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
+                    y += 40;
+
+                    // Unités joueur
+                    _spriteBatch.DrawString(font, "ÉQUIPE JOUEUR:", new Vector2(contentX, y), Color.Blue, 0f, Vector2.Zero, 1.3f, SpriteEffects.None, 0f);
+                    y += 35;
+
+                    _spriteBatch.DrawString(font, "Soldat", new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f);
+                    y += lineHeight;
+                    _spriteBatch.DrawString(font, "  Classe: Assault", new Vector2(contentX + 20, y), Color.White);
+                    y += lineHeight;
+                    _spriteBatch.DrawString(font, "  Arme de base: Rifle", new Vector2(contentX + 20, y), Color.White);
+                    y += lineHeight;
+                    _spriteBatch.DrawString(font, "  PV: 100", new Vector2(contentX + 20, y), Color.White);
+                    y += lineHeight;
+                    _spriteBatch.DrawString(font, "  PA: 3 par tour", new Vector2(contentX + 20, y), Color.White);
+                    y += lineHeight + 20;
+
+                    // Unités ennemies
+                    _spriteBatch.DrawString(font, "ENNEMIS:", new Vector2(contentX, y), Color.Red, 0f, Vector2.Zero, 1.3f, SpriteEffects.None, 0f);
+                    y += 35;
+
+                    foreach (var enemy in enemyPool)
+                    {
+                        _spriteBatch.DrawString(font, enemy.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f);
+                        y += lineHeight;
+
+                        _spriteBatch.DrawString(font, $"  Classe: {enemy.Class}", new Vector2(contentX + 20, y), Color.White);
+                        y += lineHeight;
+
+                        _spriteBatch.DrawString(font, $"  Arme: {enemy.Weapon}", new Vector2(contentX + 20, y), Color.White);
+                        y += lineHeight;
+
+                        var weapon = weaponDatabase[enemy.Weapon];
+                        _spriteBatch.DrawString(font, $"  Dégâts: {weapon.Damage} | Portée: {weapon.Range}", new Vector2(contentX + 20, y), Color.White);
+                        y += lineHeight;
+
+                        _spriteBatch.DrawString(font, $"  PA: {enemy.ActionPoints} par tour", new Vector2(contentX + 20, y), Color.White);
+                        y += lineHeight + 15;
+                    }
+                    break;
+            }
+
+            // Instructions
+            _spriteBatch.DrawString(font, "Appuyez sur ESC pour retourner au menu",
+                new Vector2(10, GraphicsDevice.Viewport.Height - 30), Color.Yellow);
+        }
+
+
         // ═══════════════════════════════════════════════════════════════════════
         // LOGIQUE DE JEU
         // ═══════════════════════════════════════════════════════════════════════
@@ -2269,6 +2424,8 @@ namespace XCOM_3
                             break;
 
                         case "Encyclopedia":
+                            encyclopediaCategory = "Weapons";
+                            currentState = GameState.Encyclopedia;
                             Console.WriteLine("Opening encyclopedia...");
                             break;
 
