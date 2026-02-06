@@ -1471,6 +1471,10 @@ namespace XCOM_3
             int totalArmor = selectedUnit.GetTotalArmor();
             _spriteBatch.DrawString(font, $"Armor: {totalArmor}", p + new Vector2(0, 100), Color.Cyan);
 
+            // Afficher le niveau global
+            _spriteBatch.DrawString(font, $"Niveau: {selectedUnit.Skills.OverallLevel}",
+                                   p + new Vector2(0, 120), Color.Gold);
+
             unitActionButtons.Clear();
 
             int bw = ActionButtonWidth, bh = ActionButtonHeight;
@@ -1541,7 +1545,7 @@ namespace XCOM_3
             }
 
             // Afficher les grenades disponibles
-            Vector2 grenadePos = p + new Vector2(0, 120);
+            Vector2 grenadePos = p + new Vector2(0, 140);
             _spriteBatch.DrawString(font, $"Grenades: {selectedUnit.Grenades.Count}/{selectedUnit.MaxGrenades}",
                                    grenadePos, Color.Orange);
 
@@ -2071,8 +2075,11 @@ namespace XCOM_3
 
         private void StartPlayerTurn()
         {
-            foreach (var u in playerUnits) u.ActionPoints = 3;
-
+            foreach (var u in playerUnits)
+            {
+                u.ActionPoints = 3;
+                u.MovementPoints = u.GetMaxMovementPoints(); // Avec bonus d'Endurance
+            }
             selectedUnit = null;
             cachedMovableCells.Clear();
             currentPath.Clear();
@@ -2200,8 +2207,8 @@ namespace XCOM_3
             shooter.FireProgress = 0f;
 
             int roll = random.Next(100);
-            int effectiveAccuracy = Math.Max(shooter.WeaponData.Accuracy - distance * 5, 10);
-            shooter.WillHit = roll < effectiveAccuracy;
+            int baseAccuracy = shooter.WeaponData.Accuracy + shooter.Skills.GetAccuracyBonus();
+            int effectiveAccuracy = Math.Max(baseAccuracy - distance * 5, 10); shooter.WillHit = roll < effectiveAccuracy;
             shooter.PendingTarget = target;
             shooter.ActionPoints--;
 
@@ -2227,8 +2234,15 @@ namespace XCOM_3
                     if (u.WillHit)
                     {
                         var t = u.PendingTarget;
-                        int damage = Math.Max(u.WeaponData.Damage - t.GetTotalArmor(), 1);
+                        int baseDamage = u.WeaponData.Damage + u.Skills.GetDamageBonus();
+                        int damage = Math.Max(baseDamage - t.GetTotalArmor(), 1); 
                         t.Health = Math.Max(t.Health - damage, 0);
+
+                        // Donner de l'XP de survie à la cible
+                        if (t.Team == Team.Player)
+                        {
+                            t.Skills.GainSurvivalXP(damage, t.Health > 0);
+                        }
 
                         if (t.Health <= 0)
                         {
@@ -2255,6 +2269,30 @@ namespace XCOM_3
                             }
                         }
                     }
+
+                    // Donner de l'XP pour le tir
+                    if (u.Team == Team.Player)
+                    {
+                        int distance = Math.Abs(u.Cell.X - u.PendingTarget.Cell.X) +
+                                      Math.Abs(u.Cell.Y - u.PendingTarget.Cell.Y);
+
+                        if (u.WillHit)
+                        {
+                            int damage = Math.Max(u.WeaponData.Damage - u.PendingTarget.GetTotalArmor(), 1);
+                            u.Skills.GainShootingXP(true, distance, damage);
+
+                            // Bonus si kill
+                            if (u.PendingTarget.Health <= 0)
+                            {
+                                u.Skills.GainKillXP(u.PendingTarget.Class);
+                            }
+                        }
+                        else
+                        {
+                            u.Skills.GainShootingXP(false, distance, 0);
+                        }
+                    }
+
                     u.PendingTarget = null;
                     u.WillHit = false;
                 }
@@ -2643,6 +2681,12 @@ namespace XCOM_3
                 UpdateFireTargets();
             }
 
+            bool kPressed = keyboard.IsKeyDown(Keys.K) && previousKeyboardState.IsKeyUp(Keys.K);
+            if (kPressed && selectedUnit != null)
+            {
+                Console.WriteLine(selectedUnit.Skills.GetSkillsSummary());
+            }
+
             endTurnHovered = endTurnButton.Contains(mouse.Position);
             if (endTurnHovered && leftClick && !isActionInProgress)
                 StartEnemyTurn();
@@ -2881,7 +2925,7 @@ namespace XCOM_3
                         (int)(grenade.TargetPosition.Z / cellSize)
                     );
 
-                    TriggerExplosion(explosionCell, grenade.Data);
+                    TriggerExplosion(explosionCell, grenade.Data, grenade.Thrower);
                     activeGrenades.RemoveAt(i);
                 }
                 else
@@ -2897,9 +2941,13 @@ namespace XCOM_3
             }
         }
 
-        private void TriggerExplosion(Point center, GrenadeData grenadeData)
+        private void TriggerExplosion(Point center, GrenadeData grenadeData, Unit thrower = null)
         {
             Console.WriteLine($"EXPLOSION at {center} - {grenadeData.Name}");
+
+            // Suivre les stats pour l'XP
+            int enemiesHit = 0;
+            int totalDamage = 0;
 
             // Appliquer les dégâts aux unités
             List<Point> affectedCells = explosionManager.GetExplosionCells(center, grenadeData.Radius);
@@ -2919,12 +2967,25 @@ namespace XCOM_3
                     unit.Health = Math.Max(0, unit.Health - damage);
                     Console.WriteLine($"{unit.Name} took {damage} explosion damage! HP: {unit.Health}");
 
+                    // Compter pour l'XP si c'est un ennemi
+                    if (unit.Team == Team.Enemy && thrower != null && thrower.Team == Team.Player)
+                    {
+                        enemiesHit++;
+                        totalDamage += damage;
+                    }
+
                     if (unit.Health <= 0)
                     {
                         (unit.Team == Team.Player ? playerUnits : enemyUnits).Remove(unit);
                         Console.WriteLine($"{unit.Name} killed by explosion!");
                     }
                 }
+            }
+
+            // Donner l'XP au lanceur
+            if (thrower != null && thrower.Team == Team.Player && enemiesHit > 0)
+            {
+                thrower.Skills.GainGrenadeXP(enemiesHit, totalDamage);
             }
 
             // Détruire les murs
