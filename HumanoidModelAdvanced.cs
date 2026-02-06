@@ -5,6 +5,7 @@ namespace XCOM_3
 {
     /// <summary>
     /// Modèle humanoïde amélioré style PS1 avec variantes pour différents types d'unités
+    /// AVEC SUPPORT DES ANIMATIONS (marche, idle)
     /// </summary>
     public class HumanoidModelAdvanced
     {
@@ -80,35 +81,44 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Dessine un modèle humanoïde avec type spécifique
+        /// Dessine un modèle humanoïde avec type spécifique et animations
         /// </summary>
+        /// <param name="legSwing">Animation des jambes (-1 à 1)</param>
+        /// <param name="armSwing">Animation des bras (-1 à 1)</param>
+        /// <param name="bodyBob">Oscillation du corps pendant la marche</param>
+        /// <param name="idleBob">Oscillation du corps en idle</param>
         public void Draw(GraphicsDevice device, BasicEffect effect, Vector3 position,
-                         Color teamColor, float scale, UnitType type, float orientation = 0f)
+                         Color teamColor, float scale, UnitType type, float orientation = 0f,
+                         float legSwing = 0f, float armSwing = 0f, float bodyBob = 0f, float idleBob = 0f)
         {
+            // Ajouter le bobbing à la position Y
+            Vector3 animatedPosition = position + new Vector3(0, bodyBob + idleBob, 0);
+
             Matrix rotationMatrix = Matrix.CreateRotationY(orientation);
 
             switch (type)
             {
                 case UnitType.Soldier:
-                    DrawSoldier(device, effect, position, teamColor, scale, rotationMatrix);
+                    DrawSoldier(device, effect, animatedPosition, teamColor, scale, rotationMatrix, legSwing, armSwing);
                     break;
                 case UnitType.Alien:
-                    DrawAlien(device, effect, position, teamColor, scale, rotationMatrix);
+                    DrawAlien(device, effect, animatedPosition, teamColor, scale, rotationMatrix, legSwing, armSwing);
                     break;
                 case UnitType.Zombie:
-                    DrawZombie(device, effect, position, teamColor, scale, rotationMatrix);
+                    DrawZombie(device, effect, animatedPosition, teamColor, scale, rotationMatrix, legSwing, armSwing);
                     break;
                 case UnitType.Heavy:
-                    DrawHeavy(device, effect, position, teamColor, scale, rotationMatrix);
+                    DrawHeavy(device, effect, animatedPosition, teamColor, scale, rotationMatrix, legSwing, armSwing);
                     break;
                 case UnitType.Scout:
-                    DrawScout(device, effect, position, teamColor, scale, rotationMatrix);
+                    DrawScout(device, effect, animatedPosition, teamColor, scale, rotationMatrix, legSwing, armSwing);
                     break;
             }
         }
 
         private void DrawSoldier(GraphicsDevice device, BasicEffect effect, Vector3 position,
-                                 Color teamColor, float scale, Matrix rotationMatrix)
+                                 Color teamColor, float scale, Matrix rotationMatrix,
+                                 float legSwing = 0f, float armSwing = 0f)
         {
             // Proportions standard pour soldat humain
             float headSize = 0.25f * scale;
@@ -122,12 +132,12 @@ namespace XCOM_3
             Color skinColor = new Color(220, 180, 140);
             Color darkColor = new Color(60, 60, 80);
 
-            // Jambes
+            // Jambes avec animation
             DrawBodyPart(device, effect, position,
-                        new Vector3(-torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(-torsoWidth * 0.3f + legSwing * 0.05f, legLength * 0.5f, legSwing * 0.1f),
                         new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
             DrawBodyPart(device, effect, position,
-                        new Vector3(torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(torsoWidth * 0.3f - legSwing * 0.05f, legLength * 0.5f, -legSwing * 0.1f),
                         new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
 
             // Torse
@@ -135,12 +145,12 @@ namespace XCOM_3
                         new Vector3(0, legLength + torsoHeight * 0.5f, 0),
                         new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor, rotationMatrix);
 
-            // Bras
+            // Bras avec animation
             DrawBodyPart(device, effect, position,
-                        new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.7f, -armSwing * 0.15f),
                         new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
             DrawBodyPart(device, effect, position,
-                        new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.7f, armSwing * 0.15f),
                         new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
 
             // Tête
@@ -168,7 +178,8 @@ namespace XCOM_3
         }
 
         private void DrawAlien(GraphicsDevice device, BasicEffect effect, Vector3 position,
-                              Color teamColor, float scale, Matrix rotationMatrix)
+                              Color teamColor, float scale, Matrix rotationMatrix,
+                              float legSwing = 0f, float armSwing = 0f)
         {
             // Alien: tête plus grande, bras plus longs, jambes plus courtes
             float headSize = 0.35f * scale;
@@ -182,12 +193,12 @@ namespace XCOM_3
             Color alienSkin = new Color(150, 200, 150);
             Color darkColor = teamColor * 0.6f;
 
-            // Jambes
+            // Jambes avec animation
             DrawBodyPart(device, effect, position,
-                        new Vector3(-torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(-torsoWidth * 0.3f + legSwing * 0.05f, legLength * 0.5f, legSwing * 0.1f),
                         new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
             DrawBodyPart(device, effect, position,
-                        new Vector3(torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(torsoWidth * 0.3f - legSwing * 0.05f, legLength * 0.5f, -legSwing * 0.1f),
                         new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
 
             // Torse
@@ -195,12 +206,12 @@ namespace XCOM_3
                         new Vector3(0, legLength + torsoHeight * 0.5f, 0),
                         new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor, rotationMatrix);
 
-            // Bras longs
+            // Bras longs avec animation
             DrawBodyPart(device, effect, position,
-                        new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.6f, 0),
+                        new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.6f, -armSwing * 0.2f),
                         new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
             DrawBodyPart(device, effect, position,
-                        new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.6f, 0),
+                        new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.6f, armSwing * 0.2f),
                         new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
 
             // Grosse tête alien
@@ -224,7 +235,8 @@ namespace XCOM_3
         }
 
         private void DrawZombie(GraphicsDevice device, BasicEffect effect, Vector3 position,
-                               Color teamColor, float scale, Matrix rotationMatrix)
+                               Color teamColor, float scale, Matrix rotationMatrix,
+                               float legSwing = 0f, float armSwing = 0f)
         {
             // Zombie: posture courbée, bras qui pendent
             float headSize = 0.22f * scale;
@@ -238,12 +250,12 @@ namespace XCOM_3
             Color zombieSkin = new Color(140, 160, 130);
             Color darkColor = new Color(80, 70, 60);
 
-            // Jambes légèrement écartées
+            // Jambes légèrement écartées avec animation
             DrawBodyPart(device, effect, position,
-                        new Vector3(-torsoWidth * 0.35f, legLength * 0.5f, 0),
+                        new Vector3(-torsoWidth * 0.35f + legSwing * 0.08f, legLength * 0.5f, legSwing * 0.15f),
                         new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
             DrawBodyPart(device, effect, position,
-                        new Vector3(torsoWidth * 0.35f, legLength * 0.5f, 0),
+                        new Vector3(torsoWidth * 0.35f - legSwing * 0.08f, legLength * 0.5f, -legSwing * 0.15f),
                         new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
 
             // Torse légèrement penché
@@ -251,12 +263,12 @@ namespace XCOM_3
                         new Vector3(0, legLength + torsoHeight * 0.5f, -0.1f * scale),
                         new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor * 0.7f, rotationMatrix);
 
-            // Bras qui pendent vers l'avant
+            // Bras qui pendent vers l'avant avec animation
             DrawBodyPart(device, effect, position,
-                        new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.5f, 0.15f * scale),
+                        new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.5f, 0.15f * scale - armSwing * 0.1f),
                         new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.6f, rotationMatrix);
             DrawBodyPart(device, effect, position,
-                        new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.5f, 0.15f * scale),
+                        new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.5f, 0.15f * scale + armSwing * 0.1f),
                         new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.6f, rotationMatrix);
 
             // Tête penchée
@@ -278,7 +290,8 @@ namespace XCOM_3
         }
 
         private void DrawHeavy(GraphicsDevice device, BasicEffect effect, Vector3 position,
-                              Color teamColor, float scale, Matrix rotationMatrix)
+                              Color teamColor, float scale, Matrix rotationMatrix,
+                              float legSwing = 0f, float armSwing = 0f)
         {
             // Unité lourde: plus large et massive
             float headSize = 0.23f * scale;
@@ -292,12 +305,12 @@ namespace XCOM_3
             Color skinColor = new Color(220, 180, 140);
             Color darkColor = new Color(50, 50, 70);
 
-            // Jambes épaisses
+            // Jambes épaisses avec animation (mouvement plus lent)
             DrawBodyPart(device, effect, position,
-                        new Vector3(-torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(-torsoWidth * 0.3f + legSwing * 0.03f, legLength * 0.5f, legSwing * 0.08f),
                         new Vector3(limbWidth * 1.2f, legLength, limbWidth * 1.2f), darkColor, rotationMatrix);
             DrawBodyPart(device, effect, position,
-                        new Vector3(torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(torsoWidth * 0.3f - legSwing * 0.03f, legLength * 0.5f, -legSwing * 0.08f),
                         new Vector3(limbWidth * 1.2f, legLength, limbWidth * 1.2f), darkColor, rotationMatrix);
 
             // Torse massif
@@ -305,12 +318,12 @@ namespace XCOM_3
                         new Vector3(0, legLength + torsoHeight * 0.5f, 0),
                         new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor, rotationMatrix);
 
-            // Bras épais
+            // Bras épais avec animation réduite
             DrawBodyPart(device, effect, position,
-                        new Vector3(-torsoWidth * 0.65f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(-torsoWidth * 0.65f, legLength + torsoHeight * 0.7f, -armSwing * 0.1f),
                         new Vector3(limbWidth * 1.3f, armLength, limbWidth * 1.3f), teamColor * 0.85f, rotationMatrix);
             DrawBodyPart(device, effect, position,
-                        new Vector3(torsoWidth * 0.65f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(torsoWidth * 0.65f, legLength + torsoHeight * 0.7f, armSwing * 0.1f),
                         new Vector3(limbWidth * 1.3f, armLength, limbWidth * 1.3f), teamColor * 0.85f, rotationMatrix);
 
             // Tête
@@ -332,9 +345,10 @@ namespace XCOM_3
         }
 
         private void DrawScout(GraphicsDevice device, BasicEffect effect, Vector3 position,
-                              Color teamColor, float scale, Matrix rotationMatrix)
+                              Color teamColor, float scale, Matrix rotationMatrix,
+                              float legSwing = 0f, float armSwing = 0f)
         {
-            // Scout: plus petit et mince, agile
+            // Scout: plus petit et mince, agile (animation plus rapide)
             float headSize = 0.22f * scale;
             float torsoWidth = 0.28f * scale;
             float torsoHeight = 0.45f * scale;
@@ -346,12 +360,12 @@ namespace XCOM_3
             Color skinColor = new Color(220, 180, 140);
             Color darkColor = new Color(70, 70, 90);
 
-            // Jambes fines et longues
+            // Jambes fines et longues avec animation amplifiée
             DrawBodyPart(device, effect, position,
-                        new Vector3(-torsoWidth * 0.25f, legLength * 0.5f, 0),
+                        new Vector3(-torsoWidth * 0.25f + legSwing * 0.07f, legLength * 0.5f, legSwing * 0.12f),
                         new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
             DrawBodyPart(device, effect, position,
-                        new Vector3(torsoWidth * 0.25f, legLength * 0.5f, 0),
+                        new Vector3(torsoWidth * 0.25f - legSwing * 0.07f, legLength * 0.5f, -legSwing * 0.12f),
                         new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
 
             // Torse mince
@@ -359,12 +373,12 @@ namespace XCOM_3
                         new Vector3(0, legLength + torsoHeight * 0.5f, 0),
                         new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor, rotationMatrix);
 
-            // Bras fins
+            // Bras fins avec animation amplifiée
             DrawBodyPart(device, effect, position,
-                        new Vector3(-torsoWidth * 0.55f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(-torsoWidth * 0.55f, legLength + torsoHeight * 0.7f, -armSwing * 0.18f),
                         new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
             DrawBodyPart(device, effect, position,
-                        new Vector3(torsoWidth * 0.55f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(torsoWidth * 0.55f, legLength + torsoHeight * 0.7f, armSwing * 0.18f),
                         new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
 
             // Tête
