@@ -322,6 +322,8 @@ namespace XCOM_3
                     }
                     else
                     {
+                        UpdateUnitAnimations(gameTime);
+
                         if (currentTurn == TurnState.PlayerTurn) HandlePlayerTurn(mouse, leftClick, keyboard);
                         else if (currentTurn == TurnState.EnemyTurn) UpdateEnemyTurn();
 
@@ -364,6 +366,16 @@ namespace XCOM_3
             previousKeyboardState = keyboard;
 
             base.Update(gameTime);
+        }
+
+        private void UpdateUnitAnimations(GameTime gameTime)
+        {
+            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            foreach (var unit in AllUnits())
+            {
+                unit.UpdateAnimation(deltaTime);
+            }
         }
 
         private void UpdateDayNightCycle(GameTime gameTime)
@@ -1274,8 +1286,10 @@ namespace XCOM_3
             else if (unit.Team == Team.Enemy && unit.Name.Contains("Alien"))
                 unitType = HumanoidModelAdvanced.UnitType.Alien;
 
-            // MODIFIÉ: Dessiner le modèle humanoïde avec orientation
-            humanoidModel.Draw(GraphicsDevice, basicEffect, finalPos, unitColor, cellSize * 0.8f, unitType, unit.Orientation);
+            // MODIFIÉ: Passer les paramètres d'animation
+            humanoidModel.Draw(GraphicsDevice, basicEffect, finalPos, unitColor,
+                              cellSize * 0.8f, unitType, unit.Orientation,
+                              unit.LegSwing, unit.ArmSwing, unit.BodyBob, unit.IdleBobOffset);
 
             // Indicateurs de sélection (inchangés)
             if (unit == selectedUnit)
@@ -2000,6 +2014,18 @@ namespace XCOM_3
                     }
                     break;
             }
+            // Initialiser les positions visuelles de toutes les unités
+            foreach (var unit in playerUnits)
+            {
+                unit.UpdateVisualPosition(cellSize);
+                unit.TargetPosition = unit.VisualPosition;
+            }
+
+            foreach (var unit in enemyUnits)
+            {
+                unit.UpdateVisualPosition(cellSize);
+                unit.TargetPosition = unit.VisualPosition;
+            }
 
             Console.WriteLine($"Units created for {missionType}: 6 player, {enemyUnits.Count} enemy");
         }
@@ -2067,6 +2093,10 @@ namespace XCOM_3
 
             Unit enemy = enemyUnits[enemyTurnIndex];
             if (enemy.IsFiring) return;
+
+            // NOUVEAU: Attendre que l'animation de déplacement soit terminée
+            if (enemy.IsMoving) return;
+
             if (enemy.ActionPoints <= 0) { enemyTurnIndex++; return; }
 
             Unit closest = null;
@@ -2079,7 +2109,15 @@ namespace XCOM_3
             if (closest == null) { enemyTurnIndex++; return; }
 
             if (bestDist <= enemy.WeaponData.Range && HasLineOfSight(enemy.Cell, closest.Cell))
-            { HandleFire(enemy); return; }
+            {
+                // NOUVEAU: Tourner vers la cible avant de tirer
+                float deltaX = closest.Cell.X - enemy.Cell.X;
+                float deltaZ = closest.Cell.Y - enemy.Cell.Y;
+                enemy.TargetOrientation = (float)Math.Atan2(deltaX, deltaZ);
+
+                HandleFire(enemy);
+                return;
+            }
 
             var path = FindPathAStar(enemy.Cell, closest.Cell, int.MaxValue, enemy);
 
@@ -2112,7 +2150,8 @@ namespace XCOM_3
                     }
                 }
 
-                enemy.Cell = targetCell;
+                // MODIFIÉ: Utiliser StartMoveTo au lieu de enemy.Cell =
+                enemy.StartMoveTo(targetCell, cellSize);
                 enemy.ActionPoints--;
             }
             else
@@ -2127,13 +2166,15 @@ namespace XCOM_3
                 // Essayer le mouvement horizontal d'abord
                 if (dx != 0 && IsWalkable(nextX, enemy) && !HasWallBetween(enemy.Cell, nextX))
                 {
-                    enemy.Cell = nextX;
+                    // MODIFIÉ: Utiliser StartMoveTo au lieu de enemy.Cell =
+                    enemy.StartMoveTo(nextX, cellSize);
                     enemy.ActionPoints--;
                 }
                 // Sinon essayer le mouvement vertical
                 else if (dy != 0 && IsWalkable(nextY, enemy) && !HasWallBetween(enemy.Cell, nextY))
                 {
-                    enemy.Cell = nextY;
+                    // MODIFIÉ: Utiliser StartMoveTo au lieu de enemy.Cell =
+                    enemy.StartMoveTo(nextY, cellSize);
                     enemy.ActionPoints--;
                 }
                 else
@@ -2648,7 +2689,7 @@ namespace XCOM_3
 
                     if (path.Count > 0 && path.Count <= selectedUnit.MovementPoints)
                     {
-                        selectedUnit.Cell = clickedCell;
+                        selectedUnit.StartMoveTo(clickedCell, cellSize);  // <-- NOUVELLE LIGNE avec animation
                         selectedUnit.ActionPoints--;
                         UpdateFireTargets();
                         cachedMovableCells = selectedUnit.ActionPoints > 0 ? GetMovableCells(selectedUnit) : new List<Point>();
