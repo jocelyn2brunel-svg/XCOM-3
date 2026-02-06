@@ -48,8 +48,8 @@ namespace XCOM_3
             };
         }
 
-        private void DrawBodyPart(GraphicsDevice device, BasicEffect effect, Vector3 position, 
-                                   Vector3 scale, Color color)
+        private void DrawBodyPart(GraphicsDevice device, BasicEffect effect, Vector3 centerPosition,
+                                   Vector3 relativePosition, Vector3 scale, Color color, Matrix rotationMatrix)
         {
             VertexPositionColor[] coloredVertices = new VertexPositionColor[8];
             for (int i = 0; i < 8; i++)
@@ -57,7 +57,11 @@ namespace XCOM_3
                 coloredVertices[i] = new VertexPositionColor(cubeVertices[i].Position, color);
             }
 
-            Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
+            // Appliquer la rotation à la position relative, puis ajouter la position centrale
+            Vector3 rotatedPosition = Vector3.Transform(relativePosition, rotationMatrix);
+            Vector3 finalPosition = centerPosition + rotatedPosition;
+
+            Matrix world = Matrix.CreateScale(scale) * rotationMatrix * Matrix.CreateTranslation(finalPosition);
             effect.World = world;
 
             foreach (EffectPass pass in effect.CurrentTechnique.Passes)
@@ -78,31 +82,33 @@ namespace XCOM_3
         /// <summary>
         /// Dessine un modèle humanoïde avec type spécifique
         /// </summary>
-        public void Draw(GraphicsDevice device, BasicEffect effect, Vector3 position, 
-                         Color teamColor, float scale, UnitType type)
+        public void Draw(GraphicsDevice device, BasicEffect effect, Vector3 position,
+                         Color teamColor, float scale, UnitType type, float orientation = 0f)
         {
+            Matrix rotationMatrix = Matrix.CreateRotationY(orientation);
+
             switch (type)
             {
                 case UnitType.Soldier:
-                    DrawSoldier(device, effect, position, teamColor, scale);
+                    DrawSoldier(device, effect, position, teamColor, scale, rotationMatrix);
                     break;
                 case UnitType.Alien:
-                    DrawAlien(device, effect, position, teamColor, scale);
+                    DrawAlien(device, effect, position, teamColor, scale, rotationMatrix);
                     break;
                 case UnitType.Zombie:
-                    DrawZombie(device, effect, position, teamColor, scale);
+                    DrawZombie(device, effect, position, teamColor, scale, rotationMatrix);
                     break;
                 case UnitType.Heavy:
-                    DrawHeavy(device, effect, position, teamColor, scale);
+                    DrawHeavy(device, effect, position, teamColor, scale, rotationMatrix);
                     break;
                 case UnitType.Scout:
-                    DrawScout(device, effect, position, teamColor, scale);
+                    DrawScout(device, effect, position, teamColor, scale, rotationMatrix);
                     break;
             }
         }
 
-        private void DrawSoldier(GraphicsDevice device, BasicEffect effect, Vector3 position, 
-                                 Color teamColor, float scale)
+        private void DrawSoldier(GraphicsDevice device, BasicEffect effect, Vector3 position,
+                                 Color teamColor, float scale, Matrix rotationMatrix)
         {
             // Proportions standard pour soldat humain
             float headSize = 0.25f * scale;
@@ -117,79 +123,108 @@ namespace XCOM_3
             Color darkColor = new Color(60, 60, 80);
 
             // Jambes
-            DrawBodyPart(device, effect, position + new Vector3(-torsoWidth * 0.3f, legLength * 0.5f, 0),
-                        new Vector3(limbWidth, legLength, limbWidth), darkColor);
-            DrawBodyPart(device, effect, position + new Vector3(torsoWidth * 0.3f, legLength * 0.5f, 0),
-                        new Vector3(limbWidth, legLength, limbWidth), darkColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(-torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
 
             // Torse
-            Vector3 torsoPos = position + new Vector3(0, legLength + torsoHeight * 0.5f, 0);
-            DrawBodyPart(device, effect, torsoPos,
-                        new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight * 0.5f, 0),
+                        new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor, rotationMatrix);
 
             // Bras
-            DrawBodyPart(device, effect, position + new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.7f, 0),
-                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f);
-            DrawBodyPart(device, effect, position + new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.7f, 0),
-                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
 
             // Tête
-            Vector3 headPos = position + new Vector3(0, legLength + torsoHeight + headSize * 0.6f, 0);
-            DrawBodyPart(device, effect, headPos,
-                        new Vector3(headSize, headSize * 1.2f, headSize), skinColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight + headSize * 0.6f, 0),
+                        new Vector3(headSize, headSize * 1.2f, headSize), skinColor, rotationMatrix);
 
-            // Casque/Visage
-            DrawBodyPart(device, effect, headPos + new Vector3(0, 0, headSize * 0.6f),
-                        new Vector3(headSize * 0.6f, headSize * 0.3f, headSize * 0.1f),
-                        new Color(40, 40, 40));
+            // Casque/Visage (DEVANT de la tête)
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight + headSize * 0.6f, headSize * 0.6f),
+                        new Vector3(headSize * 0.6f, headSize * 0.3f, headSize * 0.15f),
+                        new Color(40, 40, 40), rotationMatrix);
+
+            // Indicateur de direction - barre jaune devant le torse
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight * 0.5f, torsoDepth * 0.7f),
+                        new Vector3(torsoWidth * 0.3f, torsoHeight * 0.6f, torsoDepth * 0.15f),
+                        Color.Yellow, rotationMatrix);
+
+            // Arme pointée vers l'avant (bras droit)
+            DrawBodyPart(device, effect, position,
+                        new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.6f, torsoDepth * 0.5f),
+                        new Vector3(limbWidth * 0.6f, limbWidth * 0.6f, torsoDepth * 1.2f),
+                        new Color(80, 80, 80), rotationMatrix);
         }
 
         private void DrawAlien(GraphicsDevice device, BasicEffect effect, Vector3 position,
-                              Color teamColor, float scale)
+                              Color teamColor, float scale, Matrix rotationMatrix)
         {
             // Alien: tête plus grande, bras plus longs, jambes plus courtes
-            float headSize = 0.35f * scale;  // Tête plus grande
+            float headSize = 0.35f * scale;
             float torsoWidth = 0.3f * scale;
             float torsoHeight = 0.45f * scale;
             float torsoDepth = 0.2f * scale;
-            float limbWidth = 0.1f * scale;  // Membres plus fins
-            float armLength = 0.55f * scale;  // Bras plus longs
-            float legLength = 0.45f * scale;  // Jambes plus courtes
+            float limbWidth = 0.1f * scale;
+            float armLength = 0.55f * scale;
+            float legLength = 0.45f * scale;
 
-            Color alienSkin = new Color(150, 200, 150);  // Vert alien
+            Color alienSkin = new Color(150, 200, 150);
             Color darkColor = teamColor * 0.6f;
 
             // Jambes
-            DrawBodyPart(device, effect, position + new Vector3(-torsoWidth * 0.3f, legLength * 0.5f, 0),
-                        new Vector3(limbWidth, legLength, limbWidth), darkColor);
-            DrawBodyPart(device, effect, position + new Vector3(torsoWidth * 0.3f, legLength * 0.5f, 0),
-                        new Vector3(limbWidth, legLength, limbWidth), darkColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(-torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
 
             // Torse
-            Vector3 torsoPos = position + new Vector3(0, legLength + torsoHeight * 0.5f, 0);
-            DrawBodyPart(device, effect, torsoPos,
-                        new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight * 0.5f, 0),
+                        new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor, rotationMatrix);
 
             // Bras longs
-            DrawBodyPart(device, effect, position + new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.6f, 0),
-                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f);
-            DrawBodyPart(device, effect, position + new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.6f, 0),
-                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.6f, 0),
+                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.6f, 0),
+                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
 
             // Grosse tête alien
-            Vector3 headPos = position + new Vector3(0, legLength + torsoHeight + headSize * 0.5f, 0);
-            DrawBodyPart(device, effect, headPos,
-                        new Vector3(headSize, headSize * 1.3f, headSize * 0.9f), alienSkin);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight + headSize * 0.5f, 0),
+                        new Vector3(headSize, headSize * 1.3f, headSize * 0.9f), alienSkin, rotationMatrix);
 
-            // Grands yeux noirs
-            DrawBodyPart(device, effect, headPos + new Vector3(-headSize * 0.3f, 0.1f * scale, headSize * 0.5f),
-                        new Vector3(headSize * 0.2f, headSize * 0.25f, headSize * 0.1f), Color.Black);
-            DrawBodyPart(device, effect, headPos + new Vector3(headSize * 0.3f, 0.1f * scale, headSize * 0.5f),
-                        new Vector3(headSize * 0.2f, headSize * 0.25f, headSize * 0.1f), Color.Black);
+            // Grands yeux noirs sur le DEVANT
+            DrawBodyPart(device, effect, position,
+                        new Vector3(-headSize * 0.3f, legLength + torsoHeight + headSize * 0.5f + 0.1f * scale, headSize * 0.5f),
+                        new Vector3(headSize * 0.2f, headSize * 0.25f, headSize * 0.1f), Color.Black, rotationMatrix);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(headSize * 0.3f, legLength + torsoHeight + headSize * 0.5f + 0.1f * scale, headSize * 0.5f),
+                        new Vector3(headSize * 0.2f, headSize * 0.25f, headSize * 0.1f), Color.Black, rotationMatrix);
+
+            // Indicateur de direction alien - yeux verts brillants
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight + headSize * 0.5f, headSize * 0.55f),
+                        new Vector3(headSize * 0.8f, headSize * 0.15f, headSize * 0.05f),
+                        new Color(0, 255, 0), rotationMatrix);
         }
 
         private void DrawZombie(GraphicsDevice device, BasicEffect effect, Vector3 position,
-                               Color teamColor, float scale)
+                               Color teamColor, float scale, Matrix rotationMatrix)
         {
             // Zombie: posture courbée, bras qui pendent
             float headSize = 0.22f * scale;
@@ -200,46 +235,57 @@ namespace XCOM_3
             float armLength = 0.5f * scale;
             float legLength = 0.5f * scale;
 
-            Color zombieSkin = new Color(140, 160, 130);  // Peau verdâtre
+            Color zombieSkin = new Color(140, 160, 130);
             Color darkColor = new Color(80, 70, 60);
 
             // Jambes légèrement écartées
-            DrawBodyPart(device, effect, position + new Vector3(-torsoWidth * 0.35f, legLength * 0.5f, 0),
-                        new Vector3(limbWidth, legLength, limbWidth), darkColor);
-            DrawBodyPart(device, effect, position + new Vector3(torsoWidth * 0.35f, legLength * 0.5f, 0),
-                        new Vector3(limbWidth, legLength, limbWidth), darkColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(-torsoWidth * 0.35f, legLength * 0.5f, 0),
+                        new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(torsoWidth * 0.35f, legLength * 0.5f, 0),
+                        new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
 
             // Torse légèrement penché
-            Vector3 torsoPos = position + new Vector3(0, legLength + torsoHeight * 0.5f, -0.1f * scale);
-            DrawBodyPart(device, effect, torsoPos,
-                        new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor * 0.7f);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight * 0.5f, -0.1f * scale),
+                        new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor * 0.7f, rotationMatrix);
 
             // Bras qui pendent vers l'avant
-            DrawBodyPart(device, effect, position + new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.5f, 0.15f * scale),
-                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.6f);
-            DrawBodyPart(device, effect, position + new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.5f, 0.15f * scale),
-                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.6f);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.5f, 0.15f * scale),
+                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.6f, rotationMatrix);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.5f, 0.15f * scale),
+                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.6f, rotationMatrix);
 
             // Tête penchée
-            Vector3 headPos = position + new Vector3(0, legLength + torsoHeight + headSize * 0.5f, -0.05f * scale);
-            DrawBodyPart(device, effect, headPos,
-                        new Vector3(headSize, headSize * 1.1f, headSize), zombieSkin);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight + headSize * 0.5f, -0.05f * scale),
+                        new Vector3(headSize, headSize * 1.1f, headSize), zombieSkin, rotationMatrix);
 
-            // Yeux rouges
-            DrawBodyPart(device, effect, headPos + new Vector3(0, 0, headSize * 0.6f),
+            // Yeux rouges sur le DEVANT
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight + headSize * 0.5f, headSize * 0.55f),
                         new Vector3(headSize * 0.5f, headSize * 0.2f, headSize * 0.05f),
-                        new Color(180, 0, 0));
+                        new Color(180, 0, 0), rotationMatrix);
+
+            // Bras tendu vers l'avant (zombie qui grogne) - indicateur de direction
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight * 0.4f, torsoDepth * 0.9f),
+                        new Vector3(limbWidth * 1.5f, limbWidth, limbWidth * 2.0f),
+                        teamColor * 0.5f, rotationMatrix);
         }
 
         private void DrawHeavy(GraphicsDevice device, BasicEffect effect, Vector3 position,
-                              Color teamColor, float scale)
+                              Color teamColor, float scale, Matrix rotationMatrix)
         {
             // Unité lourde: plus large et massive
             float headSize = 0.23f * scale;
-            float torsoWidth = 0.5f * scale;  // Plus large
-            float torsoHeight = 0.55f * scale;  // Plus haut
-            float torsoDepth = 0.35f * scale;  // Plus épais
-            float limbWidth = 0.15f * scale;  // Membres plus épais
+            float torsoWidth = 0.5f * scale;
+            float torsoHeight = 0.55f * scale;
+            float torsoDepth = 0.35f * scale;
+            float limbWidth = 0.15f * scale;
             float armLength = 0.4f * scale;
             float legLength = 0.5f * scale;
 
@@ -247,74 +293,96 @@ namespace XCOM_3
             Color darkColor = new Color(50, 50, 70);
 
             // Jambes épaisses
-            DrawBodyPart(device, effect, position + new Vector3(-torsoWidth * 0.3f, legLength * 0.5f, 0),
-                        new Vector3(limbWidth * 1.2f, legLength, limbWidth * 1.2f), darkColor);
-            DrawBodyPart(device, effect, position + new Vector3(torsoWidth * 0.3f, legLength * 0.5f, 0),
-                        new Vector3(limbWidth * 1.2f, legLength, limbWidth * 1.2f), darkColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(-torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(limbWidth * 1.2f, legLength, limbWidth * 1.2f), darkColor, rotationMatrix);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(torsoWidth * 0.3f, legLength * 0.5f, 0),
+                        new Vector3(limbWidth * 1.2f, legLength, limbWidth * 1.2f), darkColor, rotationMatrix);
 
             // Torse massif
-            Vector3 torsoPos = position + new Vector3(0, legLength + torsoHeight * 0.5f, 0);
-            DrawBodyPart(device, effect, torsoPos,
-                        new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight * 0.5f, 0),
+                        new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor, rotationMatrix);
 
             // Bras épais
-            DrawBodyPart(device, effect, position + new Vector3(-torsoWidth * 0.65f, legLength + torsoHeight * 0.7f, 0),
-                        new Vector3(limbWidth * 1.3f, armLength, limbWidth * 1.3f), teamColor * 0.85f);
-            DrawBodyPart(device, effect, position + new Vector3(torsoWidth * 0.65f, legLength + torsoHeight * 0.7f, 0),
-                        new Vector3(limbWidth * 1.3f, armLength, limbWidth * 1.3f), teamColor * 0.85f);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(-torsoWidth * 0.65f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(limbWidth * 1.3f, armLength, limbWidth * 1.3f), teamColor * 0.85f, rotationMatrix);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(torsoWidth * 0.65f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(limbWidth * 1.3f, armLength, limbWidth * 1.3f), teamColor * 0.85f, rotationMatrix);
 
             // Tête
-            Vector3 headPos = position + new Vector3(0, legLength + torsoHeight + headSize * 0.5f, 0);
-            DrawBodyPart(device, effect, headPos,
-                        new Vector3(headSize * 1.1f, headSize, headSize * 1.1f), skinColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight + headSize * 0.5f, 0),
+                        new Vector3(headSize * 1.1f, headSize, headSize * 1.1f), skinColor, rotationMatrix);
 
-            // Visière/Casque lourd
-            DrawBodyPart(device, effect, headPos + new Vector3(0, 0, headSize * 0.6f),
+            // Visière/Casque lourd sur le DEVANT
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight + headSize * 0.5f, headSize * 0.6f),
                         new Vector3(headSize * 0.8f, headSize * 0.4f, headSize * 0.15f),
-                        new Color(30, 30, 30));
+                        new Color(30, 30, 30), rotationMatrix);
+
+            // Grosse arme lourde devant - indicateur de direction
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight * 0.5f, torsoDepth * 0.9f),
+                        new Vector3(torsoWidth * 0.4f, torsoHeight * 0.4f, torsoDepth * 0.7f),
+                        new Color(60, 60, 60), rotationMatrix);
         }
 
         private void DrawScout(GraphicsDevice device, BasicEffect effect, Vector3 position,
-                              Color teamColor, float scale)
+                              Color teamColor, float scale, Matrix rotationMatrix)
         {
             // Scout: plus petit et mince, agile
             float headSize = 0.22f * scale;
-            float torsoWidth = 0.28f * scale;  // Plus étroit
+            float torsoWidth = 0.28f * scale;
             float torsoHeight = 0.45f * scale;
             float torsoDepth = 0.2f * scale;
-            float limbWidth = 0.09f * scale;  // Membres fins
+            float limbWidth = 0.09f * scale;
             float armLength = 0.42f * scale;
-            float legLength = 0.58f * scale;  // Jambes plus longues pour vitesse
+            float legLength = 0.58f * scale;
 
             Color skinColor = new Color(220, 180, 140);
             Color darkColor = new Color(70, 70, 90);
 
             // Jambes fines et longues
-            DrawBodyPart(device, effect, position + new Vector3(-torsoWidth * 0.25f, legLength * 0.5f, 0),
-                        new Vector3(limbWidth, legLength, limbWidth), darkColor);
-            DrawBodyPart(device, effect, position + new Vector3(torsoWidth * 0.25f, legLength * 0.5f, 0),
-                        new Vector3(limbWidth, legLength, limbWidth), darkColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(-torsoWidth * 0.25f, legLength * 0.5f, 0),
+                        new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(torsoWidth * 0.25f, legLength * 0.5f, 0),
+                        new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
 
             // Torse mince
-            Vector3 torsoPos = position + new Vector3(0, legLength + torsoHeight * 0.5f, 0);
-            DrawBodyPart(device, effect, torsoPos,
-                        new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight * 0.5f, 0),
+                        new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor, rotationMatrix);
 
             // Bras fins
-            DrawBodyPart(device, effect, position + new Vector3(-torsoWidth * 0.55f, legLength + torsoHeight * 0.7f, 0),
-                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f);
-            DrawBodyPart(device, effect, position + new Vector3(torsoWidth * 0.55f, legLength + torsoHeight * 0.7f, 0),
-                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(-torsoWidth * 0.55f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(torsoWidth * 0.55f, legLength + torsoHeight * 0.7f, 0),
+                        new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
 
             // Tête
-            Vector3 headPos = position + new Vector3(0, legLength + torsoHeight + headSize * 0.6f, 0);
-            DrawBodyPart(device, effect, headPos,
-                        new Vector3(headSize, headSize * 1.2f, headSize), skinColor);
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight + headSize * 0.6f, 0),
+                        new Vector3(headSize, headSize * 1.2f, headSize), skinColor, rotationMatrix);
 
-            // Lunettes/Viseur
-            DrawBodyPart(device, effect, headPos + new Vector3(0, 0.05f * scale, headSize * 0.6f),
+            // Lunettes/Viseur sur le DEVANT
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight + headSize * 0.6f + 0.05f * scale, headSize * 0.6f),
                         new Vector3(headSize * 0.7f, headSize * 0.25f, headSize * 0.08f),
-                        new Color(50, 100, 150));
+                        new Color(50, 100, 150), rotationMatrix);
+
+            // Viseur laser mince - indicateur de direction
+            DrawBodyPart(device, effect, position,
+                        new Vector3(0, legLength + torsoHeight + headSize * 0.6f, headSize * 0.8f),
+                        new Vector3(headSize * 0.1f, headSize * 0.1f, headSize * 0.35f),
+                        new Color(255, 0, 0), rotationMatrix);
         }
     }
 }
