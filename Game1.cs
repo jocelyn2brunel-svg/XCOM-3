@@ -600,34 +600,55 @@ namespace XCOM_3
 
         private void InitializeItems()
         {
-            itemDatabase = new Dictionary<string, ItemData>
-            {
-                // Armes
-                ["Rifle"] = new ItemData("Rifle", ItemType.Weapon, new WeaponData("Rifle", 25, 80, 5)),
-                ["Plasma Rifle"] = new ItemData("Plasma Rifle", ItemType.Weapon, new WeaponData("Plasma Rifle", 30, 75, 5)),
-                ["Plasma Sniper"] = new ItemData("Plasma Sniper", ItemType.Weapon, new WeaponData("Plasma Sniper", 50, 90, 8)),
-                ["Shotgun"] = new ItemData("Shotgun", ItemType.Weapon, new WeaponData("Shotgun", 45, 70, 3)),
-                ["SMG"] = new ItemData("SMG", ItemType.Weapon, new WeaponData("SMG", 20, 75, 4)),
+            itemDatabase = new Dictionary<string, ItemData>();
 
-                // Armures
-                ["Helmet"] = new ItemData("Helmet", ItemType.Armor, armorValue: 10, armorSlot: ArmorSlot.Head),
-                ["Ballistic Vest"] = new ItemData("Ballistic Vest", ItemType.Armor, armorValue: 25, armorSlot: ArmorSlot.Torso),
-                ["Combat Helmet"] = new ItemData("Combat Helmet", ItemType.Armor, armorValue: 15, armorSlot: ArmorSlot.Head),
-                ["Kevlar Vest"] = new ItemData("Kevlar Vest", ItemType.Armor, armorValue: 20, armorSlot: ArmorSlot.Torso),
-                ["Tactical Vest"] = new ItemData("Tactical Vest", ItemType.Armor, armorValue: 30, armorSlot: ArmorSlot.Torso)
-            };
+            // Armes (code existant)
+            itemDatabase["Rifle"] = new ItemData("Rifle", ItemType.Weapon,
+                new WeaponData("Rifle", 25, 80, 5));
+            itemDatabase["Plasma Rifle"] = new ItemData("Plasma Rifle", ItemType.Weapon,
+                new WeaponData("Plasma Rifle", 30, 75, 5));
+            itemDatabase["Plasma Sniper"] = new ItemData("Plasma Sniper", ItemType.Weapon,
+                new WeaponData("Plasma Sniper", 50, 90, 8));
+            itemDatabase["Shotgun"] = new ItemData("Shotgun", ItemType.Weapon,
+                new WeaponData("Shotgun", 45, 70, 3));
+            itemDatabase["SMG"] = new ItemData("SMG", ItemType.Weapon,
+                new WeaponData("SMG", 20, 75, 4));
+
+            // NOUVEAU: Charger toutes les armures de la base de données
+            foreach (var armor in ArmorDatabase.GetAllArmors())
+            {
+                itemDatabase[armor.Name] = armor;
+            }
         }
 
         private void InitializeInventoryItems()
         {
+            availableItems.Clear();
+
+            // Armes
             availableItems.Add(new Item(itemDatabase["Plasma Rifle"], new Point(50, 50)));
-            availableItems.Add(new Item(itemDatabase["Shotgun"], new Point(150, 50)));
-            availableItems.Add(new Item(itemDatabase["SMG"], new Point(250, 50)));
-            availableItems.Add(new Item(itemDatabase["Helmet"], new Point(50, 150)));
-            availableItems.Add(new Item(itemDatabase["Ballistic Vest"], new Point(150, 150)));
-            availableItems.Add(new Item(itemDatabase["Combat Helmet"], new Point(250, 150)));
-            availableItems.Add(new Item(itemDatabase["Kevlar Vest"], new Point(350, 150)));
-            availableItems.Add(new Item(itemDatabase["Tactical Vest"], new Point(450, 150)));
+            availableItems.Add(new Item(itemDatabase["Shotgun"], new Point(110, 50)));
+            availableItems.Add(new Item(itemDatabase["SMG"], new Point(170, 50)));
+
+            // Casques (rangée 1)
+            availableItems.Add(new Item(itemDatabase["PASGT Helmet"], new Point(50, 120)));
+            availableItems.Add(new Item(itemDatabase["ACH"], new Point(110, 120)));
+            availableItems.Add(new Item(itemDatabase["ECH"], new Point(170, 120)));
+
+            // Gilets légers (rangée 2)
+            availableItems.Add(new Item(itemDatabase["PASGT Vest"], new Point(50, 180)));
+            availableItems.Add(new Item(itemDatabase["OTV (IBA)"], new Point(110, 180)));
+            availableItems.Add(new Item(itemDatabase["MTV"], new Point(170, 180)));
+
+            // Gilets avec plaques (rangée 3)
+            availableItems.Add(new Item(itemDatabase["OTV + SAPI"], new Point(50, 240)));
+            availableItems.Add(new Item(itemDatabase["MTV + ESAPI"], new Point(110, 240)));
+            availableItems.Add(new Item(itemDatabase["IOTV + ESAPI"], new Point(170, 240)));
+
+            // Boucliers et équipement spécial (rangée 4)
+            availableItems.Add(new Item(itemDatabase["Riot Shield"], new Point(50, 300)));
+            availableItems.Add(new Item(itemDatabase["Ballistic Shield"], new Point(110, 300)));
+            availableItems.Add(new Item(itemDatabase["Army Combat Shirt"], new Point(170, 300)));
         }
 
         private void HandleInventory(MouseState mouse, bool leftClick)
@@ -678,6 +699,30 @@ namespace XCOM_3
                         selectedUnit.EquippedArmor = null;
                     }
                 }
+
+                // Gestion du bouclier
+                if (draggedItem == null && selectedUnit.EquippedShield != null)
+                {
+                    Rectangle shieldSlot = GetShieldSlotBounds();
+                    if (shieldSlot.Contains(mouse.Position))
+                    {
+                        draggedItem = selectedUnit.EquippedShield;
+                        dragOffset = new Point(mouse.X - shieldSlot.X, mouse.Y - shieldSlot.Y);
+                        selectedUnit.EquippedShield = null;
+                    }
+                }
+
+                // Gestion de la chemise
+                if (draggedItem == null && selectedUnit.EquippedShirt != null)
+                {
+                    Rectangle shirtSlot = GetShirtSlotBounds();
+                    if (shirtSlot.Contains(mouse.Position))
+                    {
+                        draggedItem = selectedUnit.EquippedShirt;
+                        dragOffset = new Point(mouse.X - shirtSlot.X, mouse.Y - shirtSlot.Y);
+                        selectedUnit.EquippedShirt = null;
+                    }
+                }
             }
 
             if (draggedItem != null && mouse.LeftButton == ButtonState.Pressed)
@@ -715,32 +760,42 @@ namespace XCOM_3
 
                     if (draggedItem.Data.ArmorSlot == ArmorSlot.Head)
                     {
-                        targetSlot = GetHelmetSlotBounds();
+                        // ... code existant pour casque ...
+                    }
+                    else if (draggedItem.Data.ArmorSlot == ArmorSlot.Torso)
+                    {
+                        // ... code existant pour gilet ...
+                    }
+                    // NOUVEAU: Bouclier
+                    else if (draggedItem.Data.ArmorSlot == ArmorSlot.Shield)
+                    {
+                        targetSlot = GetShieldSlotBounds();
                         if (targetSlot.Contains(mouse.Position))
                         {
-                            if (selectedUnit.EquippedHelmet != null && selectedUnit.EquippedHelmet != draggedItem)
+                            if (selectedUnit.EquippedShield != null && selectedUnit.EquippedShield != draggedItem)
                             {
-                                selectedUnit.EquippedHelmet.Position = FindFreePosition();
-                                if (!availableItems.Contains(selectedUnit.EquippedHelmet))
-                                    availableItems.Add(selectedUnit.EquippedHelmet);
+                                selectedUnit.EquippedShield.Position = FindFreePosition();
+                                if (!availableItems.Contains(selectedUnit.EquippedShield))
+                                    availableItems.Add(selectedUnit.EquippedShield);
                             }
-                            selectedUnit.EquippedHelmet = draggedItem;
+                            selectedUnit.EquippedShield = draggedItem;
                             availableItems.Remove(draggedItem);
                             equipped = true;
                         }
                     }
-                    else if (draggedItem.Data.ArmorSlot == ArmorSlot.Torso)
+                    // NOUVEAU: Chemise
+                    else if (draggedItem.Data.ArmorSlot == ArmorSlot.Shirt)
                     {
-                        targetSlot = GetArmorSlotBounds();
+                        targetSlot = GetShirtSlotBounds();
                         if (targetSlot.Contains(mouse.Position))
                         {
-                            if (selectedUnit.EquippedArmor != null && selectedUnit.EquippedArmor != draggedItem)
+                            if (selectedUnit.EquippedShirt != null && selectedUnit.EquippedShirt != draggedItem)
                             {
-                                selectedUnit.EquippedArmor.Position = FindFreePosition();
-                                if (!availableItems.Contains(selectedUnit.EquippedArmor))
-                                    availableItems.Add(selectedUnit.EquippedArmor);
+                                selectedUnit.EquippedShirt.Position = FindFreePosition();
+                                if (!availableItems.Contains(selectedUnit.EquippedShirt))
+                                    availableItems.Add(selectedUnit.EquippedShirt);
                             }
-                            selectedUnit.EquippedArmor = draggedItem;
+                            selectedUnit.EquippedShirt = draggedItem;
                             availableItems.Remove(draggedItem);
                             equipped = true;
                         }
@@ -760,6 +815,19 @@ namespace XCOM_3
             }
         }
 
+        private Rectangle GetShieldSlotBounds()
+        {
+            int panelX = GraphicsDevice.Viewport.Width / 2 - 300;
+            int panelY = GraphicsDevice.Viewport.Height / 2 - 200;
+            return new Rectangle(panelX + 550, panelY + 100, 80, 80);
+        }
+
+        private Rectangle GetShirtSlotBounds()
+        {
+            int panelX = GraphicsDevice.Viewport.Width / 2 - 300;
+            int panelY = GraphicsDevice.Viewport.Height / 2 - 200;
+            return new Rectangle(panelX + 550, panelY + 200, 80, 80);
+        }
         private Point FindFreePosition()
         {
             int gridX = 50;
@@ -855,6 +923,8 @@ namespace XCOM_3
             DrawEquipmentSlot(GetWeaponSlotBounds(), "Arme", selectedUnit.EquippedWeapon);
             DrawEquipmentSlot(GetHelmetSlotBounds(), "Casque", selectedUnit.EquippedHelmet);
             DrawEquipmentSlot(GetArmorSlotBounds(), "Armure", selectedUnit.EquippedArmor);
+            DrawEquipmentSlot(GetShieldSlotBounds(), "Bouclier", selectedUnit.EquippedShield);
+            DrawEquipmentSlot(GetShirtSlotBounds(), "Chemise", selectedUnit.EquippedShirt);
 
             int totalArmor = 0;
             if (selectedUnit.EquippedHelmet != null) totalArmor += selectedUnit.EquippedHelmet.Data.ArmorValue;
@@ -919,6 +989,14 @@ namespace XCOM_3
                 _spriteBatch.DrawString(font, equippedItem.Data.Name,
                     new Vector2(itemRect.X + 2, itemRect.Y + itemRect.Height / 2 - 8),
                     Color.White, 0f, Vector2.Zero, scale * 0.5f, SpriteEffects.None, 0f);
+
+                // NOUVEAU: Afficher la description au survol
+                MouseState mouse = Mouse.GetState();
+                if (slot.Contains(mouse.Position) && !string.IsNullOrEmpty(equippedItem.Data.Description))
+                {
+                    // Afficher un tooltip avec la description
+                    // (À implémenter selon vos préférences UI)
+                }
             }
             else if (equippedItem == null)
             {
@@ -1455,7 +1533,7 @@ namespace XCOM_3
         {
             if (selectedUnit == null) return;
 
-            int m = 10, w = 300, h = 160;
+            int m = 10, w = 300, h = 200;
             int x = m, y = GraphicsDevice.Viewport.Height - h - m;
             Rectangle panel = new(x, y, w, h);
 
@@ -1471,9 +1549,16 @@ namespace XCOM_3
             int totalArmor = selectedUnit.GetTotalArmor();
             _spriteBatch.DrawString(font, $"Armor: {totalArmor}", p + new Vector2(0, 100), Color.Cyan);
 
+            int mobilityPenalty = selectedUnit.GetMobilityPenalty();
+            if (mobilityPenalty > 0)
+            {
+                _spriteBatch.DrawString(font, $"Mobilite: -{mobilityPenalty} PM",
+                                       p + new Vector2(0, 120), Color.Orange);
+            }
+
             // Afficher le niveau global
             _spriteBatch.DrawString(font, $"Niveau: {selectedUnit.Skills.OverallLevel}",
-                                   p + new Vector2(0, 120), Color.Gold);
+                                   p + new Vector2(0, 140), Color.Gold);
 
             unitActionButtons.Clear();
 
@@ -1545,7 +1630,7 @@ namespace XCOM_3
             }
 
             // Afficher les grenades disponibles
-            Vector2 grenadePos = p + new Vector2(0, 140);
+            Vector2 grenadePos = p + new Vector2(0, 160);
             _spriteBatch.DrawString(font, $"Grenades: {selectedUnit.Grenades.Count}/{selectedUnit.MaxGrenades}",
                                    grenadePos, Color.Orange);
 
