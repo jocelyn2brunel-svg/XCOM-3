@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
@@ -49,9 +49,12 @@ namespace XCOM_3
         private bool showInventory = false;
         private Rectangle inventoryPanel;
         private Dictionary<string, ItemData> itemDatabase;
-        private List<Item> availableItems = new List<Item>();
-        private Item draggedItem = null;
-        private Point dragOffset;
+        private InventoryGrid inventoryGrid;
+        private GridItem draggedItem = null;
+        private Point dragGridOffset;  // Offset en cases de grille
+        private const int GRID_WIDTH = 10;   // Largeur de la grille en cases
+        private const int GRID_HEIGHT = 8;   // Hauteur de la grille en cases
+        private const int CELL_SIZE = 40;    // Taille d'une case en pixels
 
         // --- Caméra 3D ---
         private Vector3 cameraPosition;
@@ -270,6 +273,9 @@ namespace XCOM_3
 
             InitializeWeapons();
             InitializeItems();
+            // Initialiser la grille d'inventaire
+            inventoryGrid = new InventoryGrid(GRID_WIDTH, GRID_HEIGHT);
+
             InitializeInventoryItems();
 
             InitializeGrenades();
@@ -317,7 +323,7 @@ namespace XCOM_3
                 case GameState.Playing:
                     if (showInventory)
                     {
-                        HandleInventory(mouse, leftClick);
+                        HandleInventory(mouse, leftClick, keyboard);
                         if (escapePressed) showInventory = false;
                     }
                     else
@@ -623,195 +629,238 @@ namespace XCOM_3
 
         private void InitializeInventoryItems()
         {
-            availableItems.Clear();
+            inventoryGrid.Clear();
 
-            // Armes
-            availableItems.Add(new Item(itemDatabase["Plasma Rifle"], new Point(50, 50)));
-            availableItems.Add(new Item(itemDatabase["Shotgun"], new Point(110, 50)));
-            availableItems.Add(new Item(itemDatabase["SMG"], new Point(170, 50)));
+            // Ajouter des items avec leurs tailles réelles
+            var items = new List<(string name, Point pos, bool rotated)>
+    {
+        // Armes (longues, placées verticalement ou horizontalement)
+        ("Plasma Rifle", new Point(0, 0), false),
+        ("Shotgun", new Point(2, 0), false),
+        ("SMG", new Point(4, 0), false),
+        
+        // Casques (2x2)
+        ("PASGT Helmet", new Point(0, 5), false),
+        ("ACH", new Point(2, 5), false),
+        ("ECH", new Point(4, 5), false),
+        
+        // Gilets (2x3)
+        ("PASGT Vest", new Point(6, 0), false),
+        ("OTV (IBA)", new Point(8, 0), false),
+        ("MTV", new Point(6, 3), false),
+        
+        // Gilets avec plaques
+        ("OTV + SAPI", new Point(8, 3), false),
+        ("IOTV + ESAPI", new Point(6, 6), false),
+        
+        // Équipement spécial
+        ("Riot Shield", new Point(0, 4), true),  // Tourné
+        ("Army Combat Shirt", new Point(8, 6), false),
+    };
 
-            // Casques (rangée 1)
-            availableItems.Add(new Item(itemDatabase["PASGT Helmet"], new Point(50, 120)));
-            availableItems.Add(new Item(itemDatabase["ACH"], new Point(110, 120)));
-            availableItems.Add(new Item(itemDatabase["ECH"], new Point(170, 120)));
+            foreach (var (name, pos, rotated) in items)
+            {
+                if (itemDatabase.ContainsKey(name))
+                {
+                    ItemSize size = ItemSizeDatabase.GetItemSize(name);
+                    GridItem gridItem = new GridItem(itemDatabase[name], pos, size, rotated);
+                    gridItem.UpdatePixelBounds();
 
-            // Gilets légers (rangée 2)
-            availableItems.Add(new Item(itemDatabase["PASGT Vest"], new Point(50, 180)));
-            availableItems.Add(new Item(itemDatabase["OTV (IBA)"], new Point(110, 180)));
-            availableItems.Add(new Item(itemDatabase["MTV"], new Point(170, 180)));
-
-            // Gilets avec plaques (rangée 3)
-            availableItems.Add(new Item(itemDatabase["OTV + SAPI"], new Point(50, 240)));
-            availableItems.Add(new Item(itemDatabase["MTV + ESAPI"], new Point(110, 240)));
-            availableItems.Add(new Item(itemDatabase["IOTV + ESAPI"], new Point(170, 240)));
-
-            // Boucliers et équipement spécial (rangée 4)
-            availableItems.Add(new Item(itemDatabase["Riot Shield"], new Point(50, 300)));
-            availableItems.Add(new Item(itemDatabase["Ballistic Shield"], new Point(110, 300)));
-            availableItems.Add(new Item(itemDatabase["Army Combat Shirt"], new Point(170, 300)));
+                    if (!inventoryGrid.PlaceItem(gridItem))
+                    {
+                        Console.WriteLine($"Impossible de placer {name} à {pos}");
+                    }
+                }
+            }
         }
 
-        private void HandleInventory(MouseState mouse, bool leftClick)
+        private void HandleInventory(MouseState mouse, bool leftClick, KeyboardState keyboard)
         {
             if (selectedUnit == null) return;
 
+            // Position de départ de la grille en pixels
+            int gridStartX = GraphicsDevice.Viewport.Width / 2 - 300 + 20;
+            int gridStartY = GraphicsDevice.Viewport.Height / 2 - 200 + 60;
+
+            // ROTATION avec touche R
+            bool rPressed = keyboard.IsKeyDown(Keys.R) && previousKeyboardState.IsKeyUp(Keys.R);
+            if (rPressed && draggedItem != null)
+            {
+                draggedItem.Rotate();
+                Console.WriteLine($"Item tourné: {draggedItem.Data.Name}");
+            }
+
+            // ═══════════════════════════════════════════════════════════════════
+            // DÉMARRER LE DRAG
+            // ═══════════════════════════════════════════════════════════════════
             if (leftClick && draggedItem == null)
             {
-                foreach (var item in availableItems)
+                // Convertir position souris en position grille
+                int gridX = (mouse.X - gridStartX) / CELL_SIZE;
+                int gridY = (mouse.Y - gridStartY) / CELL_SIZE;
+
+                if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT)
                 {
-                    if (item.Bounds.Contains(mouse.Position))
+                    GridItem clickedItem = inventoryGrid.GetItemAt(new Point(gridX, gridY));
+
+                    if (clickedItem != null)
                     {
-                        draggedItem = item;
-                        dragOffset = new Point(mouse.X - item.Position.X, mouse.Y - item.Position.Y);
-                        break;
+                        draggedItem = clickedItem;
+                        dragGridOffset = new Point(gridX - clickedItem.GridPosition.X,
+                                                  gridY - clickedItem.GridPosition.Y);
+                        inventoryGrid.RemoveItem(draggedItem);
                     }
                 }
 
-                if (draggedItem == null && selectedUnit.EquippedWeapon != null)
+                // Vérifier les slots équipés
+                if (draggedItem == null)
                 {
-                    Rectangle weaponSlot = GetWeaponSlotBounds();
-                    if (weaponSlot.Contains(mouse.Position))
-                    {
-                        draggedItem = selectedUnit.EquippedWeapon;
-                        dragOffset = new Point(mouse.X - weaponSlot.X, mouse.Y - weaponSlot.Y);
-                        selectedUnit.EquippedWeapon = null;
-                    }
-                }
-
-                if (draggedItem == null && selectedUnit.EquippedHelmet != null)
-                {
-                    Rectangle helmetSlot = GetHelmetSlotBounds();
-                    if (helmetSlot.Contains(mouse.Position))
-                    {
-                        draggedItem = selectedUnit.EquippedHelmet;
-                        dragOffset = new Point(mouse.X - helmetSlot.X, mouse.Y - helmetSlot.Y);
-                        selectedUnit.EquippedHelmet = null;
-                    }
-                }
-
-                if (draggedItem == null && selectedUnit.EquippedArmor != null)
-                {
-                    Rectangle armorSlot = GetArmorSlotBounds();
-                    if (armorSlot.Contains(mouse.Position))
-                    {
-                        draggedItem = selectedUnit.EquippedArmor;
-                        dragOffset = new Point(mouse.X - armorSlot.X, mouse.Y - armorSlot.Y);
-                        selectedUnit.EquippedArmor = null;
-                    }
-                }
-
-                // Gestion du bouclier
-                if (draggedItem == null && selectedUnit.EquippedShield != null)
-                {
-                    Rectangle shieldSlot = GetShieldSlotBounds();
-                    if (shieldSlot.Contains(mouse.Position))
-                    {
-                        draggedItem = selectedUnit.EquippedShield;
-                        dragOffset = new Point(mouse.X - shieldSlot.X, mouse.Y - shieldSlot.Y);
-                        selectedUnit.EquippedShield = null;
-                    }
-                }
-
-                // Gestion de la chemise
-                if (draggedItem == null && selectedUnit.EquippedShirt != null)
-                {
-                    Rectangle shirtSlot = GetShirtSlotBounds();
-                    if (shirtSlot.Contains(mouse.Position))
-                    {
-                        draggedItem = selectedUnit.EquippedShirt;
-                        dragOffset = new Point(mouse.X - shirtSlot.X, mouse.Y - shirtSlot.Y);
-                        selectedUnit.EquippedShirt = null;
-                    }
+                    CheckEquipmentSlotDrag(mouse, selectedUnit.EquippedWeapon, GetWeaponSlotBounds());
+                    CheckEquipmentSlotDrag(mouse, selectedUnit.EquippedHelmet, GetHelmetSlotBounds());
+                    CheckEquipmentSlotDrag(mouse, selectedUnit.EquippedArmor, GetArmorSlotBounds());
+                    CheckEquipmentSlotDrag(mouse, selectedUnit.EquippedShield, GetShieldSlotBounds());
+                    CheckEquipmentSlotDrag(mouse, selectedUnit.EquippedShirt, GetShirtSlotBounds());
                 }
             }
 
+            // ═══════════════════════════════════════════════════════════════════
+            // DRAG EN COURS
+            // ═══════════════════════════════════════════════════════════════════
             if (draggedItem != null && mouse.LeftButton == ButtonState.Pressed)
             {
-                draggedItem.Position = new Point(mouse.X - dragOffset.X, mouse.Y - dragOffset.Y);
+                // Mettre à jour la position du drag (en cases de grille)
+                int newGridX = (mouse.X - gridStartX) / CELL_SIZE - dragGridOffset.X;
+                int newGridY = (mouse.Y - gridStartY) / CELL_SIZE - dragGridOffset.Y;
+
+                draggedItem.GridPosition = new Point(
+                    Math.Max(0, Math.Min(GRID_WIDTH - 1, newGridX)),
+                    Math.Max(0, Math.Min(GRID_HEIGHT - 1, newGridY))
+                );
+
+                draggedItem.UpdatePixelBounds(gridStartX, gridStartY);
             }
 
+            // ═══════════════════════════════════════════════════════════════════
+            // TERMINER LE DRAG
+            // ═══════════════════════════════════════════════════════════════════
             if (draggedItem != null && mouse.LeftButton == ButtonState.Released)
             {
                 bool equipped = false;
 
-                if (draggedItem.Data.Type == ItemType.Weapon)
-                {
-                    Rectangle weaponSlot = GetWeaponSlotBounds();
-                    if (weaponSlot.Contains(mouse.Position))
-                    {
-                        if (selectedUnit.EquippedWeapon != null && selectedUnit.EquippedWeapon != draggedItem)
-                        {
-                            selectedUnit.EquippedWeapon.Position = FindFreePosition();
-                            if (!availableItems.Contains(selectedUnit.EquippedWeapon))
-                                availableItems.Add(selectedUnit.EquippedWeapon);
-                        }
-
-                        selectedUnit.EquippedWeapon = draggedItem;
-                        selectedUnit.Weapon = draggedItem.Data.Name;
-                        selectedUnit.WeaponData = draggedItem.Data.WeaponData;
-                        availableItems.Remove(draggedItem);
-                        equipped = true;
-                        UpdateFireTargets();
-                    }
-                }
-                else if (draggedItem.Data.Type == ItemType.Armor)
-                {
-                    Rectangle targetSlot = Rectangle.Empty;
-
-                    if (draggedItem.Data.ArmorSlot == ArmorSlot.Head)
-                    {
-                        // ... code existant pour casque ...
-                    }
-                    else if (draggedItem.Data.ArmorSlot == ArmorSlot.Torso)
-                    {
-                        // ... code existant pour gilet ...
-                    }
-                    // NOUVEAU: Bouclier
-                    else if (draggedItem.Data.ArmorSlot == ArmorSlot.Shield)
-                    {
-                        targetSlot = GetShieldSlotBounds();
-                        if (targetSlot.Contains(mouse.Position))
-                        {
-                            if (selectedUnit.EquippedShield != null && selectedUnit.EquippedShield != draggedItem)
-                            {
-                                selectedUnit.EquippedShield.Position = FindFreePosition();
-                                if (!availableItems.Contains(selectedUnit.EquippedShield))
-                                    availableItems.Add(selectedUnit.EquippedShield);
-                            }
-                            selectedUnit.EquippedShield = draggedItem;
-                            availableItems.Remove(draggedItem);
-                            equipped = true;
-                        }
-                    }
-                    // NOUVEAU: Chemise
-                    else if (draggedItem.Data.ArmorSlot == ArmorSlot.Shirt)
-                    {
-                        targetSlot = GetShirtSlotBounds();
-                        if (targetSlot.Contains(mouse.Position))
-                        {
-                            if (selectedUnit.EquippedShirt != null && selectedUnit.EquippedShirt != draggedItem)
-                            {
-                                selectedUnit.EquippedShirt.Position = FindFreePosition();
-                                if (!availableItems.Contains(selectedUnit.EquippedShirt))
-                                    availableItems.Add(selectedUnit.EquippedShirt);
-                            }
-                            selectedUnit.EquippedShirt = draggedItem;
-                            availableItems.Remove(draggedItem);
-                            equipped = true;
-                        }
-                    }
-                }
+                // Essayer d'équiper dans les slots
+                equipped = TryEquipInSlot(mouse, draggedItem, selectedUnit);
 
                 if (!equipped)
                 {
-                    if (!availableItems.Contains(draggedItem))
+                    // Essayer de replacer dans la grille
+                    if (inventoryGrid.CanPlaceItem(draggedItem.GridPosition, draggedItem.GetCurrentSize()))
                     {
-                        draggedItem.Position = FindFreePosition();
-                        availableItems.Add(draggedItem);
+                        inventoryGrid.PlaceItem(draggedItem);
+                    }
+                    else
+                    {
+                        // Trouver une position libre
+                        Point? freePos = inventoryGrid.FindFreePosition(draggedItem.GetCurrentSize(), true);
+
+                        if (freePos.HasValue)
+                        {
+                            draggedItem.GridPosition = freePos.Value;
+                            draggedItem.UpdatePixelBounds(gridStartX, gridStartY);
+                            inventoryGrid.PlaceItem(draggedItem);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Pas de place dans l'inventaire!");
+                            // L'item est perdu... ou remettre à l'ancienne position
+                        }
                     }
                 }
 
                 draggedItem = null;
+            }
+        }
+
+        // Méthodes helper
+        private void CheckEquipmentSlotDrag(MouseState mouse, Item equippedItem, Rectangle slot)
+        {
+            if (equippedItem != null && slot.Contains(mouse.Position) && draggedItem == null)
+            {
+                ItemSize size = ItemSizeDatabase.GetItemSize(equippedItem.Data.Name);
+                draggedItem = new GridItem(equippedItem.Data, new Point(0, 0), size, false);
+
+                // Déséquiper
+                if (equippedItem == selectedUnit.EquippedWeapon) selectedUnit.EquippedWeapon = null;
+                else if (equippedItem == selectedUnit.EquippedHelmet) selectedUnit.EquippedHelmet = null;
+                else if (equippedItem == selectedUnit.EquippedArmor) selectedUnit.EquippedArmor = null;
+                else if (equippedItem == selectedUnit.EquippedShield) selectedUnit.EquippedShield = null;
+                else if (equippedItem == selectedUnit.EquippedShirt) selectedUnit.EquippedShirt = null;
+            }
+        }
+
+        private bool TryEquipInSlot(MouseState mouse, GridItem item, Unit unit)
+        {
+            // Équiper une arme
+            if (item.Data.Type == ItemType.Weapon && GetWeaponSlotBounds().Contains(mouse.Position))
+            {
+                if (unit.EquippedWeapon != null)
+                    ReturnItemToGrid(unit.EquippedWeapon);
+
+                unit.EquippedWeapon = new Item(item.Data, Point.Zero);
+                unit.Weapon = item.Data.Name;
+                unit.WeaponData = item.Data.WeaponData;
+                UpdateFireTargets();
+                return true;
+            }
+
+            // Équiper une armure
+            if (item.Data.Type == ItemType.Armor)
+            {
+                if (item.Data.ArmorSlot == ArmorSlot.Head && GetHelmetSlotBounds().Contains(mouse.Position))
+                {
+                    if (unit.EquippedHelmet != null)
+                        ReturnItemToGrid(unit.EquippedHelmet);
+
+                    unit.EquippedHelmet = new Item(item.Data, Point.Zero);
+                    return true;
+                }
+                else if (item.Data.ArmorSlot == ArmorSlot.Torso && GetArmorSlotBounds().Contains(mouse.Position))
+                {
+                    if (unit.EquippedArmor != null)
+                        ReturnItemToGrid(unit.EquippedArmor);
+
+                    unit.EquippedArmor = new Item(item.Data, Point.Zero);
+                    return true;
+                }
+                else if (item.Data.ArmorSlot == ArmorSlot.Shield && GetShieldSlotBounds().Contains(mouse.Position))
+                {
+                    if (unit.EquippedShield != null)
+                        ReturnItemToGrid(unit.EquippedShield);
+
+                    unit.EquippedShield = new Item(item.Data, Point.Zero);
+                    return true;
+                }
+                else if (item.Data.ArmorSlot == ArmorSlot.Shirt && GetShirtSlotBounds().Contains(mouse.Position))
+                {
+                    if (unit.EquippedShirt != null)
+                        ReturnItemToGrid(unit.EquippedShirt);
+
+                    unit.EquippedShirt = new Item(item.Data, Point.Zero);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void ReturnItemToGrid(Item item)
+        {
+            ItemSize size = ItemSizeDatabase.GetItemSize(item.Data.Name);
+            Point? freePos = inventoryGrid.FindFreePosition(size, true);
+
+            if (freePos.HasValue)
+            {
+                GridItem gridItem = new GridItem(item.Data, freePos.Value, size, false);
+                inventoryGrid.PlaceItem(gridItem);
             }
         }
 
@@ -842,9 +891,9 @@ namespace XCOM_3
                     Rectangle testRect = new Rectangle(testPos.X, testPos.Y, 50, 50);
 
                     bool occupied = false;
-                    foreach (var item in availableItems)
+                    foreach (var item in inventoryGrid.GetAllItems())
                     {
-                        if (item.Bounds.Intersects(testRect))
+                        if (item.PixelBounds.Intersects(testRect))
                         {
                             occupied = true;
                             break;
@@ -883,62 +932,136 @@ namespace XCOM_3
         {
             if (selectedUnit == null) return;
 
-            int panelWidth = 650;
-            int panelHeight = 450;
+            int panelWidth = 750;
+            int panelHeight = 500;
             int panelX = GraphicsDevice.Viewport.Width / 2 - panelWidth / 2;
             int panelY = GraphicsDevice.Viewport.Height / 2 - panelHeight / 2;
-            inventoryPanel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
 
-            _spriteBatch.Draw(pixel, inventoryPanel, new Color(20, 20, 20, 240));
-            DrawRectangleBorder(inventoryPanel, Color.Gold, 3);
+            // Fond du panneau
+            Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
+            _spriteBatch.Draw(pixel, panel, new Color(20, 20, 20, 240));
+            DrawRectangleBorder(panel, Color.Gold, 3);
 
+            // Titre
             string title = $"Inventaire - {selectedUnit.Name}";
             Vector2 titleSize = font.MeasureString(title);
             _spriteBatch.DrawString(font, title,
-                new Vector2(inventoryPanel.Center.X - titleSize.X / 2, panelY + 10),
+                new Vector2(panel.Center.X - titleSize.X * 0.75f, panelY + 10),
                 Color.Gold, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
 
-            Rectangle itemsArea = new Rectangle(panelX + 20, panelY + 60, 400, 360);
-            _spriteBatch.Draw(pixel, itemsArea, new Color(40, 40, 40, 200));
-            DrawRectangleBorder(itemsArea, Color.Gray, 2);
+            // ═══════════════════════════════════════════════════════════════════
+            // GRILLE D'INVENTAIRE (style Diablo)
+            // ═══════════════════════════════════════════════════════════════════
+            int gridStartX = panelX + 20;
+            int gridStartY = panelY + 60;
+            int gridPixelWidth = GRID_WIDTH * CELL_SIZE;
+            int gridPixelHeight = GRID_HEIGHT * CELL_SIZE;
 
+            Rectangle gridArea = new Rectangle(gridStartX, gridStartY, gridPixelWidth, gridPixelHeight);
+
+            // Fond de la grille
+            _spriteBatch.Draw(pixel, gridArea, new Color(40, 40, 40, 200));
+
+            // Dessiner les lignes de la grille
+            for (int x = 0; x <= GRID_WIDTH; x++)
+            {
+                Rectangle vertLine = new Rectangle(
+                    gridStartX + x * CELL_SIZE,
+                    gridStartY,
+                    1,
+                    gridPixelHeight
+                );
+                _spriteBatch.Draw(pixel, vertLine, new Color(60, 60, 60));
+            }
+
+            for (int y = 0; y <= GRID_HEIGHT; y++)
+            {
+                Rectangle horizLine = new Rectangle(
+                    gridStartX,
+                    gridStartY + y * CELL_SIZE,
+                    gridPixelWidth,
+                    1
+                );
+                _spriteBatch.Draw(pixel, horizLine, new Color(60, 60, 60));
+            }
+
+            DrawRectangleBorder(gridArea, Color.Gray, 2);
+
+            // Label
             _spriteBatch.DrawString(font, "Items Disponibles:",
-                new Vector2(itemsArea.X + 5, itemsArea.Y - 20), Color.White);
+                new Vector2(gridStartX, gridStartY - 20), Color.White);
 
-            foreach (var item in availableItems)
+            // Dessiner les items dans la grille
+            foreach (var item in inventoryGrid.GetAllItems())
             {
                 if (item != draggedItem)
                 {
-                    DrawItem(item);
+                    item.UpdatePixelBounds(gridStartX, gridStartY);
+                    DrawGridItem(item);
                 }
             }
 
-            Rectangle equipArea = new Rectangle(panelX + 440, panelY + 60, 190, 360);
+            // ═══════════════════════════════════════════════════════════════════
+            // SLOTS D'ÉQUIPEMENT
+            // ═══════════════════════════════════════════════════════════════════
+            int equipX = gridStartX + gridPixelWidth + 30;
+            int equipY = gridStartY;
+
+            Rectangle equipArea = new Rectangle(equipX, equipY, 190, 400);
             _spriteBatch.Draw(pixel, equipArea, new Color(40, 40, 40, 200));
             DrawRectangleBorder(equipArea, Color.Gray, 2);
 
             _spriteBatch.DrawString(font, "Equipement:",
-                new Vector2(equipArea.X + 5, equipArea.Y - 20), Color.White);
+                new Vector2(equipX + 5, equipY - 20), Color.White);
 
             DrawEquipmentSlot(GetWeaponSlotBounds(), "Arme", selectedUnit.EquippedWeapon);
             DrawEquipmentSlot(GetHelmetSlotBounds(), "Casque", selectedUnit.EquippedHelmet);
-            DrawEquipmentSlot(GetArmorSlotBounds(), "Armure", selectedUnit.EquippedArmor);
+            DrawEquipmentSlot(GetArmorSlotBounds(), "Gilet", selectedUnit.EquippedArmor);
             DrawEquipmentSlot(GetShieldSlotBounds(), "Bouclier", selectedUnit.EquippedShield);
             DrawEquipmentSlot(GetShirtSlotBounds(), "Chemise", selectedUnit.EquippedShirt);
 
-            int totalArmor = 0;
-            if (selectedUnit.EquippedHelmet != null) totalArmor += selectedUnit.EquippedHelmet.Data.ArmorValue;
-            if (selectedUnit.EquippedArmor != null) totalArmor += selectedUnit.EquippedArmor.Data.ArmorValue;
-
+            // ═══════════════════════════════════════════════════════════════════
+            // ITEM EN COURS DE DRAG
+            // ═══════════════════════════════════════════════════════════════════
             if (draggedItem != null)
             {
-                DrawItem(draggedItem, 0.7f);
+                DrawGridItem(draggedItem, 0.7f);
             }
 
-            _spriteBatch.DrawString(font, "Glissez les items pour les equiper",
+            // ═══════════════════════════════════════════════════════════════════
+            // INSTRUCTIONS
+            // ═══════════════════════════════════════════════════════════════════
+            _spriteBatch.DrawString(font, "Glissez pour équiper | R: Tourner",
                 new Vector2(panelX + 20, panelY + panelHeight - 30), Color.Yellow);
-            _spriteBatch.DrawString(font, "Appuyez sur I ou ESC pour fermer",
+            _spriteBatch.DrawString(font, "I ou ESC pour fermer",
                 new Vector2(panelX + 20, panelY + panelHeight - 15), Color.Yellow);
+        }
+
+        private void DrawGridItem(GridItem item, float alpha = 1f)
+        {
+            Color itemColor = ItemSizeDatabase.GetItemColor(item.Data.Type) * alpha;
+
+            // Fond de l'item
+            _spriteBatch.Draw(pixel, item.PixelBounds, itemColor);
+            DrawRectangleBorder(item.PixelBounds, Color.White * alpha, 2);
+
+            // Nom de l'item (réduit pour s'adapter)
+            string name = item.Data.Name;
+            Vector2 nameSize = font.MeasureString(name);
+            float scale = Math.Min(0.6f, (item.PixelBounds.Width - 10) / nameSize.X);
+
+            _spriteBatch.DrawString(font, name,
+                new Vector2(item.PixelBounds.X + 5, item.PixelBounds.Y + 5),
+                Color.White * alpha, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+
+            // Info (armure ou dégâts)
+            string info = item.Data.Type == ItemType.Weapon ?
+                $"Dmg:{item.Data.WeaponData?.Damage}" :
+                $"Arm:{item.Data.ArmorValue}";
+
+            _spriteBatch.DrawString(font, info,
+                new Vector2(item.PixelBounds.X + 5, item.PixelBounds.Bottom - 20),
+                Color.Yellow * alpha, 0f, Vector2.Zero, 0.5f, SpriteEffects.None, 0f);
         }
 
         private void DrawItem(Item item, float alpha = 1f)
@@ -975,7 +1098,7 @@ namespace XCOM_3
             _spriteBatch.DrawString(font, label,
                 new Vector2(slot.X, slot.Y - 20), Color.White, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
 
-            if (equippedItem != null && equippedItem != draggedItem)
+            if (equippedItem != null && draggedItem == null)
             {
                 Color itemColor = equippedItem.Data.Type == ItemType.Weapon ?
                     new Color(100, 150, 255) : new Color(150, 100, 50);
@@ -2320,7 +2443,7 @@ namespace XCOM_3
                     {
                         var t = u.PendingTarget;
                         int baseDamage = u.WeaponData.Damage + u.Skills.GetDamageBonus();
-                        int damage = Math.Max(baseDamage - t.GetTotalArmor(), 1); 
+                        int damage = Math.Max(baseDamage - t.GetTotalArmor(), 1);
                         t.Health = Math.Max(t.Health - damage, 0);
 
                         // Donner de l'XP de survie à la cible

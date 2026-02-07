@@ -7,14 +7,14 @@ namespace XCOM_3
     // SYSTÈME D'INVENTAIRE - VERSION UNIFIÉE
     // Ce fichier remplace TOUTES les autres définitions de ItemData
     // ═══════════════════════════════════════════════════════════════════════
-    
+
     public enum ItemType
     {
         Weapon,
         Armor,
         Accessory
     }
-    
+
     public enum ArmorSlot
     {
         Head,
@@ -22,7 +22,7 @@ namespace XCOM_3
         Shield,
         Shirt
     }
-    
+
     public enum ProtectionLevel
     {
         None,
@@ -32,7 +32,7 @@ namespace XCOM_3
         NIJ_III,
         NIJ_IV
     }
-    
+
     /// <summary>
     /// Classe UNIQUE pour tous les items du jeu
     /// </summary>
@@ -40,17 +40,17 @@ namespace XCOM_3
     {
         public string Name;
         public ItemType Type;
-        
+
         // Données d'arme
         public WeaponData WeaponData;
-        
+
         // Données d'armure
         public int ArmorValue;
         public ArmorSlot ArmorSlot;
         public ProtectionLevel ProtectionLevel;
         public int MobilityPenalty;
         public string Description;
-        
+
         // Constructeur pour armes
         public ItemData(string name, ItemType type, WeaponData weaponData)
         {
@@ -63,12 +63,12 @@ namespace XCOM_3
             MobilityPenalty = 0;
             Description = "";
         }
-        
+
         // Constructeur pour armures
-        public ItemData(string name, ItemType type, int armorValue = 0, 
+        public ItemData(string name, ItemType type, int armorValue = 0,
                        ArmorSlot armorSlot = ArmorSlot.Head,
-                       ProtectionLevel protectionLevel = ProtectionLevel.None, 
-                       int mobilityPenalty = 0, 
+                       ProtectionLevel protectionLevel = ProtectionLevel.None,
+                       int mobilityPenalty = 0,
                        string description = "")
         {
             Name = name;
@@ -81,7 +81,7 @@ namespace XCOM_3
             Description = description;
         }
     }
-    
+
     /// <summary>
     /// Instance d'un item avec position dans l'inventaire
     /// </summary>
@@ -90,7 +90,7 @@ namespace XCOM_3
         public ItemData Data;
         public Point Position;
         public Rectangle Bounds => new Rectangle(Position.X, Position.Y, 50, 50);
-        
+
         public Item(ItemData data, Point position)
         {
             Data = data;
