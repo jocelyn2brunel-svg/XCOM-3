@@ -179,6 +179,21 @@ namespace XCOM_3
         private List<Button> encyclopediaButtons;
         private string encyclopediaCategory = "Weapons"; // "Weapons", "Armor", "Units"
 
+        // ═══ NOUVEAUX CHAMPS POUR OPTIMISATIONS ═══
+
+        // Batch renderer pour les unités (remplace les draw calls multiples)
+        private HumanoidBatchRenderer humanoidBatcher;
+
+        // Système de spatial hash et cache
+        private OptimizedUnitManager unitManager;
+
+        // FPS counter pour mesurer les performances
+        private int frameCount = 0;
+        private float fpsElapsedTime = 0f;
+        private float currentFPS = 60f;
+
+        // Frustum culling
+        private BoundingFrustum viewFrustum;
 
         public Game1()
         {
@@ -283,10 +298,33 @@ namespace XCOM_3
 
             // Initialiser le générateur de murs sur edges
             edgeWallGenerator = new EdgeWallGenerator(random);
+
+            // ═══ INITIALISATION DES OPTIMISATIONS ═══
+
+            humanoidBatcher = new HumanoidBatchRenderer();
+            unitManager = new OptimizedUnitManager();
+
+            Console.WriteLine("[OPTIMIZATION] Batch renderer and spatial hash initialized");
+
         }
 
         protected override void Update(GameTime gameTime)
         {
+
+            // ═══ CALCULER FPS ═══
+            fpsElapsedTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            frameCount++;
+
+            if (fpsElapsedTime >= 1.0f)
+            {
+                currentFPS = frameCount / fpsElapsedTime;
+                frameCount = 0;
+                fpsElapsedTime = 0f;
+
+                // Optionnel : log dans la console
+                Console.WriteLine($"FPS: {currentFPS:F1}");
+            }
+
             MouseState mouse = Mouse.GetState();
             KeyboardState keyboard = Keyboard.GetState();
             bool leftClick = mouse.LeftButton == ButtonState.Pressed &&
@@ -568,6 +606,36 @@ namespace XCOM_3
                     _spriteBatch.DrawString(font, continueText, continuePos, Color.White, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
                     break;
             }
+
+            // ═══ AFFICHER LE FPS EN OVERLAY (haut à droite) ═══
+
+            // Texte FPS
+            string fpsText = $"FPS: {currentFPS:F0}";
+            Vector2 fpsSize = font.MeasureString(fpsText);
+
+            // Largeur de l’écran / fenêtre
+            int screenWidth = GraphicsDevice.Viewport.Width;
+
+            // Position : coin haut droit avec marge de 10px
+            Vector2 fpsPosition = new Vector2(
+                screenWidth - fpsSize.X - 10,
+                10
+            );
+
+            _spriteBatch.DrawString(font, fpsText, fpsPosition, Color.Yellow);
+
+            // Stats optionnelles (juste en dessous)
+            string statsText = $"Units: {playerUnits.Count + enemyUnits.Count}";
+            Vector2 statsSize = font.MeasureString(statsText);
+
+            Vector2 statsPosition = new Vector2(
+                screenWidth - statsSize.X - 10,
+                10 + fpsSize.Y + 5
+            );
+
+            _spriteBatch.DrawString(font, statsText, statsPosition, Color.White);
+
+
             _spriteBatch.End();
 
             base.Draw(gameTime);
@@ -1288,6 +1356,9 @@ namespace XCOM_3
             );
 
             viewMatrix = Matrix.CreateLookAt(cameraPosition, cameraTarget, Vector3.Up);
+
+            // ═══ METTRE À JOUR LE FRUSTUM ═══
+            viewFrustum = new BoundingFrustum(viewMatrix * projectionMatrix);
         }
 
         private void HandleCameraControls(KeyboardState keyboard, MouseState mouse, GameTime gameTime)
@@ -1912,68 +1983,84 @@ namespace XCOM_3
             }
         }
 
-        private List<Point> FindPathAStar(Point start, Point goal, int maxDistance, Unit movingUnit = null)
+        private List<Point> FindPathAStar(Point start, Point goal, int maxCost, Unit movingUnit)
         {
-            List<AStarNode> openList = new List<AStarNode>();
-            HashSet<Point> closedList = new HashSet<Point>();
+            if (start == goal) return new List<Point>();
 
-            AStarNode startNode = new AStarNode(start) { GCost = 0, HCost = ManhattanDistance(start, goal) };
-            openList.Add(startNode);
+            // Structures pour A*
+            var openSet = new List<Point> { start };
+            var cameFrom = new Dictionary<Point, Point>();
+            var gScore = new Dictionary<Point, int> { [start] = 0 };
+            var fScore = new Dictionary<Point, int> { [start] = Heuristic(start, goal) };
 
-            while (openList.Count > 0)
+            while (openSet.Count > 0)
             {
-                AStarNode currentNode = openList[0];
-                for (int i = 1; i < openList.Count; i++)
+                // Trouver le nœud avec le meilleur fScore
+                Point current = openSet.OrderBy(p => fScore.GetValueOrDefault(p, int.MaxValue)).First();
+
+                if (current == goal)
                 {
-                    if (openList[i].FCost < currentNode.FCost ||
-                        (openList[i].FCost == currentNode.FCost && openList[i].HCost < currentNode.HCost))
-                    {
-                        currentNode = openList[i];
-                    }
+                    return ReconstructPath(cameFrom, current);
                 }
 
-                openList.Remove(currentNode);
-                closedList.Add(currentNode.Position);
+                openSet.Remove(current);
 
-                if (currentNode.Position == goal)
+                // Voisins (4 directions)
+                Point[] neighbors = new[]
                 {
-                    return RetracePath(startNode, currentNode);
-                }
+            new Point(current.X - 1, current.Y),
+            new Point(current.X + 1, current.Y),
+            new Point(current.X, current.Y - 1),
+            new Point(current.X, current.Y + 1)
+        };
 
-                foreach (Point neighbor in GetNeighbors(currentNode.Position))
+                foreach (Point neighbor in neighbors)
                 {
-                    if (closedList.Contains(neighbor))
-                        continue;
-
+                    // ═══ FIX : Ignorer les cases occupées par d'autres unités ═══
+                    // SAUF si c'est la destination finale
                     if (neighbor != goal && !IsWalkable(neighbor, movingUnit))
                         continue;
 
+                    // Vérifier si occupé par une autre unité
+                    Unit unitAtNeighbor = GetUnitAtCell(neighbor);
+                    if (neighbor != goal && unitAtNeighbor != null && unitAtNeighbor != movingUnit)
+                        continue; // Case occupée, on skip
 
-                    int newGCost = currentNode.GCost + 1;
+                    if (HasWallBetween(current, neighbor))
+                        continue;
 
+                    int tentativeGScore = gScore[current] + 1;
 
-
-                    AStarNode neighborNode = openList.FirstOrDefault(n => n.Position == neighbor);
-
-                    if (neighborNode == null)
+                    if (tentativeGScore < gScore.GetValueOrDefault(neighbor, int.MaxValue))
                     {
-                        neighborNode = new AStarNode(neighbor)
-                        {
-                            GCost = newGCost,
-                            HCost = ManhattanDistance(neighbor, goal),
-                            Parent = currentNode
-                        };
-                        openList.Add(neighborNode);
-                    }
-                    else if (newGCost < neighborNode.GCost)
-                    {
-                        neighborNode.GCost = newGCost;
-                        neighborNode.Parent = currentNode;
+                        cameFrom[neighbor] = current;
+                        gScore[neighbor] = tentativeGScore;
+                        fScore[neighbor] = tentativeGScore + Heuristic(neighbor, goal);
+
+                        if (!openSet.Contains(neighbor))
+                            openSet.Add(neighbor);
                     }
                 }
             }
 
-            return new List<Point>();
+            return new List<Point>(); // Pas de chemin trouvé
+        }
+
+        private int Heuristic(Point a, Point b)
+        {
+            return Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
+        }
+
+        private List<Point> ReconstructPath(Dictionary<Point, Point> cameFrom, Point current)
+        {
+            var path = new List<Point> { current };
+            while (cameFrom.ContainsKey(current))
+            {
+                current = cameFrom[current];
+                path.Insert(0, current);
+            }
+            path.RemoveAt(0); // Enlever la position de départ
+            return path;
         }
 
 
@@ -2110,7 +2197,7 @@ namespace XCOM_3
                     if (!IsWalkable(targetCell))
                         continue;
 
-                    var path = FindPathAStar(u.Cell, targetCell, maxRange);
+                    var path = FindPathAStar(u.Cell, targetCell, maxRange, u);
 
                     if (path.Count > 0 && path.Count <= maxRange)
                     {
@@ -2248,11 +2335,9 @@ namespace XCOM_3
             foreach (var u in enemyUnits) yield return u;
         }
 
-        private Unit GetUnitAtCell(Point cell)
+        Unit GetUnitAtCell(Point cell)
         {
-            foreach (var u in AllUnits())
-                if (u.Cell == cell) return u;
-            return null;
+            return unitManager.SpatialHash.GetUnitAt(cell);
         }
 
         private void HandleFire(Unit s)
@@ -2293,6 +2378,8 @@ namespace XCOM_3
             currentPath.Clear();
             pathCosts.Clear();
             currentTurn = TurnState.PlayerTurn;
+            // Rafraîchir le cache car les PM ont été restaurés
+            unitManager.OnNewTurn();
         }
 
         private void StartEnemyTurn()
@@ -2300,6 +2387,8 @@ namespace XCOM_3
             foreach (var u in enemyUnits) u.ActionPoints = 2;
             enemyTurnIndex = 0;
             currentTurn = TurnState.EnemyTurn;
+            unitManager.OnNewTurn();
+
         }
 
         private void UpdateEnemyTurn()
@@ -2309,97 +2398,257 @@ namespace XCOM_3
             Unit enemy = enemyUnits[enemyTurnIndex];
             if (enemy.IsFiring) return;
 
-            // NOUVEAU: Attendre que l'animation de déplacement soit terminée
+            // Attendre que l'animation de déplacement soit terminée
             if (enemy.IsMoving) return;
 
             if (enemy.ActionPoints <= 0) { enemyTurnIndex++; return; }
 
-            Unit closest = null;
-            int bestDist = int.MaxValue;
-            foreach (var p in playerUnits)
-            {
-                int dist = Math.Abs(p.Cell.X - enemy.Cell.X) + Math.Abs(p.Cell.Y - enemy.Cell.Y);
-                if (dist < bestDist) { bestDist = dist; closest = p; }
-            }
-            if (closest == null) { enemyTurnIndex++; return; }
+            // ═══════════════════════════════════════════════════════════════
+            // NOUVELLE LOGIQUE DE CIBLAGE - Intelligente et variée
+            // ═══════════════════════════════════════════════════════════════
 
-            if (bestDist <= enemy.WeaponData.Range && HasLineOfSight(enemy.Cell, closest.Cell))
+            Unit bestTarget = SelectBestTarget(enemy);
+
+            if (bestTarget == null)
             {
-                // NOUVEAU: Tourner vers la cible avant de tirer
-                float deltaX = closest.Cell.X - enemy.Cell.X;
-                float deltaZ = closest.Cell.Y - enemy.Cell.Y;
+                enemyTurnIndex++;
+                return;
+            }
+
+            // 10% de chance de choisir une cible aléatoire (comportement imprévisible)
+            if (random.Next(100) < 10 && playerUnits.Count > 1)
+            {
+                int randomIndex = random.Next(playerUnits.Count);
+                bestTarget = playerUnits[randomIndex];
+                Console.WriteLine($"{enemy.Name} change de cible de manière imprévisible!");
+            }
+
+            // Calculer distance vers la cible
+            int distanceToTarget = Math.Abs(bestTarget.Cell.X - enemy.Cell.X) +
+                                  Math.Abs(bestTarget.Cell.Y - enemy.Cell.Y);
+
+            // Si à portée ET avec ligne de vue → TIRER
+            if (distanceToTarget <= enemy.WeaponData.Range &&
+                HasLineOfSight(enemy.Cell, bestTarget.Cell))
+            {
+                // Tourner vers la cible avant de tirer
+                float deltaX = bestTarget.Cell.X - enemy.Cell.X;
+                float deltaZ = bestTarget.Cell.Y - enemy.Cell.Y;
                 enemy.TargetOrientation = (float)Math.Atan2(deltaX, deltaZ);
 
                 HandleFire(enemy);
                 return;
             }
 
-            var path = FindPathAStar(enemy.Cell, closest.Cell, int.MaxValue, enemy);
+            // Sinon → SE DÉPLACER vers la cible
+            // ═══════════════════════════════════════════════════════════════
+            // FIX: Pathfinding qui évite les autres unités
+            // ═══════════════════════════════════════════════════════════════
+
+            var path = FindPathAStar(enemy.Cell, bestTarget.Cell, int.MaxValue, enemy);
 
             if (path.Count > 0)
             {
                 int steps = Math.Min(enemy.MovementPoints, path.Count);
 
-                // CORRECTION: Ne pas se déplacer sur la dernière case si elle est occupée
-                Point targetCell = path[steps - 1];
+                // ═══ FIX CRITIQUE : Vérifier CHAQUE case du chemin ═══
+                Point? validTargetCell = null;
 
-                // Vérifier si la case cible est occupée
-                if (GetUnitAtCell(targetCell) != null)
+                // Parcourir le chemin de la fin vers le début pour trouver 
+                // la case la plus éloignée qui soit libre
+                for (int i = steps - 1; i >= 0; i--)
                 {
-                    // Trouver la case la plus proche non occupée sur le chemin
-                    for (int i = steps - 2; i >= 0; i--)
-                    {
-                        if (GetUnitAtCell(path[i]) == null)
-                        {
-                            targetCell = path[i];
-                            break;
-                        }
-                    }
+                    Point candidateCell = path[i];
 
-                    // Si aucune case n'est libre sur le chemin, ne pas bouger
-                    if (GetUnitAtCell(targetCell) != null)
+                    // Vérifier si la case est libre (pas d'autre unité)
+                    if (GetUnitAtCell(candidateCell) == null)
                     {
-                        enemy.ActionPoints = 0;
-                        enemyTurnIndex++;
-                        return;
+                        validTargetCell = candidateCell;
+                        break;
                     }
                 }
 
-                // MODIFIÉ: Utiliser StartMoveTo au lieu de enemy.Cell =
-                enemy.StartMoveTo(targetCell, cellSize);
-                enemy.ActionPoints--;
-            }
-            else
-            {
-                // Essayer de se déplacer d'une case vers le joueur
-                int dx = Math.Sign(closest.Cell.X - enemy.Cell.X);
-                int dy = Math.Sign(closest.Cell.Y - enemy.Cell.Y);
-
-                Point nextX = new Point(enemy.Cell.X + dx, enemy.Cell.Y);
-                Point nextY = new Point(enemy.Cell.X, enemy.Cell.Y + dy);
-
-                // Essayer le mouvement horizontal d'abord
-                if (dx != 0 && IsWalkable(nextX, enemy) && !HasWallBetween(enemy.Cell, nextX))
+                // Si on a trouvé une case libre sur le chemin
+                if (validTargetCell.HasValue)
                 {
-                    // MODIFIÉ: Utiliser StartMoveTo au lieu de enemy.Cell =
-                    enemy.StartMoveTo(nextX, cellSize);
-                    enemy.ActionPoints--;
-                }
-                // Sinon essayer le mouvement vertical
-                else if (dy != 0 && IsWalkable(nextY, enemy) && !HasWallBetween(enemy.Cell, nextY))
-                {
-                    // MODIFIÉ: Utiliser StartMoveTo au lieu de enemy.Cell =
-                    enemy.StartMoveTo(nextY, cellSize);
+                    Point oldCell = enemy.Cell;
+                    enemy.StartMoveTo(validTargetCell.Value, cellSize);
+                    unitManager.OnUnitMoved(enemy, validTargetCell.Value); // ← AJOUTEZ CETTE LIGNE
                     enemy.ActionPoints--;
                 }
                 else
                 {
-                    // Impossible de se déplacer → fin du tour
-                    enemy.ActionPoints = 0;
+                    // Aucune case libre sur le chemin → essayer un déplacement simple
+                    TrySimpleMove(enemy, bestTarget);
                 }
+            }
+            else
+            {
+                // Pas de chemin A* trouvé → essayer un déplacement simple
+                TrySimpleMove(enemy, bestTarget);
             }
 
             if (enemy.ActionPoints <= 0) enemyTurnIndex++;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // NOUVELLE MÉTHODE : Sélection intelligente de cible
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Sélectionne la meilleure cible pour un ennemi
+        /// Prend en compte: portée, ligne de vue, santé, distance
+        /// </summary>
+        private Unit SelectBestTarget(Unit enemy)
+        {
+            if (playerUnits.Count == 0)
+                return null;
+
+            Unit bestTarget = null;
+            float bestScore = float.MinValue;
+
+            foreach (var player in playerUnits)
+            {
+                float score = 0f;
+
+                int distance = Math.Abs(player.Cell.X - enemy.Cell.X) +
+                              Math.Abs(player.Cell.Y - enemy.Cell.Y);
+
+                // ═══ FACTEUR 1 : Distance (plus proche = mieux) ═══
+                // Score entre 0 et 100 (plus proche = score plus élevé)
+                score += Math.Max(0, 100 - distance * 5);
+
+                // ═══ FACTEUR 2 : Ligne de vue (voir = très important) ═══
+                bool hasLOS = HasLineOfSight(enemy.Cell, player.Cell);
+                if (hasLOS)
+                    score += 50; // Bonus important si on peut voir la cible
+
+                // ═══ FACTEUR 3 : À portée de tir (peut tirer maintenant = très bon) ═══
+                if (distance <= enemy.WeaponData.Range && hasLOS)
+                    score += 75; // Bonus énorme si on peut tirer maintenant
+
+                // ═══ FACTEUR 4 : Cible blessée (achever les blessés) ═══
+                float healthPercent = (float)player.Health / player.MaxHealth;
+                if (healthPercent < 0.5f)
+                    score += (1.0f - healthPercent) * 30; // Bonus jusqu'à +30 si très blessé
+
+                // ═══ FACTEUR 5 : Variété (éviter que tous ciblent le même) ═══
+                // Compter combien d'ennemis ciblent déjà ce joueur
+                int alreadyTargeting = CountEnemiesTargeting(player);
+                score -= alreadyTargeting * 20; // Pénalité si déjà ciblé
+
+                // Garder la meilleure cible
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestTarget = player;
+                }
+            }
+
+            return bestTarget;
+        }
+
+        /// <summary>
+        /// Compte combien d'ennemis ciblent déjà un joueur spécifique
+        /// </summary>
+        private int CountEnemiesTargeting(Unit targetPlayer)
+        {
+            int count = 0;
+
+            foreach (var enemy in enemyUnits)
+            {
+                if (enemy.PendingTarget == targetPlayer)
+                    count++;
+            }
+
+            return count;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // NOUVELLE MÉTHODE : Déplacement simple vers cible
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Essaie un déplacement simple d'une case vers la cible
+        /// Utilisé quand le A* échoue ou que le chemin est bloqué
+        /// </summary>
+        private void TrySimpleMove(Unit enemy, Unit target)
+        {
+            int dx = Math.Sign(target.Cell.X - enemy.Cell.X);
+            int dy = Math.Sign(target.Cell.Y - enemy.Cell.Y);
+
+            // Liste de mouvements possibles par ordre de préférence
+            List<Point> possibleMoves = new List<Point>();
+
+            // Diagonale (si les deux axes sont différents de 0)
+            if (dx != 0 && dy != 0)
+            {
+                // Essayer diagonale d'abord
+                Point diagonal = new Point(enemy.Cell.X + dx, enemy.Cell.Y + dy);
+                possibleMoves.Add(diagonal);
+            }
+
+            // Mouvement horizontal
+            if (dx != 0)
+            {
+                Point horizontal = new Point(enemy.Cell.X + dx, enemy.Cell.Y);
+                possibleMoves.Add(horizontal);
+            }
+
+            // Mouvement vertical
+            if (dy != 0)
+            {
+                Point vertical = new Point(enemy.Cell.X, enemy.Cell.Y + dy);
+                possibleMoves.Add(vertical);
+            }
+
+            // Essayer chaque mouvement dans l'ordre
+            foreach (Point move in possibleMoves)
+            {
+                // Vérifier si le mouvement est valide
+                if (IsWalkable(move, enemy) &&
+                    !HasWallBetween(enemy.Cell, move) &&
+                    GetUnitAtCell(move) == null) // IMPORTANT : vérifier qu'aucune unité n'est là
+                {
+                    enemy.StartMoveTo(move, cellSize);
+                    unitManager.OnUnitMoved(enemy, move); // ← AJOUTEZ CETTE LIGNE
+                    enemy.ActionPoints--;
+                    return;
+                }
+            }
+
+            // Aucun mouvement possible → fin du tour
+            enemy.ActionPoints = 0;
+        }
+
+        /// <summary>
+        /// Ajuste la cible en fonction de la stratégie d'escouade
+        /// </summary>
+        private Unit ApplySquadStrategy(Unit enemy, Unit initialTarget)
+        {
+            // Si c'est le premier ennemi de l'escouade, garder sa cible
+            if (enemyTurnIndex == 0)
+                return initialTarget;
+
+            // Stratégie : si un allié a déjà blessé une cible, l'achever
+            foreach (var player in playerUnits.OrderBy(p => p.Health))
+            {
+                // Si cette cible est déjà blessée (moins de 70% HP)
+                if ((float)player.Health / player.MaxHealth < 0.7f)
+                {
+                    // Et qu'elle est à portée
+                    int distance = Math.Abs(player.Cell.X - enemy.Cell.X) +
+                                  Math.Abs(player.Cell.Y - enemy.Cell.Y);
+
+                    if (distance <= enemy.WeaponData.Range * 1.5f)
+                    {
+                        Console.WriteLine($"{enemy.Name} cible {player.Name} pour l'achever!");
+                        return player;
+                    }
+                }
+            }
+
+            return initialTarget;
         }
 
         private void FireAtTarget(Unit shooter, Unit target)
@@ -2766,6 +3015,12 @@ namespace XCOM_3
             LoadMap();
             CreateUnits(missionType);
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
+
+            // ═══ INITIALISER LE SPATIAL HASH ═══
+            unitManager.InitializeForMission(playerUnits, enemyUnits);
+
+            Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
+        
         }
 
         private void HandleOptionsMenu(MouseState mouse)
@@ -2812,7 +3067,7 @@ namespace XCOM_3
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 &&
                 cachedMovableCells.Contains(hoveredCell) && selectedUnit.Team == Team.Player)
             {
-                currentPath = FindPathAStar(selectedUnit.Cell, hoveredCell, selectedUnit.MovementPoints);
+                currentPath = FindPathAStar(selectedUnit.Cell, hoveredCell, selectedUnit.MovementPoints, selectedUnit);
 
                 pathCosts.Clear();
                 for (int i = 0; i < currentPath.Count; i++)
@@ -2937,11 +3192,13 @@ namespace XCOM_3
                 var movable = GetMovableCells(selectedUnit);
                 if (movable.Contains(clickedCell))
                 {
-                    var path = FindPathAStar(selectedUnit.Cell, clickedCell, selectedUnit.MovementPoints);
+                    var path = FindPathAStar(selectedUnit.Cell, clickedCell, selectedUnit.MovementPoints, selectedUnit);
 
                     if (path.Count > 0 && path.Count <= selectedUnit.MovementPoints)
                     {
-                        selectedUnit.StartMoveTo(clickedCell, cellSize);  // <-- NOUVELLE LIGNE avec animation
+                        Point oldCell = selectedUnit.Cell;
+                        selectedUnit.StartMoveTo(clickedCell);
+                        unitManager.OnUnitMoved(selectedUnit, clickedCell);
                         selectedUnit.ActionPoints--;
                         UpdateFireTargets();
                         cachedMovableCells = selectedUnit.ActionPoints > 0 ? GetMovableCells(selectedUnit) : new List<Point>();
@@ -3185,9 +3442,31 @@ namespace XCOM_3
                     if (unit.Health <= 0)
                     {
                         (unit.Team == Team.Player ? playerUnits : enemyUnits).Remove(unit);
+                        unitManager.OnUnitDied(unit);
+
                         Console.WriteLine($"{unit.Name} killed by explosion!");
                     }
                 }
+
+                // Détruire les murs
+                if (grenadeData.DestroyWalls)
+                {
+                    List<WallSegment> destroyedWalls = explosionManager.GetDestroyedWalls(
+                        wallSegments, center, grenadeData.Radius
+                    );
+
+                    if (destroyedWalls.Count > 0)
+                    {
+                        foreach (var wall in destroyedWalls)
+                            wallSegments.Remove(wall);
+
+                        // ═══ INVALIDER LE CACHE ═══
+                        unitManager.OnWallsDestroyed();
+
+                        Console.WriteLine($"Destroyed {destroyedWalls.Count} walls - cache invalidated");
+                    }
+                }
+
             }
 
             // Donner l'XP au lanceur
