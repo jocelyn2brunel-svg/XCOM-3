@@ -20,21 +20,8 @@ namespace XCOM_3
         private SpriteBatch _spriteBatch;
         private SpriteFont font;
 
-        // --- Modèles et effets 3D ---
-        private BasicEffect basicEffect;
-        private BasicEffect texturedEffect;
         private Model cubeModel;
-        private Model planeModel;
-
-        // Primitives 3D personnalisées
-        private VertexPositionColor[] cubeVertices;
-        private short[] cubeIndices;
-        private VertexPositionColor[] planeVertices;
-        private short[] planeIndices;
-
-        // Primitives avec texture
-        private VertexPositionNormalTexture[] planeTexturedVertices;
-        private short[] planeTexturedIndices;
+        private Model planeModel;        
 
         // Textures
         private Texture2D tileTexture;
@@ -54,25 +41,7 @@ namespace XCOM_3
         private Point dragGridOffset;  // Offset en cases de grille
         private const int GRID_WIDTH = 10;   // Largeur de la grille en cases
         private const int GRID_HEIGHT = 8;   // Hauteur de la grille en cases
-        private const int CELL_SIZE = 40;    // Taille d'une case en pixels
-
-        // --- Caméra 3D ---
-        private Vector3 cameraPosition;
-        private Vector3 cameraTarget;
-        private Vector2 cameraOffset = Vector2.Zero;
-        private Matrix viewMatrix;
-        private Matrix projectionMatrix;
-        private float cameraAngle = MathHelper.PiOver4;
-        private float cameraDistance = 30f;
-        private float cameraHeight = 20f;
-        private float cameraRotationSpeed = 1.5f;
-        private float cameraMoveSpeed = 35f;
-
-        // Zoom
-        private float zoomLevel = 1f;
-        private float minZoom = 0.3f;
-        private float maxZoom = 3f;
-        private float previousScrollValue = 0f;
+        private const int CELL_SIZE = 40;    // Taille d'une case en pixels    
 
         // --- Menu principal ---
         private List<Button> menuButtons;
@@ -173,8 +142,6 @@ namespace XCOM_3
         // --- Raycast pour sélection 3D ---
         private Texture2D pixel;
 
-        private HumanoidModelAdvanced humanoidModel;
-
         // --- Encyclopédie ---
         private List<Button> encyclopediaButtons;
         private string encyclopediaCategory = "Weapons"; // "Weapons", "Armor", "Units"
@@ -192,8 +159,9 @@ namespace XCOM_3
         private float fpsElapsedTime = 0f;
         private float currentFPS = 60f;
 
-        // Frustum culling
-        private BoundingFrustum viewFrustum;
+        // --- Systèmes séparés ---
+        private CameraController camera;
+        private Renderer3D renderer3D;
 
         public Game1()
         {
@@ -209,10 +177,7 @@ namespace XCOM_3
         }
 
         protected override void Initialize()
-        {
-            CreateCubePrimitive();
-            CreatePlanePrimitive();
-            CreateTexturedPlanePrimitive();
+        {         
             base.Initialize();
         }
 
@@ -226,23 +191,13 @@ namespace XCOM_3
 
             tileTexture = Content.Load<Texture2D>("TileParchment32x32");
 
-            basicEffect = new BasicEffect(GraphicsDevice);
-            basicEffect.VertexColorEnabled = true;
-            basicEffect.LightingEnabled = true;
-            basicEffect.EnableDefaultLighting();
-
-            texturedEffect = new BasicEffect(GraphicsDevice);
-            texturedEffect.TextureEnabled = true;
-            texturedEffect.LightingEnabled = true;
-            texturedEffect.EnableDefaultLighting();
-
-            humanoidModel = new HumanoidModelAdvanced();
-
-            projectionMatrix = Matrix.CreatePerspectiveFieldOfView(
-                MathHelper.ToRadians(45f),
-                GraphicsDevice.Viewport.AspectRatio,
-                0.1f,
-                1000f
+            // Initialiser les systèmes
+            renderer3D = new Renderer3D(GraphicsDevice);
+            camera = new CameraController(
+                gridWidth,
+                gridHeight,
+                cellSize,
+                GraphicsDevice.Viewport.AspectRatio
             );
 
             string[] mainMenuLabels = { "New Game", "Continue", "Encyclopedia", "Options", "Quit" };
@@ -273,17 +228,11 @@ namespace XCOM_3
                 .ToList();
 
             volumeBar = new Rectangle(0, 134, 200, 8);
-            previousScrollValue = Mouse.GetState().ScrollWheelValue;
 
             Window.ClientSizeChanged += (s, e) =>
             {
                 UpdateFireTargetsUIPositions();
-                projectionMatrix = Matrix.CreatePerspectiveFieldOfView(
-                    MathHelper.ToRadians(45f),
-                    GraphicsDevice.Viewport.AspectRatio,
-                    0.1f,
-                    1000f
-                );
+                camera.UpdateProjection(GraphicsDevice.Viewport.AspectRatio); // ← MODIFIER
             };
 
             InitializeWeapons();
@@ -371,7 +320,7 @@ namespace XCOM_3
                         if (currentTurn == TurnState.PlayerTurn) HandlePlayerTurn(mouse, leftClick, keyboard);
                         else if (currentTurn == TurnState.EnemyTurn) UpdateEnemyTurn();
 
-                        HandleCameraControls(keyboard, mouse, gameTime);
+                        camera.HandleControls(keyboard, mouse, previousMouseState, gameTime);
                         UpdateFiringAnimations(gameTime);
                         UpdateDayNightCycle(gameTime);
 
@@ -440,12 +389,8 @@ namespace XCOM_3
                 sunIntensity * 0.95f,
                 sunIntensity * 0.9f
             );
+            // L'éclairage sera appliqué dans Draw() via renderer3D.SetLighting()
 
-            basicEffect.AmbientLightColor = ambientLight.ToVector3();
-            basicEffect.DirectionalLight0.DiffuseColor = directionalLight.ToVector3();
-
-            texturedEffect.AmbientLightColor = ambientLight.ToVector3();
-            texturedEffect.DirectionalLight0.DiffuseColor = directionalLight.ToVector3();
         }
 
         private void HandleEncyclopedia(MouseState mouse)
@@ -506,13 +451,9 @@ namespace XCOM_3
 
             if (currentState == GameState.Playing)
             {
-                UpdateCamera();
-
-                basicEffect.View = viewMatrix;
-                basicEffect.Projection = projectionMatrix;
-
-                texturedEffect.View = viewMatrix;
-                texturedEffect.Projection = projectionMatrix;
+                camera.UpdateCamera();
+                renderer3D.SetMatrices(camera.ViewMatrix, camera.ProjectionMatrix);
+                renderer3D.SetLighting(ambientLight, directionalLight);
 
                 RasterizerState rasterizerState = new RasterizerState();
                 rasterizerState.CullMode = CullMode.None;
@@ -520,14 +461,35 @@ namespace XCOM_3
 
                 GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-                DrawGrid3D();
-                DrawWalls3D();
-                DrawUnits3D();
+                renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture);
+                renderer3D.DrawWalls(wallSegments, cellSize);
+
+                // Dessiner toutes les unités
+                foreach (var unit in playerUnits)
+                    renderer3D.DrawUnit(unit, cellSize);
+
+                foreach (var unit in enemyUnits)
+                    renderer3D.DrawUnit(unit, cellSize);
+
+                // Indicateur de sélection
+                if (selectedUnit != null)
+                {
+                    renderer3D.DrawSelectionIndicator(selectedUnit, cellSize,
+                        new Color(0, 255, 255, 128));
+                }
+
+                Unit targetHighlight = selectedFireTarget ?? hoveredFireTarget;
+                if (targetHighlight != null)
+                {
+                    renderer3D.DrawSelectionIndicator(targetHighlight, cellSize,
+                        new Color(255, 0, 0, 128), 1.2f);
+                }
+
+                renderer3D.DrawCraters(craters, cellSize);
+                renderer3D.DrawGrenades(activeGrenades, cellSize);
                 DrawMovableCells3D(gameTime);
                 DrawPath3D(gameTime);
                 DrawHoveredCell3D(gameTime);
-                DrawCraters3D();
-                DrawGrenades3D();
                 DrawThrowMode3D(gameTime);
 
             }
@@ -1205,381 +1167,6 @@ namespace XCOM_3
             _spriteBatch.Draw(pixel, new Rectangle(rect.Right - thickness, rect.Y, thickness, rect.Height), color);
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // PRIMITIVES 3D
-        // ═══════════════════════════════════════════════════════════════════════
-
-        private void CreateCubePrimitive()
-        {
-            cubeVertices = new VertexPositionColor[8];
-
-            cubeVertices[0] = new VertexPositionColor(new Vector3(-0.5f, -0.5f, -0.5f), Color.White);
-            cubeVertices[1] = new VertexPositionColor(new Vector3(-0.5f, -0.5f, 0.5f), Color.White);
-            cubeVertices[2] = new VertexPositionColor(new Vector3(0.5f, -0.5f, 0.5f), Color.White);
-            cubeVertices[3] = new VertexPositionColor(new Vector3(0.5f, -0.5f, -0.5f), Color.White);
-            cubeVertices[4] = new VertexPositionColor(new Vector3(-0.5f, 0.5f, -0.5f), Color.White);
-            cubeVertices[5] = new VertexPositionColor(new Vector3(-0.5f, 0.5f, 0.5f), Color.White);
-            cubeVertices[6] = new VertexPositionColor(new Vector3(0.5f, 0.5f, 0.5f), Color.White);
-            cubeVertices[7] = new VertexPositionColor(new Vector3(0.5f, 0.5f, -0.5f), Color.White);
-
-            cubeIndices = new short[]
-            {
-                0, 1, 2, 0, 2, 3,
-                4, 6, 5, 4, 7, 6,
-                0, 4, 5, 0, 5, 1,
-                3, 2, 6, 3, 6, 7,
-                1, 5, 6, 1, 6, 2,
-                0, 3, 7, 0, 7, 4
-            };
-        }
-
-        private void CreatePlanePrimitive()
-        {
-            planeVertices = new VertexPositionColor[4];
-            planeVertices[0] = new VertexPositionColor(new Vector3(-0.5f, 0, -0.5f), Color.White);
-            planeVertices[1] = new VertexPositionColor(new Vector3(-0.5f, 0, 0.5f), Color.White);
-            planeVertices[2] = new VertexPositionColor(new Vector3(0.5f, 0, 0.5f), Color.White);
-            planeVertices[3] = new VertexPositionColor(new Vector3(0.5f, 0, -0.5f), Color.White);
-
-            planeIndices = new short[] { 0, 1, 2, 0, 2, 3 };
-        }
-
-        private void CreateTexturedPlanePrimitive()
-        {
-            planeTexturedVertices = new VertexPositionNormalTexture[4];
-
-            Vector3 normal = Vector3.Up;
-
-            planeTexturedVertices[0] = new VertexPositionNormalTexture(
-                new Vector3(-0.5f, 0, -0.5f), normal, new Vector2(0, 0));
-            planeTexturedVertices[1] = new VertexPositionNormalTexture(
-                new Vector3(-0.5f, 0, 0.5f), normal, new Vector2(0, 1));
-            planeTexturedVertices[2] = new VertexPositionNormalTexture(
-                new Vector3(0.5f, 0, 0.5f), normal, new Vector2(1, 1));
-            planeTexturedVertices[3] = new VertexPositionNormalTexture(
-                new Vector3(0.5f, 0, -0.5f), normal, new Vector2(1, 0));
-
-            planeTexturedIndices = new short[] { 0, 1, 2, 0, 2, 3 };
-        }
-
-        private void DrawCube(Vector3 position, Vector3 scale, Color color)
-        {
-            VertexPositionColor[] coloredVertices = new VertexPositionColor[8];
-            for (int i = 0; i < 8; i++)
-            {
-                coloredVertices[i] = new VertexPositionColor(cubeVertices[i].Position, color);
-            }
-
-            Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
-            basicEffect.World = world;
-
-            foreach (EffectPass pass in basicEffect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                GraphicsDevice.DrawUserIndexedPrimitives(
-                    PrimitiveType.TriangleList,
-                    coloredVertices,
-                    0,
-                    8,
-                    cubeIndices,
-                    0,
-                    12
-                );
-            }
-        }
-
-        private void DrawPlane(Vector3 position, Vector3 scale, Color color)
-        {
-            VertexPositionColor[] coloredVertices = new VertexPositionColor[4];
-            for (int i = 0; i < 4; i++)
-            {
-                coloredVertices[i] = new VertexPositionColor(planeVertices[i].Position, color);
-            }
-
-            Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
-            basicEffect.World = world;
-
-            foreach (EffectPass pass in basicEffect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                GraphicsDevice.DrawUserIndexedPrimitives(
-                    PrimitiveType.TriangleList,
-                    coloredVertices,
-                    0,
-                    4,
-                    planeIndices,
-                    0,
-                    2
-                );
-            }
-        }
-
-        private void DrawTexturedPlane(Vector3 position, Vector3 scale, Texture2D texture)
-        {
-            Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
-            texturedEffect.World = world;
-            texturedEffect.Texture = texture;
-
-            foreach (EffectPass pass in texturedEffect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                GraphicsDevice.DrawUserIndexedPrimitives(
-                    PrimitiveType.TriangleList,
-                    planeTexturedVertices,
-                    0,
-                    4,
-                    planeTexturedIndices,
-                    0,
-                    2
-                );
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // CAMÉRA 3D
-        // ═══════════════════════════════════════════════════════════════════════
-
-        private void UpdateCamera()
-        {
-            float centerX = (gridWidth * cellSize) / 2f + cameraOffset.X;
-            float centerZ = (gridHeight * cellSize) / 2f + cameraOffset.Y;
-
-            cameraTarget = new Vector3(centerX, 0, centerZ);
-
-            float adjustedDistance = cameraDistance / zoomLevel;
-            float adjustedHeight = cameraHeight / zoomLevel;
-
-            cameraPosition = new Vector3(
-                centerX + (float)Math.Cos(cameraAngle) * adjustedDistance,
-                adjustedHeight,
-                centerZ + (float)Math.Sin(cameraAngle) * adjustedDistance
-            );
-
-            viewMatrix = Matrix.CreateLookAt(cameraPosition, cameraTarget, Vector3.Up);
-
-            // ═══ METTRE À JOUR LE FRUSTUM ═══
-            viewFrustum = new BoundingFrustum(viewMatrix * projectionMatrix);
-        }
-
-        private void HandleCameraControls(KeyboardState keyboard, MouseState mouse, GameTime gameTime)
-        {
-            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            float rotationAmount = cameraRotationSpeed * deltaTime;
-
-            if (keyboard.IsKeyDown(Keys.Q))
-            {
-                cameraAngle += rotationAmount;
-            }
-            if (keyboard.IsKeyDown(Keys.E))
-            {
-                cameraAngle -= rotationAmount;
-            }
-
-            float scrollDelta = (mouse.ScrollWheelValue - previousScrollValue) / 120f;
-            previousScrollValue = mouse.ScrollWheelValue;
-
-            if (scrollDelta != 0f)
-            {
-                zoomLevel = MathHelper.Clamp(zoomLevel + scrollDelta * 0.1f, minZoom, maxZoom);
-            }
-
-            Vector2 moveInput = Vector2.Zero;
-
-            if (keyboard.IsKeyDown(Keys.W)) moveInput.Y += 1;
-            if (keyboard.IsKeyDown(Keys.S)) moveInput.Y -= 1;
-            if (keyboard.IsKeyDown(Keys.A)) moveInput.X += 1;
-            if (keyboard.IsKeyDown(Keys.D)) moveInput.X -= 1;
-
-            if (mouse.MiddleButton == ButtonState.Pressed && previousMouseState.MiddleButton == ButtonState.Pressed)
-            {
-                Vector2 mouseDelta = new Vector2(
-                    mouse.X - previousMouseState.X,
-                    mouse.Y - previousMouseState.Y
-                );
-
-                moveInput.X += mouseDelta.X * 0.5f;
-                moveInput.Y += mouseDelta.Y * 0.5f;
-            }
-
-            if (moveInput != Vector2.Zero)
-            {
-                if (moveInput.LengthSquared() > 1f)
-                    moveInput.Normalize();
-
-                float moveAngle = cameraAngle + MathHelper.PiOver2;
-
-                Vector2 rotatedMove = new Vector2(
-                    moveInput.X * (float)Math.Cos(moveAngle) - moveInput.Y * (float)Math.Sin(moveAngle),
-                    moveInput.X * (float)Math.Sin(moveAngle) + moveInput.Y * (float)Math.Cos(moveAngle)
-                );
-
-                cameraOffset += rotatedMove * cameraMoveSpeed * deltaTime;
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // RENDU 3D DE LA SCÈNE
-        // ═══════════════════════════════════════════════════════════════════════
-
-        private void DrawGrid3D()
-        {
-            for (int x = 0; x < gridWidth; x++)
-            {
-                for (int z = 0; z < gridHeight; z++)
-                {
-                    Vector3 position = new Vector3(x * cellSize + cellSize / 2f, 0, z * cellSize + cellSize / 2f);
-                    DrawTexturedPlane(position, new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f), tileTexture);
-                }
-            }
-        }
-
-        private void DrawWalls3D()
-        {
-            foreach (var segment in wallSegments)
-            {
-                Vector3 start3D, end3D;
-
-                if (segment.IsHorizontal)
-                {
-                    // Mur horizontal (sépare les cases verticalement)
-                    start3D = new Vector3(
-                        segment.Start.X * cellSize,
-                        cellSize * 0.75f,
-                        segment.Start.Y * cellSize
-                    );
-                    end3D = new Vector3(
-                        segment.End.X * cellSize,
-                        cellSize * 0.75f,
-                        segment.End.Y * cellSize
-                    );
-                }
-                else
-                {
-                    // Mur vertical (sépare les cases horizontalement)
-                    start3D = new Vector3(
-                        segment.Start.X * cellSize,
-                        cellSize * 0.75f,
-                        segment.Start.Y * cellSize
-                    );
-                    end3D = new Vector3(
-                        segment.End.X * cellSize,
-                        cellSize * 0.75f,
-                        segment.End.Y * cellSize
-                    );
-                }
-
-                // Position au centre du segment
-                Vector3 center = (start3D + end3D) / 2f;
-
-                // Dimensions du mur
-                Vector3 scale;
-                if (segment.IsHorizontal)
-                {
-                    // Mur horizontal : long en X, mince en Z
-                    scale = new Vector3(cellSize, cellSize * 1.5f, cellSize * 0.1f);
-                }
-                else
-                {
-                    // Mur vertical : mince en X, long en Z
-                    scale = new Vector3(cellSize * 0.1f, cellSize * 1.5f, cellSize);
-                }
-
-                // Dessiner le mur
-                DrawCube(center, scale, new Color(120, 120, 120));
-            }
-        }
-
-        private void DrawUnits3D()
-        {
-            foreach (var unit in playerUnits)
-                DrawUnit3D(unit);
-
-            foreach (var unit in enemyUnits)
-                DrawUnit3D(unit);
-        }
-
-        private void DrawUnit3D(Unit unit)
-        {
-            Vector3 basePosition = new Vector3(
-                unit.Cell.X * cellSize + cellSize / 2f,
-                0,
-                unit.Cell.Y * cellSize + cellSize / 2f
-            );
-
-            Vector3 visualOffset = Vector3.Zero;
-
-            // Animation de tir existante
-            if (unit.IsFiring && unit.FireTarget.HasValue)
-            {
-                Vector3 targetPos = new Vector3(
-                    unit.FireTarget.Value.X * cellSize + cellSize / 2f,
-                    cellSize * 0.75f,
-                    unit.FireTarget.Value.Y * cellSize + cellSize / 2f
-                );
-
-                if (unit.Weapon == "Zombie Claws")
-                {
-                    Vector3 chargeVector = targetPos - basePosition;
-                    float t = unit.FireProgress;
-
-                    if (t < 0.5f)
-                    {
-                        float forwardT = t / 0.5f;
-                        visualOffset = Vector3.Lerp(Vector3.Zero, chargeVector, forwardT);
-                    }
-                    else
-                    {
-                        float returnT = (t - 0.5f) / 0.5f;
-                        visualOffset = Vector3.Lerp(chargeVector, Vector3.Zero, returnT);
-                    }
-                }
-                else
-                {
-                    Vector3 projectilePos = Vector3.Lerp(basePosition, targetPos, unit.FireProgress);
-                    DrawCube(projectilePos, new Vector3(cellSize * 0.2f), Color.Yellow);
-                }
-            }
-
-            Vector3 finalPos = basePosition + visualOffset;
-            Color unitColor = unit.Team == Team.Player ? Color.Blue : Color.Red;
-
-            // Déterminer le type d'unité
-            HumanoidModelAdvanced.UnitType unitType = HumanoidModelAdvanced.UnitType.Soldier;
-
-            if (unit.Class == "Assault" || unit.Class == "Infantry")
-                unitType = HumanoidModelAdvanced.UnitType.Soldier;
-            else if (unit.Class == "Heavy")
-                unitType = HumanoidModelAdvanced.UnitType.Heavy;
-            else if (unit.Class == "Scout")
-                unitType = HumanoidModelAdvanced.UnitType.Scout;
-            else if (unit.Class == "Undead")
-                unitType = HumanoidModelAdvanced.UnitType.Zombie;
-            else if (unit.Team == Team.Enemy && unit.Name.Contains("Alien"))
-                unitType = HumanoidModelAdvanced.UnitType.Alien;
-
-            // MODIFIÉ: Passer les paramètres d'animation
-            humanoidModel.Draw(GraphicsDevice, basicEffect, finalPos, unitColor,
-                              cellSize * 0.8f, unitType, unit.Orientation,
-                              unit.LegSwing, unit.ArmSwing, unit.BodyBob, unit.IdleBobOffset);
-
-            // Indicateurs de sélection (inchangés)
-            if (unit == selectedUnit)
-            {
-                Vector3 selectionPos = new Vector3(basePosition.X, 0.05f, basePosition.Z);
-                DrawPlane(selectionPos, new Vector3(cellSize * 1.1f, 1, cellSize * 1.1f),
-                         new Color(0, 255, 255, 128));
-            }
-
-            Unit targetHighlight = selectedFireTarget ?? hoveredFireTarget;
-            if (targetHighlight == unit)
-            {
-                Vector3 highlightPos = new Vector3(basePosition.X, 0.1f, basePosition.Z);
-                DrawPlane(highlightPos, new Vector3(cellSize * 1.2f, 1, cellSize * 1.2f),
-                         new Color(255, 0, 0, 128));
-            }
-        }
-
         private void DrawMovableCells3D(GameTime gameTime)
         {
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 &&
@@ -1590,7 +1177,7 @@ namespace XCOM_3
                 foreach (var cell in cachedMovableCells)
                 {
                     Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, 0.05f, cell.Y * cellSize + cellSize / 2f);
-                    DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), Color.Green * pulse);
+                    renderer3D.DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), Color.Green * pulse);
                 }
             }
         }
@@ -1610,7 +1197,7 @@ namespace XCOM_3
                 float intensity = 1f - (i / (float)currentPath.Count) * 0.5f;
                 Color pathColor = new Color(100, 150, 255) * pulse * intensity;
 
-                DrawPlane(position, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), pathColor);
+                renderer3D.DrawPlane(position, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), pathColor);
             }
         }
 
@@ -1622,51 +1209,8 @@ namespace XCOM_3
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
             Vector3 position = new Vector3(hoveredCell.X * cellSize + cellSize / 2f, 0.15f, hoveredCell.Y * cellSize + cellSize / 2f);
 
-            DrawPlane(position, new Vector3(cellSize, 1, cellSize), Color.Yellow * pulse);
+            renderer3D.DrawPlane(position, new Vector3(cellSize, 1, cellSize), Color.Yellow * pulse);
         }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // RAYCAST POUR SÉLECTION 3D
-        // ═══════════════════════════════════════════════════════════════════════
-
-        private Point GetCellFromMouseRaycast(MouseState mouse)
-        {
-            Vector3 nearPoint = GraphicsDevice.Viewport.Unproject(
-                new Vector3(mouse.X, mouse.Y, 0),
-                projectionMatrix,
-                viewMatrix,
-                Matrix.Identity
-            );
-
-            Vector3 farPoint = GraphicsDevice.Viewport.Unproject(
-                new Vector3(mouse.X, mouse.Y, 1),
-                projectionMatrix,
-                viewMatrix,
-                Matrix.Identity
-            );
-
-            Vector3 direction = Vector3.Normalize(farPoint - nearPoint);
-
-            if (Math.Abs(direction.Y) > 0.001f)
-            {
-                float t = -nearPoint.Y / direction.Y;
-                Vector3 intersection = nearPoint + direction * t;
-
-                int cellX = (int)(intersection.X / cellSize);
-                int cellZ = (int)(intersection.Z / cellSize);
-
-                if (cellX >= 0 && cellX < gridWidth && cellZ >= 0 && cellZ < gridHeight)
-                {
-                    return new Point(cellX, cellZ);
-                }
-            }
-
-            return new Point(-1, -1);
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // UI 2D
-        // ═══════════════════════════════════════════════════════════════════════
 
         private void DrawEndTurnButton()
         {
@@ -3020,7 +2564,7 @@ namespace XCOM_3
             unitManager.InitializeForMission(playerUnits, enemyUnits);
 
             Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
-        
+
         }
 
         private void HandleOptionsMenu(MouseState mouse)
@@ -3059,8 +2603,9 @@ namespace XCOM_3
 
         private void HandlePlayerTurn(MouseState mouse, bool leftClick, KeyboardState keyboard)
         {
-            hoveredCell = GetCellFromMouseRaycast(mouse);
-
+            hoveredCell = camera.GetCellFromMouse(mouse.Position,
+                GraphicsDevice.Viewport.Width,
+                GraphicsDevice.Viewport.Height);
             currentPath.Clear();
             pathCosts.Clear();
 
@@ -3304,8 +2849,9 @@ namespace XCOM_3
             if (selectedUnit == null || selectedGrenade == null) return;
 
             // Calculer la case survolée
-            throwTarget = GetCellFromMouseRaycast(mouse);
-
+            throwTarget = camera.GetCellFromMouse(mouse.Position,
+                GraphicsDevice.Viewport.Width,
+                GraphicsDevice.Viewport.Height);
             if (throwTarget.X >= 0)
             {
                 // Mettre à jour la prévisualisation de l'explosion
@@ -3506,33 +3052,6 @@ namespace XCOM_3
             }
         }
 
-        private void DrawGrenades3D()
-        {
-            foreach (var grenade in activeGrenades)
-            {
-                Color grenadeColor = GrenadeDatabase.GetGrenadeColor(grenade.Data.Type);
-                DrawCube(grenade.Position, new Vector3(cellSize * 0.2f), grenadeColor);
-            }
-        }
-
-        private void DrawCraters3D()
-        {
-            foreach (var crater in craters)
-            {
-                Vector3 position = new Vector3(
-                    crater.Cell.X * cellSize + cellSize / 2f,
-                    -crater.Depth * 0.2f, // Enfoncer dans le sol
-                    crater.Cell.Y * cellSize + cellSize / 2f
-                );
-
-                // Cratère plus foncé selon la profondeur
-                Color craterColor = new Color(60, 50, 40) * (0.5f + crater.Depth * 0.15f);
-
-                DrawPlane(position,
-                         new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f),
-                         craterColor);
-            }
-        }
 
         private void DrawThrowMode3D(GameTime gameTime)
         {
@@ -3548,7 +3067,7 @@ namespace XCOM_3
                     0.2f,
                     cell.Y * cellSize + cellSize / 2f
                 );
-                DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), Color.Yellow * 0.3f * pulse);
+                renderer3D.DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), Color.Yellow * 0.3f * pulse);
             }
 
             // Dessiner la zone d'explosion prévisionnelle
@@ -3559,13 +3078,13 @@ namespace XCOM_3
                     0.25f,
                     cell.Y * cellSize + cellSize / 2f
                 );
-                DrawPlane(position, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), Color.Red * 0.5f * pulse);
+                renderer3D.DrawPlane(position, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), Color.Red * 0.5f * pulse);
             }
 
             // Dessiner la trajectoire
             for (int i = 0; i < trajectoryPreview.Count - 1; i++)
             {
-                DrawCube(trajectoryPreview[i], new Vector3(cellSize * 0.1f), Color.White * 0.7f);
+                renderer3D.DrawCube(trajectoryPreview[i], new Vector3(cellSize * 0.1f), Color.White * 0.7f);
             }
         }
 
