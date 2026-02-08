@@ -34,14 +34,6 @@ namespace XCOM_3
 
         // --- NOUVEAU: Système d'inventaire ---
         private bool showInventory = false;
-        private Rectangle inventoryPanel;
-        private Dictionary<string, ItemData> itemDatabase;
-        private InventoryGrid inventoryGrid;
-        private GridItem draggedItem = null;
-        private Point dragGridOffset;  // Offset en cases de grille
-        private const int GRID_WIDTH = 10;   // Largeur de la grille en cases
-        private const int GRID_HEIGHT = 8;   // Hauteur de la grille en cases
-        private const int CELL_SIZE = 40;    // Taille d'une case en pixels    
 
         // --- Menu principal ---
         private List<Button> menuButtons;
@@ -163,7 +155,7 @@ namespace XCOM_3
         private CameraController camera;
         private Renderer3D renderer3D;
         private PathfindingSystem pathfinding;
-
+        private InventorySystem inventorySystem;
 
         public Game1()
         {
@@ -187,13 +179,9 @@ namespace XCOM_3
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             font = Content.Load<SpriteFont>("Arial");
-
             pixel = new Texture2D(GraphicsDevice, 1, 1);
             pixel.SetData(new[] { Color.White });
-
             tileTexture = Content.Load<Texture2D>("TileParchment32x32");
-
-            // Initialiser les systèmes
             renderer3D = new Renderer3D(GraphicsDevice);
             camera = new CameraController(
                 gridWidth,
@@ -201,97 +189,66 @@ namespace XCOM_3
                 cellSize,
                 GraphicsDevice.Viewport.AspectRatio
             );
-
+            inventorySystem = new InventorySystem(GraphicsDevice, _spriteBatch, font, pixel);
             string[] mainMenuLabels = { "New Game", "Continue", "Encyclopedia", "Options", "Quit" };
             menuButtons = mainMenuLabels
                 .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
                 .ToList();
-
             string[] songFiles = { "menu_music_1", "menu_music_2", "menu_music_3", "menu_music_4" };
             menuSongs = songFiles.Select(f => Content.Load<Song>(f)).ToList();
             currentSong = menuSongs[random.Next(menuSongs.Count)];
             MediaPlayer.Play(currentSong);
             MediaPlayer.Volume = 0.5f;
-
             string[] optionsLabels = { "Music Volume +", "Music Volume -", "Back" };
             int[] optionsY = { 100, 156, 184 };
             optionsButtons = optionsLabels
                 .Select((text, i) => new Button(text, new Vector2(0, optionsY[i])))
                 .ToList();
-
             string[] missionLabels = { "Tutorial", "Survival", "Assault", "Defense", "Back" };
             missionButtons = missionLabels
                 .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
                 .ToList();
-
             string[] encyclopediaLabels = { "Armes", "Armures", "Unités", "Retour" };
             encyclopediaButtons = encyclopediaLabels
                 .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
                 .ToList();
-
             volumeBar = new Rectangle(0, 134, 200, 8);
-
             Window.ClientSizeChanged += (s, e) =>
             {
                 UpdateFireTargetsUIPositions();
                 camera.UpdateProjection(GraphicsDevice.Viewport.AspectRatio); // ← MODIFIER
             };
-
             InitializeWeapons();
-            InitializeItems();
-            // Initialiser la grille d'inventaire
-            inventoryGrid = new InventoryGrid(GRID_WIDTH, GRID_HEIGHT);
-
-            InitializeInventoryItems();
-
             InitializeGrenades();
             explosionManager = new ExplosionManager(random);
-
-            // Initialiser le générateur de murs sur edges
             edgeWallGenerator = new EdgeWallGenerator(random);
-
-            // ═══ INITIALISATION DES OPTIMISATIONS ═══
-
             humanoidBatcher = new HumanoidBatchRenderer();
             unitManager = new OptimizedUnitManager();
-
             Console.WriteLine("[OPTIMIZATION] Batch renderer and spatial hash initialized");
-
         }
 
         protected override void Update(GameTime gameTime)
         {
-
-            // ═══ CALCULER FPS ═══
             fpsElapsedTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
             frameCount++;
-
             if (fpsElapsedTime >= 1.0f)
             {
                 currentFPS = frameCount / fpsElapsedTime;
                 frameCount = 0;
                 fpsElapsedTime = 0f;
-
-                // Optionnel : log dans la console
                 Console.WriteLine($"FPS: {currentFPS:F1}");
             }
-
             MouseState mouse = Mouse.GetState();
             KeyboardState keyboard = Keyboard.GetState();
             bool leftClick = mouse.LeftButton == ButtonState.Pressed &&
                              previousMouseState.LeftButton == ButtonState.Released;
             bool escapePressed = keyboard.IsKeyDown(Keys.Escape) &&
                                  previousKeyboardState.IsKeyUp(Keys.Escape);
-
             // Touche I pour ouvrir/fermer l'inventaire
             bool iPressed = keyboard.IsKeyDown(Keys.I) && previousKeyboardState.IsKeyUp(Keys.I);
             if (iPressed && currentState == GameState.Playing && selectedUnit != null && selectedUnit.Team == Team.Player)
             {
-                showInventory = !showInventory;
-                if (!showInventory)
-                {
-                    draggedItem = null;
-                }
+                showInventory = !showInventory;              
             }
 
             UpdateGrenades(gameTime);
@@ -312,7 +269,7 @@ namespace XCOM_3
                 case GameState.Playing:
                     if (showInventory)
                     {
-                        HandleInventory(mouse, leftClick, keyboard);
+                        inventorySystem.Update(mouse, leftClick, keyboard, selectedUnit);
                         if (escapePressed) showInventory = false;
                     }
                     else
@@ -514,7 +471,7 @@ namespace XCOM_3
                 case GameState.Playing:
                     if (showInventory)
                     {
-                        DrawInventory();
+                        inventorySystem.Draw(selectedUnit);
                     }
                     else
                     {
@@ -631,544 +588,7 @@ namespace XCOM_3
             int minutes = (int)((time * 24 - hours) * 60);
             return $"{hours:D2}:{minutes:D2}";
         }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // SYSTÈME D'INVENTAIRE
-        // ═══════════════════════════════════════════════════════════════════════
-
-        private void InitializeItems()
-        {
-            itemDatabase = new Dictionary<string, ItemData>();
-
-            // Armes (code existant)
-            itemDatabase["Rifle"] = new ItemData("Rifle", ItemType.Weapon,
-                new WeaponData("Rifle", 25, 80, 5));
-            itemDatabase["Plasma Rifle"] = new ItemData("Plasma Rifle", ItemType.Weapon,
-                new WeaponData("Plasma Rifle", 30, 75, 5));
-            itemDatabase["Plasma Sniper"] = new ItemData("Plasma Sniper", ItemType.Weapon,
-                new WeaponData("Plasma Sniper", 50, 90, 8));
-            itemDatabase["Shotgun"] = new ItemData("Shotgun", ItemType.Weapon,
-                new WeaponData("Shotgun", 45, 70, 3));
-            itemDatabase["SMG"] = new ItemData("SMG", ItemType.Weapon,
-                new WeaponData("SMG", 20, 75, 4));
-
-            // NOUVEAU: Charger toutes les armures de la base de données
-            foreach (var armor in ArmorDatabase.GetAllArmors())
-            {
-                itemDatabase[armor.Name] = armor;
-            }
-        }
-
-        private void InitializeInventoryItems()
-        {
-            inventoryGrid.Clear();
-
-            // Ajouter des items avec leurs tailles réelles
-            var items = new List<(string name, Point pos, bool rotated)>
-    {
-        // Armes (longues, placées verticalement ou horizontalement)
-        ("Plasma Rifle", new Point(0, 0), false),
-        ("Shotgun", new Point(2, 0), false),
-        ("SMG", new Point(4, 0), false),
-        
-        // Casques (2x2)
-        ("PASGT Helmet", new Point(0, 5), false),
-        ("ACH", new Point(2, 5), false),
-        ("ECH", new Point(4, 5), false),
-        
-        // Gilets (2x3)
-        ("PASGT Vest", new Point(6, 0), false),
-        ("OTV (IBA)", new Point(8, 0), false),
-        ("MTV", new Point(6, 3), false),
-        
-        // Gilets avec plaques
-        ("OTV + SAPI", new Point(8, 3), false),
-        ("IOTV + ESAPI", new Point(6, 6), false),
-        
-        // Équipement spécial
-        ("Riot Shield", new Point(0, 4), true),  // Tourné
-        ("Army Combat Shirt", new Point(8, 6), false),
-    };
-
-            foreach (var (name, pos, rotated) in items)
-            {
-                if (itemDatabase.ContainsKey(name))
-                {
-                    ItemSize size = ItemSizeDatabase.GetItemSize(name);
-                    GridItem gridItem = new GridItem(itemDatabase[name], pos, size, rotated);
-                    gridItem.UpdatePixelBounds();
-
-                    if (!inventoryGrid.PlaceItem(gridItem))
-                    {
-                        Console.WriteLine($"Impossible de placer {name} à {pos}");
-                    }
-                }
-            }
-        }
-
-        private void HandleInventory(MouseState mouse, bool leftClick, KeyboardState keyboard)
-        {
-            if (selectedUnit == null) return;
-
-            // Position de départ de la grille en pixels
-            int gridStartX = GraphicsDevice.Viewport.Width / 2 - 300 + 20;
-            int gridStartY = GraphicsDevice.Viewport.Height / 2 - 200 + 60;
-
-            // ROTATION avec touche R
-            bool rPressed = keyboard.IsKeyDown(Keys.R) && previousKeyboardState.IsKeyUp(Keys.R);
-            if (rPressed && draggedItem != null)
-            {
-                draggedItem.Rotate();
-                Console.WriteLine($"Item tourné: {draggedItem.Data.Name}");
-            }
-
-            // ═══════════════════════════════════════════════════════════════════
-            // DÉMARRER LE DRAG
-            // ═══════════════════════════════════════════════════════════════════
-            if (leftClick && draggedItem == null)
-            {
-                // Convertir position souris en position grille
-                int gridX = (mouse.X - gridStartX) / CELL_SIZE;
-                int gridY = (mouse.Y - gridStartY) / CELL_SIZE;
-
-                if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT)
-                {
-                    GridItem clickedItem = inventoryGrid.GetItemAt(new Point(gridX, gridY));
-
-                    if (clickedItem != null)
-                    {
-                        draggedItem = clickedItem;
-                        dragGridOffset = new Point(gridX - clickedItem.GridPosition.X,
-                                                  gridY - clickedItem.GridPosition.Y);
-                        inventoryGrid.RemoveItem(draggedItem);
-                    }
-                }
-
-                // Vérifier les slots équipés
-                if (draggedItem == null)
-                {
-                    CheckEquipmentSlotDrag(mouse, selectedUnit.EquippedWeapon, GetWeaponSlotBounds());
-                    CheckEquipmentSlotDrag(mouse, selectedUnit.EquippedHelmet, GetHelmetSlotBounds());
-                    CheckEquipmentSlotDrag(mouse, selectedUnit.EquippedArmor, GetArmorSlotBounds());
-                    CheckEquipmentSlotDrag(mouse, selectedUnit.EquippedShield, GetShieldSlotBounds());
-                    CheckEquipmentSlotDrag(mouse, selectedUnit.EquippedShirt, GetShirtSlotBounds());
-                }
-            }
-
-            // ═══════════════════════════════════════════════════════════════════
-            // DRAG EN COURS
-            // ═══════════════════════════════════════════════════════════════════
-            if (draggedItem != null && mouse.LeftButton == ButtonState.Pressed)
-            {
-                // Mettre à jour la position du drag (en cases de grille)
-                int newGridX = (mouse.X - gridStartX) / CELL_SIZE - dragGridOffset.X;
-                int newGridY = (mouse.Y - gridStartY) / CELL_SIZE - dragGridOffset.Y;
-
-                draggedItem.GridPosition = new Point(
-                    Math.Max(0, Math.Min(GRID_WIDTH - 1, newGridX)),
-                    Math.Max(0, Math.Min(GRID_HEIGHT - 1, newGridY))
-                );
-
-                draggedItem.UpdatePixelBounds(gridStartX, gridStartY);
-            }
-
-            // ═══════════════════════════════════════════════════════════════════
-            // TERMINER LE DRAG
-            // ═══════════════════════════════════════════════════════════════════
-            if (draggedItem != null && mouse.LeftButton == ButtonState.Released)
-            {
-                bool equipped = false;
-
-                // Essayer d'équiper dans les slots
-                equipped = TryEquipInSlot(mouse, draggedItem, selectedUnit);
-
-                if (!equipped)
-                {
-                    // Essayer de replacer dans la grille
-                    if (inventoryGrid.CanPlaceItem(draggedItem.GridPosition, draggedItem.GetCurrentSize()))
-                    {
-                        inventoryGrid.PlaceItem(draggedItem);
-                    }
-                    else
-                    {
-                        // Trouver une position libre
-                        Point? freePos = inventoryGrid.FindFreePosition(draggedItem.GetCurrentSize(), true);
-
-                        if (freePos.HasValue)
-                        {
-                            draggedItem.GridPosition = freePos.Value;
-                            draggedItem.UpdatePixelBounds(gridStartX, gridStartY);
-                            inventoryGrid.PlaceItem(draggedItem);
-                        }
-                        else
-                        {
-                            Console.WriteLine("Pas de place dans l'inventaire!");
-                            // L'item est perdu... ou remettre à l'ancienne position
-                        }
-                    }
-                }
-
-                draggedItem = null;
-            }
-        }
-
-        // Méthodes helper
-        private void CheckEquipmentSlotDrag(MouseState mouse, Item equippedItem, Rectangle slot)
-        {
-            if (equippedItem != null && slot.Contains(mouse.Position) && draggedItem == null)
-            {
-                ItemSize size = ItemSizeDatabase.GetItemSize(equippedItem.Data.Name);
-                draggedItem = new GridItem(equippedItem.Data, new Point(0, 0), size, false);
-
-                // Déséquiper
-                if (equippedItem == selectedUnit.EquippedWeapon) selectedUnit.EquippedWeapon = null;
-                else if (equippedItem == selectedUnit.EquippedHelmet) selectedUnit.EquippedHelmet = null;
-                else if (equippedItem == selectedUnit.EquippedArmor) selectedUnit.EquippedArmor = null;
-                else if (equippedItem == selectedUnit.EquippedShield) selectedUnit.EquippedShield = null;
-                else if (equippedItem == selectedUnit.EquippedShirt) selectedUnit.EquippedShirt = null;
-            }
-        }
-
-        private bool TryEquipInSlot(MouseState mouse, GridItem item, Unit unit)
-        {
-            // Équiper une arme
-            if (item.Data.Type == ItemType.Weapon && GetWeaponSlotBounds().Contains(mouse.Position))
-            {
-                if (unit.EquippedWeapon != null)
-                    ReturnItemToGrid(unit.EquippedWeapon);
-
-                unit.EquippedWeapon = new Item(item.Data, Point.Zero);
-                unit.Weapon = item.Data.Name;
-                unit.WeaponData = item.Data.WeaponData;
-                UpdateFireTargets();
-                return true;
-            }
-
-            // Équiper une armure
-            if (item.Data.Type == ItemType.Armor)
-            {
-                if (item.Data.ArmorSlot == ArmorSlot.Head && GetHelmetSlotBounds().Contains(mouse.Position))
-                {
-                    if (unit.EquippedHelmet != null)
-                        ReturnItemToGrid(unit.EquippedHelmet);
-
-                    unit.EquippedHelmet = new Item(item.Data, Point.Zero);
-                    return true;
-                }
-                else if (item.Data.ArmorSlot == ArmorSlot.Torso && GetArmorSlotBounds().Contains(mouse.Position))
-                {
-                    if (unit.EquippedArmor != null)
-                        ReturnItemToGrid(unit.EquippedArmor);
-
-                    unit.EquippedArmor = new Item(item.Data, Point.Zero);
-                    return true;
-                }
-                else if (item.Data.ArmorSlot == ArmorSlot.Shield && GetShieldSlotBounds().Contains(mouse.Position))
-                {
-                    if (unit.EquippedShield != null)
-                        ReturnItemToGrid(unit.EquippedShield);
-
-                    unit.EquippedShield = new Item(item.Data, Point.Zero);
-                    return true;
-                }
-                else if (item.Data.ArmorSlot == ArmorSlot.Shirt && GetShirtSlotBounds().Contains(mouse.Position))
-                {
-                    if (unit.EquippedShirt != null)
-                        ReturnItemToGrid(unit.EquippedShirt);
-
-                    unit.EquippedShirt = new Item(item.Data, Point.Zero);
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private void ReturnItemToGrid(Item item)
-        {
-            ItemSize size = ItemSizeDatabase.GetItemSize(item.Data.Name);
-            Point? freePos = inventoryGrid.FindFreePosition(size, true);
-
-            if (freePos.HasValue)
-            {
-                GridItem gridItem = new GridItem(item.Data, freePos.Value, size, false);
-                inventoryGrid.PlaceItem(gridItem);
-            }
-        }
-
-        private Rectangle GetShieldSlotBounds()
-        {
-            int panelX = GraphicsDevice.Viewport.Width / 2 - 300;
-            int panelY = GraphicsDevice.Viewport.Height / 2 - 200;
-            return new Rectangle(panelX + 550, panelY + 100, 80, 80);
-        }
-
-        private Rectangle GetShirtSlotBounds()
-        {
-            int panelX = GraphicsDevice.Viewport.Width / 2 - 300;
-            int panelY = GraphicsDevice.Viewport.Height / 2 - 200;
-            return new Rectangle(panelX + 550, panelY + 200, 80, 80);
-        }
-        private Point FindFreePosition()
-        {
-            int gridX = 50;
-            int gridY = 50;
-            int cellSize = 60;
-
-            for (int y = 0; y < 10; y++)
-            {
-                for (int x = 0; x < 10; x++)
-                {
-                    Point testPos = new Point(gridX + x * cellSize, gridY + y * cellSize);
-                    Rectangle testRect = new Rectangle(testPos.X, testPos.Y, 50, 50);
-
-                    bool occupied = false;
-                    foreach (var item in inventoryGrid.GetAllItems())
-                    {
-                        if (item.PixelBounds.Intersects(testRect))
-                        {
-                            occupied = true;
-                            break;
-                        }
-                    }
-
-                    if (!occupied) return testPos;
-                }
-            }
-
-            return new Point(50, 50);
-        }
-
-        private Rectangle GetWeaponSlotBounds()
-        {
-            int panelX = GraphicsDevice.Viewport.Width / 2 - 300;
-            int panelY = GraphicsDevice.Viewport.Height / 2 - 200;
-            return new Rectangle(panelX + 450, panelY + 100, 80, 80);
-        }
-
-        private Rectangle GetHelmetSlotBounds()
-        {
-            int panelX = GraphicsDevice.Viewport.Width / 2 - 300;
-            int panelY = GraphicsDevice.Viewport.Height / 2 - 200;
-            return new Rectangle(panelX + 450, panelY + 200, 80, 80);
-        }
-
-        private Rectangle GetArmorSlotBounds()
-        {
-            int panelX = GraphicsDevice.Viewport.Width / 2 - 300;
-            int panelY = GraphicsDevice.Viewport.Height / 2 - 200;
-            return new Rectangle(panelX + 450, panelY + 300, 80, 80);
-        }
-
-        private void DrawInventory()
-        {
-            if (selectedUnit == null) return;
-
-            int panelWidth = 750;
-            int panelHeight = 500;
-            int panelX = GraphicsDevice.Viewport.Width / 2 - panelWidth / 2;
-            int panelY = GraphicsDevice.Viewport.Height / 2 - panelHeight / 2;
-
-            // Fond du panneau
-            Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
-            _spriteBatch.Draw(pixel, panel, new Color(20, 20, 20, 240));
-            DrawRectangleBorder(panel, Color.Gold, 3);
-
-            // Titre
-            string title = $"Inventaire - {selectedUnit.Name}";
-            Vector2 titleSize = font.MeasureString(title);
-            _spriteBatch.DrawString(font, title,
-                new Vector2(panel.Center.X - titleSize.X * 0.75f, panelY + 10),
-                Color.Gold, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
-
-            // ═══════════════════════════════════════════════════════════════════
-            // GRILLE D'INVENTAIRE (style Diablo)
-            // ═══════════════════════════════════════════════════════════════════
-            int gridStartX = panelX + 20;
-            int gridStartY = panelY + 60;
-            int gridPixelWidth = GRID_WIDTH * CELL_SIZE;
-            int gridPixelHeight = GRID_HEIGHT * CELL_SIZE;
-
-            Rectangle gridArea = new Rectangle(gridStartX, gridStartY, gridPixelWidth, gridPixelHeight);
-
-            // Fond de la grille
-            _spriteBatch.Draw(pixel, gridArea, new Color(40, 40, 40, 200));
-
-            // Dessiner les lignes de la grille
-            for (int x = 0; x <= GRID_WIDTH; x++)
-            {
-                Rectangle vertLine = new Rectangle(
-                    gridStartX + x * CELL_SIZE,
-                    gridStartY,
-                    1,
-                    gridPixelHeight
-                );
-                _spriteBatch.Draw(pixel, vertLine, new Color(60, 60, 60));
-            }
-
-            for (int y = 0; y <= GRID_HEIGHT; y++)
-            {
-                Rectangle horizLine = new Rectangle(
-                    gridStartX,
-                    gridStartY + y * CELL_SIZE,
-                    gridPixelWidth,
-                    1
-                );
-                _spriteBatch.Draw(pixel, horizLine, new Color(60, 60, 60));
-            }
-
-            DrawRectangleBorder(gridArea, Color.Gray, 2);
-
-            // Label
-            _spriteBatch.DrawString(font, "Items Disponibles:",
-                new Vector2(gridStartX, gridStartY - 20), Color.White);
-
-            // Dessiner les items dans la grille
-            foreach (var item in inventoryGrid.GetAllItems())
-            {
-                if (item != draggedItem)
-                {
-                    item.UpdatePixelBounds(gridStartX, gridStartY);
-                    DrawGridItem(item);
-                }
-            }
-
-            // ═══════════════════════════════════════════════════════════════════
-            // SLOTS D'ÉQUIPEMENT
-            // ═══════════════════════════════════════════════════════════════════
-            int equipX = gridStartX + gridPixelWidth + 30;
-            int equipY = gridStartY;
-
-            Rectangle equipArea = new Rectangle(equipX, equipY, 190, 400);
-            _spriteBatch.Draw(pixel, equipArea, new Color(40, 40, 40, 200));
-            DrawRectangleBorder(equipArea, Color.Gray, 2);
-
-            _spriteBatch.DrawString(font, "Equipement:",
-                new Vector2(equipX + 5, equipY - 20), Color.White);
-
-            DrawEquipmentSlot(GetWeaponSlotBounds(), "Arme", selectedUnit.EquippedWeapon);
-            DrawEquipmentSlot(GetHelmetSlotBounds(), "Casque", selectedUnit.EquippedHelmet);
-            DrawEquipmentSlot(GetArmorSlotBounds(), "Gilet", selectedUnit.EquippedArmor);
-            DrawEquipmentSlot(GetShieldSlotBounds(), "Bouclier", selectedUnit.EquippedShield);
-            DrawEquipmentSlot(GetShirtSlotBounds(), "Chemise", selectedUnit.EquippedShirt);
-
-            // ═══════════════════════════════════════════════════════════════════
-            // ITEM EN COURS DE DRAG
-            // ═══════════════════════════════════════════════════════════════════
-            if (draggedItem != null)
-            {
-                DrawGridItem(draggedItem, 0.7f);
-            }
-
-            // ═══════════════════════════════════════════════════════════════════
-            // INSTRUCTIONS
-            // ═══════════════════════════════════════════════════════════════════
-            _spriteBatch.DrawString(font, "Glissez pour équiper | R: Tourner",
-                new Vector2(panelX + 20, panelY + panelHeight - 30), Color.Yellow);
-            _spriteBatch.DrawString(font, "I ou ESC pour fermer",
-                new Vector2(panelX + 20, panelY + panelHeight - 15), Color.Yellow);
-        }
-
-        private void DrawGridItem(GridItem item, float alpha = 1f)
-        {
-            Color itemColor = ItemSizeDatabase.GetItemColor(item.Data.Type) * alpha;
-
-            // Fond de l'item
-            _spriteBatch.Draw(pixel, item.PixelBounds, itemColor);
-            DrawRectangleBorder(item.PixelBounds, Color.White * alpha, 2);
-
-            // Nom de l'item (réduit pour s'adapter)
-            string name = item.Data.Name;
-            Vector2 nameSize = font.MeasureString(name);
-            float scale = Math.Min(0.6f, (item.PixelBounds.Width - 10) / nameSize.X);
-
-            _spriteBatch.DrawString(font, name,
-                new Vector2(item.PixelBounds.X + 5, item.PixelBounds.Y + 5),
-                Color.White * alpha, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
-
-            // Info (armure ou dégâts)
-            string info = item.Data.Type == ItemType.Weapon ?
-                $"Dmg:{item.Data.WeaponData?.Damage}" :
-                $"Arm:{item.Data.ArmorValue}";
-
-            _spriteBatch.DrawString(font, info,
-                new Vector2(item.PixelBounds.X + 5, item.PixelBounds.Bottom - 20),
-                Color.Yellow * alpha, 0f, Vector2.Zero, 0.5f, SpriteEffects.None, 0f);
-        }
-
-        private void DrawItem(Item item, float alpha = 1f)
-        {
-            Color itemColor = item.Data.Type == ItemType.Weapon ?
-                new Color(100, 150, 255) : new Color(150, 100, 50);
-
-            itemColor *= alpha;
-
-            _spriteBatch.Draw(pixel, item.Bounds, itemColor);
-            DrawRectangleBorder(item.Bounds, Color.White * alpha, 2);
-
-            Vector2 nameSize = font.MeasureString(item.Data.Name);
-            float scale = Math.Min(1f, (item.Bounds.Width - 10) / nameSize.X);
-
-            _spriteBatch.DrawString(font, item.Data.Name,
-                new Vector2(item.Bounds.X + 5, item.Bounds.Y + item.Bounds.Height / 2 - 10),
-                Color.White * alpha, 0f, Vector2.Zero, scale * 0.6f, SpriteEffects.None, 0f);
-
-            string info = item.Data.Type == ItemType.Weapon ?
-                $"Dmg:{item.Data.WeaponData.Damage}" :
-                $"Arm:{item.Data.ArmorValue}";
-
-            _spriteBatch.DrawString(font, info,
-                new Vector2(item.Bounds.X + 5, item.Bounds.Y + item.Bounds.Height / 2 + 5),
-                Color.Yellow * alpha, 0f, Vector2.Zero, 0.5f, SpriteEffects.None, 0f);
-        }
-
-        private void DrawEquipmentSlot(Rectangle slot, string label, Item equippedItem)
-        {
-            _spriteBatch.Draw(pixel, slot, new Color(60, 60, 60, 200));
-            DrawRectangleBorder(slot, Color.Gray, 2);
-
-            _spriteBatch.DrawString(font, label,
-                new Vector2(slot.X, slot.Y - 20), Color.White, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
-
-            if (equippedItem != null && draggedItem == null)
-            {
-                Color itemColor = equippedItem.Data.Type == ItemType.Weapon ?
-                    new Color(100, 150, 255) : new Color(150, 100, 50);
-
-                Rectangle itemRect = new Rectangle(slot.X + 5, slot.Y + 5, slot.Width - 10, slot.Height - 10);
-                _spriteBatch.Draw(pixel, itemRect, itemColor);
-
-                Vector2 nameSize = font.MeasureString(equippedItem.Data.Name);
-                float scale = Math.Min(1f, (itemRect.Width - 4) / nameSize.X);
-
-                _spriteBatch.DrawString(font, equippedItem.Data.Name,
-                    new Vector2(itemRect.X + 2, itemRect.Y + itemRect.Height / 2 - 8),
-                    Color.White, 0f, Vector2.Zero, scale * 0.5f, SpriteEffects.None, 0f);
-
-                // NOUVEAU: Afficher la description au survol
-                MouseState mouse = Mouse.GetState();
-                if (slot.Contains(mouse.Position) && !string.IsNullOrEmpty(equippedItem.Data.Description))
-                {
-                    // Afficher un tooltip avec la description
-                    // (À implémenter selon vos préférences UI)
-                }
-            }
-            else if (equippedItem == null)
-            {
-                _spriteBatch.DrawString(font, "Vide",
-                    new Vector2(slot.Center.X - 20, slot.Center.Y - 8),
-                    Color.Gray, 0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0f);
-            }
-        }
-
-        private void DrawRectangleBorder(Rectangle rect, Color color, int thickness)
-        {
-            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Y, rect.Width, thickness), color);
-            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Bottom - thickness, rect.Width, thickness), color);
-            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Y, thickness, rect.Height), color);
-            _spriteBatch.Draw(pixel, new Rectangle(rect.Right - thickness, rect.Y, thickness, rect.Height), color);
-        }
-
+       
         private void DrawMovableCells3D(GameTime gameTime)
         {
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 &&
@@ -1432,7 +852,7 @@ namespace XCOM_3
                     _spriteBatch.DrawString(font, "=== ARMURES ===", new Vector2(contentX, y), Color.Yellow, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
                     y += 40;
 
-                    var armors = itemDatabase.Values.Where(item => item.Type == ItemType.Armor).OrderBy(a => a.Name);
+                    var armors = inventorySystem.ItemDatabase.Values.Where(item => item.Type == ItemType.Armor).OrderBy(a => a.Name); // ✅
 
                     foreach (var armor in armors)
                     {
@@ -2384,7 +1804,6 @@ namespace XCOM_3
                 GraphicsDevice.Viewport.Height);
             currentPath.Clear();
             pathCosts.Clear();
-
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 &&
                 cachedMovableCells.Contains(hoveredCell) && selectedUnit.Team == Team.Player)
             {
@@ -2396,25 +1815,17 @@ namespace XCOM_3
                     pathCosts[currentPath[i]] = i + 1;
                 }
             }
-
-            // Mode lancer de grenade
             if (throwMode)
             {
                 HandleGrenadeThrow(mouse, leftClick);
             }
-
-            // Vérifier tous les éléments d'UI qui peuvent être cliqués
             bool clickOnUI = endTurnButton.Contains(mouse.Position) ||
                              fireButton.Contains(mouse.Position) ||
                              IsMouseOverActionButton(mouse) ||
                              IsMouseOverFireTargets(mouse) ||
-                             (showInventory && inventoryPanel.Contains(mouse.Position));
-
-            // Gérer les clics sur les boutons d'action AVANT de bloquer les clics UI
+                             showInventory;
             if (leftClick)
                 HandleUnitActionButtons(mouse);
-
-            // Gérer les clics sur les cibles ennemies AVANT de bloquer les clics UI
             if (leftClick && showFireTargets)
             {
                 foreach (var ui in fireTargetsUI)
@@ -2422,20 +1833,11 @@ namespace XCOM_3
                     if (ui.Bounds.Contains(mouse.Position))
                     {
                         selectedFireTarget = ui.Target;
-
-                        // NOUVEAU: Faire tourner l'unité vers la cible
                         if (selectedUnit != null && selectedFireTarget != null)
                         {
-                            // En 3D MonoGame: X = gauche/droite, Z = haut/bas de la grille
-                            // L'axe Z pointe vers le BAS de l'écran (Y positif en 2D)
                             float deltaX = selectedFireTarget.Cell.X - selectedUnit.Cell.X;
                             float deltaZ = selectedFireTarget.Cell.Y - selectedUnit.Cell.Y;
-
-                            // Calculer l'angle en utilisant Z,X au lieu de Y,X
-                            // Et ajouter Pi/2 pour que Z+ soit "devant"
                             selectedUnit.Orientation = (float)Math.Atan2(deltaX, deltaZ);
-
-                            // Debug détaillé
                             Console.WriteLine($"=== ORIENTATION DEBUG ===");
                             Console.WriteLine($"Unit: {selectedUnit.Name} à ({selectedUnit.Cell.X}, {selectedUnit.Cell.Y})");
                             Console.WriteLine($"Target: {selectedFireTarget.Name} à ({selectedFireTarget.Cell.X}, {selectedFireTarget.Cell.Y})");
@@ -2445,32 +1847,25 @@ namespace XCOM_3
                             Console.WriteLine($"Orientation (degrés): {MathHelper.ToDegrees(selectedUnit.Orientation)}");
                             Console.WriteLine($"========================");
                         }
-
                         break;
                     }
                 }
             }
-
-            // Clic sur la grille seulement si pas sur l'UI
             if (leftClick && !clickOnUI && hoveredCell.X != -1)
                 HandleGridClick(hoveredCell);
-
             if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released)
                 CancelSelection();
-
             fireButtonHovered = fireButton.Contains(mouse.Position);
             if (fireButtonHovered && leftClick && selectedUnit != null && selectedFireTarget != null && selectedUnit.ActionPoints > 0)
             {
                 FireAtTarget(selectedUnit, selectedFireTarget);
                 UpdateFireTargets();
             }
-
             bool kPressed = keyboard.IsKeyDown(Keys.K) && previousKeyboardState.IsKeyUp(Keys.K);
             if (kPressed && selectedUnit != null)
             {
                 Console.WriteLine(selectedUnit.Skills.GetSkillsSummary());
             }
-
             endTurnHovered = endTurnButton.Contains(mouse.Position);
             if (endTurnHovered && leftClick && !isActionInProgress)
                 StartEnemyTurn();
