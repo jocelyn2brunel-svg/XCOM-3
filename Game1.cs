@@ -2606,6 +2606,12 @@ namespace XCOM_3
             cachedMovableCells.Clear();
             currentPath.Clear();
             pathCosts.Clear();
+            // Quitter le mode lancer de grenade
+            throwMode = false;
+            selectedGrenade = null;
+            throwableCells.Clear();
+            explosionPreview.Clear();
+            trajectoryPreview.Clear();
         }
 
         private void InitializeGrenades()
@@ -2672,19 +2678,11 @@ namespace XCOM_3
                 if (ThrowTrajectoryCalculator.IsInThrowRange(selectedUnit.Cell, throwTarget, MaxThrowRange))
                 {
                     LaunchGrenade(selectedUnit, selectedGrenade, throwTarget);
-
                     selectedUnit.ActionPoints -= selectedGrenade.AOCost;
                     selectedUnit.RemoveGrenade(selectedGrenade);
-
-                    // Quitter le mode lancer
-                    throwMode = false;
-                    selectedGrenade = null;
-                    throwableCells.Clear();
-                    explosionPreview.Clear();
-                    trajectoryPreview.Clear();
+                    CancelSelection(); // Si tu cliques bouton souris droite, annule l'intention de lancer une grenade.
                 }
             }
-
         }
 
         private void LaunchGrenade(Unit thrower, GrenadeData grenadeData, Point targetCell)
