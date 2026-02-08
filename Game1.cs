@@ -245,30 +245,16 @@ namespace XCOM_3
 
         protected override void Update(GameTime gameTime)
         {
-            fpsElapsedTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
-            frameCount++;
-            if (fpsElapsedTime >= 1.0f)
-            {
-                currentFPS = frameCount / fpsElapsedTime;
-                frameCount = 0;
-                fpsElapsedTime = 0f;
-                Console.WriteLine($"FPS: {currentFPS:F1}");
-            }
-            MouseState mouse = Mouse.GetState();
-            KeyboardState keyboard = Keyboard.GetState();
-            bool leftClick = mouse.LeftButton == ButtonState.Pressed &&
-                             previousMouseState.LeftButton == ButtonState.Released;
-            bool escapePressed = keyboard.IsKeyDown(Keys.Escape) &&
-                                 previousKeyboardState.IsKeyUp(Keys.Escape);
-            // Touche I pour ouvrir/fermer l'inventaire
-            bool iPressed = keyboard.IsKeyDown(Keys.I) && previousKeyboardState.IsKeyUp(Keys.I);
-            if (iPressed && currentState == GameState.Playing && selectedUnit != null && selectedUnit.Team == Team.Player)
-            {
-                showInventory = !showInventory;              
-            }
+            UpdateFPS(gameTime);
+
+            ReadInputs(out bool leftClick, out bool escapePressed, out bool iPressed,
+                       out MouseState mouse, out KeyboardState keyboard);
+
+            if (iPressed && currentState == GameState.Playing &&
+                selectedUnit?.Team == Team.Player)
+                showInventory = !showInventory;
 
             UpdateGrenades(gameTime);
-
             menuButtons[1].IsEnabled = hasSavedGame;
 
             switch (currentState)
@@ -283,30 +269,7 @@ namespace XCOM_3
                     break;
 
                 case GameState.Playing:
-                    if (showInventory)
-                    {
-                        inventorySystem.Update(mouse, leftClick, keyboard, selectedUnit);
-                        if (escapePressed) showInventory = false;
-                    }
-                    else
-                    {
-                        UpdateUnitAnimations(gameTime);
-
-                        if (currentTurn == TurnState.PlayerTurn) HandlePlayerTurn(mouse, leftClick, keyboard);
-                        else if (currentTurn == TurnState.EnemyTurn) UpdateEnemyTurn();
-
-                        camera.HandleControls(keyboard, mouse, previousMouseState, gameTime);
-                        UpdateFiringAnimations(gameTime);
-                        UpdateDayNightCycle(gameTime);
-
-                        if (escapePressed)
-                        {
-                            hasSavedGame = true;
-                            savedPlayerUnits = playerUnits.Select(u => new Unit(u)).ToList();
-                            savedEnemyUnits = enemyUnits.Select(u => new Unit(u)).ToList();
-                            currentState = GameState.MainMenu;
-                        }
-                    }
+                    UpdatePlaying(gameTime, mouse, keyboard, leftClick, escapePressed);
                     break;
 
                 case GameState.OptionsMenu:
@@ -319,15 +282,10 @@ namespace XCOM_3
                     if (escapePressed) currentState = GameState.MainMenu;
                     break;
 
-                // NOUVEAU: État Game Over
                 case GameState.GameOver:
                     if (escapePressed || leftClick)
-                    {
                         currentState = GameState.MainMenu;
-                    }
                     break;
-
-
             }
 
             previousMouseState = mouse;
@@ -335,6 +293,75 @@ namespace XCOM_3
 
             base.Update(gameTime);
         }
+
+        private void UpdateFPS(GameTime gameTime)
+        {
+            fpsElapsedTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            frameCount++;
+
+            if (fpsElapsedTime >= 1.0f)
+            {
+                currentFPS = frameCount / fpsElapsedTime;
+                frameCount = 0;
+                fpsElapsedTime = 0f;
+
+                Console.WriteLine($"FPS: {currentFPS:F1}");
+            }
+        }
+
+
+        private void ReturnToMainMenuWithSave()
+        {
+            hasSavedGame = true;
+            savedPlayerUnits = playerUnits.Select(u => new Unit(u)).ToList();
+            savedEnemyUnits = enemyUnits.Select(u => new Unit(u)).ToList();
+            currentState = GameState.MainMenu;
+        }
+
+
+        private void UpdatePlaying(GameTime gameTime, MouseState mouse, KeyboardState keyboard,
+                           bool leftClick, bool escapePressed)
+        {
+            if (showInventory)
+            {
+                inventorySystem.Update(mouse, leftClick, keyboard, selectedUnit);
+                if (escapePressed) showInventory = false;
+                return;
+            }
+
+            UpdateUnitAnimations(gameTime);
+
+            if (currentTurn == TurnState.PlayerTurn)
+                HandlePlayerTurn(mouse, leftClick, keyboard);
+            else
+                UpdateEnemyTurn();
+
+            camera.HandleControls(keyboard, mouse, previousMouseState, gameTime);
+
+            UpdateFiringAnimations(gameTime);
+            UpdateDayNightCycle(gameTime);
+
+            if (escapePressed)
+                ReturnToMainMenuWithSave();
+        }
+
+
+        private void ReadInputs(out bool leftClick, out bool escapePressed, out bool iPressed,
+                        out MouseState mouse, out KeyboardState keyboard)
+        {
+            mouse = Mouse.GetState();
+            keyboard = Keyboard.GetState();
+
+            leftClick = mouse.LeftButton == ButtonState.Pressed &&
+                        previousMouseState.LeftButton == ButtonState.Released;
+
+            escapePressed = keyboard.IsKeyDown(Keys.Escape) &&
+                            previousKeyboardState.IsKeyUp(Keys.Escape);
+
+            iPressed = keyboard.IsKeyDown(Keys.I) &&
+                       previousKeyboardState.IsKeyUp(Keys.I);
+        }
+
 
         private List<Button> CreateMenu(string[] labels, int startY, int step = 28)
         {
