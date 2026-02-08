@@ -162,6 +162,8 @@ namespace XCOM_3
         // --- Systèmes séparés ---
         private CameraController camera;
         private Renderer3D renderer3D;
+        private PathfindingSystem pathfinding;
+
 
         public Game1()
         {
@@ -1511,6 +1513,10 @@ namespace XCOM_3
 
             GenerateWalls(gridWidth * gridHeight / 10);
             Console.WriteLine($"Map loaded: {gridWidth}x{gridHeight}, Starting time: {GetTimeOfDayString(timeOfDay)}");
+
+            // Mettre à jour le pathfinding pour la nouvelle grille
+            if (pathfinding != null)
+                pathfinding.UpdateGrid(gridWidth, gridHeight);
         }
 
         private class AStarNode
@@ -1527,85 +1533,11 @@ namespace XCOM_3
             }
         }
 
-        private List<Point> FindPathAStar(Point start, Point goal, int maxCost, Unit movingUnit)
-        {
-            if (start == goal) return new List<Point>();
+        
 
-            // Structures pour A*
-            var openSet = new List<Point> { start };
-            var cameFrom = new Dictionary<Point, Point>();
-            var gScore = new Dictionary<Point, int> { [start] = 0 };
-            var fScore = new Dictionary<Point, int> { [start] = Heuristic(start, goal) };
+        
 
-            while (openSet.Count > 0)
-            {
-                // Trouver le nœud avec le meilleur fScore
-                Point current = openSet.OrderBy(p => fScore.GetValueOrDefault(p, int.MaxValue)).First();
-
-                if (current == goal)
-                {
-                    return ReconstructPath(cameFrom, current);
-                }
-
-                openSet.Remove(current);
-
-                // Voisins (4 directions)
-                Point[] neighbors = new[]
-                {
-            new Point(current.X - 1, current.Y),
-            new Point(current.X + 1, current.Y),
-            new Point(current.X, current.Y - 1),
-            new Point(current.X, current.Y + 1)
-        };
-
-                foreach (Point neighbor in neighbors)
-                {
-                    // ═══ FIX : Ignorer les cases occupées par d'autres unités ═══
-                    // SAUF si c'est la destination finale
-                    if (neighbor != goal && !IsWalkable(neighbor, movingUnit))
-                        continue;
-
-                    // Vérifier si occupé par une autre unité
-                    Unit unitAtNeighbor = GetUnitAtCell(neighbor);
-                    if (neighbor != goal && unitAtNeighbor != null && unitAtNeighbor != movingUnit)
-                        continue; // Case occupée, on skip
-
-                    if (HasWallBetween(current, neighbor))
-                        continue;
-
-                    int tentativeGScore = gScore[current] + 1;
-
-                    if (tentativeGScore < gScore.GetValueOrDefault(neighbor, int.MaxValue))
-                    {
-                        cameFrom[neighbor] = current;
-                        gScore[neighbor] = tentativeGScore;
-                        fScore[neighbor] = tentativeGScore + Heuristic(neighbor, goal);
-
-                        if (!openSet.Contains(neighbor))
-                            openSet.Add(neighbor);
-                    }
-                }
-            }
-
-            return new List<Point>(); // Pas de chemin trouvé
-        }
-
-        private int Heuristic(Point a, Point b)
-        {
-            return Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
-        }
-
-        private List<Point> ReconstructPath(Dictionary<Point, Point> cameFrom, Point current)
-        {
-            var path = new List<Point> { current };
-            while (cameFrom.ContainsKey(current))
-            {
-                current = cameFrom[current];
-                path.Insert(0, current);
-            }
-            path.RemoveAt(0); // Enlever la position de départ
-            return path;
-        }
+        
 
 
         private List<Point> RetracePath(AStarNode startNode, AStarNode endNode)
@@ -1621,136 +1553,6 @@ namespace XCOM_3
 
             path.Reverse();
             return path;
-        }
-
-        private List<Point> GetNeighbors(Point cell)
-        {
-            List<Point> neighbors = new List<Point>();
-
-            Point[] potentialNeighbors = new Point[]
-            {
-                new Point(cell.X, cell.Y - 1), // Nord
-                new Point(cell.X, cell.Y + 1), // Sud
-                new Point(cell.X - 1, cell.Y), // Ouest
-                new Point(cell.X + 1, cell.Y)  // Est
-            };
-
-            foreach (var neighbor in potentialNeighbors)
-            {
-                // Vérifier que le voisin est dans la grille
-                if (neighbor.X >= 0 && neighbor.X < gridWidth &&
-                    neighbor.Y >= 0 && neighbor.Y < gridHeight)
-                {
-                    // Vérifier qu'il n'y a pas de mur entre les deux cases
-                    if (!HasWallBetween(cell, neighbor))
-                    {
-                        neighbors.Add(neighbor);
-                    }
-                }
-            }
-
-            return neighbors;
-        }
-
-        private bool IsWalkable(Point cell, Unit movingUnit = null)
-        {
-            if (cell.X < 0 || cell.Y < 0 || cell.X >= gridWidth || cell.Y >= gridHeight)
-                return false;
-
-            var unit = GetUnitAtCell(cell);
-            if (unit != null && unit != movingUnit)
-                return false;
-
-            return true;
-        }
-
-
-
-
-        /// <summary>
-        /// Vérifie s'il y a un mur entre deux cases adjacentes
-        /// </summary>
-        private bool HasWallBetween(Point from, Point to)
-        {
-            int dx = to.X - from.X;
-            int dy = to.Y - from.Y;
-
-            // Doivent être adjacentes
-            if (Math.Abs(dx) + Math.Abs(dy) != 1)
-                return false;
-
-            foreach (var w in wallSegments)
-            {
-                if (dy == 1 && w.IsHorizontal) // vers le bas
-                {
-                    if (w.Start.Y == to.Y &&
-                        from.X >= w.Start.X && from.X < w.End.X)
-                        return true;
-                }
-                if (dy == -1 && w.IsHorizontal) // vers le haut
-                {
-                    if (w.Start.Y == from.Y &&
-                        from.X >= w.Start.X && from.X < w.End.X)
-                        return true;
-                }
-                if (dx == 1 && !w.IsHorizontal) // vers la droite
-                {
-                    if (w.Start.X == to.X &&
-                        from.Y >= w.Start.Y && from.Y < w.End.Y)
-                        return true;
-                }
-                if (dx == -1 && !w.IsHorizontal) // vers la gauche
-                {
-                    if (w.Start.X == from.X &&
-                        from.Y >= w.Start.Y && from.Y < w.End.Y)
-                        return true;
-                }
-            }
-
-            return false;
-        }
-
-
-
-
-
-        private int ManhattanDistance(Point a, Point b)
-        {
-            return Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
-        }
-
-        private List<Point> GetMovableCells(Unit u)
-        {
-            var cells = new List<Point>();
-            if (u == null || u.MovementPoints <= 0) return cells;
-
-            int maxRange = u.MovementPoints;
-
-            for (int x = u.Cell.X - maxRange; x <= u.Cell.X + maxRange; x++)
-            {
-                for (int y = u.Cell.Y - maxRange; y <= u.Cell.Y + maxRange; y++)
-                {
-                    Point targetCell = new Point(x, y);
-
-                    if (targetCell == u.Cell)
-                        continue;
-
-                    if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight)
-                        continue;
-
-                    if (!IsWalkable(targetCell))
-                        continue;
-
-                    var path = FindPathAStar(u.Cell, targetCell, maxRange, u);
-
-                    if (path.Count > 0 && path.Count <= maxRange)
-                    {
-                        cells.Add(targetCell);
-                    }
-                }
-            }
-
-            return cells;
         }
 
         private void CreateUnits(string missionType = "Tutorial")
@@ -1893,7 +1695,7 @@ namespace XCOM_3
                 if (t.Team == s.Team) continue;
 
                 int d = Math.Abs(t.Cell.X - s.Cell.X) + Math.Abs(t.Cell.Y - s.Cell.Y);
-                if (d > s.WeaponData.Range || !HasLineOfSight(s.Cell, t.Cell)) continue;
+                if (d > s.WeaponData.Range || !pathfinding.HasLineOfSight(s.Cell, t.Cell)) continue;
 
                 s.IsFiring = true;
                 s.FireTarget = t.Cell;
@@ -1973,7 +1775,7 @@ namespace XCOM_3
 
             // Si à portée ET avec ligne de vue → TIRER
             if (distanceToTarget <= enemy.WeaponData.Range &&
-                HasLineOfSight(enemy.Cell, bestTarget.Cell))
+                pathfinding.HasLineOfSight(enemy.Cell, bestTarget.Cell))
             {
                 // Tourner vers la cible avant de tirer
                 float deltaX = bestTarget.Cell.X - enemy.Cell.X;
@@ -1989,7 +1791,7 @@ namespace XCOM_3
             // FIX: Pathfinding qui évite les autres unités
             // ═══════════════════════════════════════════════════════════════
 
-            var path = FindPathAStar(enemy.Cell, bestTarget.Cell, int.MaxValue, enemy);
+            var path = pathfinding.FindPath(enemy.Cell, bestTarget.Cell, int.MaxValue, enemy);
 
             if (path.Count > 0)
             {
@@ -2063,7 +1865,7 @@ namespace XCOM_3
                 score += Math.Max(0, 100 - distance * 5);
 
                 // ═══ FACTEUR 2 : Ligne de vue (voir = très important) ═══
-                bool hasLOS = HasLineOfSight(enemy.Cell, player.Cell);
+                bool hasLOS = pathfinding.HasLineOfSight(enemy.Cell, player.Cell);
                 if (hasLOS)
                     score += 50; // Bonus important si on peut voir la cible
 
@@ -2150,8 +1952,8 @@ namespace XCOM_3
             foreach (Point move in possibleMoves)
             {
                 // Vérifier si le mouvement est valide
-                if (IsWalkable(move, enemy) &&
-                    !HasWallBetween(enemy.Cell, move) &&
+                if (pathfinding.IsWalkable(move, enemy) &&
+                    !pathfinding.HasWallBetween(enemy.Cell, move) &&
                     GetUnitAtCell(move) == null) // IMPORTANT : vérifier qu'aucune unité n'est là
                 {
                     enemy.StartMoveTo(move, cellSize);
@@ -2197,7 +1999,7 @@ namespace XCOM_3
 
         private void FireAtTarget(Unit shooter, Unit target)
         {
-            if (shooter.ActionPoints <= 0 || !HasLineOfSight(shooter.Cell, target.Cell)) return;
+            if (shooter.ActionPoints <= 0 || !pathfinding.HasLineOfSight(shooter.Cell, target.Cell)) return;
 
             int distance = Math.Abs(target.Cell.X - shooter.Cell.X) + Math.Abs(target.Cell.Y - shooter.Cell.Y);
             if (distance > shooter.WeaponData.Range) return;
@@ -2340,42 +2142,7 @@ namespace XCOM_3
             Console.WriteLine($"Generated {wallSegments.Count} wall segments using pattern: {pattern}");
         }
 
-        private bool HasLineOfSight(Point from, Point to)
-        {
-            // Algorithme de Bresenham pour ligne de vue
-            int x0 = from.X, y0 = from.Y, x1 = to.X, y1 = to.Y;
-            int dx = Math.Abs(x1 - x0), dy = Math.Abs(y1 - y0);
-            int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
-            int err = dx - dy;
-
-            Point current = new Point(x0, y0);
-            Point previous = current;
-
-            while (true)
-            {
-                if (current != from && HasWallBetween(previous, current))
-                    return false;
-
-                if (current.X == x1 && current.Y == y1)
-                    break;
-
-                previous = current;
-
-                int e2 = 2 * err;
-                if (e2 > -dy)
-                {
-                    err -= dy;
-                    current.X += sx;
-                }
-                if (e2 < dx)
-                {
-                    err += dx;
-                    current.Y += sy;
-                }
-            }
-
-            return true;
-        }
+        
 
         private List<Unit> GetValidFireTargets(Unit shooter)
         {
@@ -2383,7 +2150,7 @@ namespace XCOM_3
             foreach (var u in enemyUnits)
             {
                 int d = Math.Abs(u.Cell.X - shooter.Cell.X) + Math.Abs(u.Cell.Y - shooter.Cell.Y);
-                if (d <= shooter.WeaponData.Range && HasLineOfSight(shooter.Cell, u.Cell))
+                if (d <= shooter.WeaponData.Range && pathfinding.HasLineOfSight(shooter.Cell, u.Cell))
                     targets.Add(u);
             }
             return targets;
@@ -2558,6 +2325,15 @@ namespace XCOM_3
             currentState = GameState.Playing;
             LoadMap();
             CreateUnits(missionType);
+
+            // Initialiser le pathfinding
+            pathfinding = new PathfindingSystem(
+                gridWidth,
+                gridHeight,
+                wallSegments,
+                GetUnitAtCell
+            );
+
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
 
             // ═══ INITIALISER LE SPATIAL HASH ═══
@@ -2612,7 +2388,7 @@ namespace XCOM_3
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 &&
                 cachedMovableCells.Contains(hoveredCell) && selectedUnit.Team == Team.Player)
             {
-                currentPath = FindPathAStar(selectedUnit.Cell, hoveredCell, selectedUnit.MovementPoints, selectedUnit);
+                currentPath = pathfinding.FindPath(selectedUnit.Cell, hoveredCell, selectedUnit.MovementPoints, selectedUnit);
 
                 pathCosts.Clear();
                 for (int i = 0; i < currentPath.Count; i++)
@@ -2722,8 +2498,17 @@ namespace XCOM_3
                 selectedUnit = clickedUnit;
                 if (selectedUnit.Team == Team.Player)
                 {
-                    cachedMovableCells = GetMovableCells(selectedUnit);
-                    UpdateFireTargets();
+                    // ═══ AJOUTER CETTE VÉRIFICATION ═══
+                    if (pathfinding != null)
+                    {
+                        cachedMovableCells = pathfinding.GetMovableCells(selectedUnit);
+                        UpdateFireTargets();
+                    }
+                    else
+                    {
+                        cachedMovableCells.Clear();
+                        Console.WriteLine("WARNING: Pathfinding not initialized!");
+                    }
                 }
                 else
                 {
@@ -2734,10 +2519,13 @@ namespace XCOM_3
             }
             else if (selectedUnit != null && selectedUnit.ActionPoints > 0)
             {
-                var movable = GetMovableCells(selectedUnit);
+                // ═══ AJOUTER CETTE VÉRIFICATION ═══
+                if (pathfinding == null) return;
+
+                var movable = pathfinding.GetMovableCells(selectedUnit);
                 if (movable.Contains(clickedCell))
                 {
-                    var path = FindPathAStar(selectedUnit.Cell, clickedCell, selectedUnit.MovementPoints, selectedUnit);
+                    var path = pathfinding.FindPath(selectedUnit.Cell, clickedCell, selectedUnit.MovementPoints, selectedUnit);
 
                     if (path.Count > 0 && path.Count <= selectedUnit.MovementPoints)
                     {
@@ -2746,7 +2534,7 @@ namespace XCOM_3
                         unitManager.OnUnitMoved(selectedUnit, clickedCell);
                         selectedUnit.ActionPoints--;
                         UpdateFireTargets();
-                        cachedMovableCells = selectedUnit.ActionPoints > 0 ? GetMovableCells(selectedUnit) : new List<Point>();
+                        cachedMovableCells = selectedUnit.ActionPoints > 0 ? pathfinding.GetMovableCells(selectedUnit) : new List<Point>();
                         currentPath.Clear();
                         pathCosts.Clear();
                     }
