@@ -28,7 +28,7 @@ namespace XCOM_3
         public Item EquippedArmor = null;
         public Item EquippedShield = null;  // Nouveau slot pour bouclier
         public Item EquippedShirt = null;   // Nouveau slot pour chemise tactique
-
+        public string EquippedBackpack;
 
         // Orientation et animation
         public float Orientation = 0f;
@@ -71,6 +71,14 @@ namespace XCOM_3
             TargetOrientation = Orientation;
 
             lastPosition = cell;
+
+            EquippedWeapon = null;
+            EquippedHelmet = null;
+            EquippedArmor = null;
+            EquippedShield = null;
+            EquippedShirt = null;
+            EquippedBackpack = "Medium Backpack"; // ← AJOUTER CETTE LIGNE (sac par défaut)
+
         }
 
         public Unit(Unit other)
@@ -90,6 +98,7 @@ namespace XCOM_3
             EquippedArmor = other.EquippedArmor;
             EquippedShield = other.EquippedShield;  // NOUVEAU
             EquippedShirt = other.EquippedShirt;    // NOUVEAU
+            EquippedBackpack = other.EquippedBackpack; // ← AJOUTER CETTE LIGNE
 
             Grenades = new System.Collections.Generic.List<GrenadeData>(other.Grenades);
             MaxGrenades = other.MaxGrenades;
