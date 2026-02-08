@@ -163,6 +163,10 @@ namespace XCOM_3
 
             if (keyboard.IsKeyDown(Keys.E))
                 cameraAngle -= rotationAmount;
+
+            // Snap à 45°
+            float step = MathHelper.ToRadians(45f);
+            cameraAngle = MathF.Round(cameraAngle / step) * step;
         }
 
         private void HandleZoom(MouseState mouse)

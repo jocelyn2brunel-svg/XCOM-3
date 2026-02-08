@@ -80,8 +80,8 @@ namespace XCOM_3
 
         // --- Grille 3D ---
         private int cellSize = 2;
-        private int gridWidth = 20;
-        private int gridHeight = 15;
+        private int gridWidth = 50;
+        private int gridHeight = 50;
         private Point hoveredCell = new Point(-1, -1);
 
         // --- Murs sur les edges des cases ---
@@ -1504,8 +1504,8 @@ namespace XCOM_3
 
         private void LoadMap()
         {
-            gridWidth = random.Next(15, 31);
-            gridHeight = random.Next(12, 26);
+            gridWidth = random.Next(20, 50);
+            gridHeight = random.Next(20, 50);
             cellSize = 2;
 
             timeOfDay = (float)random.NextDouble();
