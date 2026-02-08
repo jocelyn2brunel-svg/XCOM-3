@@ -11,7 +11,6 @@ namespace XCOM_3
 {
     public class Game1 : Game
     {
-        // NOUVEAU: Import pour créer une console
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
         static extern bool AllocConsole();
 
@@ -19,7 +18,6 @@ namespace XCOM_3
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
         private SpriteFont font;
-
         private Model cubeModel;
         private Model planeModel;        
 
@@ -179,9 +177,12 @@ namespace XCOM_3
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             font = Content.Load<SpriteFont>("Arial");
+
             pixel = new Texture2D(GraphicsDevice, 1, 1);
             pixel.SetData(new[] { Color.White });
+
             tileTexture = Content.Load<Texture2D>("TileParchment32x32");
+
             renderer3D = new Renderer3D(GraphicsDevice);
             camera = new CameraController(
                 gridWidth,
@@ -189,43 +190,58 @@ namespace XCOM_3
                 cellSize,
                 GraphicsDevice.Viewport.AspectRatio
             );
+
             inventorySystem = new InventorySystem(GraphicsDevice, _spriteBatch, font, pixel);
-            string[] mainMenuLabels = { "New Game", "Continue", "Encyclopedia", "Options", "Quit" };
-            menuButtons = mainMenuLabels
-                .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
-                .ToList();
-            string[] songFiles = { "menu_music_1", "menu_music_2", "menu_music_3", "menu_music_4" };
-            menuSongs = songFiles.Select(f => Content.Load<Song>(f)).ToList();
+
+            menuButtons = CreateMenu(
+                new[] { "New Game", "Continue", "Encyclopedia", "Options", "Quit" }, 100);
+
+            missionButtons = CreateMenu(
+                new[] { "Tutorial", "Survival", "Assault", "Defense", "Back" }, 100);
+
+            encyclopediaButtons = CreateMenu(
+                new[] { "Armes", "Armures", "Unités", "Retour" }, 100);
+
+            optionsButtons = new List<Button>
+            {
+            new("Music Volume +", new Vector2(0, 100)),
+            new("Music Volume -", new Vector2(0, 156)),
+            new("Back",           new Vector2(0, 184))
+            };
+
+            volumeBar = new Rectangle(0, 134, 200, 8);
+
+            menuSongs = new[]
+            {
+            "menu_music_1",
+            "menu_music_2",
+            "menu_music_3",
+            "menu_music_4"
+            }
+            .Select(Content.Load<Song>)
+            .ToList();
+
             currentSong = menuSongs[random.Next(menuSongs.Count)];
             MediaPlayer.Play(currentSong);
             MediaPlayer.Volume = 0.5f;
-            string[] optionsLabels = { "Music Volume +", "Music Volume -", "Back" };
-            int[] optionsY = { 100, 156, 184 };
-            optionsButtons = optionsLabels
-                .Select((text, i) => new Button(text, new Vector2(0, optionsY[i])))
-                .ToList();
-            string[] missionLabels = { "Tutorial", "Survival", "Assault", "Defense", "Back" };
-            missionButtons = missionLabels
-                .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
-                .ToList();
-            string[] encyclopediaLabels = { "Armes", "Armures", "Unités", "Retour" };
-            encyclopediaButtons = encyclopediaLabels
-                .Select((text, i) => new Button(text, new Vector2(0, 100 + i * 28)))
-                .ToList();
-            volumeBar = new Rectangle(0, 134, 200, 8);
-            Window.ClientSizeChanged += (s, e) =>
+
+            Window.ClientSizeChanged += (_, _) =>
             {
                 UpdateFireTargetsUIPositions();
-                camera.UpdateProjection(GraphicsDevice.Viewport.AspectRatio); // ← MODIFIER
+                camera.UpdateProjection(GraphicsDevice.Viewport.AspectRatio);
             };
+
             InitializeWeapons();
             InitializeGrenades();
+
             explosionManager = new ExplosionManager(random);
             edgeWallGenerator = new EdgeWallGenerator(random);
             humanoidBatcher = new HumanoidBatchRenderer();
             unitManager = new OptimizedUnitManager();
+
             Console.WriteLine("[OPTIMIZATION] Batch renderer and spatial hash initialized");
         }
+
 
         protected override void Update(GameTime gameTime)
         {
@@ -319,6 +335,14 @@ namespace XCOM_3
 
             base.Update(gameTime);
         }
+
+        private List<Button> CreateMenu(string[] labels, int startY, int step = 28)
+        {
+            return labels
+                .Select((text, i) => new Button(text, new Vector2(0, startY + i * step)))
+                .ToList();
+        }
+
 
         private void UpdateUnitAnimations(GameTime gameTime)
         {
@@ -953,13 +977,6 @@ namespace XCOM_3
             }
         }
 
-        
-
-        
-
-        
-
-
         private List<Point> RetracePath(AStarNode startNode, AStarNode endNode)
         {
             List<Point> path = new List<Point>();
@@ -979,7 +996,6 @@ namespace XCOM_3
         {
             playerUnits.Clear();
             enemyUnits.Clear();
-
             for (int i = 0; i < 6; i++)
                 playerUnits.Add(new Unit(
                     new Point(2 + i, gridHeight - 2),
@@ -989,8 +1005,6 @@ namespace XCOM_3
                     "Rifle",
                     weaponDatabase["Rifle"]
                 ));
-
-            // Équiper les unités joueur avec des grenades
             foreach (var unit in playerUnits)
             {
                 unit.AddGrenade(grenadeDatabase["Frag Grenade"]);
@@ -998,7 +1012,6 @@ namespace XCOM_3
                 if (random.Next(100) < 50)
                     unit.AddGrenade(grenadeDatabase["Smoke Grenade"]);
             }
-
             switch (missionType)
             {
                 case "Tutorial":
@@ -1018,7 +1031,6 @@ namespace XCOM_3
                         });
                     }
                     break;
-
                 case "Survival":
                     for (int i = 0; i < 10; i++)
                     {
