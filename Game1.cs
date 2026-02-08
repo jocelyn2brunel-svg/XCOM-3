@@ -456,162 +456,205 @@ namespace XCOM_3
 
         protected override void Draw(GameTime gameTime)
         {
-            Color backgroundColor = GetSkyColor(timeOfDay);
-            GraphicsDevice.Clear(backgroundColor);
+            GraphicsDevice.Clear(GetSkyColor(timeOfDay));
 
             if (currentState == GameState.Playing)
-            {
-                camera.UpdateCamera();
-                renderer3D.SetMatrices(camera.ViewMatrix, camera.ProjectionMatrix);
-                renderer3D.SetLighting(ambientLight, directionalLight);
-
-                RasterizerState rasterizerState = new RasterizerState();
-                rasterizerState.CullMode = CullMode.None;
-                GraphicsDevice.RasterizerState = rasterizerState;
-
-                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-
-                renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture);
-                renderer3D.DrawWalls(wallSegments, cellSize);
-
-                // Dessiner toutes les unités
-                foreach (var unit in playerUnits)
-                    renderer3D.DrawUnit(unit, cellSize);
-
-                foreach (var unit in enemyUnits)
-                    renderer3D.DrawUnit(unit, cellSize);
-
-                // Indicateur de sélection
-                if (selectedUnit != null)
-                {
-                    renderer3D.DrawSelectionIndicator(selectedUnit, cellSize,
-                        new Color(0, 255, 255, 128));
-                }
-
-                Unit targetHighlight = selectedFireTarget ?? hoveredFireTarget;
-                if (targetHighlight != null)
-                {
-                    renderer3D.DrawSelectionIndicator(targetHighlight, cellSize,
-                        new Color(255, 0, 0, 128), 1.2f);
-                }
-
-                renderer3D.DrawCraters(craters, cellSize);
-                renderer3D.DrawGrenades(activeGrenades, cellSize);
-                DrawMovableCells3D(gameTime);
-                DrawPath3D(gameTime);
-                DrawHoveredCell3D(gameTime);
-                DrawThrowMode3D(gameTime);
-
-            }
+                DrawWorld3D(gameTime);
 
             _spriteBatch.Begin();
+
             switch (currentState)
             {
                 case GameState.MainMenu:
-                    _spriteBatch.DrawString(font, "XCOM 3", Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
-                    MouseState mouse = Mouse.GetState();
-                    foreach (var button in menuButtons) button.Draw(_spriteBatch, font, mouse);
+                    DrawTitle("XCOM 3");
+                    DrawButtons(menuButtons);
                     break;
 
                 case GameState.MissionSelect:
-                    _spriteBatch.DrawString(font, "Select Mission", Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
-                    mouse = Mouse.GetState();
-                    foreach (var button in missionButtons) button.Draw(_spriteBatch, font, mouse);
+                    DrawTitle("Select Mission");
+                    DrawButtons(missionButtons);
                     break;
 
                 case GameState.Playing:
                     if (showInventory)
-                    {
                         inventorySystem.Draw(selectedUnit);
-                    }
                     else
-                    {
-                        DrawEndTurnButton();
-                        DrawUnitInfoPanel();
-                        if (showFireTargets && selectedUnit != null && selectedUnit.Team == Team.Player)
-                            DrawFireTargets();
-
-                        _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | I: Inventaire",
-                                                                new Vector2(10, 10), Color.White);
-
-                        string timeStr = GetTimeOfDayString(timeOfDay);
-                        _spriteBatch.DrawString(font, $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}",
-                            new Vector2(10, 30), Color.Yellow);
-                    }
+                        DrawPlayingUI();
                     break;
 
                 case GameState.OptionsMenu:
-                    _spriteBatch.DrawString(font, "Options", Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
-                    mouse = Mouse.GetState();
-                    foreach (var button in optionsButtons) button.Draw(_spriteBatch, font, mouse);
-                    _spriteBatch.Draw(pixel, volumeBar, Color.Gray);
-                    _spriteBatch.Draw(pixel, volumeFill, Color.Yellow);
-                    _spriteBatch.Draw(pixel, volumeHandle, Color.White);
+                    DrawTitle("Options");
+                    DrawButtons(optionsButtons);
+                    DrawVolumeControls();
                     break;
 
                 case GameState.Encyclopedia:
                     DrawEncyclopedia();
                     break;
 
-                // NOUVEAU: Écran Game Over
                 case GameState.GameOver:
-                    // Fond semi-transparent rouge
-                    _spriteBatch.Draw(pixel, new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height),
-                                     new Color(100, 0, 0, 180));
-
-                    // Texte GAME OVER
-                    string gameOverText = "GAME OVER";
-                    Vector2 gameOverSize = font.MeasureString(gameOverText);
-                    Vector2 gameOverPos = new Vector2(
-                        (GraphicsDevice.Viewport.Width - gameOverSize.X * 4f) / 2,
-                        GraphicsDevice.Viewport.Height / 2 - 100
-                    );
-                    _spriteBatch.DrawString(font, gameOverText, gameOverPos, Color.Red, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0f);
-
-                    // Texte instructions
-                    string continueText = "Appuyez sur ESC ou cliquez pour retourner au menu";
-                    Vector2 continueSize = font.MeasureString(continueText);
-                    Vector2 continuePos = new Vector2(
-                        (GraphicsDevice.Viewport.Width - continueSize.X) / 2,
-                        GraphicsDevice.Viewport.Height / 2 + 50
-                    );
-                    _spriteBatch.DrawString(font, continueText, continuePos, Color.White, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
+                    DrawGameOver();
                     break;
             }
 
-            // ═══ AFFICHER LE FPS EN OVERLAY (haut à droite) ═══
+            DrawOverlay();
 
-            // Texte FPS
+            _spriteBatch.End();
+            base.Draw(gameTime);
+        }
+
+        private void DrawButtons(List<Button> buttons)
+        {
+            MouseState mouse = Mouse.GetState();
+
+            foreach (var button in buttons)
+                button.Draw(_spriteBatch, font, mouse);
+        }
+
+        private void DrawVolumeControls()
+        {
+            _spriteBatch.Draw(pixel, volumeBar, Color.Gray);
+            _spriteBatch.Draw(pixel, volumeFill, Color.Yellow);
+            _spriteBatch.Draw(pixel, volumeHandle, Color.White);
+        }
+
+
+        private void DrawTitle(string text)
+        {
+            _spriteBatch.DrawString(
+                font,
+                text,
+                Vector2.Zero,
+                Color.White,
+                0f,
+                Vector2.Zero,
+                3f,
+                SpriteEffects.None,
+                0f
+            );
+        }
+
+
+        private void DrawGameOver()
+        {
+            _spriteBatch.Draw(
+                pixel,
+                new Rectangle(0, 0,
+                    GraphicsDevice.Viewport.Width,
+                    GraphicsDevice.Viewport.Height),
+                new Color(100, 0, 0, 180));
+
+            string title = "GAME OVER";
+            Vector2 size = font.MeasureString(title);
+
+            Vector2 pos = new(
+                (GraphicsDevice.Viewport.Width - size.X * 4f) / 2,
+                GraphicsDevice.Viewport.Height / 2 - 100);
+
+            _spriteBatch.DrawString(
+                font, title, pos,
+                Color.Red, 0f, Vector2.Zero,
+                4f, SpriteEffects.None, 0f);
+
+            string hint = "Appuyez sur ESC ou cliquez pour retourner au menu";
+            Vector2 hintSize = font.MeasureString(hint);
+
+            Vector2 hintPos = new(
+                (GraphicsDevice.Viewport.Width - hintSize.X) / 2,
+                GraphicsDevice.Viewport.Height / 2 + 50);
+
+            _spriteBatch.DrawString(font, hint, hintPos, Color.White);
+        }
+
+
+        private void DrawOverlay()
+        {
             string fpsText = $"FPS: {currentFPS:F0}";
             Vector2 fpsSize = font.MeasureString(fpsText);
-
-            // Largeur de l’écran / fenêtre
             int screenWidth = GraphicsDevice.Viewport.Width;
 
-            // Position : coin haut droit avec marge de 10px
-            Vector2 fpsPosition = new Vector2(
+            Vector2 fpsPos = new(
                 screenWidth - fpsSize.X - 10,
-                10
-            );
+                10);
 
-            _spriteBatch.DrawString(font, fpsText, fpsPosition, Color.Yellow);
+            _spriteBatch.DrawString(font, fpsText, fpsPos, Color.Yellow);
 
-            // Stats optionnelles (juste en dessous)
             string statsText = $"Units: {playerUnits.Count + enemyUnits.Count}";
             Vector2 statsSize = font.MeasureString(statsText);
 
-            Vector2 statsPosition = new Vector2(
+            Vector2 statsPos = new(
                 screenWidth - statsSize.X - 10,
-                10 + fpsSize.Y + 5
-            );
+                fpsPos.Y + fpsSize.Y + 5);
 
-            _spriteBatch.DrawString(font, statsText, statsPosition, Color.White);
-
-
-            _spriteBatch.End();
-
-            base.Draw(gameTime);
+            _spriteBatch.DrawString(font, statsText, statsPos, Color.White);
         }
+
+
+        private void DrawPlayingUI()
+        {
+            DrawEndTurnButton();
+            DrawUnitInfoPanel();
+
+            if (showFireTargets &&
+                selectedUnit?.Team == Team.Player)
+                DrawFireTargets();
+
+            _spriteBatch.DrawString(
+                font,
+                "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | I: Inventaire",
+                new Vector2(10, 10),
+                Color.White);
+
+            string timeStr = GetTimeOfDayString(timeOfDay);
+            _spriteBatch.DrawString(
+                font,
+                $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}",
+                new Vector2(10, 30),
+                Color.Yellow);
+        }
+
+
+        private void DrawWorld3D(GameTime gameTime)
+        {
+            camera.UpdateCamera();
+
+            renderer3D.SetMatrices(camera.ViewMatrix, camera.ProjectionMatrix);
+            renderer3D.SetLighting(ambientLight, directionalLight);
+
+            GraphicsDevice.RasterizerState = new RasterizerState
+            {
+                CullMode = CullMode.None
+            };
+
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+
+            renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture);
+            renderer3D.DrawWalls(wallSegments, cellSize);
+
+            foreach (var unit in playerUnits)
+                renderer3D.DrawUnit(unit, cellSize);
+
+            foreach (var unit in enemyUnits)
+                renderer3D.DrawUnit(unit, cellSize);
+
+            if (selectedUnit != null)
+                renderer3D.DrawSelectionIndicator(
+                    selectedUnit, cellSize, new Color(0, 255, 255, 128));
+
+            Unit target = selectedFireTarget ?? hoveredFireTarget;
+            if (target != null)
+                renderer3D.DrawSelectionIndicator(
+                    target, cellSize, new Color(255, 0, 0, 128), 1.2f);
+
+            renderer3D.DrawCraters(craters, cellSize);
+            renderer3D.DrawGrenades(activeGrenades, cellSize);
+
+            DrawMovableCells3D(gameTime);
+            DrawPath3D(gameTime);
+            DrawHoveredCell3D(gameTime);
+            DrawThrowMode3D(gameTime);
+        }
+
 
         private Color GetSkyColor(float time)
         {
