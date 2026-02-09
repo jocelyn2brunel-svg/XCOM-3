@@ -19,7 +19,7 @@ namespace XCOM_3
         private SpriteBatch _spriteBatch;
         private SpriteFont font;
         private Model cubeModel;
-        private Model planeModel;        
+        private Model planeModel;
 
         // Textures
         private Texture2D tileTexture;
@@ -68,8 +68,13 @@ namespace XCOM_3
         // Constantes
         private const int MaxThrowRange = 5;
 
+        // --- Système de cartes ---
+        private MapData currentMap;
+        private MapGenerator mapGenerator;
+        private MapEditor mapEditor;
+
         // --- États du jeu ---
-        enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu, GameOver, Encyclopedia }
+        enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu, GameOver, Encyclopedia, MapEditor }
         private GameState currentState = GameState.MainMenu;
 
         // --- Grille 3D ---
@@ -98,13 +103,13 @@ namespace XCOM_3
         private List<Unit> savedPlayerUnits;
         private List<Unit> savedEnemyUnits;
         private bool hasSavedGame = false;
-                
+
         // --- A* Pathfinding ---
         private List<Point> currentPath = new();
         private Dictionary<Point, int> pathCosts = new();
 
         private Dictionary<string, WeaponData> weaponDatabase;
-                
+
         // --- Entrées clavier ---
         KeyboardState previousKeyboardState;
 
@@ -148,7 +153,7 @@ namespace XCOM_3
         }
 
         protected override void Initialize()
-        {         
+        {
             base.Initialize();
         }
 
@@ -171,7 +176,7 @@ namespace XCOM_3
             combatSystem.OnUnitKilled += HandleUnitKilled;
             combatSystem.OnFireCompleted += HandleFireCompleted;
 
-            menuButtons = CreateMenu(new[] { "New Game", "Continue", "Encyclopedia", "Options", "Quit" }, 100);
+            menuButtons = CreateMenu(new[] { "New Game", "Continue", "Map Editor", "Encyclopedia", "Options", "Quit" }, 100);
             missionButtons = CreateMenu(new[] { "Tutorial", "Survival", "Assault", "Defense", "Back" }, 100);
             encyclopediaButtons = CreateMenu(new[] { "Armes", "Armures", "Unités", "Retour" }, 100);
 
@@ -193,6 +198,29 @@ namespace XCOM_3
                 combatUI.UpdateFireTargetsUIPositions(selectedUnit);
                 camera.UpdateProjection(GraphicsDevice.Viewport.AspectRatio);
             };
+            mapEditor?.UpdateViewportSize(
+                GraphicsDevice.Viewport.Width,
+                GraphicsDevice.Viewport.Height
+            );
+
+            // ✅ NOUVEAU : Initialiser le système de cartes
+            mapGenerator = new MapGenerator(random);
+            mapEditor = new MapEditor(camera, renderer3D, font, pixel, _spriteBatch);
+
+            // ✅ NOUVEAU : Générer les cartes prédéfinies au premier lancement
+            try
+            {
+                var maps = MapCatalog.GetAvailableMaps();
+                if (maps.Count == 0)
+                {
+                    Console.WriteLine("[GAME] No maps found, generating premade maps...");
+                    MapGenerator.GeneratePremadeMaps();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[GAME] Error checking maps: {ex.Message}");
+            }
 
             InitializeWeapons();
             InitializeGrenades();
@@ -221,6 +249,26 @@ namespace XCOM_3
                 case GameState.MainMenu: HandleMainMenu(mouse); break;
                 case GameState.MissionSelect: HandleMissionSelect(mouse); if (escapePressed) currentState = GameState.MainMenu; break;
                 case GameState.Playing: UpdatePlaying(gameTime, mouse, keyboard, leftClick, escapePressed); break;
+                case GameState.MapEditor:
+                    // ✅ Passer la taille réelle du viewport
+                    mapEditor.Update(
+                        gameTime,
+                        mouse,
+                        keyboard,
+                        previousKeyboardState,
+                        previousMouseState,
+                        GraphicsDevice.Viewport.Width,    // ← NOUVEAU
+                        GraphicsDevice.Viewport.Height    // ← NOUVEAU
+                    );
+
+                    if (!mapEditor.IsActive)
+                        currentState = GameState.MainMenu;
+                    if (escapePressed)
+                    {
+                        mapEditor.Exit();
+                        currentState = GameState.MainMenu;
+                    }
+                    break;
                 case GameState.OptionsMenu: HandleOptionsMenu(mouse); if (escapePressed) currentState = GameState.MainMenu; break;
                 case GameState.Encyclopedia: HandleEncyclopedia(mouse); if (escapePressed) currentState = GameState.MainMenu; break;
                 case GameState.GameOver: if (escapePressed || leftClick) currentState = GameState.MainMenu; break;
@@ -240,6 +288,8 @@ namespace XCOM_3
 
             GraphicsDevice.Clear(GetSkyColor(timeOfDay));
 
+            if (currentState == GameState.MapEditor)
+                mapEditor.Draw3D(gameTime);
             if (currentState == GameState.Playing)
                 DrawWorld3D(gameTime); // monde + unités + murs
 
@@ -248,6 +298,7 @@ namespace XCOM_3
 
             // UI
             _spriteBatch.Begin();
+
             switch (currentState)
             {
                 case GameState.MainMenu:
@@ -257,6 +308,9 @@ namespace XCOM_3
                 case GameState.Playing:
                     if (showInventory) inventorySystem.Draw(selectedUnit);
                     else DrawPlayingUI();
+                    break;
+                case GameState.MapEditor:
+                    mapEditor.DrawUI(Mouse.GetState());
                     break;
                 case GameState.OptionsMenu:
                     DrawTitle("Options"); DrawButtons(optionsButtons); DrawVolumeControls(); break;
@@ -515,7 +569,7 @@ namespace XCOM_3
             int minutes = (int)((time * 24 - hours) * 60);
             return $"{hours:D2}:{minutes:D2}";
         }
-       
+
         private void DrawMovableCells3D(GameTime gameTime)
         {
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 &&
@@ -624,38 +678,53 @@ namespace XCOM_3
                 new Vector2(10, GraphicsDevice.Viewport.Height - 30), Color.Yellow);
         }
 
-        private void LoadMap()
+        /// <summary>
+        /// Charge une carte (générée ou depuis fichier)
+        /// </summary>
+        private void LoadMap(MapData map = null)
         {
-            // --- Génération aléatoire de la taille de la carte ---
-            gridWidth = random.Next(20, 100);
-            gridHeight = random.Next(20, 100);
-            cellSize = 2;
+            // Si aucune carte fournie, générer une carte aléatoire
+            if (map == null)
+            {
+                map = mapGenerator.GenerateRandomMap(
+                    selectedMission,
+                    minWidth: 20,
+                    maxWidth: 100,
+                    minHeight: 20,
+                    maxHeight: 100
+                );
+            }
 
-            timeOfDay = (float)random.NextDouble();
+            // Appliquer les données de la carte
+            currentMap = map;
+            gridWidth = map.GridWidth;
+            gridHeight = map.GridHeight;
+            cellSize = map.CellSize;
+            timeOfDay = map.TimeOfDay;
             dayNightSpeed = 1f / 86400f;
 
-            // --- Génération des murs ---
-            GenerateWalls(gridWidth * gridHeight / 10);
-            Console.WriteLine($"Map loaded: {gridWidth}x{gridHeight}, Starting time: {GetTimeOfDayString(timeOfDay)}");
+            // Charger les murs
+            wallSegments = map.GetWalls();
 
-            // --- Réinitialisation de la caméra pour la nouvelle carte ---
+            Console.WriteLine($"[GAME] Loaded map: {map.Name} ({gridWidth}x{gridHeight})");
+
+            // Réinitialiser la caméra
             if (camera != null)
             {
-                camera = new CameraController(gridWidth, gridHeight, cellSize, GraphicsDevice.Viewport.AspectRatio);
+                camera = new CameraController(gridWidth, gridHeight, cellSize,
+                                             GraphicsDevice.Viewport.AspectRatio);
                 camera.UpdateProjection(GraphicsDevice.Viewport.AspectRatio);
 
-                // Si une unité est déjà sélectionnée, centrer la caméra dessus
                 if (selectedUnit != null)
-                    camera.CenterOnPosition(selectedUnit.Cell.X * cellSize, selectedUnit.Cell.Y * cellSize);
+                    camera.CenterOnPosition(selectedUnit.Cell.X * cellSize,
+                                           selectedUnit.Cell.Y * cellSize);
             }
 
-            // --- Mise à jour du pathfinding pour la nouvelle carte ---
+            // Mise à jour du pathfinding
             if (pathfinding != null)
-            {
                 pathfinding.UpdateGrid(gridWidth, gridHeight, wallSegments);
-            }
 
-            // --- Réinitialisation des unités pour la nouvelle taille de cellule ---
+            // Réinitialiser les unités
             foreach (var unit in playerUnits)
             {
                 unit.UpdateVisualPosition(cellSize);
@@ -667,7 +736,7 @@ namespace XCOM_3
                 unit.TargetPosition = unit.VisualPosition;
             }
 
-            // --- Recalcul des cellules navigables et du hover ---
+            // Recalcul des cellules navigables
             if (selectedUnit != null && pathfinding != null)
                 cachedMovableCells = pathfinding.GetMovableCells(selectedUnit);
 
@@ -676,7 +745,7 @@ namespace XCOM_3
             hoveredCell = new Point(-1, -1);
             throwTarget = new Point(-1, -1);
 
-            // --- Réinitialisation de la spatial hash pour le nouveau setup ---
+            // Réinitialiser spatial hash
             if (unitManager != null)
                 unitManager.InitializeForMission(playerUnits, enemyUnits);
         }
@@ -754,41 +823,7 @@ namespace XCOM_3
             return unitManager.SpatialHash.GetUnitAt(cell);
         }
 
-        private void GenerateWalls(int count)
-        {
-            wallSegments.Clear();
-
-            // Choisir le pattern selon le type de mission
-            EdgeWallGenerator.WallPattern pattern;
-
-            switch (selectedMission)
-            {
-                case "Tutorial":
-                    pattern = EdgeWallGenerator.WallPattern.Scattered;
-                    break;
-                case "Survival":
-                    pattern = EdgeWallGenerator.WallPattern.Bunker;
-                    break;
-                case "Assault":
-                    pattern = EdgeWallGenerator.WallPattern.Urban;
-                    break;
-                case "Defense":
-                    pattern = EdgeWallGenerator.WallPattern.Trenches;
-                    break;
-                default:
-                    var patterns = Enum.GetValues(typeof(EdgeWallGenerator.WallPattern));
-                    pattern = (EdgeWallGenerator.WallPattern)patterns.GetValue(random.Next(patterns.Length));
-                    break;
-            }
-
-            // Générer les segments de murs
-            wallSegments = edgeWallGenerator.GenerateWalls(gridWidth, gridHeight, pattern, count);
-
-            // Nettoyer les zones de spawn
-            edgeWallGenerator.ClearSpawnZones(wallSegments, gridWidth, gridHeight);
-
-            Console.WriteLine($"Generated {wallSegments.Count} wall segments using pattern: {pattern}");
-        }       
+        
 
         private List<EnemyTemplate> enemyPool = new()
         {
@@ -828,6 +863,12 @@ namespace XCOM_3
                             currentState = GameState.Playing;
                             Console.WriteLine("Game continued!");
                             break;
+                        case "Map Editor":
+                            // Demander la taille de la carte (ou utiliser des valeurs par défaut)
+                            mapEditor.StartNewMap(50, 50);
+                            currentState = GameState.MapEditor;
+                            Console.WriteLine("Opening map editor...");
+                            break;
                         case "Encyclopedia":
                             encyclopediaCategory = "Weapons";
                             currentState = GameState.Encyclopedia;
@@ -861,7 +902,10 @@ namespace XCOM_3
         {
             MediaPlayer.Stop();
             currentState = GameState.Playing;
-            LoadMap();
+
+            // ✅ NOUVEAU : Charger une carte (générée aléatoirement)
+            LoadMap(); // Génère automatiquement une carte selon selectedMission
+
             CreateUnits(missionType);
 
             pathfinding = new PathfindingSystem(gridWidth, gridHeight, wallSegments, GetUnitAtCell);
@@ -869,11 +913,8 @@ namespace XCOM_3
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
 
             unitManager.InitializeForMission(playerUnits, enemyUnits);
-
             combatSystem.SetUnits(playerUnits, enemyUnits);
             combatSystem.StartPlayerTurn();
-
-            unitManager.InitializeForMission(playerUnits, enemyUnits);
 
             Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
         }
