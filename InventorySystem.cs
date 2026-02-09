@@ -8,8 +8,7 @@ namespace XCOM_3
 {
     /// <summary>
     /// Système d'inventaire complet avec interface utilisateur style Diablo
-    /// Gère : drag & drop, rotation, équipement, affichage
-    /// VERSION CORRIGÉE - Équipement/déséquipement fonctionnel
+    /// VERSION CORRIGÉE - Grenades fonctionnelles
     /// </summary>
     public class InventorySystem
     {
@@ -76,6 +75,18 @@ namespace XCOM_3
             ItemDatabase["SMG"] = new ItemData("SMG", ItemType.Weapon,
                 new WeaponData("SMG", 20, 75, 4));
 
+            // ✅ GRENADES
+            var grenadeDB = GrenadeDatabase.GetAllGrenades();
+
+            ItemDatabase["Frag Grenade"] = new ItemData("Frag Grenade", grenadeDB["Frag Grenade"]);
+            ItemDatabase["HE Grenade"] = new ItemData("HE Grenade", grenadeDB["HE Grenade"]);
+            ItemDatabase["Plasma Grenade"] = new ItemData("Plasma Grenade", grenadeDB["Plasma Grenade"]);
+            ItemDatabase["Smoke Grenade"] = new ItemData("Smoke Grenade", grenadeDB["Smoke Grenade"]);
+            ItemDatabase["Flashbang"] = new ItemData("Flashbang", grenadeDB["Flashbang"]);
+            ItemDatabase["Incendiary Grenade"] = new ItemData("Incendiary Grenade", grenadeDB["Incendiary Grenade"]);
+            ItemDatabase["EMP Grenade"] = new ItemData("EMP Grenade", grenadeDB["EMP Grenade"]);
+            ItemDatabase["Demolition Charge"] = new ItemData("Demolition Charge", grenadeDB["Demolition Charge"]);
+
             // Armures (charger depuis ArmorDatabase)
             foreach (var armor in ArmorDatabase.GetAllArmors())
             {
@@ -100,7 +111,12 @@ namespace XCOM_3
                 "OTV (IBA)",
                 "MTV",
                 "OTV + SAPI",
-                "Army Combat Shirt"
+                "Army Combat Shirt",
+                // ✅ Grenades
+                "Frag Grenade",
+                "Smoke Grenade",
+                "HE Grenade",
+                "Plasma Grenade"
             };
 
             foreach (var itemName in itemsToAdd)
@@ -187,6 +203,27 @@ namespace XCOM_3
                 }
             }
 
+            // ✅ VÉRIFIER SLOTS GRENADES (AVANT les autres slots)
+            for (int i = 0; i < 3; i++)
+            {
+                Rectangle grenadeSlot = GetGrenadeSlotByIndex(i);
+                if (i < unit.Grenades.Count && grenadeSlot.Contains(mouse.Position))
+                {
+                    GrenadeData grenadeData = unit.Grenades[i];
+                    ItemSize size = ItemSizeDatabase.GetItemSize(grenadeData.Name);
+                    draggedItem = new GridItem(
+                        new ItemData(grenadeData.Name, grenadeData),
+                        new Point(0, 0),
+                        size,
+                        false
+                    );
+                    dragGridOffset = Point.Zero;
+                    unit.Grenades.RemoveAt(i);
+                    Console.WriteLine($"[INVENTORY] Unequipped grenade from slot {i + 1}: {grenadeData.Name}");
+                    return;
+                }
+            }
+
             // ✅ VÉRIFIER ET DÉSÉQUIPER LES SLOTS
             Rectangle weaponSlot = GetWeaponSlotBounds();
             if (unit.EquippedWeapon != null && weaponSlot.Contains(mouse.Position))
@@ -238,20 +275,18 @@ namespace XCOM_3
         {
             ItemSize size = ItemSizeDatabase.GetItemSize(equippedItem.Data.Name);
             draggedItem = new GridItem(equippedItem.Data, new Point(0, 0), size, false);
-            dragGridOffset = Point.Zero; // ✅ CRUCIAL : Initialiser l'offset pour le drag depuis équipement
+            dragGridOffset = Point.Zero;
         }
 
         private void HandleDragUpdate(MouseState mouse, int gridStartX, int gridStartY)
         {
-            // ✅ NE PAS contraindre à la grille - permettre le drag partout
-            int newGridX = (mouse.X - gridStartX) / CELL_SIZE - dragGridOffset.X;
-            int newGridY = (mouse.Y - gridStartY) / CELL_SIZE - dragGridOffset.Y;
-
-            // Mettre à jour la position sans contrainte
-            draggedItem.GridPosition = new Point(newGridX, newGridY);
-
-            // Mettre à jour les bounds en pixels (pour l'affichage)
-            draggedItem.UpdatePixelBounds(gridStartX, gridStartY);
+            // ✅ Drag complètement libre - suit exactement la souris
+            draggedItem.PixelBounds = new Rectangle(
+                mouse.X - dragGridOffset.X * CELL_SIZE,
+                mouse.Y - dragGridOffset.Y * CELL_SIZE,
+                draggedItem.GetCurrentSize().Width * CELL_SIZE,
+                draggedItem.GetCurrentSize().Height * CELL_SIZE
+            );
         }
 
         private void HandleEndDrag(MouseState mouse, Unit unit, int gridStartX, int gridStartY)
@@ -261,25 +296,29 @@ namespace XCOM_3
 
             if (!equipped)
             {
-                // Seulement après, essayer de replacer dans la grille
-                // Mais UNIQUEMENT si la souris est dans la zone de la grille
+                // ✅ Calculer la position grille à partir de la souris
+                int gridX = (mouse.X - gridStartX) / CELL_SIZE - dragGridOffset.X;
+                int gridY = (mouse.Y - gridStartY) / CELL_SIZE - dragGridOffset.Y;
+                draggedItem.GridPosition = new Point(gridX, gridY);
+
+                // Vérifier si dans la zone de grille
                 int gridPixelWidth = GRID_WIDTH * CELL_SIZE;
                 int gridPixelHeight = GRID_HEIGHT * CELL_SIZE;
                 Rectangle gridArea = new Rectangle(gridStartX, gridStartY, gridPixelWidth, gridPixelHeight);
 
                 if (gridArea.Contains(mouse.Position))
                 {
-                    // La souris est dans la grille, essayer de placer
+                    // Essayer de placer à la position calculée
                     if (inventoryGrid.CanPlaceItem(draggedItem.GridPosition, draggedItem.GetCurrentSize()))
                     {
+                        draggedItem.UpdatePixelBounds(gridStartX, gridStartY);
                         inventoryGrid.PlaceItem(draggedItem);
-                        Console.WriteLine($"[INVENTORY] Returned to grid: {draggedItem.Data.Name}");
+                        Console.WriteLine($"[INVENTORY] Placed at grid {draggedItem.GridPosition}: {draggedItem.Data.Name}");
                     }
                     else
                     {
-                        // Trouver une position libre
+                        // Position occupée, trouver un emplacement libre
                         Point? freePos = inventoryGrid.FindFreePosition(draggedItem.GetCurrentSize(), true);
-
                         if (freePos.HasValue)
                         {
                             draggedItem.GridPosition = freePos.Value;
@@ -295,10 +334,8 @@ namespace XCOM_3
                 }
                 else
                 {
-                    // La souris est HORS de la grille (mais pas sur l'équipement)
-                    // Replacer automatiquement dans la grille
+                    // Hors grille, replacer automatiquement
                     Point? freePos = inventoryGrid.FindFreePosition(draggedItem.GetCurrentSize(), true);
-
                     if (freePos.HasValue)
                     {
                         draggedItem.GridPosition = freePos.Value;
@@ -318,13 +355,54 @@ namespace XCOM_3
 
         private bool TryEquipInSlot(MouseState mouse, GridItem item, Unit unit)
         {
-            Console.WriteLine($"[INVENTORY] TryEquipInSlot: {item.Data.Name} at mouse {mouse.Position}");
-            Console.WriteLine($"[INVENTORY]   Item type: {item.Data.Type}");
+            Console.WriteLine($"[INVENTORY] TryEquipInSlot: {item.Data.Name} (Type: {item.Data.Type}) at mouse {mouse.Position}");
+            Console.WriteLine($"[INVENTORY] Viewport: {graphicsDevice.Viewport.Width}x{graphicsDevice.Viewport.Height}");
+
+            // ✅ ÉQUIPER UNE GRENADE (vérifier EN PREMIER)
+            if (item.Data.Type == ItemType.Grenade)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    Rectangle grenadeSlot = GetGrenadeSlotByIndex(i);
+                    Console.WriteLine($"[INVENTORY]   Grenade slot {i + 1}: X={grenadeSlot.X} Y={grenadeSlot.Y} W={grenadeSlot.Width} H={grenadeSlot.Height}");
+                    Console.WriteLine($"[INVENTORY]   Mouse distance from slot center: X={Math.Abs(mouse.X - grenadeSlot.Center.X)} Y={Math.Abs(mouse.Y - grenadeSlot.Center.Y)}");
+
+                    if (grenadeSlot.Contains(mouse.Position))
+                    {
+                        Console.WriteLine($"[INVENTORY]   ✅ Mouse IS in slot {i + 1}!");
+                        Console.WriteLine($"[INVENTORY]   Current grenades count: {unit.Grenades.Count}");
+                        Console.WriteLine($"[INVENTORY]   MaxGrenades: {unit.MaxGrenades}");
+
+                        // Si le slot i existe déjà, remplacer
+                        if (i < unit.Grenades.Count)
+                        {
+                            GrenadeData oldGrenade = unit.Grenades[i];
+                            Console.WriteLine($"[INVENTORY]   Replacing grenade in slot {i + 1}: {oldGrenade.Name}");
+                            ReturnGrenadeToGrid(oldGrenade);
+                            unit.Grenades[i] = item.Data.GrenadeData;
+                        }
+                        // Sinon, ajouter à la fin si pas plein
+                        else if (unit.Grenades.Count < unit.MaxGrenades)
+                        {
+                            Console.WriteLine($"[INVENTORY]   Adding grenade to slot {i + 1}");
+                            unit.Grenades.Add(item.Data.GrenadeData);
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[INVENTORY]   ❌ Grenades full!");
+                            return false;
+                        }
+
+                        Console.WriteLine($"[INVENTORY] ✅ Equipped grenade in slot {i + 1}: {item.Data.Name}");
+                        return true;
+                    }
+                }
+                Console.WriteLine($"[INVENTORY] ❌ Mouse not in any grenade slot");
+                return false;
+            }
 
             // ✅ ÉQUIPER UNE ARME
             Rectangle weaponSlot = GetWeaponSlotBounds();
-            Console.WriteLine($"[INVENTORY]   Weapon slot: {weaponSlot}");
-
             if (item.Data.Type == ItemType.Weapon && weaponSlot.Contains(mouse.Position))
             {
                 if (unit.EquippedWeapon != null)
@@ -340,11 +418,7 @@ namespace XCOM_3
             // ✅ ÉQUIPER UNE ARMURE
             if (item.Data.Type == ItemType.Armor)
             {
-                Console.WriteLine($"[INVENTORY]   Armor slot type: {item.Data.ArmorSlot}");
-
                 Rectangle helmetSlot = GetHelmetSlotBounds();
-                Console.WriteLine($"[INVENTORY]   Helmet slot: {helmetSlot}");
-
                 if (item.Data.ArmorSlot == ArmorSlot.Head && helmetSlot.Contains(mouse.Position))
                 {
                     if (unit.EquippedHelmet != null)
@@ -355,8 +429,6 @@ namespace XCOM_3
                 }
 
                 Rectangle armorSlot = GetArmorSlotBounds();
-                Console.WriteLine($"[INVENTORY]   Armor slot: {armorSlot}");
-
                 if (item.Data.ArmorSlot == ArmorSlot.Torso && armorSlot.Contains(mouse.Position))
                 {
                     if (unit.EquippedArmor != null)
@@ -402,9 +474,23 @@ namespace XCOM_3
                 inventoryGrid.PlaceItem(gridItem);
                 Console.WriteLine($"[INVENTORY] Returned old item to grid: {item.Data.Name}");
             }
-            else
+        }
+
+        private void ReturnGrenadeToGrid(GrenadeData grenadeData)
+        {
+            ItemSize size = ItemSizeDatabase.GetItemSize(grenadeData.Name);
+            Point? freePos = inventoryGrid.FindFreePosition(size, true);
+
+            if (freePos.HasValue)
             {
-                Console.WriteLine($"[INVENTORY] WARNING: No space for old item: {item.Data.Name}");
+                GridItem gridItem = new GridItem(
+                    new ItemData(grenadeData.Name, grenadeData),
+                    freePos.Value,
+                    size,
+                    false
+                );
+                inventoryGrid.PlaceItem(gridItem);
+                Console.WriteLine($"[INVENTORY] Returned grenade to grid: {grenadeData.Name}");
             }
         }
 
@@ -417,39 +503,33 @@ namespace XCOM_3
             if (selectedUnit == null) return;
 
             int panelWidth = 750;
-            int panelHeight = 500;
+            int panelHeight = 550; // ✅ Augmenté pour grenades
             int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
             int panelY = graphicsDevice.Viewport.Height / 2 - panelHeight / 2;
 
-            // Fond du panneau
             Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
             spriteBatch.Draw(pixel, panel, new Color(20, 20, 20, 240));
             DrawRectangleBorder(panel, Color.Gold, 3);
 
-            // Titre
             string title = $"Inventaire - {selectedUnit.Name}";
             Vector2 titleSize = font.MeasureString(title);
             spriteBatch.DrawString(font, title,
                 new Vector2(panel.Center.X - titleSize.X * 0.75f, panelY + 10),
                 Color.Gold, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
 
-            // Grille d'inventaire
             int gridStartX = panelX + 20;
             int gridStartY = panelY + 60;
             DrawInventoryGrid(gridStartX, gridStartY);
 
-            // Slots d'équipement
             int equipX = gridStartX + GRID_WIDTH * CELL_SIZE + 30;
             int equipY = gridStartY;
             DrawEquipmentSlots(equipX, equipY, selectedUnit);
 
-            // Item en cours de drag
             if (draggedItem != null)
             {
                 DrawGridItem(draggedItem, 0.7f);
             }
 
-            // Instructions
             spriteBatch.DrawString(font, "Glissez pour équiper | R: Tourner",
                 new Vector2(panelX + 20, panelY + panelHeight - 30), Color.Yellow);
             spriteBatch.DrawString(font, "I ou ESC pour fermer",
@@ -462,17 +542,14 @@ namespace XCOM_3
             int gridPixelHeight = GRID_HEIGHT * CELL_SIZE;
             Rectangle gridArea = new Rectangle(gridStartX, gridStartY, gridPixelWidth, gridPixelHeight);
 
-            // Fond
             spriteBatch.Draw(pixel, gridArea, new Color(40, 40, 40, 200));
 
-            // Lignes verticales
             for (int x = 0; x <= GRID_WIDTH; x++)
             {
                 Rectangle vertLine = new Rectangle(gridStartX + x * CELL_SIZE, gridStartY, 1, gridPixelHeight);
                 spriteBatch.Draw(pixel, vertLine, new Color(60, 60, 60));
             }
 
-            // Lignes horizontales
             for (int y = 0; y <= GRID_HEIGHT; y++)
             {
                 Rectangle horizLine = new Rectangle(gridStartX, gridStartY + y * CELL_SIZE, gridPixelWidth, 1);
@@ -481,11 +558,9 @@ namespace XCOM_3
 
             DrawRectangleBorder(gridArea, Color.Gray, 2);
 
-            // Label
             spriteBatch.DrawString(font, "Items Disponibles:",
                 new Vector2(gridStartX, gridStartY - 20), Color.White);
 
-            // Items
             foreach (var item in inventoryGrid.GetAllItems())
             {
                 if (item != draggedItem)
@@ -498,14 +573,17 @@ namespace XCOM_3
 
         private void DrawEquipmentSlots(int equipX, int equipY, Unit unit)
         {
-            Rectangle equipArea = new Rectangle(equipX, equipY, 190, 400);
+            // ✅ Utiliser les positions centralisées
+            equipX = GetEquipX();
+            equipY = GetEquipY();
+
+            Rectangle equipArea = new Rectangle(equipX, equipY, 190, 410);
             spriteBatch.Draw(pixel, equipArea, new Color(40, 40, 40, 200));
             DrawRectangleBorder(equipArea, Color.Gray, 2);
 
             spriteBatch.DrawString(font, "Equipement:",
                 new Vector2(equipX + 5, equipY - 20), Color.White);
 
-            // ✅ Pendant le drag, surligner les slots valides
             bool isDragging = draggedItem != null;
 
             DrawEquipmentSlot(GetWeaponSlotBounds(), "Arme", unit.EquippedWeapon,
@@ -518,6 +596,19 @@ namespace XCOM_3
                 isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield);
             DrawEquipmentSlot(GetShirtSlotBounds(), "Chemise", unit.EquippedShirt,
                 isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shirt);
+
+            // ✅ GRENADES
+            spriteBatch.DrawString(font, "Grenades:",
+                new Vector2(equipX + 5, equipY + 330), Color.White, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+
+            for (int i = 0; i < 3; i++)
+            {
+                Rectangle slot = GetGrenadeSlotByIndex(i);
+                GrenadeData grenadeData = i < unit.Grenades.Count ? unit.Grenades[i] : null;
+                bool highlight = isDragging && draggedItem.Data.Type == ItemType.Grenade;
+
+                DrawGrenadeSlot(slot, $"G{i + 1}", grenadeData, highlight);
+            }
         }
 
         private void DrawGridItem(GridItem item, float alpha = 1f)
@@ -537,26 +628,17 @@ namespace XCOM_3
 
             string info = item.Data.Type == ItemType.Weapon ?
                 $"Dmg:{item.Data.WeaponData?.Damage}" :
+                item.Data.Type == ItemType.Grenade ?
+                $"D:{item.Data.GrenadeData.Damage} R:{item.Data.GrenadeData.Radius}" :
                 $"Arm:{item.Data.ArmorValue}";
 
             spriteBatch.DrawString(font, info,
                 new Vector2(item.PixelBounds.X + 5, item.PixelBounds.Bottom - 20),
-                Color.Yellow * alpha, 0f, Vector2.Zero, 0.5f, SpriteEffects.None, 0f);
-
-            // ✅ Afficher les coordonnées pendant le drag (debug)
-            if (alpha < 1f) // Si c'est l'item en cours de drag
-            {
-                MouseState mouse = Mouse.GetState();
-                string debugText = $"Mouse: {mouse.Position}";
-                spriteBatch.DrawString(font, debugText,
-                    new Vector2(item.PixelBounds.X + 5, item.PixelBounds.Y - 20),
-                    Color.Cyan, 0f, Vector2.Zero, 0.5f, SpriteEffects.None, 0f);
-            }
+                Color.Yellow * alpha, 0f, Vector2.Zero, 0.4f, SpriteEffects.None, 0f);
         }
 
         private void DrawEquipmentSlot(Rectangle slot, string label, Item equippedItem, bool highlight = false)
         {
-            // ✅ Surligner en vert si c'est un slot valide pendant le drag
             Color slotColor = highlight ? new Color(60, 120, 60, 200) : new Color(60, 60, 60, 200);
             Color borderColor = highlight ? Color.Green : Color.Gray;
 
@@ -589,6 +671,37 @@ namespace XCOM_3
             }
         }
 
+        private void DrawGrenadeSlot(Rectangle slot, string label, GrenadeData grenadeData, bool highlight)
+        {
+            Color slotColor = highlight ? new Color(60, 120, 60, 200) : new Color(60, 60, 60, 200);
+            Color borderColor = highlight ? Color.Green : Color.Gray;
+
+            spriteBatch.Draw(pixel, slot, slotColor);
+            DrawRectangleBorder(slot, borderColor, highlight ? 3 : 2);
+
+            if (grenadeData != null && draggedItem == null)
+            {
+                Color grenadeColor = GrenadeDatabase.GetGrenadeColor(grenadeData.Type);
+
+                Rectangle itemRect = new Rectangle(slot.X + 3, slot.Y + 3, slot.Width - 6, slot.Height - 6);
+                spriteBatch.Draw(pixel, itemRect, grenadeColor);
+
+                string symbol = GrenadeDatabase.GetGrenadeSymbol(grenadeData.Type);
+                Vector2 symbolSize = font.MeasureString(symbol);
+                float scale = Math.Min(1.0f, (slot.Width - 10) / symbolSize.X);
+
+                spriteBatch.DrawString(font, symbol,
+                    new Vector2(slot.Center.X - symbolSize.X * scale / 2, slot.Center.Y - symbolSize.Y * scale / 2),
+                    Color.White, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+            }
+            else if (grenadeData == null)
+            {
+                spriteBatch.DrawString(font, "-",
+                    new Vector2(slot.Center.X - 4, slot.Center.Y - 8),
+                    Color.Gray, 0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0f);
+            }
+        }
+
         private void DrawRectangleBorder(Rectangle rect, Color color, int thickness)
         {
             spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Y, rect.Width, thickness), color);
@@ -598,57 +711,77 @@ namespace XCOM_3
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // CALCUL DES BOUNDS DES SLOTS
+        // CALCUL DES BOUNDS DES SLOTS - Centralisé
         // ═══════════════════════════════════════════════════════════════════════
+
+        private int GetPanelX()
+        {
+            return graphicsDevice.Viewport.Width / 2 - 375; // panelWidth / 2
+        }
+
+        private int GetPanelY()
+        {
+            return graphicsDevice.Viewport.Height / 2 - 275; // panelHeight / 2
+        }
+
+        private int GetEquipX()
+        {
+            return GetPanelX() + 20 + GRID_WIDTH * CELL_SIZE + 30;
+        }
+
+        private int GetEquipY()
+        {
+            return GetPanelY() + 60;
+        }
 
         private Rectangle GetWeaponSlotBounds()
         {
-            int panelWidth = 750;
-            int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
-            int panelY = graphicsDevice.Viewport.Height / 2 - 250;
-            int equipX = panelX + 20 + GRID_WIDTH * CELL_SIZE + 30;
-            return new Rectangle(equipX + 10, panelY + 100, 80, 80);
+            int equipX = GetEquipX();
+            int equipY = GetEquipY();
+            return new Rectangle(equipX + 10, equipY + 40, 80, 80);
         }
 
         private Rectangle GetHelmetSlotBounds()
         {
-            int panelWidth = 750;
-            int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
-            int panelY = graphicsDevice.Viewport.Height / 2 - 250;
-            int equipX = panelX + 20 + GRID_WIDTH * CELL_SIZE + 30;
-            return new Rectangle(equipX + 10, panelY + 200, 80, 80);
+            int equipX = GetEquipX();
+            int equipY = GetEquipY();
+            return new Rectangle(equipX + 10, equipY + 140, 80, 80);
         }
 
         private Rectangle GetArmorSlotBounds()
         {
-            int panelWidth = 750;
-            int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
-            int panelY = graphicsDevice.Viewport.Height / 2 - 250;
-            int equipX = panelX + 20 + GRID_WIDTH * CELL_SIZE + 30;
-            return new Rectangle(equipX + 10, panelY + 300, 80, 80);
+            int equipX = GetEquipX();
+            int equipY = GetEquipY();
+            return new Rectangle(equipX + 10, equipY + 240, 80, 80);
         }
 
         private Rectangle GetShieldSlotBounds()
         {
-            int panelWidth = 750;
-            int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
-            int panelY = graphicsDevice.Viewport.Height / 2 - 250;
-            int equipX = panelX + 20 + GRID_WIDTH * CELL_SIZE + 30;
-            return new Rectangle(equipX + 100, panelY + 100, 80, 80);
+            int equipX = GetEquipX();
+            int equipY = GetEquipY();
+            return new Rectangle(equipX + 100, equipY + 40, 80, 80);
         }
 
         private Rectangle GetShirtSlotBounds()
         {
-            int panelWidth = 750;
-            int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
-            int panelY = graphicsDevice.Viewport.Height / 2 - 250;
-            int equipX = panelX + 20 + GRID_WIDTH * CELL_SIZE + 30;
-            return new Rectangle(equipX + 100, panelY + 200, 80, 80);
+            int equipX = GetEquipX();
+            int equipY = GetEquipY();
+            return new Rectangle(equipX + 100, equipY + 140, 80, 80);
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // ACCESSEURS
-        // ═══════════════════════════════════════════════════════════════════════
+        // ✅ SLOTS GRENADES
+        private Rectangle GetGrenadeSlotByIndex(int index)
+        {
+            int equipX = GetEquipX();
+            int equipY = GetEquipY();
+
+            int slotSize = 50;
+            int spacing = 10;
+            int startX = equipX + 10;
+            int y = equipY + 360; // Position relative à equipY
+
+            return new Rectangle(startX + index * (slotSize + spacing), y, slotSize, slotSize);
+        }
 
         public bool IsDragging => draggedItem != null;
     }

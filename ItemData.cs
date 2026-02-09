@@ -12,7 +12,8 @@ namespace XCOM_3
     {
         Weapon,
         Armor,
-        Accessory
+        Accessory,
+        Grenade
     }
 
     public enum ArmorSlot
@@ -51,6 +52,9 @@ namespace XCOM_3
         public int MobilityPenalty;
         public string Description;
 
+        // Données de grenades
+        public GrenadeData GrenadeData;
+
         // Constructeur pour armes
         public ItemData(string name, ItemType type, WeaponData weaponData)
         {
@@ -80,6 +84,15 @@ namespace XCOM_3
             MobilityPenalty = mobilityPenalty;
             Description = description;
         }
+
+        // Constructeur pour grenades
+        public ItemData(string name, GrenadeData grenadeData)
+        {
+            Name = name;
+            Type = ItemType.Grenade;
+            GrenadeData = grenadeData;
+        }
+
     }
 
     /// <summary>

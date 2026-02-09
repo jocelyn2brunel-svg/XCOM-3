@@ -330,6 +330,8 @@ namespace XCOM_3
                     return new Color(100, 150, 255);  // Bleu
                 case ItemType.Armor:
                     return new Color(150, 100, 50);   // Marron
+                case ItemType.Grenade:
+                    return new Color(200, 100, 0);    // ✅ Orange
                 case ItemType.Accessory:
                     return new Color(100, 200, 100);  // Vert
                 default:
