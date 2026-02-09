@@ -4,211 +4,66 @@ using System;
 
 namespace XCOM_3
 {
-    /// <summary>
-    /// Batch renderer pour dessiner plusieurs humanoïdes en un seul draw call
-    /// OPTIMISATION MAJEURE : Réduit 80+ draw calls à 1-2 par frame
-    /// </summary>
     public class HumanoidBatchRenderer
     {
-        private VertexPositionColor[] batchedVertices;
-        private short[] batchedIndices;
-        private int currentVertexCount = 0;
-        private int currentIndexCount = 0;
-        
-        // Données du cube de base (comme dans HumanoidModel)
-        private VertexPositionColor[] cubePrimitiveVertices;
-        private short[] cubePrimitiveIndices;
-        
-        private const int MAX_BODY_PARTS = 2000; // Support pour ~200 unités avec 10 parties chacune
-        
+        private VertexPositionColor[] verts, primVerts;
+        private short[] inds, primInds;
+        private int vCount = 0, iCount = 0;
+        private const int MAX = 2000;
+
         public HumanoidBatchRenderer()
         {
-            // Pré-allouer les buffers
-            batchedVertices = new VertexPositionColor[MAX_BODY_PARTS * 8];
-            batchedIndices = new short[MAX_BODY_PARTS * 36];
-            
-            InitializeCubePrimitive();
-        }
-        
-        private void InitializeCubePrimitive()
-        {
-            cubePrimitiveVertices = new VertexPositionColor[8];
-            cubePrimitiveVertices[0] = new VertexPositionColor(new Vector3(-0.5f, -0.5f, -0.5f), Color.White);
-            cubePrimitiveVertices[1] = new VertexPositionColor(new Vector3(-0.5f, -0.5f, 0.5f), Color.White);
-            cubePrimitiveVertices[2] = new VertexPositionColor(new Vector3(0.5f, -0.5f, 0.5f), Color.White);
-            cubePrimitiveVertices[3] = new VertexPositionColor(new Vector3(0.5f, -0.5f, -0.5f), Color.White);
-            cubePrimitiveVertices[4] = new VertexPositionColor(new Vector3(-0.5f, 0.5f, -0.5f), Color.White);
-            cubePrimitiveVertices[5] = new VertexPositionColor(new Vector3(-0.5f, 0.5f, 0.5f), Color.White);
-            cubePrimitiveVertices[6] = new VertexPositionColor(new Vector3(0.5f, 0.5f, 0.5f), Color.White);
-            cubePrimitiveVertices[7] = new VertexPositionColor(new Vector3(0.5f, 0.5f, -0.5f), Color.White);
-
-            cubePrimitiveIndices = new short[]
+            verts = new VertexPositionColor[MAX * 8];
+            inds = new short[MAX * 36];
+            primVerts = new VertexPositionColor[8]
             {
-                0, 1, 2, 0, 2, 3,  // Bas
-                4, 6, 5, 4, 7, 6,  // Haut
-                0, 4, 5, 0, 5, 1,  // Gauche
-                3, 2, 6, 3, 6, 7,  // Droite
-                1, 5, 6, 1, 6, 2,  // Avant
-                0, 3, 7, 0, 7, 4   // Arrière
+                new(new Vector3(-0.5f,-0.5f,-0.5f),Color.White),
+                new(new Vector3(-0.5f,-0.5f,0.5f),Color.White),
+                new(new Vector3(0.5f,-0.5f,0.5f),Color.White),
+                new(new Vector3(0.5f,-0.5f,-0.5f),Color.White),
+                new(new Vector3(-0.5f,0.5f,-0.5f),Color.White),
+                new(new Vector3(-0.5f,0.5f,0.5f),Color.White),
+                new(new Vector3(0.5f,0.5f,0.5f),Color.White),
+                new(new Vector3(0.5f,0.5f,-0.5f),Color.White)
             };
+            primInds = new short[] { 0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1, 3, 2, 6, 3, 6, 7, 1, 5, 6, 1, 6, 2, 0, 3, 7, 0, 7, 4 };
         }
-        
-        /// <summary>
-        /// Commence un nouveau batch - appeler au début du rendu
-        /// </summary>
-        public void BeginBatch()
+
+        public void BeginBatch() { vCount = iCount = 0; }
+
+        public void AddBodyPart(Vector3 c, Vector3 r, Vector3 s, Color col, Matrix rot)
         {
-            currentVertexCount = 0;
-            currentIndexCount = 0;
-        }
-        
-        /// <summary>
-        /// Ajoute une partie de corps au batch
-        /// </summary>
-        /// <param name="centerPosition">Position centrale de l'unité</param>
-        /// <param name="relativePosition">Position relative de la partie du corps</param>
-        /// <param name="scale">Échelle de la partie</param>
-        /// <param name="color">Couleur de la partie</param>
-        /// <param name="rotationMatrix">Matrice de rotation de l'unité</param>
-        public void AddBodyPart(Vector3 centerPosition, Vector3 relativePosition, 
-                                Vector3 scale, Color color, Matrix rotationMatrix)
-        {
-            if (currentVertexCount + 8 > batchedVertices.Length || 
-                currentIndexCount + 36 > batchedIndices.Length)
-            {
-                // Buffer plein, on devrait flush mais pour simplifier on skip
-                Console.WriteLine("WARNING: Batch buffer full, increase MAX_BODY_PARTS");
-                return;
-            }
-            
-            int baseVertex = currentVertexCount;
-            
-            // Transformer et ajouter les vertices
+            if (vCount + 8 > verts.Length || iCount + 36 > inds.Length) { Console.WriteLine("Batch full"); return; }
+            int baseV = vCount;
+            Vector3 relRot = Vector3.Transform(r, rot);
             for (int i = 0; i < 8; i++)
-            {
-                // 1. Scale
-                Vector3 scaledPos = cubePrimitiveVertices[i].Position * scale;
-                
-                // 2. Rotate
-                Vector3 rotatedPos = Vector3.Transform(scaledPos, rotationMatrix);
-                
-                // 3. Translate (position relative puis position centrale)
-                Vector3 relativeRotated = Vector3.Transform(relativePosition, rotationMatrix);
-                Vector3 finalPos = centerPosition + relativeRotated + rotatedPos;
-                
-                batchedVertices[currentVertexCount++] = 
-                    new VertexPositionColor(finalPos, color);
-            }
-            
-            // Ajouter les indices avec offset
-            for (int i = 0; i < 36; i++)
-            {
-                batchedIndices[currentIndexCount++] = 
-                    (short)(cubePrimitiveIndices[i] + baseVertex);
-            }
+                verts[vCount++] = new VertexPositionColor(c + relRot + Vector3.Transform(primVerts[i].Position * s, rot), col);
+            for (int i = 0; i < 36; i++) inds[iCount++] = (short)(primInds[i] + baseV);
         }
-        
-        /// <summary>
-        /// Termine le batch et dessine tout en un seul draw call
-        /// </summary>
-        public void EndBatch(GraphicsDevice device, BasicEffect effect)
+
+        public void EndBatch(GraphicsDevice d, BasicEffect e)
         {
-            if (currentVertexCount == 0)
-                return; // Rien à dessiner
-            
-            // Important : le world matrix doit être Identity 
-            // car on a déjà transformé les vertices
-            Matrix previousWorld = effect.World;
-            effect.World = Matrix.Identity;
-            
-            foreach (EffectPass pass in effect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                
-                // UN SEUL DRAW CALL pour TOUTES les parties de TOUTES les unités!
-                device.DrawUserIndexedPrimitives(
-                    PrimitiveType.TriangleList,
-                    batchedVertices,
-                    0,
-                    currentVertexCount,
-                    batchedIndices,
-                    0,
-                    currentIndexCount / 3 // Nombre de triangles
-                );
-            }
-            
-            // Restaurer
-            effect.World = previousWorld;
+            if (vCount == 0) return;
+            Matrix old = e.World; e.World = Matrix.Identity;
+            foreach (var pass in e.CurrentTechnique.Passes) { pass.Apply(); d.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, vCount, inds, 0, iCount / 3); }
+            e.World = old;
         }
-        
-        /// <summary>
-        /// Ajoute un soldat complet au batch
-        /// Version optimisée de HumanoidModelAdvanced.DrawSoldier
-        /// </summary>
-        public void AddSoldier(Vector3 position, Color teamColor, float scale, 
-                              Matrix rotationMatrix, float legSwing = 0f, 
-                              float armSwing = 0f, float bodyBob = 0f, float idleBob = 0f)
+
+        public void AddSoldier(Vector3 p, Color c, float sc, Matrix rot, float ls = 0f, float asw = 0f, float bb = 0f, float ib = 0f)
         {
-            Vector3 animatedPosition = position + new Vector3(0, bodyBob + idleBob, 0);
-            
-            // Proportions standard
-            float headSize = 0.25f * scale;
-            float torsoWidth = 0.35f * scale;
-            float torsoHeight = 0.5f * scale;
-            float torsoDepth = 0.25f * scale;
-            float limbWidth = 0.12f * scale;
-            float armLength = 0.45f * scale;
-            float legLength = 0.55f * scale;
+            Vector3 pos = p + new Vector3(0, bb + ib, 0);
+            float hs = 0.25f * sc, tw = 0.35f * sc, th = 0.5f * sc, td = 0.25f * sc, lw = 0.12f * sc, al = 0.45f * sc, ll = 0.55f * sc;
+            Color skin = new(220, 180, 140), dark = new(60, 60, 80);
 
-            Color skinColor = new Color(220, 180, 140);
-            Color darkColor = new Color(60, 60, 80);
-
-            // Jambes avec animation
-            AddBodyPart(animatedPosition,
-                new Vector3(-torsoWidth * 0.3f + legSwing * 0.05f, legLength * 0.5f, legSwing * 0.1f),
-                new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
-            
-            AddBodyPart(animatedPosition,
-                new Vector3(torsoWidth * 0.3f - legSwing * 0.05f, legLength * 0.5f, -legSwing * 0.1f),
-                new Vector3(limbWidth, legLength, limbWidth), darkColor, rotationMatrix);
-
-            // Torse
-            AddBodyPart(animatedPosition,
-                new Vector3(0, legLength + torsoHeight * 0.5f, 0),
-                new Vector3(torsoWidth, torsoHeight, torsoDepth), teamColor, rotationMatrix);
-
-            // Bras avec animation
-            AddBodyPart(animatedPosition,
-                new Vector3(-torsoWidth * 0.6f, legLength + torsoHeight * 0.7f, -armSwing * 0.12f),
-                new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
-            
-            AddBodyPart(animatedPosition,
-                new Vector3(torsoWidth * 0.6f, legLength + torsoHeight * 0.7f, armSwing * 0.12f),
-                new Vector3(limbWidth, armLength, limbWidth), teamColor * 0.85f, rotationMatrix);
-
-            // Tête
-            AddBodyPart(animatedPosition,
-                new Vector3(0, legLength + torsoHeight + headSize * 0.6f, 0),
-                new Vector3(headSize, headSize * 1.2f, headSize), skinColor, rotationMatrix);
-
-            // Détails visage sur le DEVANT (indicateur de direction)
-            AddBodyPart(animatedPosition,
-                new Vector3(0, legLength + torsoHeight + headSize * 0.6f, headSize * 0.6f),
-                new Vector3(headSize * 0.6f, headSize * 0.3f, headSize * 0.1f),
-                new Color(40, 40, 40), rotationMatrix);
+            AddBodyPart(pos, new Vector3(-tw * 0.3f + ls * 0.05f, ll * 0.5f, ls * 0.1f), new Vector3(lw, ll, lw), dark, rot);
+            AddBodyPart(pos, new Vector3(tw * 0.3f - ls * 0.05f, ll * 0.5f, -ls * 0.1f), new Vector3(lw, ll, lw), dark, rot);
+            AddBodyPart(pos, new Vector3(0, ll + th * 0.5f, 0), new Vector3(tw, th, td), c, rot);
+            AddBodyPart(pos, new Vector3(-tw * 0.6f, ll + th * 0.7f, -asw * 0.12f), new Vector3(lw, al, lw), c * 0.85f, rot);
+            AddBodyPart(pos, new Vector3(tw * 0.6f, ll + th * 0.7f, asw * 0.12f), new Vector3(lw, al, lw), c * 0.85f, rot);
+            AddBodyPart(pos, new Vector3(0, ll + th + hs * 0.6f, 0), new Vector3(hs, hs * 1.2f, hs), skin, rot);
+            AddBodyPart(pos, new Vector3(0, ll + th + hs * 0.6f, hs * 0.6f), new Vector3(hs * 0.6f, hs * 0.3f, hs * 0.1f), new Color(40, 40, 40), rot);
         }
-        
-        /// <summary>
-        /// Stats pour debugging
-        /// </summary>
-        public void LogStats()
-        {
-            int vertexCount = currentVertexCount;
-            int triangleCount = currentIndexCount / 3;
-            int bodyPartCount = vertexCount / 8;
-            
-            Console.WriteLine($"Batch Stats: {bodyPartCount} body parts, " +
-                            $"{vertexCount} vertices, {triangleCount} triangles");
-        }
+
+        public void LogStats() { Console.WriteLine($"Batch Stats: {vCount / 8} body parts, {vCount} vertices, {iCount / 3} triangles"); }
     }
 }
