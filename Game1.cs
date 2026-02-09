@@ -1353,69 +1353,45 @@ namespace XCOM_3
 
         private void HandlePlayerTurn(MouseState mouse, bool leftClick, KeyboardState keyboard)
         {
+            if (IsTabPressed(keyboard)) SelectNextActiveUnit();
 
-            // ✅ NOUVEAU : Sélection cyclique avec TAB
-            if (IsTabPressed(keyboard))
-            {
-                SelectNextActiveUnit();
-            }
+            hoveredCell = camera.GetCellFromMouse(mouse.Position, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            currentPath.Clear(); pathCosts.Clear();
 
-            hoveredCell = camera.GetCellFromMouse(mouse.Position,
-                GraphicsDevice.Viewport.Width,
-                GraphicsDevice.Viewport.Height);
-            currentPath.Clear();
-            pathCosts.Clear();
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 &&
                 cachedMovableCells.Contains(hoveredCell) && selectedUnit.Team == Team.Player)
             {
                 currentPath = pathfinding.FindPath(selectedUnit.Cell, hoveredCell, selectedUnit.MovementPoints, selectedUnit);
-
                 pathCosts.Clear();
-                for (int i = 0; i < currentPath.Count; i++)
-                {
-                    pathCosts[currentPath[i]] = i + 1;
-                }
+                for (int i = 0; i < currentPath.Count; i++) pathCosts[currentPath[i]] = i + 1;
             }
-            if (throwMode)
-            {
-                HandleGrenadeThrow(mouse, leftClick);
-            }
+
+            if (throwMode) HandleGrenadeThrow(mouse, leftClick);
+
             bool clickOnUI = combatUI.EndTurnButton.Contains(mouse.Position) ||
-                 combatUI.FireButton.Contains(mouse.Position) ||
-                 combatUI.IsMouseOverActionButton(mouse) ||
-                 combatUI.IsMouseOverFireTargets(mouse) ||
-                 showInventory;
-            if (leftClick)
-                HandleUnitActionButtons(mouse);
-            if (leftClick && combatUI.ShowFireTargets)
-            {
-                combatUI.HandleFireTargetClick(mouse, selectedUnit);
-            }
-            if (leftClick && !clickOnUI && hoveredCell.X != -1)
-                HandleGridClick(hoveredCell);
-            if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released)
-                CancelSelection();
+                combatUI.FireButton.Contains(mouse.Position) ||
+                combatUI.IsMouseOverActionButton(mouse) ||
+                combatUI.IsMouseOverFireTargets(mouse) || showInventory;
+
+            if (leftClick) HandleUnitActionButtons(mouse);
+            if (leftClick && combatUI.ShowFireTargets) combatUI.HandleFireTargetClick(mouse, selectedUnit);
+            if (leftClick && !clickOnUI && hoveredCell.X != -1) HandleGridClick(hoveredCell);
+            if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released) CancelSelection();
+
             if (combatUI.FireButton.Contains(mouse.Position) && leftClick &&
-                selectedUnit != null && combatUI.SelectedFireTarget != null &&
-                selectedUnit.ActionPoints > 0)
+                selectedUnit != null && combatUI.SelectedFireTarget != null && selectedUnit.ActionPoints > 0)
             {
                 combatSystem.InitiateFire(selectedUnit, combatUI.SelectedFireTarget);
                 var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
                 combatUI.UpdateFireTargets(selectedUnit, validTargets);
             }
-            bool kPressed = keyboard.IsKeyDown(Keys.K) && previousKeyboardState.IsKeyUp(Keys.K);
-            if (kPressed && selectedUnit != null)
-            {
-                Console.WriteLine(selectedUnit.Skills.GetSkillsSummary());
-            }
-            if (combatUI.EndTurnButton.Contains(mouse.Position) && leftClick &&
-                !combatSystem.IsActionInProgress)
-            {
-                combatSystem.StartEnemyTurn();
-            }
-        }
 
-        
+            bool kPressed = keyboard.IsKeyDown(Keys.K) && previousKeyboardState.IsKeyUp(Keys.K);
+            if (kPressed && selectedUnit != null) Console.WriteLine(selectedUnit.Skills.GetSkillsSummary());
+
+            if (combatUI.EndTurnButton.Contains(mouse.Position) && leftClick && !combatSystem.IsActionInProgress)
+                combatSystem.StartEnemyTurn();
+        }
 
         private void HandleGridClick(Point clickedCell)
         {
@@ -1426,11 +1402,9 @@ namespace XCOM_3
                 selectedUnit = clickedUnit;
                 if (selectedUnit.Team == Team.Player)
                 {
-                    // ═══ AJOUTER CETTE VÉRIFICATION ═══
                     if (pathfinding != null)
                     {
                         cachedMovableCells = pathfinding.GetMovableCells(selectedUnit);
-                        // Correct
                         var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
                         combatUI.UpdateFireTargets(selectedUnit, validTargets);
                     }
@@ -1449,21 +1423,16 @@ namespace XCOM_3
             }
             else if (selectedUnit != null && selectedUnit.ActionPoints > 0)
             {
-                // ═══ AJOUTER CETTE VÉRIFICATION ═══
                 if (pathfinding == null) return;
-
                 var movable = pathfinding.GetMovableCells(selectedUnit);
                 if (movable.Contains(clickedCell))
                 {
                     var path = pathfinding.FindPath(selectedUnit.Cell, clickedCell, selectedUnit.MovementPoints, selectedUnit);
-
                     if (path.Count > 0 && path.Count <= selectedUnit.MovementPoints)
                     {
-                        Point oldCell = selectedUnit.Cell;
                         selectedUnit.StartMoveTo(clickedCell);
                         unitManager.OnUnitMoved(selectedUnit, clickedCell);
                         selectedUnit.ActionPoints--;
-                        // Correct
                         var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
                         combatUI.UpdateFireTargets(selectedUnit, validTargets);
                         cachedMovableCells = selectedUnit.ActionPoints > 0 ? pathfinding.GetMovableCells(selectedUnit) : new List<Point>();
@@ -1476,55 +1445,43 @@ namespace XCOM_3
 
         private void HandleUnitActionButtons(MouseState mouse)
         {
-            if (mouse.LeftButton != ButtonState.Pressed || previousMouseState.LeftButton != ButtonState.Released)
-                return;
+            if (mouse.LeftButton != ButtonState.Pressed || previousMouseState.LeftButton != ButtonState.Released) return;
 
             foreach (var btn in combatUI.UnitActionButtons)
             {
                 var rect = new Rectangle((int)btn.Position.X, (int)btn.Position.Y, CombatUISystem.ActionButtonWidth, CombatUISystem.ActionButtonHeight);
-                if (rect.Contains(mouse.Position))
+                if (!rect.Contains(mouse.Position)) continue;
+
+                switch (btn.Text)
                 {
-                    switch (btn.Text)
-                    {
-                        case "TIRER":
-                            if (selectedUnit != null && selectedUnit.ActionPoints > 0)
-                            {
-                                var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
-                                combatUI.UpdateFireTargets(selectedUnit, validTargets);
+                    case "TIRER":
+                        if (selectedUnit != null && selectedUnit.ActionPoints > 0)
+                        {
+                            var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
+                            combatUI.UpdateFireTargets(selectedUnit, validTargets);
+                            Console.WriteLine(validTargets.Count > 0 ? $"Mode tir activé - {validTargets.Count} cibles disponibles" : "Aucune cible à portée");
+                        }
+                        break;
 
-                                if (validTargets.Count > 0)
-                                    Console.WriteLine($"Mode tir activé - {validTargets.Count} cibles disponibles");
-                                else
-                                    Console.WriteLine("Aucune cible à portée");
-                            }
-                            break;
+                    case "GRENADE":
+                        if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
+                        {
+                            throwMode = true;
+                            selectedGrenade = selectedUnit.Grenades[0];
+                            throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, MaxThrowRange, gridWidth, gridHeight);
+                            Console.WriteLine($"Mode grenade activé: {selectedGrenade.Name}");
+                        }
+                        break;
 
-                        case "GRENADE":
-                            if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
-                            {
-                                throwMode = true;
-                                selectedGrenade = selectedUnit.Grenades[0];
-                                throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(
-                                    selectedUnit.Cell,
-                                    MaxThrowRange,
-                                    gridWidth,
-                                    gridHeight
-                                );
-                                Console.WriteLine($"Mode grenade activé: {selectedGrenade.Name}");
-                            }
-                            break;
+                    case "COUVERT":
+                        Console.WriteLine("Action future : COUVERT");
+                        break;
 
-                        case "COUVERT":
-                            Console.WriteLine("Action future : COUVERT");
-                            break;
-
-                        case "RECHARGER":
-                            Console.WriteLine("Action future : RECHARGER");
-                            break;
-                    }
-
-                    return; // Sortir dès qu'un bouton est cliqué
+                    case "RECHARGER":
+                        Console.WriteLine("Action future : RECHARGER");
+                        break;
                 }
+                return;
             }
         }
 
@@ -1558,127 +1515,58 @@ namespace XCOM_3
             availableGrenades.Add(new GrenadeItem(grenadeDatabase["Demolition Charge"], new Point(290, 300)));
         }
 
-        private void EquipGrenadeToUnit(Unit unit, GrenadeData grenade)
-        {
-            if (unit.AddGrenade(grenade))
-            {
-                Console.WriteLine($"{unit.Name} equipped {grenade.Name}");
-            }
-            else
-            {
-                Console.WriteLine($"{unit.Name} grenade slots full!");
-            }
-        }
-
         private void HandleGrenadeThrow(MouseState mouse, bool leftClick)
         {
             if (selectedUnit == null || selectedGrenade == null) return;
-
-            // Calculer la case survolée
-            throwTarget = camera.GetCellFromMouse(mouse.Position,
-                GraphicsDevice.Viewport.Width,
-                GraphicsDevice.Viewport.Height);
+            throwTarget = camera.GetCellFromMouse(mouse.Position, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
             if (throwTarget.X >= 0)
             {
-                // Mettre à jour la prévisualisation de l'explosion
-                explosionPreview = ThrowTrajectoryCalculator.GetExplosionPreview(
-                    throwTarget,
-                    selectedGrenade.Radius,
-                    gridWidth,
-                    gridHeight
-                );
-
-                // Calculer la trajectoire pour affichage
-                Vector3 startPos = new Vector3(
-                    selectedUnit.Cell.X * cellSize + cellSize / 2f,
-                    cellSize * 1.5f,
-                    selectedUnit.Cell.Y * cellSize + cellSize / 2f
-                );
-
-                Vector3 targetPos = new Vector3(
-                    throwTarget.X * cellSize + cellSize / 2f,
-                    0,
-                    throwTarget.Y * cellSize + cellSize / 2f
-                );
-
+                explosionPreview = ThrowTrajectoryCalculator.GetExplosionPreview(throwTarget, selectedGrenade.Radius, gridWidth, gridHeight);
+                Vector3 startPos = new Vector3(selectedUnit.Cell.X * cellSize + cellSize / 2f, cellSize * 1.5f, selectedUnit.Cell.Y * cellSize + cellSize / 2f);
+                Vector3 targetPos = new Vector3(throwTarget.X * cellSize + cellSize / 2f, 0, throwTarget.Y * cellSize + cellSize / 2f);
                 trajectoryPreview = ThrowTrajectoryCalculator.CalculateArcPoints(startPos, targetPos);
             }
-
-            // Clic gauche pour lancer
-            if (leftClick && throwTarget.X >= 0)
+            if (leftClick && throwTarget.X >= 0 && ThrowTrajectoryCalculator.IsInThrowRange(selectedUnit.Cell, throwTarget, MaxThrowRange))
             {
-                if (ThrowTrajectoryCalculator.IsInThrowRange(selectedUnit.Cell, throwTarget, MaxThrowRange))
-                {
-                    LaunchGrenade(selectedUnit, selectedGrenade, throwTarget);
-                    selectedUnit.ActionPoints -= selectedGrenade.AOCost;
-                    selectedUnit.RemoveGrenade(selectedGrenade);
-                    CancelSelection(); // Si tu cliques bouton souris droite, annule l'intention de lancer une grenade.
-                }
+                LaunchGrenade(selectedUnit, selectedGrenade, throwTarget);
+                selectedUnit.ActionPoints -= selectedGrenade.AOCost;
+                selectedUnit.RemoveGrenade(selectedGrenade);
+                CancelSelection();
             }
         }
 
         private void LaunchGrenade(Unit thrower, GrenadeData grenadeData, Point targetCell)
         {
-            Vector3 startPos = new Vector3(
-                thrower.Cell.X * cellSize + cellSize / 2f,
-                cellSize * 1.5f,
-                thrower.Cell.Y * cellSize + cellSize / 2f
-            );
-
-            Vector3 targetPos = new Vector3(
-                targetCell.X * cellSize + cellSize / 2f,
-                0,
-                targetCell.Y * cellSize + cellSize / 2f
-            );
-
+            Vector3 startPos = new Vector3(thrower.Cell.X * cellSize + cellSize / 2f, cellSize * 1.5f, thrower.Cell.Y * cellSize + cellSize / 2f);
+            Vector3 targetPos = new Vector3(targetCell.X * cellSize + cellSize / 2f, 0, targetCell.Y * cellSize + cellSize / 2f);
             Grenade grenade = new Grenade(grenadeData, startPos, targetPos, thrower);
             activeGrenades.Add(grenade);
-
             Console.WriteLine($"{thrower.Name} threw {grenadeData.Name} at {targetCell}");
         }
 
         private void UpdateGrenades(GameTime gameTime)
         {
             float grenadeSpeed = 2.5f;
-
             for (int i = activeGrenades.Count - 1; i >= 0; i--)
             {
                 var grenade = activeGrenades[i];
                 grenade.Progress += (float)gameTime.ElapsedGameTime.TotalSeconds * grenadeSpeed;
-
                 if (grenade.Progress >= 1f)
                 {
-                    // Explosion!
-                    Point explosionCell = new Point(
-                        (int)(grenade.TargetPosition.X / cellSize),
-                        (int)(grenade.TargetPosition.Z / cellSize)
-                    );
-
+                    Point explosionCell = new Point((int)(grenade.TargetPosition.X / cellSize), (int)(grenade.TargetPosition.Z / cellSize));
                     TriggerExplosion(explosionCell, grenade.Data, grenade.Thrower);
                     activeGrenades.RemoveAt(i);
                 }
-                else
-                {
-                    grenade.Position = grenade.GetCurrentPosition();
-                }
+                else grenade.Position = grenade.GetCurrentPosition();
             }
 
-            // Vieillir les cratères
-            foreach (var crater in craters)
-            {
-                crater.Age += (float)gameTime.ElapsedGameTime.TotalSeconds;
-            }
+            foreach (var crater in craters) crater.Age += (float)gameTime.ElapsedGameTime.TotalSeconds;
         }
 
         private void TriggerExplosion(Point center, GrenadeData grenadeData, Unit thrower = null)
         {
             Console.WriteLine($"EXPLOSION at {center} - {grenadeData.Name}");
-
-            // Suivre les stats pour l'XP
-            int enemiesHit = 0;
-            int totalDamage = 0;
-
-            // Appliquer les dégâts aux unités
+            int enemiesHit = 0, totalDamage = 0;
             List<Point> affectedCells = explosionManager.GetExplosionCells(center, grenadeData.Radius);
 
             foreach (var cell in affectedCells)
@@ -1686,145 +1574,75 @@ namespace XCOM_3
                 Unit unit = GetUnitAtCell(cell);
                 if (unit != null)
                 {
-                    int damage = explosionManager.CalculateExplosionDamage(
-                        grenadeData.Damage,
-                        center,
-                        cell,
-                        grenadeData.Radius
-                    );
-
+                    int damage = explosionManager.CalculateExplosionDamage(grenadeData.Damage, center, cell, grenadeData.Radius);
                     unit.Health = Math.Max(0, unit.Health - damage);
                     Console.WriteLine($"{unit.Name} took {damage} explosion damage! HP: {unit.Health}");
-
-                    // Compter pour l'XP si c'est un ennemi
-                    if (unit.Team == Team.Enemy && thrower != null && thrower.Team == Team.Player)
-                    {
-                        enemiesHit++;
-                        totalDamage += damage;
-                    }
-
+                    if (unit.Team == Team.Enemy && thrower != null && thrower.Team == Team.Player) { enemiesHit++; totalDamage += damage; }
                     if (unit.Health <= 0)
                     {
                         (unit.Team == Team.Player ? playerUnits : enemyUnits).Remove(unit);
                         unitManager.OnUnitDied(unit);
-
                         Console.WriteLine($"{unit.Name} killed by explosion!");
                     }
                 }
 
-                // Détruire les murs
                 if (grenadeData.DestroyWalls)
                 {
-                    List<WallSegment> destroyedWalls = explosionManager.GetDestroyedWalls(
-                        wallSegments, center, grenadeData.Radius
-                    );
-
+                    List<WallSegment> destroyedWalls = explosionManager.GetDestroyedWalls(wallSegments, center, grenadeData.Radius);
                     if (destroyedWalls.Count > 0)
                     {
-                        foreach (var wall in destroyedWalls)
-                            wallSegments.Remove(wall);
-
-                        // ═══ INVALIDER LE CACHE ═══
+                        foreach (var wall in destroyedWalls) wallSegments.Remove(wall);
                         unitManager.OnWallsDestroyed();
-
                         Console.WriteLine($"Destroyed {destroyedWalls.Count} walls - cache invalidated");
                     }
                 }
-
             }
 
-            // Donner l'XP au lanceur
-            if (thrower != null && thrower.Team == Team.Player && enemiesHit > 0)
-            {
-                thrower.Skills.GainGrenadeXP(enemiesHit, totalDamage);
-            }
+            if (thrower != null && thrower.Team == Team.Player && enemiesHit > 0) thrower.Skills.GainGrenadeXP(enemiesHit, totalDamage);
 
-            // Détruire les murs
             if (grenadeData.DestroyWalls)
             {
-                List<WallSegment> destroyedWalls = explosionManager.GetDestroyedWalls(
-                    wallSegments,
-                    center,
-                    grenadeData.Radius
-                );
-
-                foreach (var wall in destroyedWalls)
-                {
-                    wallSegments.Remove(wall);
-                }
-
+                List<WallSegment> destroyedWalls = explosionManager.GetDestroyedWalls(wallSegments, center, grenadeData.Radius);
+                foreach (var wall in destroyedWalls) wallSegments.Remove(wall);
                 Console.WriteLine($"Destroyed {destroyedWalls.Count} wall segments");
             }
 
-            // Créer des cratères
             if (grenadeData.DigsTerrain)
             {
-                List<Crater> newCraters = explosionManager.CreateCraters(
-                    center,
-                    grenadeData.DigDepth,
-                    grenadeData.Radius
-                );
-
+                List<Crater> newCraters = explosionManager.CreateCraters(center, grenadeData.DigDepth, grenadeData.Radius);
                 craters.AddRange(newCraters);
                 Console.WriteLine($"Created {newCraters.Count} craters");
             }
         }
 
-
         private void DrawThrowMode3D(GameTime gameTime)
         {
             if (!throwMode) return;
-
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.3f + 0.7f;
-
-            // Dessiner les cases où on peut lancer
             foreach (var cell in throwableCells)
             {
-                Vector3 position = new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
-                    0.2f,
-                    cell.Y * cellSize + cellSize / 2f
-                );
+                Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, 0.2f, cell.Y * cellSize + cellSize / 2f);
                 renderer3D.DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), Color.Yellow * 0.3f * pulse);
             }
-
-            // Dessiner la zone d'explosion prévisionnelle
             foreach (var cell in explosionPreview)
             {
-                Vector3 position = new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
-                    0.25f,
-                    cell.Y * cellSize + cellSize / 2f
-                );
+                Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, 0.25f, cell.Y * cellSize + cellSize / 2f);
                 renderer3D.DrawPlane(position, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), Color.Red * 0.5f * pulse);
             }
-
-            // Dessiner la trajectoire
             for (int i = 0; i < trajectoryPreview.Count - 1; i++)
             {
                 Vector3 a = trajectoryPreview[i];
                 Vector3 b = trajectoryPreview[i + 1];
-
                 float dist = Vector3.Distance(a, b);
                 int steps = Math.Max(1, (int)(dist / (cellSize * 0.05f)));
-
                 for (int s = 0; s <= steps; s++)
                 {
                     float t = s / (float)steps;
                     Vector3 p = Vector3.Lerp(a, b, t);
-
-                    renderer3D.DrawCube(
-                        p,
-                        new Vector3(cellSize * 0.08f),
-                        Color.White * 0.85f
-                    );
+                    renderer3D.DrawCube(p, new Vector3(cellSize * 0.08f), Color.White * 0.85f);
                 }
             }
-
-
-
         }
-
     }
 
     // ═══════════════════════════════════════════════════════════════════════
