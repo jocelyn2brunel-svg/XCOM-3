@@ -2425,8 +2425,27 @@ namespace XCOM_3
             // Dessiner la trajectoire
             for (int i = 0; i < trajectoryPreview.Count - 1; i++)
             {
-                renderer3D.DrawCube(trajectoryPreview[i], new Vector3(cellSize * 0.1f), Color.White * 0.7f);
+                Vector3 a = trajectoryPreview[i];
+                Vector3 b = trajectoryPreview[i + 1];
+
+                float dist = Vector3.Distance(a, b);
+                int steps = Math.Max(1, (int)(dist / (cellSize * 0.05f)));
+
+                for (int s = 0; s <= steps; s++)
+                {
+                    float t = s / (float)steps;
+                    Vector3 p = Vector3.Lerp(a, b, t);
+
+                    renderer3D.DrawCube(
+                        p,
+                        new Vector3(cellSize * 0.08f),
+                        Color.White * 0.85f
+                    );
+                }
             }
+
+
+
         }
 
     }
