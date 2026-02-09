@@ -78,9 +78,9 @@ namespace XCOM_3
         public Vector3 GetCurrentPosition()
         {
             Vector3 linearPos = Vector3.Lerp(Position, TargetPosition, Progress);
-            
+
             // Ajouter l'arc parabolique
-            float arcProgress = 1f - Math.Abs(Progress * 2f - 1f); // 0->1->0
+            float arcProgress = 4f * Progress * (1f - Progress);
             float height = arcProgress * ArcHeight;
             
             return linearPos + new Vector3(0, height, 0);
@@ -262,9 +262,9 @@ namespace XCOM_3
             {
                 float t = i / (float)numPoints;
                 Vector3 linearPos = Vector3.Lerp(start, end, t);
-                
+
                 // Arc parabolique
-                float arcProgress = 1f - Math.Abs(t * 2f - 1f);
+                float arcProgress = 4f * t * (1f - t);
                 float height = arcProgress * arcHeight;
                 
                 points.Add(linearPos + new Vector3(0, height, 0));
