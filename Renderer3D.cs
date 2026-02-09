@@ -2,392 +2,185 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace XCOM_3
 {
-    /// <summary>
-    /// Gère tout le rendu 3D : grille, murs, unités, effets
-    /// </summary>
     public class Renderer3D
     {
-        // ═══════════════════════════════════════════════════════════════════════
-        // EFFETS ET PRIMITIVES
-        // ═══════════════════════════════════════════════════════════════════════
-
-        private GraphicsDevice graphicsDevice;
-        private BasicEffect basicEffect;
-        private BasicEffect texturedEffect;
-
-        // Primitives géométriques
-        private VertexPositionColor[] cubeVertices;
-        private short[] cubeIndices;
-        private VertexPositionColor[] planeVertices;
-        private short[] planeIndices;
-        private VertexPositionNormalTexture[] planeTexturedVertices;
-        private short[] planeTexturedIndices;
-
-        // Modèle humanoïde
+        private GraphicsDevice gd;
+        private BasicEffect basic, textured;
+        private VertexPositionColor[] cubeVerts, planeVerts;
+        private short[] cubeIdx, planeIdx;
+        private VertexPositionNormalTexture[] texturedPlaneVerts;
+        private short[] texturedPlaneIdx;
         private HumanoidModelAdvanced humanoidModel;
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // CONSTRUCTEUR
-        // ═══════════════════════════════════════════════════════════════════════
 
         public Renderer3D(GraphicsDevice device)
         {
-            graphicsDevice = device;
-
-            InitializeEffects();
-            CreatePrimitives();
-
+            gd = device;
+            InitEffects();
+            InitPrimitives();
             humanoidModel = new HumanoidModelAdvanced();
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // INITIALISATION
-        // ═══════════════════════════════════════════════════════════════════════
-
-        private void InitializeEffects()
+        private void InitEffects()
         {
-            basicEffect = new BasicEffect(graphicsDevice);
-            basicEffect.VertexColorEnabled = true;
-            basicEffect.LightingEnabled = true;
-            basicEffect.EnableDefaultLighting();
-
-            texturedEffect = new BasicEffect(graphicsDevice);
-            texturedEffect.TextureEnabled = true;
-            texturedEffect.LightingEnabled = true;
-            texturedEffect.EnableDefaultLighting();
+            basic = new BasicEffect(gd) { VertexColorEnabled = true, LightingEnabled = true };
+            basic.EnableDefaultLighting();
+            textured = new BasicEffect(gd) { TextureEnabled = true, LightingEnabled = true };
+            textured.EnableDefaultLighting();
         }
 
-        private void CreatePrimitives()
+        private void InitPrimitives()
         {
-            CreateCubePrimitive();
-            CreatePlanePrimitive();
-            CreateTexturedPlanePrimitive();
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // CONFIGURATION DES MATRICES
-        // ═══════════════════════════════════════════════════════════════════════
-
-        public void SetMatrices(Matrix view, Matrix projection)
-        {
-            basicEffect.View = view;
-            basicEffect.Projection = projection;
-
-            texturedEffect.View = view;
-            texturedEffect.Projection = projection;
-        }
-
-        public void SetLighting(Color ambient, Color directional)
-        {
-            basicEffect.AmbientLightColor = ambient.ToVector3();
-            basicEffect.DirectionalLight0.DiffuseColor = directional.ToVector3();
-
-            texturedEffect.AmbientLightColor = ambient.ToVector3();
-            texturedEffect.DirectionalLight0.DiffuseColor = directional.ToVector3();
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // PRIMITIVES 3D
-        // ═══════════════════════════════════════════════════════════════════════
-
-        private void CreateCubePrimitive()
-        {
-            cubeVertices = new VertexPositionColor[8];
-
-            cubeVertices[0] = new VertexPositionColor(new Vector3(-0.5f, -0.5f, -0.5f), Color.White);
-            cubeVertices[1] = new VertexPositionColor(new Vector3(-0.5f, -0.5f, 0.5f), Color.White);
-            cubeVertices[2] = new VertexPositionColor(new Vector3(0.5f, -0.5f, 0.5f), Color.White);
-            cubeVertices[3] = new VertexPositionColor(new Vector3(0.5f, -0.5f, -0.5f), Color.White);
-            cubeVertices[4] = new VertexPositionColor(new Vector3(-0.5f, 0.5f, -0.5f), Color.White);
-            cubeVertices[5] = new VertexPositionColor(new Vector3(-0.5f, 0.5f, 0.5f), Color.White);
-            cubeVertices[6] = new VertexPositionColor(new Vector3(0.5f, 0.5f, 0.5f), Color.White);
-            cubeVertices[7] = new VertexPositionColor(new Vector3(0.5f, 0.5f, -0.5f), Color.White);
-
-            cubeIndices = new short[]
+            cubeVerts = new[]
             {
-                0, 1, 2, 0, 2, 3,
-                4, 6, 5, 4, 7, 6,
-                0, 4, 5, 0, 5, 1,
-                3, 2, 6, 3, 6, 7,
-                1, 5, 6, 1, 6, 2,
-                0, 3, 7, 0, 7, 4
+                new VertexPositionColor(new Vector3(-0.5f,-0.5f,-0.5f),Color.White),
+                new VertexPositionColor(new Vector3(-0.5f,-0.5f,0.5f),Color.White),
+                new VertexPositionColor(new Vector3(0.5f,-0.5f,0.5f),Color.White),
+                new VertexPositionColor(new Vector3(0.5f,-0.5f,-0.5f),Color.White),
+                new VertexPositionColor(new Vector3(-0.5f,0.5f,-0.5f),Color.White),
+                new VertexPositionColor(new Vector3(-0.5f,0.5f,0.5f),Color.White),
+                new VertexPositionColor(new Vector3(0.5f,0.5f,0.5f),Color.White),
+                new VertexPositionColor(new Vector3(0.5f,0.5f,-0.5f),Color.White)
             };
-        }
+            cubeIdx = new short[] { 0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1, 3, 2, 6, 3, 6, 7, 1, 5, 6, 1, 6, 2, 0, 3, 7, 0, 7, 4 };
 
-        private void CreatePlanePrimitive()
-        {
-            planeVertices = new VertexPositionColor[4];
-            planeVertices[0] = new VertexPositionColor(new Vector3(-0.5f, 0, -0.5f), Color.White);
-            planeVertices[1] = new VertexPositionColor(new Vector3(-0.5f, 0, 0.5f), Color.White);
-            planeVertices[2] = new VertexPositionColor(new Vector3(0.5f, 0, 0.5f), Color.White);
-            planeVertices[3] = new VertexPositionColor(new Vector3(0.5f, 0, -0.5f), Color.White);
-
-            planeIndices = new short[] { 0, 1, 2, 0, 2, 3 };
-        }
-
-        private void CreateTexturedPlanePrimitive()
-        {
-            planeTexturedVertices = new VertexPositionNormalTexture[4];
-
-            Vector3 normal = Vector3.Up;
-
-            planeTexturedVertices[0] = new VertexPositionNormalTexture(
-                new Vector3(-0.5f, 0, -0.5f), normal, new Vector2(0, 0));
-            planeTexturedVertices[1] = new VertexPositionNormalTexture(
-                new Vector3(-0.5f, 0, 0.5f), normal, new Vector2(0, 1));
-            planeTexturedVertices[2] = new VertexPositionNormalTexture(
-                new Vector3(0.5f, 0, 0.5f), normal, new Vector2(1, 1));
-            planeTexturedVertices[3] = new VertexPositionNormalTexture(
-                new Vector3(0.5f, 0, -0.5f), normal, new Vector2(1, 0));
-
-            planeTexturedIndices = new short[] { 0, 1, 2, 0, 2, 3 };
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // FONCTIONS DE DESSIN PRIMITIVES
-        // ═══════════════════════════════════════════════════════════════════════
-
-        public void DrawCube(Vector3 position, Vector3 scale, Color color)
-        {
-            VertexPositionColor[] coloredVertices = new VertexPositionColor[8];
-            for (int i = 0; i < 8; i++)
+            planeVerts = new[]
             {
-                coloredVertices[i] = new VertexPositionColor(cubeVertices[i].Position, color);
+                new VertexPositionColor(new Vector3(-0.5f,0,-0.5f),Color.White),
+                new VertexPositionColor(new Vector3(-0.5f,0,0.5f),Color.White),
+                new VertexPositionColor(new Vector3(0.5f,0,0.5f),Color.White),
+                new VertexPositionColor(new Vector3(0.5f,0,-0.5f),Color.White)
+            };
+            planeIdx = new short[] { 0, 1, 2, 0, 2, 3 };
+
+            Vector3 n = Vector3.Up;
+            texturedPlaneVerts = new[]
+            {
+                new VertexPositionNormalTexture(new Vector3(-0.5f,0,-0.5f), n, new Vector2(0,0)),
+                new VertexPositionNormalTexture(new Vector3(-0.5f,0,0.5f), n, new Vector2(0,1)),
+                new VertexPositionNormalTexture(new Vector3(0.5f,0,0.5f), n, new Vector2(1,1)),
+                new VertexPositionNormalTexture(new Vector3(0.5f,0,-0.5f), n, new Vector2(1,0))
+            };
+            texturedPlaneIdx = planeIdx;
+        }
+
+        public void SetMatrices(Matrix view, Matrix proj)
+        {
+            foreach (var e in new[] { basic, textured }) { e.View = view; e.Projection = proj; }
+        }
+
+        public void SetLighting(Color ambient, Color dir)
+        {
+            foreach (var e in new[] { basic, textured })
+            {
+                e.AmbientLightColor = ambient.ToVector3();
+                e.DirectionalLight0.DiffuseColor = dir.ToVector3();
             }
+        }
 
-            Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
-            basicEffect.World = world;
-
-            foreach (EffectPass pass in basicEffect.CurrentTechnique.Passes)
+        private void DrawVertices(VertexPositionColor[] verts, short[] idx, Matrix world)
+        {
+            basic.World = world;
+            foreach (var pass in basic.CurrentTechnique.Passes)
             {
                 pass.Apply();
-                graphicsDevice.DrawUserIndexedPrimitives(
-                    PrimitiveType.TriangleList,
-                    coloredVertices,
-                    0,
-                    8,
-                    cubeIndices,
-                    0,
-                    12
-                );
+                gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, verts.Length, idx, 0, idx.Length / 3);
             }
         }
 
-        public void DrawPlane(Vector3 position, Vector3 scale, Color color)
+        public void DrawCube(Vector3 pos, Vector3 scale, Color color)
         {
-            VertexPositionColor[] coloredVertices = new VertexPositionColor[4];
-            for (int i = 0; i < 4; i++)
-            {
-                coloredVertices[i] = new VertexPositionColor(planeVertices[i].Position, color);
-            }
+            var verts = cubeVerts.Select(v => new VertexPositionColor(v.Position, color)).ToArray();
+            DrawVertices(verts, cubeIdx, Matrix.CreateScale(scale) * Matrix.CreateTranslation(pos));
+        }
 
-            Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
-            basicEffect.World = world;
+        public void DrawPlane(Vector3 pos, Vector3 scale, Color color)
+        {
+            var verts = planeVerts.Select(v => new VertexPositionColor(v.Position, color)).ToArray();
+            DrawVertices(verts, planeIdx, Matrix.CreateScale(scale) * Matrix.CreateTranslation(pos));
+        }
 
-            foreach (EffectPass pass in basicEffect.CurrentTechnique.Passes)
-            {
+        public void DrawTexturedPlane(Vector3 pos, Vector3 scale, Texture2D tex)
+        {
+            textured.World = Matrix.CreateScale(scale) * Matrix.CreateTranslation(pos);
+            textured.Texture = tex;
+            foreach (var pass in textured.CurrentTechnique.Passes)
                 pass.Apply();
-                graphicsDevice.DrawUserIndexedPrimitives(
-                    PrimitiveType.TriangleList,
-                    coloredVertices,
-                    0,
-                    4,
-                    planeIndices,
-                    0,
-                    2
-                );
-            }
+            gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, texturedPlaneVerts, 0, 4, texturedPlaneIdx, 0, 2);
         }
 
-        public void DrawTexturedPlane(Vector3 position, Vector3 scale, Texture2D texture)
+        public void DrawGrid(int w, int h, int size, Texture2D tex)
         {
-            Matrix world = Matrix.CreateScale(scale) * Matrix.CreateTranslation(position);
-            texturedEffect.World = world;
-            texturedEffect.Texture = texture;
-
-            foreach (EffectPass pass in texturedEffect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                graphicsDevice.DrawUserIndexedPrimitives(
-                    PrimitiveType.TriangleList,
-                    planeTexturedVertices,
-                    0,
-                    4,
-                    planeTexturedIndices,
-                    0,
-                    2
-                );
-            }
+            for (int x = 0; x < w; x++) for (int z = 0; z < h; z++)
+                    DrawTexturedPlane(new Vector3(x * size + size / 2f, 0, z * size + size / 2f),
+                                      new Vector3(size * 0.95f, 1, size * 0.95f), tex);
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
-        // RENDU DE SCÈNE
-        // ═══════════════════════════════════════════════════════════════════════
-
-        public void DrawGrid(int gridWidth, int gridHeight, int cellSize, Texture2D tileTexture)
+        public void DrawWalls(HashSet<WallSegment> walls, int size)
         {
-            for (int x = 0; x < gridWidth; x++)
+            foreach (var s in walls)
             {
-                for (int z = 0; z < gridHeight; z++)
-                {
-                    Vector3 position = new Vector3(x * cellSize + cellSize / 2f, 0, z * cellSize + cellSize / 2f);
-                    DrawTexturedPlane(position, new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f), tileTexture);
-                }
-            }
-        }
-
-        public void DrawWalls(HashSet<WallSegment> wallSegments, int cellSize)
-        {
-            foreach (var segment in wallSegments)
-            {
-                Vector3 start3D, end3D;
-
-                if (segment.IsHorizontal)
-                {
-                    start3D = new Vector3(
-                        segment.Start.X * cellSize,
-                        cellSize * 0.75f,
-                        segment.Start.Y * cellSize
-                    );
-                    end3D = new Vector3(
-                        segment.End.X * cellSize,
-                        cellSize * 0.75f,
-                        segment.End.Y * cellSize
-                    );
-                }
-                else
-                {
-                    start3D = new Vector3(
-                        segment.Start.X * cellSize,
-                        cellSize * 0.75f,
-                        segment.Start.Y * cellSize
-                    );
-                    end3D = new Vector3(
-                        segment.End.X * cellSize,
-                        cellSize * 0.75f,
-                        segment.End.Y * cellSize
-                    );
-                }
-
-                Vector3 center = (start3D + end3D) / 2f;
-
-                Vector3 scale;
-                if (segment.IsHorizontal)
-                {
-                    scale = new Vector3(cellSize, cellSize * 1.5f, cellSize * 0.1f);
-                }
-                else
-                {
-                    scale = new Vector3(cellSize * 0.1f, cellSize * 1.5f, cellSize);
-                }
-
+                Vector3 start = new(s.Start.X * size, size * 0.75f, s.Start.Y * size);
+                Vector3 end = new(s.End.X * size, size * 0.75f, s.End.Y * size);
+                Vector3 center = (start + end) / 2f;
+                Vector3 scale = s.IsHorizontal ? new Vector3(size, size * 1.5f, size * 0.1f)
+                                               : new Vector3(size * 0.1f, size * 1.5f, size);
                 DrawCube(center, scale, new Color(120, 120, 120));
             }
         }
 
-        public void DrawUnit(Unit unit, int cellSize)
+        public void DrawUnit(Unit u, int size)
         {
-            Vector3 basePosition = new Vector3(
-                unit.Cell.X * cellSize + cellSize / 2f,
-                0,
-                unit.Cell.Y * cellSize + cellSize / 2f
-            );
+            Vector3 pos = new Vector3(u.Cell.X * size + size / 2f, 0, u.Cell.Y * size + size / 2f);
+            Vector3 offset = Vector3.Zero;
 
-            Vector3 visualOffset = Vector3.Zero;
-
-            // Animation de tir
-            if (unit.IsFiring && unit.FireTarget.HasValue)
+            if (u.IsFiring && u.FireTarget.HasValue)
             {
-                Vector3 targetPos = new Vector3(
-                    unit.FireTarget.Value.X * cellSize + cellSize / 2f,
-                    cellSize * 0.75f,
-                    unit.FireTarget.Value.Y * cellSize + cellSize / 2f
-                );
-
-                if (unit.Weapon == "Zombie Claws")
+                Vector3 target = new(u.FireTarget.Value.X * size + size / 2f, size * 0.75f, u.FireTarget.Value.Y * size + size / 2f);
+                if (u.Weapon == "Zombie Claws")
                 {
-                    Vector3 chargeVector = targetPos - basePosition;
-                    float t = unit.FireProgress;
-
-                    if (t < 0.5f)
-                    {
-                        float forwardT = t / 0.5f;
-                        visualOffset = Vector3.Lerp(Vector3.Zero, chargeVector, forwardT);
-                    }
-                    else
-                    {
-                        float returnT = (t - 0.5f) / 0.5f;
-                        visualOffset = Vector3.Lerp(chargeVector, Vector3.Zero, returnT);
-                    }
+                    float t = u.FireProgress;
+                    Vector3 delta = target - pos;
+                    offset = t < 0.5f ? Vector3.Lerp(Vector3.Zero, delta, t / 0.5f)
+                                 : Vector3.Lerp(delta, Vector3.Zero, (t - 0.5f) / 0.5f);
                 }
-                else
-                {
-                    Vector3 projectilePos = Vector3.Lerp(basePosition, targetPos, unit.FireProgress);
-                    DrawCube(projectilePos, new Vector3(cellSize * 0.2f), Color.Yellow);
-                }
+                else DrawCube(Vector3.Lerp(pos, target, u.FireProgress), new Vector3(size * 0.2f), Color.Yellow);
             }
 
-            Vector3 finalPos = basePosition + visualOffset;
-            Color unitColor = unit.Team == Team.Player ? Color.Blue : Color.Red;
-
-            // Déterminer le type d'unité
-            HumanoidModelAdvanced.UnitType unitType = HumanoidModelAdvanced.UnitType.Soldier;
-
-            if (unit.Class == "Assault" || unit.Class == "Infantry")
-                unitType = HumanoidModelAdvanced.UnitType.Soldier;
-            else if (unit.Class == "Heavy")
-                unitType = HumanoidModelAdvanced.UnitType.Heavy;
-            else if (unit.Class == "Scout")
-                unitType = HumanoidModelAdvanced.UnitType.Scout;
-            else if (unit.Class == "Undead")
-                unitType = HumanoidModelAdvanced.UnitType.Zombie;
-            else if (unit.Team == Team.Enemy && unit.Name.Contains("Alien"))
-                unitType = HumanoidModelAdvanced.UnitType.Alien;
-
-            humanoidModel.Draw(graphicsDevice, basicEffect, finalPos, unitColor,
-                              cellSize * 0.8f, unitType, unit.Orientation,
-                              unit.LegSwing, unit.ArmSwing, unit.BodyBob, unit.IdleBobOffset);
-        }
-
-        public void DrawSelectionIndicator(Unit unit, int cellSize, Color color, float scale = 1.1f)
-        {
-            Vector3 position = new Vector3(
-                unit.Cell.X * cellSize + cellSize / 2f,
-                0.05f,
-                unit.Cell.Y * cellSize + cellSize / 2f
-            );
-
-            DrawPlane(position, new Vector3(cellSize * scale, 1, cellSize * scale), color);
-        }
-
-        public void DrawCraters(List<Crater> craters, int cellSize)
-        {
-            foreach (var crater in craters)
+            Color col = u.Team == Team.Player ? Color.Blue : Color.Red;
+            var type = u.Class switch
             {
-                Vector3 position = new Vector3(
-                    crater.Cell.X * cellSize + cellSize / 2f,
-                    -crater.Depth * 0.2f,
-                    crater.Cell.Y * cellSize + cellSize / 2f
-                );
+                "Heavy" => HumanoidModelAdvanced.UnitType.Heavy,
+                "Scout" => HumanoidModelAdvanced.UnitType.Scout,
+                "Undead" => HumanoidModelAdvanced.UnitType.Zombie,
+                "Assault" or "Infantry" => HumanoidModelAdvanced.UnitType.Soldier,
+                _ => u.Team == Team.Enemy && u.Name.Contains("Alien") ? HumanoidModelAdvanced.UnitType.Alien
+                     : HumanoidModelAdvanced.UnitType.Soldier
+            };
+            humanoidModel.Draw(gd, basic, pos + offset, col, size * 0.8f, type, u.Orientation, u.LegSwing, u.ArmSwing, u.BodyBob, u.IdleBobOffset);
+        }
 
-                Color craterColor = new Color(60, 50, 40) * (0.5f + crater.Depth * 0.15f);
+        public void DrawSelectionIndicator(Unit u, int size, Color c, float scale = 1.1f) =>
+            DrawPlane(new Vector3(u.Cell.X * size + size / 2f, 0.05f, u.Cell.Y * size + size / 2f),
+                      new Vector3(size * scale, 1, size * scale), c);
 
-                DrawPlane(position,
-                         new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f),
-                         craterColor);
+        public void DrawCraters(List<Crater> craters, int size)
+        {
+            foreach (var cr in craters)
+            {
+                Color col = new Color(60, 50, 40) * (0.5f + cr.Depth * 0.15f);
+                DrawPlane(new Vector3(cr.Cell.X * size + size / 2f, -cr.Depth * 0.2f, cr.Cell.Y * size + size / 2f),
+                          new Vector3(size * 0.9f, 1, size * 0.9f), col);
             }
         }
 
-        public void DrawGrenades(List<Grenade> grenades, int cellSize)
+        public void DrawGrenades(List<Grenade> grenades, int size)
         {
-            foreach (var grenade in grenades)
-            {
-                Color grenadeColor = GrenadeDatabase.GetGrenadeColor(grenade.Data.Type);
-                DrawCube(grenade.Position, new Vector3(cellSize * 0.2f), grenadeColor);
-            }
+            foreach (var g in grenades)
+                DrawCube(g.Position, new Vector3(size * 0.2f), GrenadeDatabase.GetGrenadeColor(g.Data.Type));
         }
     }
 }
