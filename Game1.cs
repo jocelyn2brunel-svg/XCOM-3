@@ -156,72 +156,37 @@ namespace XCOM_3
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             font = Content.Load<SpriteFont>("Arial");
-
-            pixel = new Texture2D(GraphicsDevice, 1, 1);
-            pixel.SetData(new[] { Color.White });
-
+            pixel = new Texture2D(GraphicsDevice, 1, 1); pixel.SetData(new[] { Color.White });
             tileTexture = Content.Load<Texture2D>("TileParchment32x32");
 
             renderer3D = new Renderer3D(GraphicsDevice);
-            camera = new CameraController(
-                gridWidth,
-                gridHeight,
-                cellSize,
-                GraphicsDevice.Viewport.AspectRatio
-            );
-
+            camera = new CameraController(gridWidth, gridHeight, cellSize, GraphicsDevice.Viewport.AspectRatio);
             inventorySystem = new InventorySystem(GraphicsDevice, _spriteBatch, font, pixel);
-
-
             unitManager = new OptimizedUnitManager();
 
-            pathfinding = new PathfindingSystem(
-                gridWidth,
-                gridHeight,
-                new HashSet<WallSegment>(), // ici tes murs
-                GetUnitAtCell              // ← c’est ça qu’il faut
-            );
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, new HashSet<WallSegment>(), GetUnitAtCell);
 
-
-            // ✅ NOUVEAU : Initialiser les systèmes de combat
             combatSystem = new CombatSystem(random, pathfinding, GetUnitAtCell, unitManager);
             combatUI = new CombatUISystem(GraphicsDevice, _spriteBatch, font, pixel);
-
-            // ✅ Connecter les events
             combatSystem.OnUnitKilled += HandleUnitKilled;
             combatSystem.OnFireCompleted += HandleFireCompleted;
 
-            menuButtons = CreateMenu(
-                new[] { "New Game", "Continue", "Encyclopedia", "Options", "Quit" }, 100);
-
-            missionButtons = CreateMenu(
-                new[] { "Tutorial", "Survival", "Assault", "Defense", "Back" }, 100);
-
-            encyclopediaButtons = CreateMenu(
-                new[] { "Armes", "Armures", "Unités", "Retour" }, 100);
+            menuButtons = CreateMenu(new[] { "New Game", "Continue", "Encyclopedia", "Options", "Quit" }, 100);
+            missionButtons = CreateMenu(new[] { "Tutorial", "Survival", "Assault", "Defense", "Back" }, 100);
+            encyclopediaButtons = CreateMenu(new[] { "Armes", "Armures", "Unités", "Retour" }, 100);
 
             optionsButtons = new List<Button>
-            {
-            new("Music Volume +", new Vector2(0, 100)),
-            new("Music Volume -", new Vector2(0, 156)),
-            new("Back",           new Vector2(0, 184))
-            };
-
+    {
+        new("Music Volume +", new Vector2(0,100)),
+        new("Music Volume -", new Vector2(0,156)),
+        new("Back", new Vector2(0,184))
+    };
             volumeBar = new Rectangle(0, 134, 200, 8);
 
-            menuSongs = new[]
-            {
-            "menu_music_1",
-            "menu_music_2",
-            "menu_music_3",
-            "menu_music_4"
-            }
-            .Select(Content.Load<Song>)
-            .ToList();
-
+            menuSongs = new[] { "menu_music_1", "menu_music_2", "menu_music_3", "menu_music_4" }
+                .Select(Content.Load<Song>).ToList();
             currentSong = menuSongs[random.Next(menuSongs.Count)];
-            MediaPlayer.Play(currentSong);
-            MediaPlayer.Volume = 0.5f;
+            MediaPlayer.Play(currentSong); MediaPlayer.Volume = 0.5f;
 
             Window.ClientSizeChanged += (_, _) =>
             {
@@ -231,14 +196,12 @@ namespace XCOM_3
 
             InitializeWeapons();
             InitializeGrenades();
-
             explosionManager = new ExplosionManager(random);
             edgeWallGenerator = new EdgeWallGenerator(random);
             humanoidBatcher = new HumanoidBatchRenderer();
 
             Console.WriteLine("[OPTIMIZATION] Batch renderer and spatial hash initialized");
         }
-
 
         protected override void Update(GameTime gameTime)
         {
@@ -247,8 +210,7 @@ namespace XCOM_3
             ReadInputs(out bool leftClick, out bool escapePressed, out bool iPressed,
                        out MouseState mouse, out KeyboardState keyboard);
 
-            if (iPressed && currentState == GameState.Playing &&
-                selectedUnit?.Team == Team.Player)
+            if (iPressed && currentState == GameState.Playing && selectedUnit?.Team == Team.Player)
                 showInventory = !showInventory;
 
             UpdateGrenades(gameTime);
@@ -256,33 +218,12 @@ namespace XCOM_3
 
             switch (currentState)
             {
-                case GameState.MainMenu:
-                    HandleMainMenu(mouse);
-                    break;
-
-                case GameState.MissionSelect:
-                    HandleMissionSelect(mouse);
-                    if (escapePressed) currentState = GameState.MainMenu;
-                    break;
-
-                case GameState.Playing:
-                    UpdatePlaying(gameTime, mouse, keyboard, leftClick, escapePressed);
-                    break;
-
-                case GameState.OptionsMenu:
-                    HandleOptionsMenu(mouse);
-                    if (escapePressed) currentState = GameState.MainMenu;
-                    break;
-
-                case GameState.Encyclopedia:
-                    HandleEncyclopedia(mouse);
-                    if (escapePressed) currentState = GameState.MainMenu;
-                    break;
-
-                case GameState.GameOver:
-                    if (escapePressed || leftClick)
-                        currentState = GameState.MainMenu;
-                    break;
+                case GameState.MainMenu: HandleMainMenu(mouse); break;
+                case GameState.MissionSelect: HandleMissionSelect(mouse); if (escapePressed) currentState = GameState.MainMenu; break;
+                case GameState.Playing: UpdatePlaying(gameTime, mouse, keyboard, leftClick, escapePressed); break;
+                case GameState.OptionsMenu: HandleOptionsMenu(mouse); if (escapePressed) currentState = GameState.MainMenu; break;
+                case GameState.Encyclopedia: HandleEncyclopedia(mouse); if (escapePressed) currentState = GameState.MainMenu; break;
+                case GameState.GameOver: if (escapePressed || leftClick) currentState = GameState.MainMenu; break;
             }
 
             previousMouseState = mouse;
@@ -293,43 +234,28 @@ namespace XCOM_3
 
         private void HandleUnitKilled(Unit unit)
         {
-            if (unit.Team == Team.Player)
-            {
-                playerUnits.Remove(unit);
-                if (playerUnits.Count == 0)
-                    currentState = GameState.GameOver;
-            }
-            else
-            {
-                enemyUnits.Remove(unit);
-            }
+            if (unit.Team == Team.Player) { playerUnits.Remove(unit); if (playerUnits.Count == 0) currentState = GameState.GameOver; }
+            else enemyUnits.Remove(unit);
             unitManager.OnUnitDied(unit);
         }
 
         private void HandleFireCompleted()
         {
             if (selectedUnit != null && selectedUnit.Team == Team.Player)
-            {
-                var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
-                combatUI.UpdateFireTargets(selectedUnit, validTargets);
-            }
+                combatUI.UpdateFireTargets(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit));
         }
 
         private void UpdateFPS(GameTime gameTime)
         {
             fpsElapsedTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
             frameCount++;
-
-            if (fpsElapsedTime >= 1.0f)
+            if (fpsElapsedTime >= 1f)
             {
                 currentFPS = frameCount / fpsElapsedTime;
-                frameCount = 0;
-                fpsElapsedTime = 0f;
-
+                frameCount = 0; fpsElapsedTime = 0f;
                 Console.WriteLine($"FPS: {currentFPS:F1}");
             }
         }
-
 
         private void ReturnToMainMenuWithSave()
         {
@@ -339,9 +265,8 @@ namespace XCOM_3
             currentState = GameState.MainMenu;
         }
 
-
         private void UpdatePlaying(GameTime gameTime, MouseState mouse, KeyboardState keyboard,
-                           bool leftClick, bool escapePressed)
+            bool leftClick, bool escapePressed)
         {
             if (showInventory)
             {
@@ -351,129 +276,67 @@ namespace XCOM_3
             }
 
             UpdateUnitAnimations(gameTime);
-            if (combatSystem.CurrentTurn == TurnState.PlayerTurn)
-                HandlePlayerTurn(mouse, leftClick, keyboard);
-            else if (combatSystem.CurrentTurn == TurnState.EnemyTurn)
-                combatSystem.UpdateEnemyTurn(cellSize);
+            if (combatSystem.CurrentTurn == TurnState.PlayerTurn) HandlePlayerTurn(mouse, leftClick, keyboard);
+            else if (combatSystem.CurrentTurn == TurnState.EnemyTurn) combatSystem.UpdateEnemyTurn(cellSize);
 
             combatSystem.UpdateFiringAnimations(gameTime);
-
             camera.HandleControls(keyboard, mouse, previousMouseState, gameTime);
-
-            combatSystem.UpdateFiringAnimations(gameTime);
             UpdateDayNightCycle(gameTime);
 
-            if (escapePressed)
-                ReturnToMainMenuWithSave();
+            if (escapePressed) ReturnToMainMenuWithSave();
         }
 
-
         private void ReadInputs(out bool leftClick, out bool escapePressed, out bool iPressed,
-                        out MouseState mouse, out KeyboardState keyboard)
+            out MouseState mouse, out KeyboardState keyboard)
         {
             mouse = Mouse.GetState();
             keyboard = Keyboard.GetState();
 
-            leftClick = mouse.LeftButton == ButtonState.Pressed &&
-                        previousMouseState.LeftButton == ButtonState.Released;
-
-            escapePressed = keyboard.IsKeyDown(Keys.Escape) &&
-                            previousKeyboardState.IsKeyUp(Keys.Escape);
-
-            iPressed = keyboard.IsKeyDown(Keys.I) &&
-                       previousKeyboardState.IsKeyUp(Keys.I);
+            leftClick = mouse.LeftButton == ButtonState.Pressed && previousMouseState.LeftButton == ButtonState.Released;
+            escapePressed = keyboard.IsKeyDown(Keys.Escape) && previousKeyboardState.IsKeyUp(Keys.Escape);
+            iPressed = keyboard.IsKeyDown(Keys.I) && previousKeyboardState.IsKeyUp(Keys.I);
         }
 
-        // ✅ NOUVELLE MÉTHODE : Vérifier l'appui sur TAB
-        private bool IsTabPressed(KeyboardState keyboard)
-        {
-            return keyboard.IsKeyDown(Keys.Tab) &&
-                   previousKeyboardState.IsKeyUp(Keys.Tab);
-        }
+        private bool IsTabPressed(KeyboardState keyboard) =>
+            keyboard.IsKeyDown(Keys.Tab) && previousKeyboardState.IsKeyUp(Keys.Tab);
 
-        /// <summary>
-        /// Sélectionne la prochaine unité joueur qui a encore des PA
-        /// et centre la caméra dessus
-        /// </summary>
         private void SelectNextActiveUnit()
         {
-            if (playerUnits.Count == 0)
-                return;
+            if (playerUnits.Count == 0) return;
 
-            // Trouver toutes les unités avec des PA restants
             var availableUnits = playerUnits
                 .Where(u => u.ActionPoints > 0)
-                .OrderBy(u => u.Cell.Y) // Trier par position Y (de haut en bas)
-                .ThenBy(u => u.Cell.X)  // Puis par X (de gauche à droite)
+                .OrderBy(u => u.Cell.Y).ThenBy(u => u.Cell.X)
                 .ToList();
 
-            if (availableUnits.Count == 0)
-            {
-                Console.WriteLine("[TAB] Aucune unité avec des PA disponibles");
-                return;
-            }
+            if (availableUnits.Count == 0) { Console.WriteLine("[TAB] Aucune unité avec des PA disponibles"); return; }
 
-            // Trouver l'index de l'unité actuellement sélectionnée
-            int currentIndex = -1;
-            if (selectedUnit != null)
-            {
-                currentIndex = availableUnits.IndexOf(selectedUnit);
-            }
+            int currentIndex = selectedUnit != null ? availableUnits.IndexOf(selectedUnit) : -1;
+            selectedUnit = availableUnits[(currentIndex + 1) % availableUnits.Count];
 
-            // Passer à la suivante (cyclique)
-            int nextIndex = (currentIndex + 1) % availableUnits.Count;
-            Unit nextUnit = availableUnits[nextIndex];
-
-            // Sélectionner l'unité
-            selectedUnit = nextUnit;
-
-            // Mettre à jour les cellules déplaçables
             if (pathfinding != null)
             {
                 cachedMovableCells = pathfinding.GetMovableCells(selectedUnit);
-                // Correct
-                var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
-                combatUI.UpdateFireTargets(selectedUnit, validTargets);
+                combatUI.UpdateFireTargets(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit));
             }
 
-            // ✅ CENTRER LA CAMÉRA SUR L'UNITÉ
             CenterCameraOnUnit(selectedUnit);
-
             Console.WriteLine($"[TAB] Sélection: {selectedUnit.Name} (PA: {selectedUnit.ActionPoints})");
         }
 
-        /// <summary>
-        /// Centre la caméra sur une unité avec animation smooth
-        /// </summary>
         private void CenterCameraOnUnit(Unit unit)
         {
-            if (unit == null || camera == null)
-                return;
-
-            // Calculer la position cible de la caméra
-            float targetX = unit.Cell.X * cellSize;
-            float targetZ = unit.Cell.Y * cellSize;
-
-            // Centrer la caméra sur cette position
-            camera.CenterOnPosition(targetX, targetZ);
+            if (unit == null || camera == null) return;
+            camera.CenterOnPosition(unit.Cell.X * cellSize, unit.Cell.Y * cellSize);
         }
 
-        private List<Button> CreateMenu(string[] labels, int startY, int step = 28)
-        {
-            return labels
-                .Select((text, i) => new Button(text, new Vector2(0, startY + i * step)))
-                .ToList();
-        }
-
+        private List<Button> CreateMenu(string[] labels, int startY, int step = 28) =>
+            labels.Select((t, i) => new Button(t, new Vector2(0, startY + i * step))).ToList();
 
         private void UpdateUnitAnimations(GameTime gameTime)
         {
-            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            foreach (var unit in AllUnits())
-            {
-                unit.UpdateAnimation(deltaTime);
-            }
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            foreach (var unit in AllUnits()) unit.UpdateAnimation(dt);
         }
 
         private void UpdateDayNightCycle(GameTime gameTime)
@@ -483,19 +346,8 @@ namespace XCOM_3
 
             float sunIntensity = CalculateSunIntensity(timeOfDay);
 
-            ambientLight = new Color(
-                sunIntensity * 0.8f,
-                sunIntensity * 0.85f,
-                sunIntensity
-            );
-
-            directionalLight = new Color(
-                sunIntensity,
-                sunIntensity * 0.95f,
-                sunIntensity * 0.9f
-            );
-            // L'éclairage sera appliqué dans Draw() via renderer3D.SetLighting()
-
+            ambientLight = new Color(sunIntensity * 0.8f, sunIntensity * 0.85f, sunIntensity);
+            directionalLight = new Color(sunIntensity, sunIntensity * 0.95f, sunIntensity * 0.9f);
         }
 
         private void HandleEncyclopedia(MouseState mouse)
@@ -504,96 +356,45 @@ namespace XCOM_3
                 if (btn.IsClicked(mouse, previousMouseState))
                     switch (btn.Text)
                     {
-                        case "Armes":
-                            encyclopediaCategory = "Weapons";
-                            Console.WriteLine("Affichage des armes");
-                            break;
-
-                        case "Armures":
-                            encyclopediaCategory = "Armor";
-                            Console.WriteLine("Affichage des armures");
-                            break;
-
-                        case "Unités":
-                            encyclopediaCategory = "Units";
-                            Console.WriteLine("Affichage des unités");
-                            break;
-
-                        case "Retour":
-                            currentState = GameState.MainMenu;
-                            break;
+                        case "Armes": encyclopediaCategory = "Weapons"; Console.WriteLine("Affichage des armes"); break;
+                        case "Armures": encyclopediaCategory = "Armor"; Console.WriteLine("Affichage des armures"); break;
+                        case "Unités": encyclopediaCategory = "Units"; Console.WriteLine("Affichage des unités"); break;
+                        case "Retour": currentState = GameState.MainMenu; break;
                     }
         }
 
         private float CalculateSunIntensity(float time)
         {
-            float intensity;
-
-            if (time < 0.25f)
-            {
-                intensity = MathHelper.Lerp(0.3f, 0.7f, time / 0.25f);
-            }
-            else if (time < 0.5f)
-            {
-                intensity = MathHelper.Lerp(0.7f, 1.0f, (time - 0.25f) / 0.25f);
-            }
-            else if (time < 0.75f)
-            {
-                intensity = MathHelper.Lerp(1.0f, 0.7f, (time - 0.5f) / 0.25f);
-            }
-            else
-            {
-                intensity = MathHelper.Lerp(0.7f, 0.3f, (time - 0.75f) / 0.25f);
-            }
-
-            return intensity;
+            if (time < 0.25f) return MathHelper.Lerp(0.3f, 0.7f, time / 0.25f);
+            else if (time < 0.5f) return MathHelper.Lerp(0.7f, 1.0f, (time - 0.25f) / 0.25f);
+            else if (time < 0.75f) return MathHelper.Lerp(1.0f, 0.7f, (time - 0.5f) / 0.25f);
+            else return MathHelper.Lerp(0.7f, 0.3f, (time - 0.75f) / 0.25f);
         }
 
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(GetSkyColor(timeOfDay));
-
-            if (currentState == GameState.Playing)
-                DrawWorld3D(gameTime);
+            if (currentState == GameState.Playing) DrawWorld3D(gameTime);
 
             _spriteBatch.Begin();
 
             switch (currentState)
             {
                 case GameState.MainMenu:
-                    DrawTitle("XCOM 3");
-                    DrawButtons(menuButtons);
-                    break;
-
+                    DrawTitle("XCOM 3"); DrawButtons(menuButtons); break;
                 case GameState.MissionSelect:
-                    DrawTitle("Select Mission");
-                    DrawButtons(missionButtons);
-                    break;
-
+                    DrawTitle("Select Mission"); DrawButtons(missionButtons); break;
                 case GameState.Playing:
-                    if (showInventory)
-                        inventorySystem.Draw(selectedUnit);
-                    else
-                        DrawPlayingUI();
+                    if (showInventory) inventorySystem.Draw(selectedUnit);
+                    else DrawPlayingUI();
                     break;
-
                 case GameState.OptionsMenu:
-                    DrawTitle("Options");
-                    DrawButtons(optionsButtons);
-                    DrawVolumeControls();
-                    break;
-
-                case GameState.Encyclopedia:
-                    DrawEncyclopedia();
-                    break;
-
-                case GameState.GameOver:
-                    DrawGameOver();
-                    break;
+                    DrawTitle("Options"); DrawButtons(optionsButtons); DrawVolumeControls(); break;
+                case GameState.Encyclopedia: DrawEncyclopedia(); break;
+                case GameState.GameOver: DrawGameOver(); break;
             }
 
             DrawOverlay();
-
             _spriteBatch.End();
             base.Draw(gameTime);
         }
@@ -601,9 +402,7 @@ namespace XCOM_3
         private void DrawButtons(List<Button> buttons)
         {
             MouseState mouse = Mouse.GetState();
-
-            foreach (var button in buttons)
-                button.Draw(_spriteBatch, font, mouse);
+            foreach (var button in buttons) button.Draw(_spriteBatch, font, mouse);
         }
 
         private void DrawVolumeControls()
@@ -613,77 +412,39 @@ namespace XCOM_3
             _spriteBatch.Draw(pixel, volumeHandle, Color.White);
         }
 
-
         private void DrawTitle(string text)
         {
-            _spriteBatch.DrawString(
-                font,
-                text,
-                Vector2.Zero,
-                Color.White,
-                0f,
-                Vector2.Zero,
-                3f,
-                SpriteEffects.None,
-                0f
-            );
+            _spriteBatch.DrawString(font, text, Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
         }
-
 
         private void DrawGameOver()
         {
-            _spriteBatch.Draw(
-                pixel,
-                new Rectangle(0, 0,
-                    GraphicsDevice.Viewport.Width,
-                    GraphicsDevice.Viewport.Height),
-                new Color(100, 0, 0, 180));
+            _spriteBatch.Draw(pixel, new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height), new Color(100, 0, 0, 180));
 
             string title = "GAME OVER";
             Vector2 size = font.MeasureString(title);
-
-            Vector2 pos = new(
-                (GraphicsDevice.Viewport.Width - size.X * 4f) / 2,
-                GraphicsDevice.Viewport.Height / 2 - 100);
-
-            _spriteBatch.DrawString(
-                font, title, pos,
-                Color.Red, 0f, Vector2.Zero,
-                4f, SpriteEffects.None, 0f);
+            Vector2 pos = new((GraphicsDevice.Viewport.Width - size.X * 4f) / 2, GraphicsDevice.Viewport.Height / 2 - 100);
+            _spriteBatch.DrawString(font, title, pos, Color.Red, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0f);
 
             string hint = "Appuyez sur ESC ou cliquez pour retourner au menu";
             Vector2 hintSize = font.MeasureString(hint);
-
-            Vector2 hintPos = new(
-                (GraphicsDevice.Viewport.Width - hintSize.X) / 2,
-                GraphicsDevice.Viewport.Height / 2 + 50);
-
+            Vector2 hintPos = new((GraphicsDevice.Viewport.Width - hintSize.X) / 2, GraphicsDevice.Viewport.Height / 2 + 50);
             _spriteBatch.DrawString(font, hint, hintPos, Color.White);
         }
-
 
         private void DrawOverlay()
         {
             string fpsText = $"FPS: {currentFPS:F0}";
             Vector2 fpsSize = font.MeasureString(fpsText);
             int screenWidth = GraphicsDevice.Viewport.Width;
-
-            Vector2 fpsPos = new(
-                screenWidth - fpsSize.X - 10,
-                10);
-
+            Vector2 fpsPos = new(screenWidth - fpsSize.X - 10, 10);
             _spriteBatch.DrawString(font, fpsText, fpsPos, Color.Yellow);
 
             string statsText = $"Units: {playerUnits.Count + enemyUnits.Count}";
             Vector2 statsSize = font.MeasureString(statsText);
-
-            Vector2 statsPos = new(
-                screenWidth - statsSize.X - 10,
-                fpsPos.Y + fpsSize.Y + 5);
-
+            Vector2 statsPos = new(screenWidth - statsSize.X - 10, fpsPos.Y + fpsSize.Y + 5);
             _spriteBatch.DrawString(font, statsText, statsPos, Color.White);
         }
-
 
         private void DrawPlayingUI()
         {
@@ -693,55 +454,33 @@ namespace XCOM_3
             combatUI.DrawUnitInfoPanel(selectedUnit, grenadeDatabase);
             combatUI.DrawActionButtons(selectedUnit, mouse);
 
-            if (combatUI.ShowFireTargets && selectedUnit?.Team == Team.Player)
-                combatUI.DrawFireTargets(mouse);
+            if (combatUI.ShowFireTargets && selectedUnit?.Team == Team.Player) combatUI.DrawFireTargets(mouse);
 
-            _spriteBatch.DrawString(
-                font,
-                "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | I: Inventaire",
-                new Vector2(10, 10),
-                Color.White);
+            _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | I: Inventaire", new Vector2(10, 10), Color.White);
 
             string timeStr = GetTimeOfDayString(timeOfDay);
-            _spriteBatch.DrawString(
-                font,
-                $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}",
-                new Vector2(10, 30),
-                Color.Yellow);
+            _spriteBatch.DrawString(font, $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}", new Vector2(10, 30), Color.Yellow);
         }
-
 
         private void DrawWorld3D(GameTime gameTime)
         {
             camera.UpdateCamera();
-
             renderer3D.SetMatrices(camera.ViewMatrix, camera.ProjectionMatrix);
             renderer3D.SetLighting(ambientLight, directionalLight);
 
-            GraphicsDevice.RasterizerState = new RasterizerState
-            {
-                CullMode = CullMode.None
-            };
-
+            GraphicsDevice.RasterizerState = new RasterizerState { CullMode = CullMode.None };
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
             renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture);
             renderer3D.DrawWalls(wallSegments, cellSize);
 
-            foreach (var unit in playerUnits)
-                renderer3D.DrawUnit(unit, cellSize);
+            foreach (var unit in playerUnits) renderer3D.DrawUnit(unit, cellSize);
+            foreach (var unit in enemyUnits) renderer3D.DrawUnit(unit, cellSize);
 
-            foreach (var unit in enemyUnits)
-                renderer3D.DrawUnit(unit, cellSize);
-
-            if (selectedUnit != null)
-                renderer3D.DrawSelectionIndicator(
-                    selectedUnit, cellSize, new Color(0, 255, 255, 128));
+            if (selectedUnit != null) renderer3D.DrawSelectionIndicator(selectedUnit, cellSize, new Color(0, 255, 255, 128));
 
             Unit target = combatUI.SelectedFireTarget ?? combatUI.HoveredFireTarget;
-            if (target != null)
-                renderer3D.DrawSelectionIndicator(
-                    target, cellSize, new Color(255, 0, 0, 128), 1.2f);
+            if (target != null) renderer3D.DrawSelectionIndicator(target, cellSize, new Color(255, 0, 0, 128), 1.2f);
 
             renderer3D.DrawCraters(craters, cellSize);
             renderer3D.DrawGrenades(activeGrenades, cellSize);
@@ -752,25 +491,12 @@ namespace XCOM_3
             DrawThrowMode3D(gameTime);
         }
 
-
         private Color GetSkyColor(float time)
         {
-            if (time < 0.25f)
-            {
-                return Color.Lerp(new Color(10, 10, 30), new Color(100, 120, 180), time / 0.25f);
-            }
-            else if (time < 0.5f)
-            {
-                return Color.Lerp(new Color(100, 120, 180), new Color(135, 206, 235), (time - 0.25f) / 0.25f);
-            }
-            else if (time < 0.75f)
-            {
-                return Color.Lerp(new Color(135, 206, 235), new Color(100, 120, 180), (time - 0.5f) / 0.25f);
-            }
-            else
-            {
-                return Color.Lerp(new Color(100, 120, 180), new Color(10, 10, 30), (time - 0.75f) / 0.25f);
-            }
+            if (time < 0.25f) return Color.Lerp(new Color(10, 10, 30), new Color(100, 120, 180), time / 0.25f);
+            else if (time < 0.5f) return Color.Lerp(new Color(100, 120, 180), new Color(135, 206, 235), (time - 0.25f) / 0.25f);
+            else if (time < 0.75f) return Color.Lerp(new Color(135, 206, 235), new Color(100, 120, 180), (time - 0.5f) / 0.25f);
+            else return Color.Lerp(new Color(100, 120, 180), new Color(10, 10, 30), (time - 0.75f) / 0.25f);
         }
 
         private string GetTimeOfDayString(float time)
@@ -797,20 +523,16 @@ namespace XCOM_3
 
         private void DrawPath3D(GameTime gameTime)
         {
-            if (currentPath.Count == 0 || selectedUnit == null || selectedUnit.Team != Team.Player)
-                return;
+            if (currentPath.Count == 0 || selectedUnit == null || selectedUnit.Team != Team.Player) return;
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.2f + 0.8f;
 
             for (int i = 0; i < currentPath.Count; i++)
             {
                 Point cell = currentPath[i];
-                Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, 0.1f, cell.Y * cellSize + cellSize / 2f);
-
+                Vector3 pos = new Vector3(cell.X * cellSize + cellSize / 2f, 0.1f, cell.Y * cellSize + cellSize / 2f);
                 float intensity = 1f - (i / (float)currentPath.Count) * 0.5f;
-                Color pathColor = new Color(100, 150, 255) * pulse * intensity;
-
-                renderer3D.DrawPlane(position, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), pathColor);
+                renderer3D.DrawPlane(pos, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), new Color(100, 150, 255) * pulse * intensity);
             }
         }
 
@@ -825,71 +547,39 @@ namespace XCOM_3
             renderer3D.DrawPlane(position, new Vector3(cellSize, 1, cellSize), Color.Yellow * pulse);
         }
 
-        
-
-       
-
-       
-
-       
-
         private void DrawEncyclopedia()
         {
             MouseState mouse = Mouse.GetState();
-
-            // Titre
             _spriteBatch.DrawString(font, "ENCYCLOPEDIE", Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
 
-            // Boutons de catégorie à gauche
-            foreach (var button in encyclopediaButtons)
-                button.Draw(_spriteBatch, font, mouse);
+            foreach (var button in encyclopediaButtons) button.Draw(_spriteBatch, font, mouse);
 
-            // Zone de contenu à droite
-            int contentX = 250;
-            int contentY = 100;
-            int contentWidth = GraphicsDevice.Viewport.Width - contentX - 20;
-            int lineHeight = 25;
-            int y = contentY;
+            int contentX = 250, contentY = 100, lineHeight = 25, y = contentY;
 
             switch (encyclopediaCategory)
             {
                 case "Weapons":
                     _spriteBatch.DrawString(font, "=== ARMES ===", new Vector2(contentX, y), Color.Yellow, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
                     y += 40;
-
                     foreach (var weapon in weaponDatabase.Values.OrderBy(w => w.Name))
                     {
-                        _spriteBatch.DrawString(font, weapon.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f);
-                        y += lineHeight;
-
-                        _spriteBatch.DrawString(font, $"  Dégâts: {weapon.Damage}", new Vector2(contentX + 20, y), Color.White);
-                        y += lineHeight;
-
-                        _spriteBatch.DrawString(font, $"  Précision: {weapon.Accuracy}%", new Vector2(contentX + 20, y), Color.White);
-                        y += lineHeight;
-
-                        _spriteBatch.DrawString(font, $"  Portée: {weapon.Range} cases", new Vector2(contentX + 20, y), Color.White);
-                        y += lineHeight + 10;
+                        _spriteBatch.DrawString(font, weapon.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f); y += lineHeight;
+                        _spriteBatch.DrawString(font, $"  Dégâts: {weapon.Damage}", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
+                        _spriteBatch.DrawString(font, $"  Précision: {weapon.Accuracy}%", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
+                        _spriteBatch.DrawString(font, $"  Portée: {weapon.Range} cases", new Vector2(contentX + 20, y), Color.White); y += lineHeight + 10;
                     }
                     break;
 
                 case "Armor":
                     _spriteBatch.DrawString(font, "=== ARMURES ===", new Vector2(contentX, y), Color.Yellow, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
                     y += 40;
-
-                    var armors = inventorySystem.ItemDatabase.Values.Where(item => item.Type == ItemType.Armor).OrderBy(a => a.Name); // ✅
-
+                    var armors = inventorySystem.ItemDatabase.Values.Where(i => i.Type == ItemType.Armor).OrderBy(a => a.Name);
                     foreach (var armor in armors)
                     {
-                        _spriteBatch.DrawString(font, armor.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f);
-                        y += lineHeight;
-
-                        _spriteBatch.DrawString(font, $"  Protection: {armor.ArmorValue}", new Vector2(contentX + 20, y), Color.White);
-                        y += lineHeight;
-
+                        _spriteBatch.DrawString(font, armor.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f); y += lineHeight;
+                        _spriteBatch.DrawString(font, $"  Protection: {armor.ArmorValue}", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
                         string slot = armor.ArmorSlot == ArmorSlot.Head ? "Tête" : "Torse";
-                        _spriteBatch.DrawString(font, $"  Emplacement: {slot}", new Vector2(contentX + 20, y), Color.White);
-                        y += lineHeight + 10;
+                        _spriteBatch.DrawString(font, $"  Emplacement: {slot}", new Vector2(contentX + 20, y), Color.White); y += lineHeight + 10;
                     }
                     break;
 
@@ -897,55 +587,32 @@ namespace XCOM_3
                     _spriteBatch.DrawString(font, "=== UNITÉS ===", new Vector2(contentX, y), Color.Yellow, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
                     y += 40;
 
-                    // Unités joueur
                     _spriteBatch.DrawString(font, "ÉQUIPE JOUEUR:", new Vector2(contentX, y), Color.Blue, 0f, Vector2.Zero, 1.3f, SpriteEffects.None, 0f);
                     y += 35;
+                    _spriteBatch.DrawString(font, "Soldat", new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f); y += lineHeight;
+                    _spriteBatch.DrawString(font, "  Classe: Assault", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
+                    _spriteBatch.DrawString(font, "  Arme de base: Rifle", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
+                    _spriteBatch.DrawString(font, "  PV: 100", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
+                    _spriteBatch.DrawString(font, "  PA: 3 par tour", new Vector2(contentX + 20, y), Color.White); y += lineHeight + 20;
 
-                    _spriteBatch.DrawString(font, "Soldat", new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f);
-                    y += lineHeight;
-                    _spriteBatch.DrawString(font, "  Classe: Assault", new Vector2(contentX + 20, y), Color.White);
-                    y += lineHeight;
-                    _spriteBatch.DrawString(font, "  Arme de base: Rifle", new Vector2(contentX + 20, y), Color.White);
-                    y += lineHeight;
-                    _spriteBatch.DrawString(font, "  PV: 100", new Vector2(contentX + 20, y), Color.White);
-                    y += lineHeight;
-                    _spriteBatch.DrawString(font, "  PA: 3 par tour", new Vector2(contentX + 20, y), Color.White);
-                    y += lineHeight + 20;
-
-                    // Unités ennemies
                     _spriteBatch.DrawString(font, "ENNEMIS:", new Vector2(contentX, y), Color.Red, 0f, Vector2.Zero, 1.3f, SpriteEffects.None, 0f);
                     y += 35;
 
                     foreach (var enemy in enemyPool)
                     {
-                        _spriteBatch.DrawString(font, enemy.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f);
-                        y += lineHeight;
-
-                        _spriteBatch.DrawString(font, $"  Classe: {enemy.Class}", new Vector2(contentX + 20, y), Color.White);
-                        y += lineHeight;
-
-                        _spriteBatch.DrawString(font, $"  Arme: {enemy.Weapon}", new Vector2(contentX + 20, y), Color.White);
-                        y += lineHeight;
-
-                        var weapon = weaponDatabase[enemy.Weapon];
-                        _spriteBatch.DrawString(font, $"  Dégâts: {weapon.Damage} | Portée: {weapon.Range}", new Vector2(contentX + 20, y), Color.White);
-                        y += lineHeight;
-
-                        _spriteBatch.DrawString(font, $"  PA: {enemy.ActionPoints} par tour", new Vector2(contentX + 20, y), Color.White);
-                        y += lineHeight + 15;
+                        _spriteBatch.DrawString(font, enemy.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f); y += lineHeight;
+                        _spriteBatch.DrawString(font, $"  Classe: {enemy.Class}", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
+                        _spriteBatch.DrawString(font, $"  Arme: {enemy.Weapon}", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
+                        var w = weaponDatabase[enemy.Weapon];
+                        _spriteBatch.DrawString(font, $"  Dégâts: {w.Damage} | Portée: {w.Range}", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
+                        _spriteBatch.DrawString(font, $"  PA: {enemy.ActionPoints} par tour", new Vector2(contentX + 20, y), Color.White); y += lineHeight + 15;
                     }
                     break;
             }
 
-            // Instructions
             _spriteBatch.DrawString(font, "Appuyez sur ESC pour retourner au menu",
                 new Vector2(10, GraphicsDevice.Viewport.Height - 30), Color.Yellow);
         }
-
-
-        // ═══════════════════════════════════════════════════════════════════════
-        // LOGIQUE DE JEU
-        // ═══════════════════════════════════════════════════════════════════════
 
         private void LoadMap()
         {
@@ -959,151 +626,67 @@ namespace XCOM_3
             GenerateWalls(gridWidth * gridHeight / 10);
             Console.WriteLine($"Map loaded: {gridWidth}x{gridHeight}, Starting time: {GetTimeOfDayString(timeOfDay)}");
 
-            // Mettre à jour le pathfinding pour la nouvelle grille
-            if (pathfinding != null)
-                pathfinding.UpdateGrid(gridWidth, gridHeight);
+            if (pathfinding != null) pathfinding.UpdateGrid(gridWidth, gridHeight);
         }
 
         private class AStarNode
         {
             public Point Position;
-            public int GCost;
-            public int HCost;
+            public int GCost, HCost;
             public int FCost => GCost + HCost;
             public AStarNode Parent;
-
-            public AStarNode(Point pos)
-            {
-                Position = pos;
-            }
-        }
-
-        private List<Point> RetracePath(AStarNode startNode, AStarNode endNode)
-        {
-            List<Point> path = new List<Point>();
-            AStarNode currentNode = endNode;
-
-            while (currentNode != startNode)
-            {
-                path.Add(currentNode.Position);
-                currentNode = currentNode.Parent;
-            }
-
-            path.Reverse();
-            return path;
+            public AStarNode(Point pos) { Position = pos; }
         }
 
         private void CreateUnits(string missionType = "Tutorial")
         {
-            playerUnits.Clear();
-            enemyUnits.Clear();
+            playerUnits.Clear(); enemyUnits.Clear();
+
             for (int i = 0; i < 6; i++)
-                playerUnits.Add(new Unit(
-                    new Point(2 + i, gridHeight - 2),
-                    Team.Player,
-                    "Soldier " + (i + 1),
-                    "Assault",
-                    "Rifle",
-                    weaponDatabase["Rifle"]
-                ));
+                playerUnits.Add(new Unit(new Point(2 + i, gridHeight - 2), Team.Player, "Soldier " + (i + 1), "Assault", "Rifle", weaponDatabase["Rifle"]));
+
             foreach (var unit in playerUnits)
             {
                 unit.AddGrenade(grenadeDatabase["Frag Grenade"]);
-
-                if (random.Next(100) < 50)
-                    unit.AddGrenade(grenadeDatabase["Smoke Grenade"]);
+                if (random.Next(100) < 50) unit.AddGrenade(grenadeDatabase["Smoke Grenade"]);
             }
+
             switch (missionType)
             {
                 case "Tutorial":
                     for (int i = 0; i < 6; i++)
                     {
-                        var template = enemyPool[random.Next(enemyPool.Count)];
-                        enemyUnits.Add(new Unit(
-                            new Point(2 + i, 1),
-                            Team.Enemy,
-                            template.Name,
-                            template.Class,
-                            template.Weapon,
-                            weaponDatabase[template.Weapon]
-                        )
-                        {
-                            ActionPoints = template.ActionPoints
-                        });
+                        var t = enemyPool[random.Next(enemyPool.Count)];
+                        enemyUnits.Add(new Unit(new Point(2 + i, 1), Team.Enemy, t.Name, t.Class, t.Weapon, weaponDatabase[t.Weapon]) { ActionPoints = t.ActionPoints });
                     }
                     break;
+
                 case "Survival":
                     for (int i = 0; i < 10; i++)
                     {
-                        var template = enemyPool[random.Next(enemyPool.Count)];
-                        int x = 2 + (i % 8);
-                        int y = i < 8 ? 1 : 2;
-                        enemyUnits.Add(new Unit(
-                            new Point(x, y),
-                            Team.Enemy,
-                            template.Name,
-                            template.Class,
-                            template.Weapon,
-                            weaponDatabase[template.Weapon]
-                        )
-                        {
-                            ActionPoints = template.ActionPoints
-                        });
+                        var t = enemyPool[random.Next(enemyPool.Count)];
+                        enemyUnits.Add(new Unit(new Point(2 + (i % 8), i < 8 ? 1 : 2), Team.Enemy, t.Name, t.Class, t.Weapon, weaponDatabase[t.Weapon]) { ActionPoints = t.ActionPoints });
                     }
                     break;
 
                 case "Assault":
+                    var aliens = enemyPool.Where(e => e.Name != "Zombie").ToList();
                     for (int i = 0; i < 8; i++)
                     {
-                        var alienTemplates = enemyPool.Where(e => e.Name != "Zombie").ToList();
-                        var template = alienTemplates[random.Next(alienTemplates.Count)];
-                        int x = 2 + i;
-                        enemyUnits.Add(new Unit(
-                            new Point(x, 1),
-                            Team.Enemy,
-                            template.Name,
-                            template.Class,
-                            template.Weapon,
-                            weaponDatabase[template.Weapon]
-                        )
-                        {
-                            ActionPoints = template.ActionPoints
-                        });
+                        var t = aliens[random.Next(aliens.Count)];
+                        enemyUnits.Add(new Unit(new Point(2 + i, 1), Team.Enemy, t.Name, t.Class, t.Weapon, weaponDatabase[t.Weapon]) { ActionPoints = t.ActionPoints });
                     }
                     break;
 
                 case "Defense":
-                    var zombieTemplate = enemyPool.First(e => e.Name == "Zombie");
+                    var zombie = enemyPool.First(e => e.Name == "Zombie");
                     for (int i = 0; i < 12; i++)
-                    {
-                        int x = 2 + (i % 8);
-                        int y = i < 8 ? 1 : 2;
-                        enemyUnits.Add(new Unit(
-                            new Point(x, y),
-                            Team.Enemy,
-                            zombieTemplate.Name,
-                            zombieTemplate.Class,
-                            zombieTemplate.Weapon,
-                            weaponDatabase[zombieTemplate.Weapon]
-                        )
-                        {
-                            ActionPoints = zombieTemplate.ActionPoints
-                        });
-                    }
+                        enemyUnits.Add(new Unit(new Point(2 + (i % 8), i < 8 ? 1 : 2), Team.Enemy, zombie.Name, zombie.Class, zombie.Weapon, weaponDatabase[zombie.Weapon]) { ActionPoints = zombie.ActionPoints });
                     break;
             }
-            // Initialiser les positions visuelles de toutes les unités
-            foreach (var unit in playerUnits)
-            {
-                unit.UpdateVisualPosition(cellSize);
-                unit.TargetPosition = unit.VisualPosition;
-            }
 
-            foreach (var unit in enemyUnits)
-            {
-                unit.UpdateVisualPosition(cellSize);
-                unit.TargetPosition = unit.VisualPosition;
-            }
+            foreach (var unit in playerUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
+            foreach (var unit in enemyUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
 
             Console.WriteLine($"Units created for {missionType}: 6 player, {enemyUnits.Count} enemy");
         }
@@ -1118,39 +701,6 @@ namespace XCOM_3
         {
             return unitManager.SpatialHash.GetUnitAt(cell);
         }
-
-        private void HandleFire(Unit s)
-        {
-            if (s.ActionPoints <= 0) return;
-
-            foreach (var t in AllUnits())
-            {
-                if (t.Team == s.Team) continue;
-
-                int d = Math.Abs(t.Cell.X - s.Cell.X) + Math.Abs(t.Cell.Y - s.Cell.Y);
-                if (d > s.WeaponData.Range || !pathfinding.HasLineOfSight(s.Cell, t.Cell)) continue;
-
-                s.IsFiring = true;
-                s.FireTarget = t.Cell;
-                s.FireProgress = 0f;
-                s.PendingTarget = t;
-                s.ActionPoints--;
-
-                int acc = Math.Max(s.WeaponData.Accuracy - d * 5, 10);
-                s.WillHit = random.Next(100) < acc;
-
-                return;
-            }
-
-            Console.WriteLine("Aucune cible valide (portée + LOS)");
-        }                       
-       
-
-       
-
-       
-
-        
 
         private void GenerateWalls(int count)
         {
@@ -1186,17 +736,7 @@ namespace XCOM_3
             edgeWallGenerator.ClearSpawnZones(wallSegments, gridWidth, gridHeight);
 
             Console.WriteLine($"Generated {wallSegments.Count} wall segments using pattern: {pattern}");
-        }
-
-        
-
-       
-
-       
-
-       
-
-        
+        }       
 
         private List<EnemyTemplate> enemyPool = new()
         {
@@ -1229,7 +769,6 @@ namespace XCOM_3
                             currentState = GameState.MissionSelect;
                             Console.WriteLine("Opening mission select...");
                             break;
-
                         case "Continue":
                             if (!hasSavedGame) { Console.WriteLine("No saved game to continue!"); break; }
                             playerUnits = savedPlayerUnits.Select(u => new Unit(u)).ToList();
@@ -1237,18 +776,15 @@ namespace XCOM_3
                             currentState = GameState.Playing;
                             Console.WriteLine("Game continued!");
                             break;
-
                         case "Encyclopedia":
                             encyclopediaCategory = "Weapons";
                             currentState = GameState.Encyclopedia;
                             Console.WriteLine("Opening encyclopedia...");
                             break;
-
                         case "Options":
                             currentState = GameState.OptionsMenu;
                             Console.WriteLine("Options");
                             break;
-
                         case "Quit":
                             Exit();
                             break;
@@ -1261,29 +797,11 @@ namespace XCOM_3
                 if (btn.IsClicked(mouse, previousMouseState))
                     switch (btn.Text)
                     {
-                        case "Tutorial":
-                            selectedMission = "Tutorial";
-                            StartMission(selectedMission);
-                            break;
-
-                        case "Survival":
-                            selectedMission = "Survival";
-                            StartMission(selectedMission);
-                            break;
-
-                        case "Assault":
-                            selectedMission = "Assault";
-                            StartMission(selectedMission);
-                            break;
-
-                        case "Defense":
-                            selectedMission = "Defense";
-                            StartMission(selectedMission);
-                            break;
-
-                        case "Back":
-                            currentState = GameState.MainMenu;
-                            break;
+                        case "Tutorial": selectedMission = "Tutorial"; StartMission(selectedMission); break;
+                        case "Survival": selectedMission = "Survival"; StartMission(selectedMission); break;
+                        case "Assault": selectedMission = "Assault"; StartMission(selectedMission); break;
+                        case "Defense": selectedMission = "Defense"; StartMission(selectedMission); break;
+                        case "Back": currentState = GameState.MainMenu; break;
                     }
         }
 
@@ -1294,27 +812,18 @@ namespace XCOM_3
             LoadMap();
             CreateUnits(missionType);
 
-            // Initialiser le pathfinding
-            pathfinding = new PathfindingSystem(
-                gridWidth,
-                gridHeight,
-                wallSegments,
-                GetUnitAtCell
-            );
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, wallSegments, GetUnitAtCell);
 
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
 
             unitManager.InitializeForMission(playerUnits, enemyUnits);
 
-            // ✅ NOUVEAU : Initialiser les systèmes
             combatSystem.SetUnits(playerUnits, enemyUnits);
             combatSystem.StartPlayerTurn();
 
-            // ═══ INITIALISER LE SPATIAL HASH ═══
             unitManager.InitializeForMission(playerUnits, enemyUnits);
 
             Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
-
         }
 
         private void HandleOptionsMenu(MouseState mouse)
