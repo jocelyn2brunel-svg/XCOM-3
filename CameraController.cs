@@ -6,6 +6,7 @@ namespace XCOM_3
 {
     /// <summary>
     /// Gère la caméra 3D isométrique avec rotation, zoom et déplacement
+    /// VERSION CORRIGÉE - Rotation Q/E fonctionnelle
     /// </summary>
     public class CameraController
     {
@@ -37,6 +38,14 @@ namespace XCOM_3
         private float minZoom = 0.3f;
         private float maxZoom = 3f;
         private float previousScrollValue = 0f;
+
+        // ✅ État de rotation pour lerp smooth
+        private bool isRotatingToTarget = false;
+        private float targetAngle = 0f;
+        private float rotationLerpSpeed = 8f; // Vitesse du lerp (plus haut = plus rapide)
+
+        // Débounce pour éviter les clics multiples
+        private KeyboardState previousKeyboardState;
 
         // Dimensions de la grille
         private int gridWidth;
@@ -156,17 +165,52 @@ namespace XCOM_3
 
         private void HandleRotation(KeyboardState keyboard, float deltaTime)
         {
-            float rotationAmount = cameraRotationSpeed * deltaTime;
-
-            if (keyboard.IsKeyDown(Keys.Q))
-                cameraAngle += rotationAmount;
-
-            if (keyboard.IsKeyDown(Keys.E))
-                cameraAngle -= rotationAmount;
-
-            // Snap à 45°
             float step = MathHelper.ToRadians(45f);
-            cameraAngle = MathF.Round(cameraAngle / step) * step;
+
+            // ✅ Détection d'appui (une seule fois par pression)
+            bool qPressed = keyboard.IsKeyDown(Keys.Q) && previousKeyboardState.IsKeyUp(Keys.Q);
+            bool ePressed = keyboard.IsKeyDown(Keys.E) && previousKeyboardState.IsKeyUp(Keys.E);
+
+            // ✅ Appui sur Q → Tourner vers la gauche (angle suivant)
+            if (qPressed)
+            {
+                targetAngle = cameraAngle + step;
+                isRotatingToTarget = true;
+                Console.WriteLine($"[CAMERA] Rotating to {MathHelper.ToDegrees(targetAngle)}°");
+            }
+
+            // ✅ Appui sur E → Tourner vers la droite (angle suivant)
+            if (ePressed)
+            {
+                targetAngle = cameraAngle - step;
+                isRotatingToTarget = true;
+                Console.WriteLine($"[CAMERA] Rotating to {MathHelper.ToDegrees(targetAngle)}°");
+            }
+
+            // ✅ Lerp progressif vers l'angle cible
+            if (isRotatingToTarget)
+            {
+                // Calculer la différence angulaire
+                float angleDiff = targetAngle - cameraAngle;
+
+                // Normaliser l'angle dans [-π, π]
+                while (angleDiff > MathHelper.Pi) angleDiff -= MathHelper.TwoPi;
+                while (angleDiff < -MathHelper.Pi) angleDiff += MathHelper.TwoPi;
+
+                // Lerp vers la cible
+                cameraAngle += angleDiff * rotationLerpSpeed * deltaTime;
+
+                // Arrivé à destination ?
+                if (Math.Abs(angleDiff) < 0.01f)
+                {
+                    cameraAngle = targetAngle; // Snap final pour éviter les oscillations
+                    isRotatingToTarget = false;
+                    Console.WriteLine($"[CAMERA] Rotation complete at {MathHelper.ToDegrees(cameraAngle)}°");
+                }
+            }
+
+            // Sauvegarder l'état du clavier
+            previousKeyboardState = keyboard;
         }
 
         private void HandleZoom(MouseState mouse)
@@ -191,7 +235,7 @@ namespace XCOM_3
             if (keyboard.IsKeyDown(Keys.D)) moveInput.X -= 1;
 
             // Clic molette pour déplacer
-            if (mouse.MiddleButton == ButtonState.Pressed && 
+            if (mouse.MiddleButton == ButtonState.Pressed &&
                 previousMouse.MiddleButton == ButtonState.Pressed)
             {
                 Vector2 mouseDelta = new Vector2(
