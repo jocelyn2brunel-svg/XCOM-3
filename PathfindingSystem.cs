@@ -118,9 +118,19 @@ namespace XCOM_3
             return u == null || u == movingUnit;
         }
 
+        public void UpdateGrid(int w, int h, HashSet<WallSegment> newWalls)
+        {
+            gridW = w;
+            gridH = h;
+            walls = newWalls;
+        }
+
+
         // ════════════════════ Utilitaires ════════════════════
         public int ManhattanDistance(Point a, Point b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
         public bool AreAdjacent(Point a, Point b) => ManhattanDistance(a, b) == 1;
         public int GetPathCost(List<Point> path) => path.Count;
+
+
     }
 }

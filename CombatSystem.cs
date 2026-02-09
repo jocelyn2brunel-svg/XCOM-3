@@ -186,29 +186,59 @@ namespace XCOM_3
             {
                 float score = 0f;
                 int distance = Math.Abs(player.Cell.X - enemy.Cell.X) +
-                              Math.Abs(player.Cell.Y - enemy.Cell.Y);
+                               Math.Abs(player.Cell.Y - enemy.Cell.Y);
 
-                // Distance
+                // 1. Distance (plus proche = plus prioritaire)
                 score += Math.Max(0, 100 - distance * 5);
 
-                // Ligne de vue
+                // 2. Ligne de vue et portée
                 if (pathfinding.HasLineOfSight(enemy.Cell, player.Cell))
                     score += 50;
-
-                // À portée de tir
-                if (distance <= enemy.WeaponData.Range && 
-                    pathfinding.HasLineOfSight(enemy.Cell, player.Cell))
+                if (distance <= enemy.WeaponData.Range && pathfinding.HasLineOfSight(enemy.Cell, player.Cell))
                     score += 75;
 
-                // Cible blessée
+                // 3. Santé de la cible (plus faible = plus prioritaire)
                 float healthPercent = (float)player.Health / player.MaxHealth;
                 if (healthPercent < 0.5f)
                     score += (1.0f - healthPercent) * 30;
 
-                // Éviter les cibles déjà ciblées
+                // 4. Cible déjà visée par d’autres ennemis (moins prioritaire)
                 int alreadyTargeting = enemyUnits.Count(e => e.PendingTarget == player);
                 score -= alreadyTargeting * 20;
 
+                // 5. Couverture
+                //switch (player.Cover)
+                //{
+                    //case CoverType.Full: score -= 30; break;
+                    //case CoverType.Half: score -= 10; break;
+                //}
+
+                // 6. Rôle / classe de l’unité
+                //switch (player.Class)
+                //{
+                    //case UnitClass.Sniper: score += 40; break;
+                    //case UnitClass.Medic: score += 30; break;
+                    //case UnitClass.Heavy: score += 20; break;
+                //}
+
+                // 7. Menace (AP + dégâts potentiels)
+                score += player.ActionPoints * 5;
+                score += player.WeaponData.Damage * 2;
+
+                // 8. Nombre d’alliés proches (cible protégée = moins prioritaire)
+                int alliesNearby = playerUnits.Count(p => p != player &&
+                             Math.Abs(p.Cell.X - player.Cell.X) + Math.Abs(p.Cell.Y - player.Cell.Y) <= 2);
+                score -= alliesNearby * 15;
+
+                // 9. Comportement adaptatif selon la santé de l’ennemi
+                float selfHealthPercent = (float)enemy.Health / enemy.MaxHealth;
+                if (selfHealthPercent < 0.3f && healthPercent > 0.7f)
+                    score -= 20; // évite les cibles fortes si faible en PV
+
+                // 10. Aléatoire pour surprendre le joueur
+                score += (float)(random.NextDouble() * 20 - 10); // +/-10 points
+
+                // Choisir la meilleure cible
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -218,6 +248,7 @@ namespace XCOM_3
 
             return bestTarget;
         }
+
 
         /// <summary>
         /// Déplacement simple vers la cible

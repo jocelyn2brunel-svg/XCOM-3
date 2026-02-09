@@ -66,7 +66,7 @@ namespace XCOM_3
         private List<Vector3> trajectoryPreview = new List<Vector3>();
 
         // Constantes
-        private const int MaxThrowRange = 8;
+        private const int MaxThrowRange = 5;
 
         // --- États du jeu ---
         enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu, GameOver, Encyclopedia }
@@ -176,11 +176,11 @@ namespace XCOM_3
             encyclopediaButtons = CreateMenu(new[] { "Armes", "Armures", "Unités", "Retour" }, 100);
 
             optionsButtons = new List<Button>
-    {
-        new("Music Volume +", new Vector2(0,100)),
-        new("Music Volume -", new Vector2(0,156)),
-        new("Back", new Vector2(0,184))
-    };
+            {
+                new("Music Volume +", new Vector2(0,100)),
+                new("Music Volume -", new Vector2(0,156)),
+                new("Back", new Vector2(0,184))
+            };
             volumeBar = new Rectangle(0, 134, 200, 8);
 
             menuSongs = new[] { "menu_music_1", "menu_music_2", "menu_music_3", "menu_music_4" }
@@ -616,17 +616,59 @@ namespace XCOM_3
 
         private void LoadMap()
         {
-            gridWidth = random.Next(20, 50);
-            gridHeight = random.Next(20, 50);
+            // --- Génération aléatoire de la taille de la carte ---
+            gridWidth = random.Next(20, 100);
+            gridHeight = random.Next(20, 100);
             cellSize = 2;
 
             timeOfDay = (float)random.NextDouble();
             dayNightSpeed = 1f / 86400f;
 
+            // --- Génération des murs ---
             GenerateWalls(gridWidth * gridHeight / 10);
             Console.WriteLine($"Map loaded: {gridWidth}x{gridHeight}, Starting time: {GetTimeOfDayString(timeOfDay)}");
 
-            if (pathfinding != null) pathfinding.UpdateGrid(gridWidth, gridHeight);
+            // --- Réinitialisation de la caméra pour la nouvelle carte ---
+            if (camera != null)
+            {
+                camera = new CameraController(gridWidth, gridHeight, cellSize, GraphicsDevice.Viewport.AspectRatio);
+                camera.UpdateProjection(GraphicsDevice.Viewport.AspectRatio);
+
+                // Si une unité est déjà sélectionnée, centrer la caméra dessus
+                if (selectedUnit != null)
+                    camera.CenterOnPosition(selectedUnit.Cell.X * cellSize, selectedUnit.Cell.Y * cellSize);
+            }
+
+            // --- Mise à jour du pathfinding pour la nouvelle carte ---
+            if (pathfinding != null)
+            {
+                pathfinding.UpdateGrid(gridWidth, gridHeight, wallSegments);
+            }
+
+            // --- Réinitialisation des unités pour la nouvelle taille de cellule ---
+            foreach (var unit in playerUnits)
+            {
+                unit.UpdateVisualPosition(cellSize);
+                unit.TargetPosition = unit.VisualPosition;
+            }
+            foreach (var unit in enemyUnits)
+            {
+                unit.UpdateVisualPosition(cellSize);
+                unit.TargetPosition = unit.VisualPosition;
+            }
+
+            // --- Recalcul des cellules navigables et du hover ---
+            if (selectedUnit != null && pathfinding != null)
+                cachedMovableCells = pathfinding.GetMovableCells(selectedUnit);
+
+            currentPath.Clear();
+            pathCosts.Clear();
+            hoveredCell = new Point(-1, -1);
+            throwTarget = new Point(-1, -1);
+
+            // --- Réinitialisation de la spatial hash pour le nouveau setup ---
+            if (unitManager != null)
+                unitManager.InitializeForMission(playerUnits, enemyUnits);
         }
 
         private class AStarNode
