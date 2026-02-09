@@ -229,8 +229,46 @@ namespace XCOM_3
             previousMouseState = mouse;
             previousKeyboardState = keyboard;
 
+            VisualEffects.Update(gameTime);
+
             base.Update(gameTime);
         }
+
+        protected override void Draw(GameTime gameTime)
+        {
+            renderer3D.SetMatrices(camera.ViewMatrix, camera.ProjectionMatrix);
+
+            GraphicsDevice.Clear(GetSkyColor(timeOfDay));
+
+            if (currentState == GameState.Playing)
+                DrawWorld3D(gameTime); // monde + unités + murs
+
+            // --- EFFETS VISUELS 3D ---
+            VisualEffects.Draw(); // explosions et particules
+
+            // UI
+            _spriteBatch.Begin();
+            switch (currentState)
+            {
+                case GameState.MainMenu:
+                    DrawTitle("XCOM 3"); DrawButtons(menuButtons); break;
+                case GameState.MissionSelect:
+                    DrawTitle("Select Mission"); DrawButtons(missionButtons); break;
+                case GameState.Playing:
+                    if (showInventory) inventorySystem.Draw(selectedUnit);
+                    else DrawPlayingUI();
+                    break;
+                case GameState.OptionsMenu:
+                    DrawTitle("Options"); DrawButtons(optionsButtons); DrawVolumeControls(); break;
+                case GameState.Encyclopedia: DrawEncyclopedia(); break;
+                case GameState.GameOver: DrawGameOver(); break;
+            }
+            DrawOverlay();
+            _spriteBatch.End();
+
+            base.Draw(gameTime);
+        }
+
 
         private void HandleUnitKilled(Unit unit)
         {
@@ -369,34 +407,6 @@ namespace XCOM_3
             else if (time < 0.5f) return MathHelper.Lerp(0.7f, 1.0f, (time - 0.25f) / 0.25f);
             else if (time < 0.75f) return MathHelper.Lerp(1.0f, 0.7f, (time - 0.5f) / 0.25f);
             else return MathHelper.Lerp(0.7f, 0.3f, (time - 0.75f) / 0.25f);
-        }
-
-        protected override void Draw(GameTime gameTime)
-        {
-            GraphicsDevice.Clear(GetSkyColor(timeOfDay));
-            if (currentState == GameState.Playing) DrawWorld3D(gameTime);
-
-            _spriteBatch.Begin();
-
-            switch (currentState)
-            {
-                case GameState.MainMenu:
-                    DrawTitle("XCOM 3"); DrawButtons(menuButtons); break;
-                case GameState.MissionSelect:
-                    DrawTitle("Select Mission"); DrawButtons(missionButtons); break;
-                case GameState.Playing:
-                    if (showInventory) inventorySystem.Draw(selectedUnit);
-                    else DrawPlayingUI();
-                    break;
-                case GameState.OptionsMenu:
-                    DrawTitle("Options"); DrawButtons(optionsButtons); DrawVolumeControls(); break;
-                case GameState.Encyclopedia: DrawEncyclopedia(); break;
-                case GameState.GameOver: DrawGameOver(); break;
-            }
-
-            DrawOverlay();
-            _spriteBatch.End();
-            base.Draw(gameTime);
         }
 
         private void DrawButtons(List<Button> buttons)
@@ -1117,6 +1127,14 @@ namespace XCOM_3
         private void TriggerExplosion(Point center, GrenadeData grenadeData, Unit thrower = null)
         {
             Console.WriteLine($"EXPLOSION at {center} - {grenadeData.Name}");
+
+            Vector3 explosionPos = new Vector3(
+                center.X * cellSize + cellSize / 2f, // centre de la cellule X
+                0,                                   // hauteur sol
+                center.Y * cellSize + cellSize / 2f  // centre de la cellule Z
+            );
+            VisualEffects.PlayExplosion(explosionPos, grenadeData.Radius, renderer3D);
+
             int enemiesHit = 0, totalDamage = 0;
             List<Point> affectedCells = explosionManager.GetExplosionCells(center, grenadeData.Radius);
 
