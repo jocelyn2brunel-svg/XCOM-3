@@ -362,6 +362,77 @@ namespace XCOM_3
                        previousKeyboardState.IsKeyUp(Keys.I);
         }
 
+        // ✅ NOUVELLE MÉTHODE : Vérifier l'appui sur TAB
+        private bool IsTabPressed(KeyboardState keyboard)
+        {
+            return keyboard.IsKeyDown(Keys.Tab) &&
+                   previousKeyboardState.IsKeyUp(Keys.Tab);
+        }
+
+        /// <summary>
+        /// Sélectionne la prochaine unité joueur qui a encore des PA
+        /// et centre la caméra dessus
+        /// </summary>
+        private void SelectNextActiveUnit()
+        {
+            if (playerUnits.Count == 0)
+                return;
+
+            // Trouver toutes les unités avec des PA restants
+            var availableUnits = playerUnits
+                .Where(u => u.ActionPoints > 0)
+                .OrderBy(u => u.Cell.Y) // Trier par position Y (de haut en bas)
+                .ThenBy(u => u.Cell.X)  // Puis par X (de gauche à droite)
+                .ToList();
+
+            if (availableUnits.Count == 0)
+            {
+                Console.WriteLine("[TAB] Aucune unité avec des PA disponibles");
+                return;
+            }
+
+            // Trouver l'index de l'unité actuellement sélectionnée
+            int currentIndex = -1;
+            if (selectedUnit != null)
+            {
+                currentIndex = availableUnits.IndexOf(selectedUnit);
+            }
+
+            // Passer à la suivante (cyclique)
+            int nextIndex = (currentIndex + 1) % availableUnits.Count;
+            Unit nextUnit = availableUnits[nextIndex];
+
+            // Sélectionner l'unité
+            selectedUnit = nextUnit;
+
+            // Mettre à jour les cellules déplaçables
+            if (pathfinding != null)
+            {
+                cachedMovableCells = pathfinding.GetMovableCells(selectedUnit);
+                UpdateFireTargets();
+            }
+
+            // ✅ CENTRER LA CAMÉRA SUR L'UNITÉ
+            CenterCameraOnUnit(selectedUnit);
+
+            Console.WriteLine($"[TAB] Sélection: {selectedUnit.Name} (PA: {selectedUnit.ActionPoints})");
+        }
+
+        /// <summary>
+        /// Centre la caméra sur une unité avec animation smooth
+        /// </summary>
+        private void CenterCameraOnUnit(Unit unit)
+        {
+            if (unit == null || camera == null)
+                return;
+
+            // Calculer la position cible de la caméra
+            float targetX = unit.Cell.X * cellSize;
+            float targetZ = unit.Cell.Y * cellSize;
+
+            // Centrer la caméra sur cette position
+            camera.CenterOnPosition(targetX, targetZ);
+        }
 
         private List<Button> CreateMenu(string[] labels, int startY, int step = 28)
         {
@@ -1881,6 +1952,13 @@ namespace XCOM_3
 
         private void HandlePlayerTurn(MouseState mouse, bool leftClick, KeyboardState keyboard)
         {
+
+            // ✅ NOUVEAU : Sélection cyclique avec TAB
+            if (IsTabPressed(keyboard))
+            {
+                SelectNextActiveUnit();
+            }
+
             hoveredCell = camera.GetCellFromMouse(mouse.Position,
                 GraphicsDevice.Viewport.Width,
                 GraphicsDevice.Viewport.Height);

@@ -347,5 +347,24 @@ namespace XCOM_3
         public float GetZoomLevel() => zoomLevel;
         public float GetAngle() => cameraAngle;
         public Vector2 GetOffset() => cameraOffset;
+
+        /// <summary>
+        /// Centre la caméra sur une position donnée (pour TAB selection)
+        /// </summary>
+        public void CenterOnPosition(float worldX, float worldZ)
+        {
+            // Calculer le décalage nécessaire
+            float centerX = (gridWidth * cellSize) / 2f;
+            float centerZ = (gridHeight * cellSize) / 2f;
+
+            cameraOffset = new Vector2(
+                worldX - centerX,
+                worldZ - centerZ
+            );
+
+            UpdateCamera();
+
+            Console.WriteLine($"[CAMERA] Centered on ({worldX}, {worldZ})");
+        }
     }
 }
