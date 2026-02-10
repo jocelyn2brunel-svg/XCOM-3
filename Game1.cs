@@ -536,7 +536,7 @@ namespace XCOM_3
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
             renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture);
-            renderer3D.DrawWalls(wallSegments, cellSize);
+            renderer3D.DrawWalls(wallSegments, cellSize, editorMode: false);
 
             foreach (var unit in playerUnits) renderer3D.DrawUnit(unit, cellSize);
             foreach (var unit in enemyUnits) renderer3D.DrawUnit(unit, cellSize);

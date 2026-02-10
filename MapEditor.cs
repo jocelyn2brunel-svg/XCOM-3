@@ -472,7 +472,7 @@ namespace XCOM_3
             renderer.DrawGrid(CurrentMap.GridWidth, CurrentMap.GridHeight, cellSize, null);
 
             // Murs
-            renderer.DrawWalls(CurrentMap.GetWalls(), cellSize);
+            renderer.DrawWalls(CurrentMap.GetWalls(), cellSize, editorMode: true);
 
             // Zones de spawn
             DrawSpawnZones(CurrentMap.PlayerSpawnZones, new Color(0, 255, 0, 100));

@@ -119,16 +119,87 @@ namespace XCOM_3
                                       new Vector3(size * 0.95f, 1, size * 0.95f), tex);
         }
 
-        public void DrawWalls(HashSet<WallSegment> walls, int size)
+        /// <summary>
+        /// ? MURS AMÉLIORÉS - Version avec détails, hauteur et ombres
+        /// </summary>
+        public void DrawWalls(HashSet<WallSegment> walls, int size, bool editorMode = false)
         {
             foreach (var s in walls)
             {
-                Vector3 start = new(s.Start.X * size, size * 0.75f, s.Start.Y * size);
-                Vector3 end = new(s.End.X * size, size * 0.75f, s.End.Y * size);
+                Vector3 start = new(s.Start.X * size, 0, s.Start.Y * size);
+                Vector3 end = new(s.End.X * size, 0, s.End.Y * size);
                 Vector3 center = (start + end) / 2f;
-                Vector3 scale = s.IsHorizontal ? new Vector3(size, size * 1.5f, size * 0.1f)
-                                               : new Vector3(size * 0.1f, size * 1.5f, size);
-                DrawCube(center, scale, new Color(120, 120, 120));
+
+                // ? Hauteur du mur augmentée
+                float wallHeight = size * 1.8f;
+                center.Y = wallHeight / 2f;
+
+                // ? Épaisseur du mur
+                float thickness = size * 0.15f;
+
+                Vector3 scale = s.IsHorizontal
+                    ? new Vector3(size, wallHeight, thickness)
+                    : new Vector3(thickness, wallHeight, size);
+
+                // ? Couleur améliorée selon le mode
+                Color wallColor = editorMode
+                    ? new Color(140, 140, 140)  // Gris clair en mode éditeur
+                    : new Color(100, 85, 70);   // Beige/brun en jeu
+
+                // ? Corps principal du mur
+                DrawCube(center, scale, wallColor);
+
+                // ? Dessus du mur (plus clair)
+                Vector3 topCenter = center;
+                topCenter.Y = wallHeight;
+                Vector3 topScale = s.IsHorizontal
+                    ? new Vector3(size, thickness * 0.5f, thickness)
+                    : new Vector3(thickness, thickness * 0.5f, size);
+
+                Color topColor = editorMode
+                    ? new Color(180, 180, 180)  // Gris très clair
+                    : new Color(120, 105, 90);  // Beige plus clair
+
+                DrawCube(topCenter, topScale, topColor);
+
+                // ? Ligne de démarcation (jointure au milieu)
+                if (!editorMode)
+                {
+                    Vector3 jointCenter = center;
+                    jointCenter.Y = wallHeight * 0.6f;
+                    Vector3 jointScale = s.IsHorizontal
+                        ? new Vector3(size * 1.02f, thickness * 0.3f, thickness * 1.1f)
+                        : new Vector3(thickness * 1.1f, thickness * 0.3f, size * 1.02f);
+
+                    DrawCube(jointCenter, jointScale, new Color(80, 65, 50));
+                }
+
+                // ? Ombre portée au sol
+                if (!editorMode)
+                {
+                    Vector3 shadowCenter = (start + end) / 2f;
+                    shadowCenter.Y = 0.01f;
+
+                    float shadowWidth = s.IsHorizontal ? size : thickness * 2.5f;
+                    float shadowLength = s.IsHorizontal ? thickness * 2.5f : size;
+
+                    Vector3 shadowScale = new Vector3(shadowWidth, 0.02f, shadowLength);
+                    DrawCube(shadowCenter, shadowScale, new Color(0, 0, 0, 80));
+                }
+
+                // ? ÉDITEUR: Marquer les extrémités avec des petits cubes
+                if (editorMode)
+                {
+                    float markerSize = size * 0.12f;
+
+                    // Marqueur début (jaune/orange)
+                    Vector3 startMarker = new Vector3(s.Start.X * size, wallHeight, s.Start.Y * size);
+                    DrawCube(startMarker, new Vector3(markerSize), new Color(255, 200, 0));
+
+                    // Marqueur fin (jaune/orange)
+                    Vector3 endMarker = new Vector3(s.End.X * size, wallHeight, s.End.Y * size);
+                    DrawCube(endMarker, new Vector3(markerSize), new Color(255, 200, 0));
+                }
             }
         }
 
