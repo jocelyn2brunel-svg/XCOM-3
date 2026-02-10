@@ -9,20 +9,20 @@ namespace XCOM_3
     /// </summary>
     public static class ArmorDatabase
     {
-        // Cache interne (créé une seule fois)
+        // Cache interne
         private static readonly ItemData[] _allArmors;
         private static readonly Dictionary<string, ItemData> _armorByName;
 
-        // Static ctor
+        // Static constructor
         static ArmorDatabase()
         {
             _allArmors = BuildArmors();
             _armorByName = _allArmors.ToDictionary(a => a.Name);
         }
 
-        // ─────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────
         // API PUBLIQUE
-        // ─────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────
 
         public static IReadOnlyList<ItemData> GetAllArmors() => _allArmors;
 
@@ -32,15 +32,28 @@ namespace XCOM_3
         public static IReadOnlyList<ItemData> GetArmorsBySlot(ArmorSlot slot)
             => _allArmors.Where(a => a.ArmorSlot == slot).ToArray();
 
-        // ─────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────
         // CONSTRUCTION DES ARMURES
-        // ─────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────
 
         private static ItemData[] BuildArmors()
         {
             var list = new List<ItemData>();
 
-            // ═════════ CASQUES ═════════
+            AddHelmets(list);
+            AddVests(list);
+            AddModernPlates(list);
+            AddShields(list);
+            AddCombatShirts(list);
+
+            return list.ToArray();
+        }
+
+        // ─────────────────────────────────────────────
+        // CASQUES
+        // ─────────────────────────────────────────────
+        private static void AddHelmets(List<ItemData> list)
+        {
             list.AddRange(new[]
             {
                 Helmet("M1 Helmet", 8, ProtectionLevel.Fragmentation, "WWII. Protection contre éclats."),
@@ -50,8 +63,13 @@ namespace XCOM_3
                 Helmet("ACH", 15, ProtectionLevel.NIJ_IIIA, "Advanced Combat Helmet."),
                 Helmet("ECH", 16, ProtectionLevel.NIJ_IIIA, "Enhanced Combat Helmet."),
             });
+        }
 
-            // ═════════ GILETS ═════════
+        // ─────────────────────────────────────────────
+        // GILETS
+        // ─────────────────────────────────────────────
+        private static void AddVests(List<ItemData> list)
+        {
             list.AddRange(new[]
             {
                 Vest("M-1952 Flak Jacket", 10, ProtectionLevel.Fragmentation, "Guerre de Corée."),
@@ -59,22 +77,37 @@ namespace XCOM_3
                 Vest("M-1955 Vest", 14, ProtectionLevel.Fragmentation, "Plaques Doron."),
                 Vest("PASGT Vest", 18, ProtectionLevel.NIJ_II, "Kevlar standard."),
             });
+        }
 
-            // Génération moderne + variantes
+        // ─────────────────────────────────────────────
+        // PLAQUES MODERNES + VARIANTES
+        // ─────────────────────────────────────────────
+        private static void AddModernPlates(List<ItemData> list)
+        {
             AddPlateVariants(list, "OTV (IBA)", 22);
             AddPlateVariants(list, "MTV", 24);
             AddPlateVariants(list, "IMTV", 26);
             AddPlateVariants(list, "IOTV", 28);
+        }
 
-            // ═════════ BOUCLIERS ═════════
+        // ─────────────────────────────────────────────
+        // BOUCLIERS
+        // ─────────────────────────────────────────────
+        private static void AddShields(List<ItemData> list)
+        {
             list.AddRange(new[]
             {
                 Shield("Riot Shield", 15, ProtectionLevel.None, 1, "Anti-émeute."),
                 Shield("Ballistic Shield", 30, ProtectionLevel.NIJ_IIIA, 2, "NIJ IIIA."),
                 Shield("Heavy Ballistic Shield", 45, ProtectionLevel.NIJ_III, 2, "NIJ III."),
             });
+        }
 
-            // ═════════ CHEMISE ═════════
+        // ─────────────────────────────────────────────
+        // CHEMISES
+        // ─────────────────────────────────────────────
+        private static void AddCombatShirts(List<ItemData> list)
+        {
             list.Add(new ItemData(
                 "Army Combat Shirt",
                 ItemType.Armor,
@@ -84,13 +117,11 @@ namespace XCOM_3
                 0,
                 "Protection feu / confort thermique."
             ));
-
-            return list.ToArray();
         }
 
-        // ─────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────
         // HELPERS
-        // ─────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────
 
         private static ItemData Helmet(string name, int armor, ProtectionLevel level, string desc)
             => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Head, level, 0, desc);
@@ -104,7 +135,6 @@ namespace XCOM_3
         private static void AddPlateVariants(List<ItemData> list, string baseName, int baseArmor)
         {
             list.Add(Vest(baseName, baseArmor, ProtectionLevel.NIJ_IIIA, "Base NIJ IIIA"));
-
             list.Add(new ItemData(
                 $"{baseName} + SAPI",
                 ItemType.Armor,
@@ -114,7 +144,6 @@ namespace XCOM_3
                 1,
                 "Plaques SAPI. -1 PM."
             ));
-
             list.Add(new ItemData(
                 $"{baseName} + ESAPI",
                 ItemType.Armor,
