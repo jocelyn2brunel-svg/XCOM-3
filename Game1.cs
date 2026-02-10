@@ -35,18 +35,7 @@ namespace XCOM_3
         private Color directionalLight = Color.White;
 
         // --- NOUVEAU: Système d'inventaire ---
-        private bool showInventory = false;
-
-        // --- Menu principal ---
-        private List<Button> menuButtons;
-        private MouseState previousMouseState;
-        private List<Song> menuSongs;
-        private Song currentSong;
-        private Random random = new Random();
-
-        // --- Menu de sélection de mission ---
-        private List<Button> missionButtons;
-        private string selectedMission = "";
+        private bool showInventory = false;   
 
         // --- Système de grenades ---
         private Dictionary<string, GrenadeData> grenadeDatabase;
@@ -87,14 +76,6 @@ namespace XCOM_3
         private HashSet<WallSegment> wallSegments = new HashSet<WallSegment>();
         private EdgeWallGenerator edgeWallGenerator;
 
-        // --- Options / Volume ---
-        private List<Button> optionsButtons;
-        private float musicVolume = 0.5f;
-        private Rectangle volumeBar;
-        private Rectangle volumeFill;
-        private Rectangle volumeHandle;
-        private bool draggingVolume = false;
-
         // --- Unités et combat ---
         private List<Unit> playerUnits = new List<Unit>();
         private List<Unit> enemyUnits = new List<Unit>();
@@ -116,12 +97,6 @@ namespace XCOM_3
         // --- Raycast pour sélection 3D ---
         private Texture2D pixel;
 
-        // --- Encyclopédie ---
-        private List<Button> encyclopediaButtons;
-        private string encyclopediaCategory = "Weapons"; // "Weapons", "Armor", "Units"
-
-        // ═══ NOUVEAUX CHAMPS POUR OPTIMISATIONS ═══
-
         // Batch renderer pour les unités (remplace les draw calls multiples)
         private HumanoidBatchRenderer humanoidBatcher;
 
@@ -138,6 +113,17 @@ namespace XCOM_3
         private Renderer3D renderer3D;
         private PathfindingSystem pathfinding;
         private InventorySystem inventorySystem;
+
+        // ✅ NOUVEAU CODE - Managers
+        private MainMenuManager mainMenuManager;
+        private MissionSelectManager missionSelectManager;
+        private OptionsMenuManager optionsMenuManager;
+        private EncyclopediaManager encyclopediaManager;
+
+        // Garder ces champs (toujours utilisés ailleurs)
+        private MouseState previousMouseState;
+        private Random random = new Random();
+        private string selectedMission = ""; // Utilisé dans CreateUnits et StartMission
 
         public Game1()
         {
@@ -162,6 +148,42 @@ namespace XCOM_3
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             font = Content.Load<SpriteFont>("Arial");
             pixel = new Texture2D(GraphicsDevice, 1, 1); pixel.SetData(new[] { Color.White });
+
+            // ✅ INITIALISATION DES MANAGERS
+
+            // 1. Main Menu Manager
+            mainMenuManager = new MainMenuManager(_graphics.GraphicsDevice, _spriteBatch, font, random);
+            mainMenuManager.LoadContent(Content);
+            mainMenuManager.OnNewGameRequested += () => currentState = GameState.MissionSelect;
+            mainMenuManager.OnContinueRequested += HandleContinue;
+            mainMenuManager.OnMapEditorRequested += () =>
+            {
+                mapEditor.StartNewMap(50, 50);
+                currentState = GameState.MapEditor;
+            };
+            mainMenuManager.OnEncyclopediaRequested += () =>
+            {
+                currentState = GameState.Encyclopedia;
+            };
+            mainMenuManager.OnOptionsRequested += () => currentState = GameState.OptionsMenu;
+            mainMenuManager.OnQuitRequested += () => Exit();
+
+            // 2. Mission Select Manager
+            missionSelectManager = new MissionSelectManager(_spriteBatch, font);
+            missionSelectManager.OnMissionSelected += (missionType) =>
+            {
+                selectedMission = missionType;
+                StartMission(missionType);
+            };
+            missionSelectManager.OnBackToMainMenu += () => currentState = GameState.MainMenu;
+
+            // 3. Options Menu Manager
+            optionsMenuManager = new OptionsMenuManager(_graphics.GraphicsDevice, _spriteBatch, font, pixel);
+            optionsMenuManager.OnBackToMainMenu += () => currentState = GameState.MainMenu;
+
+            // 4. Encyclopedia Manager (nécessite weaponDatabase et inventorySystem)
+            // On l'initialise APRÈS InitializeWeapons() et la création de inventorySystem
+
             tileTexture = Content.Load<Texture2D>("TileParchment32x32");
 
             renderer3D = new Renderer3D(GraphicsDevice);
@@ -174,25 +196,8 @@ namespace XCOM_3
             combatSystem = new CombatSystem(random, pathfinding, GetUnitAtCell, unitManager);
             combatUI = new CombatUISystem(GraphicsDevice, _spriteBatch, font, pixel);
             combatSystem.OnUnitKilled += HandleUnitKilled;
-            combatSystem.OnFireCompleted += HandleFireCompleted;
-
-            menuButtons = CreateMenu(new[] { "New Game", "Continue", "Map Editor", "Encyclopedia", "Options", "Quit" }, 100);
-            missionButtons = CreateMenu(new[] { "Tutorial", "Survival", "Assault", "Defense", "Back" }, 100);
-            encyclopediaButtons = CreateMenu(new[] { "Armes", "Armures", "Unités", "Retour" }, 100);
-
-            optionsButtons = new List<Button>
-            {
-                new("Music Volume +", new Vector2(0,100)),
-                new("Music Volume -", new Vector2(0,156)),
-                new("Back", new Vector2(0,184))
-            };
-            volumeBar = new Rectangle(0, 134, 200, 8);
-
-            menuSongs = new[] { "menu_music_1", "menu_music_2", "menu_music_3", "menu_music_4" }
-                .Select(Content.Load<Song>).ToList();
-            currentSong = menuSongs[random.Next(menuSongs.Count)];
-            MediaPlayer.Play(currentSong); MediaPlayer.Volume = 0.5f;
-
+            combatSystem.OnFireCompleted += HandleFireCompleted;          
+        
             Window.ClientSizeChanged += (_, _) =>
             {
                 combatUI.UpdateFireTargetsUIPositions(selectedUnit);
@@ -224,6 +229,18 @@ namespace XCOM_3
 
             InitializeWeapons();
             InitializeGrenades();
+
+            // ✅ ENCYCLOPEDIA MANAGER (nécessite weaponDatabase et inventorySystem)
+            encyclopediaManager = new EncyclopediaManager(
+                _graphics.GraphicsDevice,
+                _spriteBatch,
+                font,
+                weaponDatabase,
+                inventorySystem,
+                enemyPool
+            );
+            encyclopediaManager.OnBackToMainMenu += () => currentState = GameState.MainMenu;
+
             explosionManager = new ExplosionManager(random);
             edgeWallGenerator = new EdgeWallGenerator(random);
             humanoidBatcher = new HumanoidBatchRenderer();
@@ -242,23 +259,31 @@ namespace XCOM_3
                 showInventory = !showInventory;
 
             UpdateGrenades(gameTime);
-            menuButtons[1].IsEnabled = hasSavedGame;
 
             switch (currentState)
             {
-                case GameState.MainMenu: HandleMainMenu(mouse); break;
-                case GameState.MissionSelect: HandleMissionSelect(mouse); if (escapePressed) currentState = GameState.MainMenu; break;
-                case GameState.Playing: UpdatePlaying(gameTime, mouse, keyboard, leftClick, escapePressed); break;
+                case GameState.MainMenu:
+                    mainMenuManager.Update(mouse, previousMouseState);
+                    break;
+
+                case GameState.MissionSelect:
+                    missionSelectManager.Update(mouse, previousMouseState);
+                    if (escapePressed) currentState = GameState.MainMenu;
+                    break;
+
+                case GameState.Playing:
+                    UpdatePlaying(gameTime, mouse, keyboard, leftClick, escapePressed);
+                    break;
+
                 case GameState.MapEditor:
-                    // ✅ Passer la taille réelle du viewport
                     mapEditor.Update(
                         gameTime,
                         mouse,
                         keyboard,
                         previousKeyboardState,
                         previousMouseState,
-                        GraphicsDevice.Viewport.Width,    // ← NOUVEAU
-                        GraphicsDevice.Viewport.Height    // ← NOUVEAU
+                        GraphicsDevice.Viewport.Width,
+                        GraphicsDevice.Viewport.Height
                     );
 
                     if (!mapEditor.IsActive)
@@ -269,9 +294,20 @@ namespace XCOM_3
                         currentState = GameState.MainMenu;
                     }
                     break;
-                case GameState.OptionsMenu: HandleOptionsMenu(mouse); if (escapePressed) currentState = GameState.MainMenu; break;
-                case GameState.Encyclopedia: HandleEncyclopedia(mouse); if (escapePressed) currentState = GameState.MainMenu; break;
-                case GameState.GameOver: if (escapePressed || leftClick) currentState = GameState.MainMenu; break;
+
+                case GameState.OptionsMenu:
+                    optionsMenuManager.Update(mouse, previousMouseState);
+                    if (escapePressed) currentState = GameState.MainMenu;
+                    break;
+
+                case GameState.Encyclopedia:
+                    encyclopediaManager.Update(mouse, previousMouseState);
+                    if (escapePressed) currentState = GameState.MainMenu;
+                    break;
+
+                case GameState.GameOver:
+                    if (escapePressed || leftClick) currentState = GameState.MainMenu;
+                    break;
             }
 
             previousMouseState = mouse;
@@ -296,27 +332,42 @@ namespace XCOM_3
             // --- EFFETS VISUELS 3D ---
             VisualEffects.Draw(); // explosions et particules
 
-            // UI
             _spriteBatch.Begin();
 
             switch (currentState)
             {
                 case GameState.MainMenu:
-                    DrawTitle("XCOM 3"); DrawButtons(menuButtons); break;
-                case GameState.MissionSelect:
-                    DrawTitle("Select Mission"); DrawButtons(missionButtons); break;
-                case GameState.Playing:
-                    if (showInventory) inventorySystem.Draw(selectedUnit);
-                    else DrawPlayingUI();
+                    mainMenuManager.Draw();
                     break;
+
+                case GameState.MissionSelect:
+                    missionSelectManager.Draw();
+                    break;
+
+                case GameState.Playing:
+                    if (showInventory)
+                        inventorySystem.Draw(selectedUnit);
+                    else
+                        DrawPlayingUI();
+                    break;
+
                 case GameState.MapEditor:
                     mapEditor.DrawUI(Mouse.GetState());
                     break;
+
                 case GameState.OptionsMenu:
-                    DrawTitle("Options"); DrawButtons(optionsButtons); DrawVolumeControls(); break;
-                case GameState.Encyclopedia: DrawEncyclopedia(); break;
-                case GameState.GameOver: DrawGameOver(); break;
+                    optionsMenuManager.Draw();
+                    break;
+
+                case GameState.Encyclopedia:
+                    encyclopediaManager.Draw();
+                    break;
+
+                case GameState.GameOver:
+                    DrawGameOver();
+                    break;
             }
+
             DrawOverlay();
             _spriteBatch.End();
 
@@ -355,6 +406,9 @@ namespace XCOM_3
             savedPlayerUnits = playerUnits.Select(u => new Unit(u)).ToList();
             savedEnemyUnits = enemyUnits.Select(u => new Unit(u)).ToList();
             currentState = GameState.MainMenu;
+
+            // ✅ NOUVEAU : Notifier le manager
+            mainMenuManager.SetHasSavedGame(true);
         }
 
         private void UpdatePlaying(GameTime gameTime, MouseState mouse, KeyboardState keyboard,
@@ -422,9 +476,6 @@ namespace XCOM_3
             camera.CenterOnPosition(unit.Cell.X * cellSize, unit.Cell.Y * cellSize);
         }
 
-        private List<Button> CreateMenu(string[] labels, int startY, int step = 28) =>
-            labels.Select((t, i) => new Button(t, new Vector2(0, startY + i * step))).ToList();
-
         private void UpdateUnitAnimations(GameTime gameTime)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -442,44 +493,13 @@ namespace XCOM_3
             directionalLight = new Color(sunIntensity, sunIntensity * 0.95f, sunIntensity * 0.9f);
         }
 
-        private void HandleEncyclopedia(MouseState mouse)
-        {
-            foreach (var btn in encyclopediaButtons)
-                if (btn.IsClicked(mouse, previousMouseState))
-                    switch (btn.Text)
-                    {
-                        case "Armes": encyclopediaCategory = "Weapons"; Console.WriteLine("Affichage des armes"); break;
-                        case "Armures": encyclopediaCategory = "Armor"; Console.WriteLine("Affichage des armures"); break;
-                        case "Unités": encyclopediaCategory = "Units"; Console.WriteLine("Affichage des unités"); break;
-                        case "Retour": currentState = GameState.MainMenu; break;
-                    }
-        }
-
         private float CalculateSunIntensity(float time)
         {
             if (time < 0.25f) return MathHelper.Lerp(0.3f, 0.7f, time / 0.25f);
             else if (time < 0.5f) return MathHelper.Lerp(0.7f, 1.0f, (time - 0.25f) / 0.25f);
             else if (time < 0.75f) return MathHelper.Lerp(1.0f, 0.7f, (time - 0.5f) / 0.25f);
             else return MathHelper.Lerp(0.7f, 0.3f, (time - 0.75f) / 0.25f);
-        }
-
-        private void DrawButtons(List<Button> buttons)
-        {
-            MouseState mouse = Mouse.GetState();
-            foreach (var button in buttons) button.Draw(_spriteBatch, font, mouse);
-        }
-
-        private void DrawVolumeControls()
-        {
-            _spriteBatch.Draw(pixel, volumeBar, Color.Gray);
-            _spriteBatch.Draw(pixel, volumeFill, Color.Yellow);
-            _spriteBatch.Draw(pixel, volumeHandle, Color.White);
-        }
-
-        private void DrawTitle(string text)
-        {
-            _spriteBatch.DrawString(font, text, Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
-        }
+        }              
 
         private void DrawGameOver()
         {
@@ -611,76 +631,6 @@ namespace XCOM_3
             renderer3D.DrawPlane(position, new Vector3(cellSize, 1, cellSize), Color.Yellow * pulse);
         }
 
-        private void DrawEncyclopedia()
-        {
-            MouseState mouse = Mouse.GetState();
-            _spriteBatch.DrawString(font, "ENCYCLOPEDIE", Vector2.Zero, Color.White, 0f, Vector2.Zero, 3f, SpriteEffects.None, 0f);
-
-            foreach (var button in encyclopediaButtons) button.Draw(_spriteBatch, font, mouse);
-
-            int contentX = 250, contentY = 100, lineHeight = 25, y = contentY;
-
-            switch (encyclopediaCategory)
-            {
-                case "Weapons":
-                    _spriteBatch.DrawString(font, "=== ARMES ===", new Vector2(contentX, y), Color.Yellow, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
-                    y += 40;
-                    foreach (var weapon in weaponDatabase.Values.OrderBy(w => w.Name))
-                    {
-                        _spriteBatch.DrawString(font, weapon.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f); y += lineHeight;
-                        _spriteBatch.DrawString(font, $"  Dégâts: {weapon.Damage}", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
-                        _spriteBatch.DrawString(font, $"  Précision: {weapon.Accuracy}%", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
-                        _spriteBatch.DrawString(font, $"  Portée: {weapon.Range} cases", new Vector2(contentX + 20, y), Color.White); y += lineHeight + 10;
-                    }
-                    break;
-
-                case "Armor":
-                    _spriteBatch.DrawString(font, "=== ARMURES ===", new Vector2(contentX, y), Color.Yellow, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
-                    y += 40;
-                    var armors = inventorySystem.ItemDatabase.Values.Where(i => i.Type == ItemType.Armor).OrderBy(a => a.Name);
-                    foreach (var armor in armors)
-                    {
-                        _spriteBatch.DrawString(font, armor.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f); y += lineHeight;
-                        _spriteBatch.DrawString(font, $"  Protection: {armor.ArmorValue}", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
-                        string slot = armor.ArmorSlot == ArmorSlot.Head ? "Tête" : "Torse";
-                        _spriteBatch.DrawString(font, $"  Emplacement: {slot}", new Vector2(contentX + 20, y), Color.White); y += lineHeight + 10;
-                    }
-                    break;
-
-                case "Units":
-                    _spriteBatch.DrawString(font, "=== UNITÉS ===", new Vector2(contentX, y), Color.Yellow, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
-                    y += 40;
-
-                    _spriteBatch.DrawString(font, "ÉQUIPE JOUEUR:", new Vector2(contentX, y), Color.Blue, 0f, Vector2.Zero, 1.3f, SpriteEffects.None, 0f);
-                    y += 35;
-                    _spriteBatch.DrawString(font, "Soldat", new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f); y += lineHeight;
-                    _spriteBatch.DrawString(font, "  Classe: Assault", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
-                    _spriteBatch.DrawString(font, "  Arme de base: Rifle", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
-                    _spriteBatch.DrawString(font, "  PV: 100", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
-                    _spriteBatch.DrawString(font, "  PA: 3 par tour", new Vector2(contentX + 20, y), Color.White); y += lineHeight + 20;
-
-                    _spriteBatch.DrawString(font, "ENNEMIS:", new Vector2(contentX, y), Color.Red, 0f, Vector2.Zero, 1.3f, SpriteEffects.None, 0f);
-                    y += 35;
-
-                    foreach (var enemy in enemyPool)
-                    {
-                        _spriteBatch.DrawString(font, enemy.Name, new Vector2(contentX, y), Color.Cyan, 0f, Vector2.Zero, 1.2f, SpriteEffects.None, 0f); y += lineHeight;
-                        _spriteBatch.DrawString(font, $"  Classe: {enemy.Class}", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
-                        _spriteBatch.DrawString(font, $"  Arme: {enemy.Weapon}", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
-                        var w = weaponDatabase[enemy.Weapon];
-                        _spriteBatch.DrawString(font, $"  Dégâts: {w.Damage} | Portée: {w.Range}", new Vector2(contentX + 20, y), Color.White); y += lineHeight;
-                        _spriteBatch.DrawString(font, $"  PA: {enemy.ActionPoints} par tour", new Vector2(contentX + 20, y), Color.White); y += lineHeight + 15;
-                    }
-                    break;
-            }
-
-            _spriteBatch.DrawString(font, "Appuyez sur ESC pour retourner au menu",
-                new Vector2(10, GraphicsDevice.Viewport.Height - 30), Color.Yellow);
-        }
-
-        /// <summary>
-        /// Charge une carte (générée ou depuis fichier)
-        /// </summary>
         private void LoadMap(MapData map = null)
         {
             // Si aucune carte fournie, générer une carte aléatoire
@@ -844,59 +794,7 @@ namespace XCOM_3
             ["Zombie Claws"] = new("Zombie Claws", 35, 70, 1),
             ["Shotgun"] = new("Shotgun", 45, 70, 3),
             ["SMG"] = new("SMG", 20, 75, 4)
-        };
-
-        private void HandleMainMenu(MouseState mouse)
-        {
-            foreach (var btn in menuButtons)
-                if (btn.IsClicked(mouse, previousMouseState))
-                    switch (btn.Text)
-                    {
-                        case "New Game":
-                            currentState = GameState.MissionSelect;
-                            Console.WriteLine("Opening mission select...");
-                            break;
-                        case "Continue":
-                            if (!hasSavedGame) { Console.WriteLine("No saved game to continue!"); break; }
-                            playerUnits = savedPlayerUnits.Select(u => new Unit(u)).ToList();
-                            enemyUnits = savedEnemyUnits.Select(u => new Unit(u)).ToList();
-                            currentState = GameState.Playing;
-                            Console.WriteLine("Game continued!");
-                            break;
-                        case "Map Editor":
-                            // Demander la taille de la carte (ou utiliser des valeurs par défaut)
-                            mapEditor.StartNewMap(50, 50);
-                            currentState = GameState.MapEditor;
-                            Console.WriteLine("Opening map editor...");
-                            break;
-                        case "Encyclopedia":
-                            encyclopediaCategory = "Weapons";
-                            currentState = GameState.Encyclopedia;
-                            Console.WriteLine("Opening encyclopedia...");
-                            break;
-                        case "Options":
-                            currentState = GameState.OptionsMenu;
-                            Console.WriteLine("Options");
-                            break;
-                        case "Quit":
-                            Exit();
-                            break;
-                    }
-        }
-
-        private void HandleMissionSelect(MouseState mouse)
-        {
-            foreach (var btn in missionButtons)
-                if (btn.IsClicked(mouse, previousMouseState))
-                    switch (btn.Text)
-                    {
-                        case "Tutorial": selectedMission = "Tutorial"; StartMission(selectedMission); break;
-                        case "Survival": selectedMission = "Survival"; StartMission(selectedMission); break;
-                        case "Assault": selectedMission = "Assault"; StartMission(selectedMission); break;
-                        case "Defense": selectedMission = "Defense"; StartMission(selectedMission); break;
-                        case "Back": currentState = GameState.MainMenu; break;
-                    }
-        }
+        };             
 
         private void StartMission(string missionType)
         {
@@ -917,41 +815,7 @@ namespace XCOM_3
             combatSystem.StartPlayerTurn();
 
             Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
-        }
-
-        private void HandleOptionsMenu(MouseState mouse)
-        {
-            foreach (var btn in optionsButtons)
-                if (btn.IsClicked(mouse, previousMouseState))
-                    switch (btn.Text)
-                    {
-                        case "Music Volume +":
-                            musicVolume = Math.Min(musicVolume + 0.1f, 1f);
-                            MediaPlayer.Volume = musicVolume;
-                            Console.WriteLine("Volume: " + musicVolume);
-                            break;
-                        case "Music Volume -":
-                            musicVolume = Math.Max(musicVolume - 0.1f, 0f);
-                            MediaPlayer.Volume = musicVolume;
-                            Console.WriteLine("Volume: " + musicVolume);
-                            break;
-                        case "Back":
-                            currentState = GameState.MainMenu;
-                            break;
-                    }
-
-            draggingVolume = mouse.LeftButton == ButtonState.Pressed && volumeBar.Contains(mouse.Position) || draggingVolume;
-            if (mouse.LeftButton == ButtonState.Released) draggingVolume = false;
-
-            if (draggingVolume)
-            {
-                musicVolume = MathHelper.Clamp((mouse.X - volumeBar.X) / (float)volumeBar.Width, 0f, 1f);
-                MediaPlayer.Volume = musicVolume;
-            }
-
-            volumeFill = new Rectangle(volumeBar.X, volumeBar.Y, (int)(volumeBar.Width * musicVolume), volumeBar.Height);
-            volumeHandle = new Rectangle(volumeBar.X + volumeFill.Width - 5, volumeBar.Y - 4, 10, volumeBar.Height + 8);
-        }
+        }       
 
         private void HandlePlayerTurn(MouseState mouse, bool leftClick, KeyboardState keyboard)
         {
@@ -1085,6 +949,24 @@ namespace XCOM_3
                 }
                 return;
             }
+        }
+
+        /// <summary>
+        /// Gère la reprise d'une partie sauvegardée
+        /// </summary>
+        private void HandleContinue()
+        {
+            if (!hasSavedGame)
+            {
+                Console.WriteLine("[GAME] No saved game to continue!");
+                return;
+            }
+
+            playerUnits = savedPlayerUnits.Select(u => new Unit(u)).ToList();
+            enemyUnits = savedEnemyUnits.Select(u => new Unit(u)).ToList();
+            currentState = GameState.Playing;
+
+            Console.WriteLine("[GAME] Game continued!");
         }
 
         private void CancelSelection()
