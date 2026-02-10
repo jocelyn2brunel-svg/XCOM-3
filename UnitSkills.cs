@@ -190,6 +190,8 @@ namespace XCOM_3
             _skills[SkillType.WeaponHandling].Level * 2;
         public int GetReloadSpeedBonus() =>
             _skills[SkillType.WeaponHandling].Level * 2;
+        public int GetDamageBonus() =>
+            _skills[SkillType.Strength].Level * 2;
 
 
 
