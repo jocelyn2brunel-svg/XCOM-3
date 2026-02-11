@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+ï»¿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -15,6 +15,14 @@ namespace XCOM_3
         private VertexPositionNormalTexture[] texturedPlaneVerts;
         private short[] texturedPlaneIdx;
         private HumanoidModelAdvanced humanoidModel;
+
+        // Dans Renderer3D.cs, ajoutez :
+        private float globalAnimationTime = 0f;
+
+        public void Update(GameTime gameTime)
+        {
+            globalAnimationTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
+        }
 
         public Renderer3D(GraphicsDevice device)
         {
@@ -120,7 +128,7 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// ? MURS AMÉLIORÉS - Version avec détails, hauteur et ombres
+        /// ? MURS AMÃ‰LIORÃ‰S - Version avec dÃ©tails, hauteur et ombres
         /// </summary>
         public void DrawWalls(HashSet<WallSegment> walls, int size, bool editorMode = false)
         {
@@ -130,20 +138,20 @@ namespace XCOM_3
                 Vector3 end = new(s.End.X * size, 0, s.End.Y * size);
                 Vector3 center = (start + end) / 2f;
 
-                // ? Hauteur du mur augmentée
+                // ? Hauteur du mur augmentÃ©e
                 float wallHeight = size * 1.8f;
                 center.Y = wallHeight / 2f;
 
-                // ? Épaisseur du mur
+                // ? Ã‰paisseur du mur
                 float thickness = size * 0.15f;
 
                 Vector3 scale = s.IsHorizontal
                     ? new Vector3(size, wallHeight, thickness)
                     : new Vector3(thickness, wallHeight, size);
 
-                // ? Couleur améliorée selon le mode
+                // ? Couleur amÃ©liorÃ©e selon le mode
                 Color wallColor = editorMode
-                    ? new Color(140, 140, 140)  // Gris clair en mode éditeur
+                    ? new Color(140, 140, 140)  // Gris clair en mode Ã©diteur
                     : new Color(100, 85, 70);   // Beige/brun en jeu
 
                 // ? Corps principal du mur
@@ -157,12 +165,12 @@ namespace XCOM_3
                     : new Vector3(thickness, thickness * 0.5f, size);
 
                 Color topColor = editorMode
-                    ? new Color(180, 180, 180)  // Gris très clair
+                    ? new Color(180, 180, 180)  // Gris trÃ¨s clair
                     : new Color(120, 105, 90);  // Beige plus clair
 
                 DrawCube(topCenter, topScale, topColor);
 
-                // ? Ligne de démarcation (jointure au milieu)
+                // ? Ligne de dÃ©marcation (jointure au milieu)
                 if (!editorMode)
                 {
                     Vector3 jointCenter = center;
@@ -174,7 +182,7 @@ namespace XCOM_3
                     DrawCube(jointCenter, jointScale, new Color(80, 65, 50));
                 }
 
-                // ? Ombre portée au sol
+                // ? Ombre portÃ©e au sol
                 if (!editorMode)
                 {
                     Vector3 shadowCenter = (start + end) / 2f;
@@ -187,12 +195,12 @@ namespace XCOM_3
                     DrawCube(shadowCenter, shadowScale, new Color(0, 0, 0, 80));
                 }
 
-                // ? ÉDITEUR: Marquer les extrémités avec des petits cubes
+                // ? Ã‰DITEUR: Marquer les extrÃ©mitÃ©s avec des petits cubes
                 if (editorMode)
                 {
                     float markerSize = size * 0.12f;
 
-                    // Marqueur début (jaune/orange)
+                    // Marqueur dÃ©but (jaune/orange)
                     Vector3 startMarker = new Vector3(s.Start.X * size, wallHeight, s.Start.Y * size);
                     DrawCube(startMarker, new Vector3(markerSize), new Color(255, 200, 0));
 
@@ -203,36 +211,54 @@ namespace XCOM_3
             }
         }
 
-        public void DrawUnit(Unit u, int size)
-        {
-            Vector3 pos = new Vector3(u.Cell.X * size + size / 2f, 0, u.Cell.Y * size + size / 2f);
-            Vector3 offset = Vector3.Zero;
+        
 
-            if (u.IsFiring && u.FireTarget.HasValue)
+
+        public void DrawUnit(Unit unit, int cellSize)
+        {
+            if (humanoidModel == null)
             {
-                Vector3 target = new(u.FireTarget.Value.X * size + size / 2f, size * 0.75f, u.FireTarget.Value.Y * size + size / 2f);
-                if (u.Weapon == "Zombie Claws")
-                {
-                    float t = u.FireProgress;
-                    Vector3 delta = target - pos;
-                    offset = t < 0.5f ? Vector3.Lerp(Vector3.Zero, delta, t / 0.5f)
-                                 : Vector3.Lerp(delta, Vector3.Zero, (t - 0.5f) / 0.5f);
-                }
-                else DrawCube(Vector3.Lerp(pos, target, u.FireProgress), new Vector3(size * 0.2f), Color.Yellow);
+                Console.WriteLine("[RENDERER3D] ERROR: humanoidModel is null!");
+                return;
             }
 
-            Color col = u.Team == Team.Player ? Color.Blue : Color.Red;
-            var type = u.Class switch
-            {
-                "Heavy" => HumanoidModelAdvanced.UnitType.Heavy,
-                "Scout" => HumanoidModelAdvanced.UnitType.Scout,
-                "Undead" => HumanoidModelAdvanced.UnitType.Zombie,
-                "Assault" or "Infantry" => HumanoidModelAdvanced.UnitType.Soldier,
-                _ => u.Team == Team.Enemy && u.Name.Contains("Alien") ? HumanoidModelAdvanced.UnitType.Alien
-                     : HumanoidModelAdvanced.UnitType.Soldier
-            };
-            humanoidModel.Draw(gd, basic, pos + offset, col, size * 0.8f, type, u.Orientation, u.LegSwing, u.ArmSwing, u.BodyBob, u.IdleBobOffset);
+            Color teamColor = unit.Team == Team.Player ?
+                new Color(100, 150, 255) :
+                new Color(255, 100, 100);
+
+            float scale = cellSize * 0.8f;
+
+            // Calculer l'orientation (rotation vers la position cible)
+            Vector2 direction = new Vector2(
+                unit.TargetPosition.X - unit.VisualPosition.X,
+                unit.TargetPosition.Z - unit.VisualPosition.Z
+            );
+            float orientation = direction.Length() > 0.01f ?
+                (float)Math.Atan2(direction.X, direction.Y) : 0f;
+
+            // Animation
+            float legSwing = (float)Math.Sin(globalAnimationTime * 8f) * 0.3f;
+            float armSwing = (float)Math.Sin(globalAnimationTime * 8f + Math.PI) * 0.2f;
+            float bodyBob = unit.IsMoving ?
+                (float)Math.Abs(Math.Sin(globalAnimationTime * 8f)) * 0.15f : 0f;
+            float idleBob = !unit.IsMoving ?
+                (float)Math.Sin(globalAnimationTime * 2f) * 0.05f : 0f;
+
+            // âœ… NOUVEAU : Utiliser DrawWithEquipment au lieu de Draw
+            humanoidModel.DrawWithEquipment(
+                gd,
+                basic,
+                unit,           // â† Passer l'unitÃ© complÃ¨te
+                scale,
+                orientation,
+                unit.IsMoving ? legSwing : 0f,
+                unit.IsMoving ? armSwing : 0f,
+                bodyBob,
+                idleBob
+            );
         }
+
+
 
         public void DrawSelectionIndicator(Unit u, int size, Color c, float scale = 1.1f) =>
             DrawPlane(new Vector3(u.Cell.X * size + size / 2f, 0.05f, u.Cell.Y * size + size / 2f),

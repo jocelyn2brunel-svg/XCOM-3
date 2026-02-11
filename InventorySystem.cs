@@ -143,8 +143,8 @@ namespace XCOM_3
         {
             if (selectedUnit == null) return;
 
-            int panelWidth = 750;
-            int panelHeight = 500;
+            int panelWidth = (int)(graphicsDevice.Viewport.Width * 0.75f);   // 75% de la largeur
+            int panelHeight = (int)(graphicsDevice.Viewport.Height * 0.85f); // 85% de la hauteur
             int gridStartX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2 + 20;
             int gridStartY = graphicsDevice.Viewport.Height / 2 - panelHeight / 2 + 60;
 
@@ -502,8 +502,8 @@ namespace XCOM_3
         {
             if (selectedUnit == null) return;
 
-            int panelWidth = 750;
-            int panelHeight = 550; // ✅ Augmenté pour grenades
+            int panelWidth = (int)(graphicsDevice.Viewport.Width * 0.75f);   // 75% de la largeur
+            int panelHeight = (int)(graphicsDevice.Viewport.Height * 0.85f); // 85% de la hauteur
             int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
             int panelY = graphicsDevice.Viewport.Height / 2 - panelHeight / 2;
 

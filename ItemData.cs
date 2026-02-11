@@ -39,21 +39,21 @@ namespace XCOM_3
     /// </summary>
     public class ItemData
     {
-        public string Name;
-        public ItemType Type;
+        public string Name { get; set; }
+        public ItemType Type { get; set; }
 
         // Données d'arme
-        public WeaponData WeaponData;
+        public WeaponData WeaponData { get; set; }
 
         // Données d'armure
-        public int ArmorValue;
-        public ArmorSlot ArmorSlot;
+        public int ArmorValue { get; set; }
+        public ArmorSlot ArmorSlot { get; set; }
         public ProtectionLevel ProtectionLevel;
         public int MobilityPenalty;
         public string Description;
 
         // Données de grenades
-        public GrenadeData GrenadeData;
+        public GrenadeData GrenadeData { get; set; }
 
         // Constructeur pour armes
         public ItemData(string name, ItemType type, WeaponData weaponData)
@@ -100,8 +100,8 @@ namespace XCOM_3
     /// </summary>
     public class Item
     {
-        public ItemData Data;
-        public Point Position;
+        public ItemData Data { get; set; }
+        public Point Position { get; set; }
         public Rectangle Bounds => new Rectangle(Position.X, Position.Y, 50, 50);
 
         public Item(ItemData data, Point position)

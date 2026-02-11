@@ -9,8 +9,8 @@ namespace XCOM_3
     public partial class Unit
     {
         public Point Cell;
-        public Team Team;
-        public string Name, Class, Weapon;
+        public Team Team { get; set; }
+        public string Name, Weapon;
         public int ActionPoints = 3, MovementPoints = 3, Health = 100, MaxHealth = 100;
         public WeaponData WeaponData;
         public bool IsFiring = false, WillHit = false;
@@ -21,13 +21,15 @@ namespace XCOM_3
         public Vector3 ChargeStart;
         public Vector3 ChargeTarget;
         public bool IsChargingForward = true;
+        public string Class { get; set; }
+
 
         // Système d'inventaire
-        public Item EquippedWeapon = null;
-        public Item EquippedHelmet = null;
-        public Item EquippedArmor = null;
-        public Item EquippedShield = null;  // Nouveau slot pour bouclier
-        public Item EquippedShirt = null;   // Nouveau slot pour chemise tactique
+        public Item EquippedWeapon { get; set; }
+        public Item EquippedHelmet { get; set; }
+        public Item EquippedArmor { get; set; }
+        public Item EquippedShield { get; set; }
+        public Item EquippedShirt { get; set; }
         public string EquippedBackpack;
 
         // Orientation et animation
@@ -36,7 +38,7 @@ namespace XCOM_3
 
         // Animation de déplacement
         public bool IsMoving = false;
-        public Vector3 VisualPosition;
+        public Vector3 VisualPosition { get; set; }
         public Vector3 TargetPosition;
         public float MoveProgress = 0f;
 

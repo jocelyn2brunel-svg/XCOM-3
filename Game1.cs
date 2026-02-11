@@ -258,6 +258,8 @@ namespace XCOM_3
             if (iPressed && currentState == GameState.Playing && selectedUnit?.Team == Team.Player)
                 showInventory = !showInventory;
 
+            renderer3D.Update(gameTime);
+
             UpdateGrenades(gameTime);
 
             switch (currentState)
