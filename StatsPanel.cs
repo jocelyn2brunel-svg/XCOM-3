@@ -17,6 +17,12 @@ namespace XCOM_3
         private const int PanelWidth = 700;
         private const int PanelHeight = 750;
 
+        public bool IsVisible => _visible;
+
+        public void Hide() => _visible = false;
+        public void Show() => _visible = true;
+
+
         public StatsPanel(SpriteFont font, GraphicsDevice device)
         {
             _font = font;

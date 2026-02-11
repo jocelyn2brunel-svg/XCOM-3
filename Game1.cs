@@ -257,19 +257,36 @@ namespace XCOM_3
         protected override void Update(GameTime gameTime)
         {
             UpdateFPS(gameTime);
+            KeyboardState currentKeyboardState = Keyboard.GetState();
 
             ReadInputs(out bool leftClick, out bool escapePressed, out bool iPressed,
                        out MouseState mouse, out KeyboardState keyboard);
 
+            // INVENTAIRE
             if (iPressed && currentState == GameState.Playing && selectedUnit?.Team == Team.Player)
+            {
                 showInventory = !showInventory;
 
-            if (Keyboard.GetState().IsKeyDown(Keys.F3))
-            {
-                statsPanel.Toggle();
+                if (showInventory)
+                    statsPanel.Hide(); // ferme skills si inventaire ouvert
             }
-            statsPanel.Update();
 
+            // SKILLS
+            if (keyboard.IsKeyDown(Keys.K) &&
+                !previousKeyboardState.IsKeyDown(Keys.K))
+            {
+                bool newState = !statsPanel.IsVisible;
+
+                if (newState)
+                    showInventory = false; // ferme inventaire si skills ouvert
+
+                if (newState)
+                    statsPanel.Show();
+                else
+                    statsPanel.Hide();
+            }
+
+            statsPanel.Update();
 
             renderer3D.Update(gameTime);
 
@@ -767,10 +784,42 @@ namespace XCOM_3
                     break;
 
                 case "Defense":
-                    var zombie = enemyPool.First(e => e.Name == "Zombie");
-                    for (int i = 0; i < 12; i++)
-                        enemyUnits.Add(new Unit(new Point(2 + (i % 8), i < 8 ? 1 : 2), Team.Enemy, zombie.Name, zombie.Class, zombie.Weapon, weaponDatabase[zombie.Weapon]) { ActionPoints = zombie.ActionPoints });
-                    break;
+                    {
+                        var zombie = enemyPool.First(e => e.Name == "Zombie");
+                        int zombieCount = 30;
+
+                        Random rnd = new Random();
+                        for (int i = 0; i < zombieCount; i++)
+                        {
+                            Point spawn;
+                            bool valid;
+
+                            do
+                            {
+                                spawn = new Point(rnd.Next(0, gridWidth), rnd.Next(0, gridHeight));
+
+                                // Vérifie qu'aucune unité n'est déjà sur cette case
+                                valid = !enemyUnits.Any(u => u.Cell == spawn)
+                                        && !playerUnits.Any(u => u.Cell == spawn);
+
+                            } while (!valid);
+
+                            enemyUnits.Add(new Unit(
+                                spawn,
+                                Team.Enemy,
+                                zombie.Name,
+                                zombie.Class,
+                                zombie.Weapon,
+                                weaponDatabase[zombie.Weapon])
+                            { ActionPoints = zombie.ActionPoints });
+                        }
+
+
+                        break;
+                    }
+
+
+
             }
 
             foreach (var unit in playerUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
