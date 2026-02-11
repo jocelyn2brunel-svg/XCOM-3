@@ -184,7 +184,7 @@ namespace XCOM_3
             // 4. Encyclopedia Manager (nécessite weaponDatabase et inventorySystem)
             // On l'initialise APRÈS InitializeWeapons() et la création de inventorySystem
 
-            tileTexture = Content.Load<Texture2D>("TileParchment32x32");
+            // tileTexture = Content.Load<Texture2D>("TileParchment32x32");
 
             renderer3D = new Renderer3D(GraphicsDevice);
             camera = new CameraController(gridWidth, gridHeight, cellSize, GraphicsDevice.Viewport.AspectRatio);
@@ -789,7 +789,7 @@ namespace XCOM_3
         private void InitializeWeapons()
         {
             // ✅ Charger toutes les nouvelles armes
-            weaponDatabase = WeaponDatabaseExtended.GetAllWeapons();
+            weaponDatabase = WeaponDatabase.GetAllWeapons();
 
             Console.WriteLine($"[WEAPONS] Loaded {weaponDatabase.Count} weapons");
         }

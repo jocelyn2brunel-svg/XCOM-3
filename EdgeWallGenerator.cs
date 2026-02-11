@@ -4,6 +4,14 @@ using System.Collections.Generic;
 
 namespace XCOM_3
 {
+    enum BuildingType
+    {
+        SmallHouse,
+        Apartment,
+        Office,
+        Warehouse
+    }
+
     /// <summary>
     /// Représente un segment de mur entre deux cases
     /// </summary>
@@ -327,9 +335,9 @@ namespace XCOM_3
             HashSet<WallSegment> walls = new HashSet<WallSegment>();
 
             // Taille standard des bâtiments et espacement
-            int buildingWidth = 6;
-            int buildingHeight = 6;
-            int streetWidth = 3; // Largeur des rues entre les bâtiments
+            int buildingWidth = random.Next(5, 20);
+            int buildingHeight = random.Next(5, 20);
+            int streetWidth = 2; // Largeur des rues entre les bâtiments
 
             // Calculer combien de bâtiments peuvent tenir
             int blocWidth = buildingWidth + streetWidth;
@@ -347,6 +355,8 @@ namespace XCOM_3
             {
                 for (int bx = 0; bx < numBuildingsX; bx++)
                 {
+                    BuildingType type = (BuildingType)random.Next(0, 4);
+
                     int x = startX + bx * blocWidth;
                     int y = startY + by * blocHeight;
 
@@ -398,23 +408,8 @@ namespace XCOM_3
                                                          new Point(x + buildingWidth, y + buildingHeight / 2 + 1), false));
                     }
 
-                    // Murs intérieurs : division en 4 pièces égales
-                    int midX = x + buildingWidth / 2;
-                    int midY = y + buildingHeight / 2;
+                    GenerateInterior(walls, x, y, buildingWidth, buildingHeight, type);
 
-                    // Couloir vertical central avec portes
-                    for (int i = y + 1; i < y + buildingHeight - 1; i++)
-                    {
-                        if (i != midY - 1 && i != midY) // Portes au milieu
-                            AddVerticalWall(walls, midX, i);
-                    }
-
-                    // Couloir horizontal central avec portes
-                    for (int i = x + 1; i < x + buildingWidth - 1; i++)
-                    {
-                        if (i != midX - 1 && i != midX) // Portes au milieu
-                            AddHorizontalWall(walls, i, midY);
-                    }
                 }
             }
 
@@ -489,5 +484,63 @@ namespace XCOM_3
             // Zone ennemie (haut)
             walls.RemoveWhere(w => w.Start.Y < 4 || w.End.Y < 4);
         }
+
+        private void GenerateInterior(HashSet<WallSegment> walls,
+                              int x, int y,
+                              int width, int height,
+                              BuildingType type)
+        {
+            int roomCount;
+
+            switch (type)
+            {
+                case BuildingType.SmallHouse:
+                    roomCount = random.Next(2, 4);
+                    break;
+
+                case BuildingType.Apartment:
+                    roomCount = random.Next(4, 7);
+                    break;
+
+                case BuildingType.Office:
+                    roomCount = random.Next(3, 6);
+                    break;
+
+                case BuildingType.Warehouse:
+                    roomCount = random.Next(1, 3);
+                    break;
+
+                default:
+                    roomCount = 3;
+                    break;
+            }
+
+            for (int r = 0; r < roomCount; r++)
+            {
+                bool verticalSplit = random.Next(2) == 0;
+
+                if (verticalSplit)
+                {
+                    int splitX = random.Next(x + 2, x + width - 2);
+
+                    for (int i = y + 1; i < y + height - 1; i++)
+                    {
+                        if (i != y + height / 2) // Porte centrale
+                            AddVerticalWall(walls, splitX, i);
+                    }
+                }
+                else
+                {
+                    int splitY = random.Next(y + 2, y + height - 2);
+
+                    for (int i = x + 1; i < x + width - 1; i++)
+                    {
+                        if (i != x + width / 2) // Porte centrale
+                            AddHorizontalWall(walls, i, splitY);
+                    }
+                }
+            }
+        }
+
     }
 }
