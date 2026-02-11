@@ -125,6 +125,9 @@ namespace XCOM_3
         private Random random = new Random();
         private string selectedMission = ""; // Utilisé dans CreateUnits et StartMission
 
+        private StatsPanel statsPanel;
+
+
         public Game1()
         {
             // NOUVEAU: Créer une console Windows
@@ -192,6 +195,9 @@ namespace XCOM_3
             unitManager = new OptimizedUnitManager();
 
             pathfinding = new PathfindingSystem(gridWidth, gridHeight, new HashSet<WallSegment>(), GetUnitAtCell);
+            statsPanel = new StatsPanel(
+                Content.Load<SpriteFont>("Arial"),
+                GraphicsDevice);
 
             combatSystem = new CombatSystem(random, pathfinding, GetUnitAtCell, unitManager);
             combatUI = new CombatUISystem(GraphicsDevice, _spriteBatch, font, pixel);
@@ -257,6 +263,13 @@ namespace XCOM_3
 
             if (iPressed && currentState == GameState.Playing && selectedUnit?.Team == Team.Player)
                 showInventory = !showInventory;
+
+            if (Keyboard.GetState().IsKeyDown(Keys.F3))
+            {
+                statsPanel.Toggle();
+            }
+            statsPanel.Update();
+
 
             renderer3D.Update(gameTime);
 
@@ -369,8 +382,10 @@ namespace XCOM_3
                     DrawGameOver();
                     break;
             }
+            statsPanel.Draw(_spriteBatch, selectedUnit);
 
             DrawOverlay();
+
             _spriteBatch.End();
 
             base.Draw(gameTime);

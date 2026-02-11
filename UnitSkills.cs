@@ -53,10 +53,14 @@ namespace XCOM_3
         }
     }
 
+
+
     public class UnitSkills
     {
         private readonly Dictionary<SkillType, SkillProgress> _skills =
             Enum.GetValues<SkillType>().ToDictionary(s => s, s => new SkillProgress());
+
+        public IReadOnlyDictionary<SkillType, SkillProgress> AllSkills => _skills;
 
         public SkillProgress this[SkillType skill] => _skills[skill];
         public int OverallLevel => _skills.Values.Sum(s => s.Level) / _skills.Count;
