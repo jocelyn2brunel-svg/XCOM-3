@@ -334,8 +334,8 @@ namespace XCOM_3
         {
             HashSet<WallSegment> walls = new HashSet<WallSegment>();
 
-            int blockSize = 14;     // Taille du bloc
-            int streetWidth = 1;    // Rues plus fines
+            int blockSize = 14;     // Taille d’un bloc
+            int streetWidth = 2;    // Rues fines
 
             int startY = 4;
             int endY = gridHeight - 4;
@@ -344,21 +344,26 @@ namespace XCOM_3
             {
                 for (int blockX = 2; blockX < gridWidth - 2; blockX += blockSize + streetWidth)
                 {
-                    // Lot : occupe presque tout le bloc
-                    int lotX = blockX;
-                    int lotY = blockY;
-                    int lotWidth = Math.Min(blockSize, gridWidth - lotX - 2);
-                    int lotHeight = Math.Min(blockSize, gridHeight - lotY - 2);
+                    int lotWidth = Math.Min(blockSize, gridWidth - blockX - 2);
+                    int lotHeight = Math.Min(blockSize, gridHeight - blockY - 2);
 
                     if (lotWidth < 6 || lotHeight < 6)
                         continue;
 
-                    // Bâtiment : occupe presque tout le lot
-                    int buildingWidth = random.Next(lotWidth - 2, lotWidth + 1);
-                    int buildingHeight = random.Next(lotHeight - 2, lotHeight + 1);
+                    // Décalage aléatoire dans le lot pour casser la régularité
+                    int maxOffsetX = Math.Max(0, lotWidth - 6);
+                    int maxOffsetY = Math.Max(0, lotHeight - 6);
 
-                    int x = lotX;  // pas de centrage
-                    int y = lotY;
+                    int offsetX = random.Next(0, maxOffsetX / 2 + 1); // décalage max moitié du lot
+                    int offsetY = random.Next(0, maxOffsetY / 2 + 1);
+
+                    // Taille réelle du bâtiment
+                    int buildingWidth = random.Next(6, lotWidth - offsetX + 1);
+                    int buildingHeight = random.Next(6, lotHeight - offsetY + 1);
+
+                    // Position finale du bâtiment
+                    int x = blockX + offsetX;
+                    int y = blockY + offsetY;
 
                     BuildingType type = (BuildingType)random.Next(0, 4);
 
@@ -391,6 +396,7 @@ namespace XCOM_3
 
             return walls;
         }
+
 
         /// <summary>
         /// Génère des tranchées
