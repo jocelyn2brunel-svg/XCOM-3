@@ -716,7 +716,7 @@ namespace XCOM_3
             playerUnits.Clear(); enemyUnits.Clear();
 
             for (int i = 0; i < 6; i++)
-                playerUnits.Add(new Unit(new Point(2 + i, gridHeight - 2), Team.Player, "Soldier " + (i + 1), "Assault", "Rifle", weaponDatabase["Rifle"]));
+                playerUnits.Add(new Unit(new Point(2 + i, gridHeight - 2), Team.Player, "Soldier " + (i + 1), "Assault", "Rifle", weaponDatabase["M16A1"]));
 
             foreach (var unit in playerUnits)
             {
@@ -779,24 +779,20 @@ namespace XCOM_3
 
         private List<EnemyTemplate> enemyPool = new()
         {
-            new("Alien Grunt","Infantry","Plasma Rifle",3),
-            new("Alien Sniper","Sniper","Plasma Sniper",2),
-            new("Alien Heavy","Heavy","Plasma Cannon",2),
-            new("Alien Scout","Scout","SMG Plasma",4),
+            new("Alien Grunt","Infantry","Franchi PA3",3),
+            new("Alien Sniper","Sniper","M2010 ESR",2),
+            new("Alien Heavy","Heavy","M16A1",2),
+            new("Alien Scout","Scout","H&K MP5K",4),
             new("Zombie","Undead","Zombie Claws",2)
         };
 
-        private void InitializeWeapons() => weaponDatabase = new Dictionary<string, WeaponData>
+        private void InitializeWeapons()
         {
-            ["Rifle"] = new("Rifle", 25, 80, 5),
-            ["Plasma Rifle"] = new("Plasma Rifle", 30, 75, 5),
-            ["Plasma Sniper"] = new("Plasma Sniper", 50, 90, 8),
-            ["Plasma Cannon"] = new("Plasma Cannon", 40, 70, 4),
-            ["SMG Plasma"] = new("SMG Plasma", 15, 60, 6),
-            ["Zombie Claws"] = new("Zombie Claws", 35, 70, 1),
-            ["Shotgun"] = new("Shotgun", 45, 70, 3),
-            ["SMG"] = new("SMG", 20, 75, 4)
-        };             
+            // ✅ Charger toutes les nouvelles armes
+            weaponDatabase = WeaponDatabaseExtended.GetAllWeapons();
+
+            Console.WriteLine($"[WEAPONS] Loaded {weaponDatabase.Count} weapons");
+        }
 
         private void StartMission(string missionType)
         {
@@ -1172,13 +1168,7 @@ namespace XCOM_3
         { Name = name; Class = unitClass; Weapon = weapon; ActionPoints = ap; }
     }
 
-    public class WeaponData
-    {
-        public string Name;
-        public int Damage, Accuracy, Range;
-        public WeaponData(string name, int damage, int accuracy, int range)
-        { Name = name; Damage = damage; Accuracy = accuracy; Range = range; }
-    }
+    
 
     public static class Extensions { public static Vector2 ToVector2(this Point p) => new(p.X, p.Y); }
 }
