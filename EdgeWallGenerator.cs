@@ -334,33 +334,33 @@ namespace XCOM_3
         {
             HashSet<WallSegment> walls = new HashSet<WallSegment>();
 
-            // Taille standard des bâtiments et espacement
-            int buildingWidth = random.Next(5, 20);
-            int buildingHeight = random.Next(5, 20);
-            int streetWidth = 2; // Largeur des rues entre les bâtiments
+            int streetWidth = 2;
 
-            // Calculer combien de bâtiments peuvent tenir
-            int blocWidth = buildingWidth + streetWidth;
-            int blocHeight = buildingHeight + streetWidth;
+            int currentY = 6; // Laisser zone spawn en haut
 
-            int numBuildingsX = Math.Max(1, (gridWidth - 4) / blocWidth);
-            int numBuildingsY = Math.Max(1, (gridHeight - 8) / blocHeight); // -8 pour zones de spawn
-
-            // Centrer la grille
-            int startX = (gridWidth - (numBuildingsX * blocWidth - streetWidth)) / 2;
-            int startY = 4 + (gridHeight - 8 - (numBuildingsY * blocHeight - streetWidth)) / 2;
-
-            // Créer les bâtiments sur la grille
-            for (int by = 0; by < numBuildingsY; by++)
+            while (currentY < gridHeight - 10)
             {
-                for (int bx = 0; bx < numBuildingsX; bx++)
+                int currentX = 4;
+
+                while (currentX < gridWidth - 10)
                 {
+                    int buildingWidth = random.Next(6, 14);
+                    int buildingHeight = random.Next(6, 14);
+
+                    // Vérifier qu'on ne dépasse pas
+                    if (currentX + buildingWidth >= gridWidth - 2)
+                        break;
+
+                    if (currentY + buildingHeight >= gridHeight - 4)
+                        break;
+
+                    int x = currentX;
+                    int y = currentY;
+
                     BuildingType type = (BuildingType)random.Next(0, 4);
 
-                    int x = startX + bx * blocWidth;
-                    int y = startY + by * blocHeight;
+                    // ===== MURS EXTÉRIEURS =====
 
-                    // Murs extérieurs du bâtiment
                     for (int i = x; i < x + buildingWidth; i++)
                     {
                         AddHorizontalWall(walls, i, y);
@@ -373,48 +373,40 @@ namespace XCOM_3
                         AddVerticalWall(walls, x + buildingWidth, i);
                     }
 
-                    // Porte orientée vers la rue la plus proche
-                    bool hasRightStreet = bx < numBuildingsX - 1;
-                    bool hasBottomStreet = by < numBuildingsY - 1;
+                    // ===== PORTE VERS RUE (droite ou bas) =====
 
-                    if (hasRightStreet && hasBottomStreet)
+                    bool openRight = random.Next(2) == 0;
+
+                    if (openRight)
                     {
-                        // Deux portes : une à droite, une en bas
-                        walls.Remove(new WallSegment(new Point(x + buildingWidth, y + buildingHeight / 2),
-                                                     new Point(x + buildingWidth, y + buildingHeight / 2 + 1), false));
-                        walls.Remove(new WallSegment(new Point(x + buildingWidth / 2, y + buildingHeight),
-                                                     new Point(x + buildingWidth / 2 + 1, y + buildingHeight), true));
-                    }
-                    else if (hasRightStreet)
-                    {
-                        // Porte à droite
-                        walls.Remove(new WallSegment(new Point(x + buildingWidth, y + buildingHeight / 2),
-                                                     new Point(x + buildingWidth, y + buildingHeight / 2 + 1), false));
-                    }
-                    else if (hasBottomStreet)
-                    {
-                        // Porte en bas
-                        walls.Remove(new WallSegment(new Point(x + buildingWidth / 2, y + buildingHeight),
-                                                     new Point(x + buildingWidth / 2 + 1, y + buildingHeight), true));
+                        walls.Remove(new WallSegment(
+                            new Point(x + buildingWidth, y + buildingHeight / 2),
+                            new Point(x + buildingWidth, y + buildingHeight / 2 + 1),
+                            false));
                     }
                     else
                     {
-                        // Dernier bâtiment (coin bas-droit), porte au sud ou à l'est
-                        if (random.Next(2) == 0)
-                            walls.Remove(new WallSegment(new Point(x + buildingWidth / 2, y + buildingHeight),
-                                                         new Point(x + buildingWidth / 2 + 1, y + buildingHeight), true));
-                        else
-                            walls.Remove(new WallSegment(new Point(x + buildingWidth, y + buildingHeight / 2),
-                                                         new Point(x + buildingWidth, y + buildingHeight / 2 + 1), false));
+                        walls.Remove(new WallSegment(
+                            new Point(x + buildingWidth / 2, y + buildingHeight),
+                            new Point(x + buildingWidth / 2 + 1, y + buildingHeight),
+                            true));
                     }
+
+                    // ===== INTÉRIEUR =====
 
                     GenerateInterior(walls, x, y, buildingWidth, buildingHeight, type);
 
+                    // Avancer en X selon la vraie largeur du bâtiment
+                    currentX += buildingWidth + streetWidth;
                 }
+
+                // Descendre selon hauteur moyenne
+                currentY += 16;
             }
 
             return walls;
         }
+
 
         /// <summary>
         /// Génère des tranchées
