@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using XCOM_3.Scripts;
 
 namespace XCOM_3
 {
@@ -502,38 +503,37 @@ namespace XCOM_3
         {
             if (selectedUnit == null) return;
 
-            int panelWidth = (int)(graphicsDevice.Viewport.Width * 0.75f);   // 75% de la largeur
-            int panelHeight = (int)(graphicsDevice.Viewport.Height * 0.85f); // 85% de la hauteur
+            int panelWidth = (int)(graphicsDevice.Viewport.Width * 0.75f);
+            int panelHeight = (int)(graphicsDevice.Viewport.Height * 0.85f);
             int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
             int panelY = graphicsDevice.Viewport.Height / 2 - panelHeight / 2;
-
             Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
-            spriteBatch.Draw(pixel, panel, new Color(20, 20, 20, 240));
-            DrawRectangleBorder(panel, Color.Gold, 3);
 
-            string title = $"Inventaire - {selectedUnit.Name}";
-            Vector2 titleSize = font.MeasureString(title);
-            spriteBatch.DrawString(font, title,
-                new Vector2(panel.Center.X - titleSize.X * 0.75f, panelY + 10),
-                Color.Gold, 0f, Vector2.Zero, 1.5f, SpriteEffects.None, 0f);
+            // ✅ Fond et Scanlines style PE2
+            ParasiteEveTheme.DrawPanel(spriteBatch, pixel, panel);
+            ParasiteEveTheme.DrawScanlines(spriteBatch, pixel, panel, 0.08f);
+
+            // ✅ Header avec le style spécifique
+            Rectangle headerRect = new Rectangle(panelX, panelY, panelWidth, 40);
+            ParasiteEveTheme.DrawSectionHeader(spriteBatch, pixel, font, headerRect, $"INVENTORY - {selectedUnit.Name.ToUpper()}");
 
             int gridStartX = panelX + 20;
             int gridStartY = panelY + 60;
             DrawInventoryGrid(gridStartX, gridStartY);
 
-            int equipX = gridStartX + GRID_WIDTH * CELL_SIZE + 30;
-            int equipY = gridStartY;
+            int equipX = GetEquipX();
+            int equipY = GetEquipY();
             DrawEquipmentSlots(equipX, equipY, selectedUnit);
 
+            // ✅ Item en cours de drag (avec transparence)
             if (draggedItem != null)
             {
                 DrawGridItem(draggedItem, 0.7f);
             }
 
-            spriteBatch.DrawString(font, "Glissez pour équiper | R: Tourner",
-                new Vector2(panelX + 20, panelY + panelHeight - 30), Color.Yellow);
-            spriteBatch.DrawString(font, "I ou ESC pour fermer",
-                new Vector2(panelX + 20, panelY + panelHeight - 15), Color.Yellow);
+            // ✅ Texte d'aide avec ombre
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "DRAG TO EQUIP | R: ROTATE",
+                new Vector2(panelX + 20, panelY + panelHeight - 40), ParasiteEveTheme.TextWarning, 0.8f);
         }
 
         private void DrawInventoryGrid(int gridStartX, int gridStartY)
@@ -542,24 +542,16 @@ namespace XCOM_3
             int gridPixelHeight = GRID_HEIGHT * CELL_SIZE;
             Rectangle gridArea = new Rectangle(gridStartX, gridStartY, gridPixelWidth, gridPixelHeight);
 
-            spriteBatch.Draw(pixel, gridArea, new Color(40, 40, 40, 200));
+            // Fond de grille medium
+            spriteBatch.Draw(pixel, gridArea, ParasiteEveTheme.BackgroundMedium * 0.5f);
 
+            // ✅ Lignes de grille en vert sombre (TextDim)
             for (int x = 0; x <= GRID_WIDTH; x++)
-            {
-                Rectangle vertLine = new Rectangle(gridStartX + x * CELL_SIZE, gridStartY, 1, gridPixelHeight);
-                spriteBatch.Draw(pixel, vertLine, new Color(60, 60, 60));
-            }
-
+                spriteBatch.Draw(pixel, new Rectangle(gridStartX + x * CELL_SIZE, gridStartY, 1, gridPixelHeight), ParasiteEveTheme.TextDim * 0.2f);
             for (int y = 0; y <= GRID_HEIGHT; y++)
-            {
-                Rectangle horizLine = new Rectangle(gridStartX, gridStartY + y * CELL_SIZE, gridPixelWidth, 1);
-                spriteBatch.Draw(pixel, horizLine, new Color(60, 60, 60));
-            }
+                spriteBatch.Draw(pixel, new Rectangle(gridStartX, gridStartY + y * CELL_SIZE, gridPixelWidth, 1), ParasiteEveTheme.TextDim * 0.2f);
 
-            DrawRectangleBorder(gridArea, Color.Gray, 2);
-
-            spriteBatch.DrawString(font, "Items Disponibles:",
-                new Vector2(gridStartX, gridStartY - 20), Color.White);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, gridArea, ParasiteEveTheme.BorderColor, 1);
 
             foreach (var item in inventoryGrid.GetAllItems())
             {
@@ -613,61 +605,46 @@ namespace XCOM_3
 
         private void DrawGridItem(GridItem item, float alpha = 1f)
         {
-            Color itemColor = ItemSizeDatabase.GetItemColor(item.Data.Type) * alpha;
+            // Fond du bouton style PE2
+            spriteBatch.Draw(pixel, item.PixelBounds, ParasiteEveTheme.ButtonNormal * alpha);
 
-            spriteBatch.Draw(pixel, item.PixelBounds, itemColor);
-            DrawRectangleBorder(item.PixelBounds, Color.White * alpha, 2);
+            // Bordure colorée selon le type (via ta DB)
+            Color typeColor = ItemSizeDatabase.GetItemColor(item.Data.Type) * alpha;
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, item.PixelBounds, typeColor, 1);
 
-            string name = item.Data.Name;
-            Vector2 nameSize = font.MeasureString(name);
-            float scale = Math.Min(0.6f, (item.PixelBounds.Width - 10) / nameSize.X);
+            // ✅ Nom de l'item avec ombre
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, item.Data.Name,
+                new Vector2(item.PixelBounds.X + 4, item.PixelBounds.Y + 4),
+                ParasiteEveTheme.TextNormal * alpha, 0.6f);
 
-            spriteBatch.DrawString(font, name,
-                new Vector2(item.PixelBounds.X + 5, item.PixelBounds.Y + 5),
-                Color.White * alpha, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
-
-            string info = item.Data.Type == ItemType.Weapon ?
-                $"Dmg:{item.Data.WeaponData?.Damage}" :
-                item.Data.Type == ItemType.Grenade ?
-                $"D:{item.Data.GrenadeData.Damage} R:{item.Data.GrenadeData.Radius}" :
-                $"Arm:{item.Data.ArmorValue}";
-
-            spriteBatch.DrawString(font, info,
-                new Vector2(item.PixelBounds.X + 5, item.PixelBounds.Bottom - 20),
-                Color.Yellow * alpha, 0f, Vector2.Zero, 0.4f, SpriteEffects.None, 0f);
+            // ✅ Stats en bas
+            string info = item.Data.Type == ItemType.Weapon ? $"DMG:{item.Data.WeaponData?.Damage}" : $"ARM:{item.Data.ArmorValue}";
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, info,
+                new Vector2(item.PixelBounds.X + 4, item.PixelBounds.Bottom - 15),
+                ParasiteEveTheme.TextHighlight * alpha, 0.4f);
         }
 
         private void DrawEquipmentSlot(Rectangle slot, string label, Item equippedItem, bool highlight = false)
         {
-            Color slotColor = highlight ? new Color(60, 120, 60, 200) : new Color(60, 60, 60, 200);
-            Color borderColor = highlight ? Color.Green : Color.Gray;
+            // Fond de slot
+            spriteBatch.Draw(pixel, slot, ParasiteEveTheme.BackgroundDark);
 
-            spriteBatch.Draw(pixel, slot, slotColor);
-            DrawRectangleBorder(slot, borderColor, highlight ? 3 : 2);
+            // Bordure : verte si highlight (compatible), sinon normale
+            Color borderColor = highlight ? ParasiteEveTheme.SelectionOutline : ParasiteEveTheme.BorderColor;
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, slot, borderColor, highlight ? 2 : 1);
 
-            spriteBatch.DrawString(font, label,
-                new Vector2(slot.X, slot.Y - 20), Color.White, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+            // Label au dessus
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, label,
+                new Vector2(slot.X, slot.Y - 18), ParasiteEveTheme.TextDim, 0.7f);
 
             if (equippedItem != null && draggedItem == null)
             {
-                Color itemColor = equippedItem.Data.Type == ItemType.Weapon ?
-                    new Color(100, 150, 255) : new Color(150, 100, 50);
+                Rectangle inner = new Rectangle(slot.X + 4, slot.Y + 4, slot.Width - 8, slot.Height - 8);
+                spriteBatch.Draw(pixel, inner, ParasiteEveTheme.ButtonHover);
 
-                Rectangle itemRect = new Rectangle(slot.X + 5, slot.Y + 5, slot.Width - 10, slot.Height - 10);
-                spriteBatch.Draw(pixel, itemRect, itemColor);
-
-                Vector2 nameSize = font.MeasureString(equippedItem.Data.Name);
-                float scale = Math.Min(1f, (itemRect.Width - 4) / nameSize.X);
-
-                spriteBatch.DrawString(font, equippedItem.Data.Name,
-                    new Vector2(itemRect.X + 2, itemRect.Y + itemRect.Height / 2 - 8),
-                    Color.White, 0f, Vector2.Zero, scale * 0.5f, SpriteEffects.None, 0f);
-            }
-            else if (equippedItem == null)
-            {
-                spriteBatch.DrawString(font, "Vide",
-                    new Vector2(slot.Center.X - 20, slot.Center.Y - 8),
-                    Color.Gray, 0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, equippedItem.Data.Name,
+                    new Vector2(inner.X + 2, inner.Y + inner.Height / 2 - 5),
+                    ParasiteEveTheme.TextNormal, 0.5f);
             }
         }
 
