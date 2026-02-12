@@ -279,5 +279,200 @@ namespace XCOM_3
             foreach (var g in grenades)
                 DrawCube(g.Position, new Vector3(size * 0.2f), GrenadeDatabase.GetGrenadeColor(g.Data.Type));
         }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // AJOUTS POUR RENDERER3D - VISUALISATION DES COUVERTURES
+        // Ajoutez ces méthodes à votre classe Renderer3D existante
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Dessine les indicateurs de couverture sur la grille
+        /// </summary>
+        public void DrawCoverIndicators(CoverSystem coverSystem, int gridWidth, int gridHeight, int cellSize, float gameTime)
+        {
+            if (coverSystem == null)
+                return;
+
+            float pulse = (float)Math.Sin(gameTime * 2f) * 0.3f + 0.7f;
+
+            for (int x = 0; x < gridWidth; x++)
+            {
+                for (int y = 0; y < gridHeight; y++)
+                {
+                    Point cell = new Point(x, y);
+                    CoverData cover = coverSystem.GetCoverAt(cell);
+
+                    if (cover.Type == CoverType.None)
+                        continue;
+
+                    Vector3 position = new Vector3(
+                        x * cellSize + cellSize / 2f,
+                        0.05f,
+                        y * cellSize + cellSize / 2f
+                    );
+
+                    // Couleur selon le type
+                    Color coverColor = cover.Type == CoverType.Half
+                        ? new Color(255, 200, 100) * 0.5f * pulse  // Orange
+                        : new Color(100, 200, 255) * 0.5f * pulse; // Bleu
+
+                    DrawPlane(position, new Vector3(cellSize * 0.7f, 1, cellSize * 0.7f), coverColor);
+
+                    // Indicateurs de direction
+                    DrawCoverDirections(cell, cover, cellSize, pulse);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Dessine les indicateurs directionnels de couverture
+        /// </summary>
+        private void DrawCoverDirections(Point cell, CoverData cover, int cellSize, float pulse)
+        {
+            float height = cellSize * 0.3f;
+            float thickness = cellSize * 0.1f;
+            float offset = cellSize * 0.4f;
+
+            Vector3 center = new Vector3(
+                cell.X * cellSize + cellSize / 2f,
+                height / 2f,
+                cell.Y * cellSize + cellSize / 2f
+            );
+
+            Color dirColor = new Color(100, 255, 100) * 0.8f * pulse;
+
+            // Nord
+            if (cover.HasCoverFrom(CoverDirection.North))
+            {
+                Vector3 pos = center + new Vector3(0, 0, -offset);
+                DrawCube(pos, new Vector3(cellSize * 0.6f, height, thickness), dirColor);
+            }
+
+            // Sud
+            if (cover.HasCoverFrom(CoverDirection.South))
+            {
+                Vector3 pos = center + new Vector3(0, 0, offset);
+                DrawCube(pos, new Vector3(cellSize * 0.6f, height, thickness), dirColor);
+            }
+
+            // Est
+            if (cover.HasCoverFrom(CoverDirection.East))
+            {
+                Vector3 pos = center + new Vector3(offset, 0, 0);
+                DrawCube(pos, new Vector3(thickness, height, cellSize * 0.6f), dirColor);
+            }
+
+            // Ouest
+            if (cover.HasCoverFrom(CoverDirection.West))
+            {
+                Vector3 pos = center + new Vector3(-offset, 0, 0);
+                DrawCube(pos, new Vector3(thickness, height, cellSize * 0.6f), dirColor);
+            }
+        }
+
+        /// <summary>
+        /// Dessine l'icône de couverture au-dessus d'une unité
+        /// </summary>
+        public void DrawUnitCoverIcon(Unit unit, int cellSize, float gameTime)
+        {
+            if (unit.CoverType == CoverType.None)
+                return;
+
+            float pulse = (float)Math.Sin(gameTime * 3f) * 0.1f + 0.9f;
+            float height = cellSize * 2f;
+
+            Vector3 iconPos = new Vector3(
+                unit.VisualPosition.X,
+                height,
+                unit.VisualPosition.Z
+            );
+
+            // Couleur selon le type
+            Color iconColor = unit.CoverType == CoverType.Half
+                ? new Color(255, 200, 100) * pulse  // Orange
+                : new Color(100, 200, 255) * pulse; // Bleu
+
+            // Bouclier stylisé
+            float shieldSize = cellSize * 0.3f;
+            DrawCube(iconPos, new Vector3(shieldSize, shieldSize * 1.2f, shieldSize * 0.15f), iconColor);
+
+            // Bord du bouclier
+            Color borderColor = iconColor * 0.6f;
+            float borderThickness = shieldSize * 0.1f;
+
+            DrawCube(iconPos + new Vector3(0, shieldSize * 0.6f, 0),
+                new Vector3(shieldSize, borderThickness, shieldSize * 0.15f), borderColor);
+
+            DrawCube(iconPos + new Vector3(0, -shieldSize * 0.6f, 0),
+                new Vector3(shieldSize, borderThickness, shieldSize * 0.15f), borderColor);
+        }
+
+        /// <summary>
+        /// Dessine les cellules de couverture accessibles
+        /// </summary>
+        public void DrawReachableCoverCells(List<Point> coverCells, int cellSize, float gameTime)
+        {
+            if (coverCells == null || coverCells.Count == 0)
+                return;
+
+            float pulse = (float)Math.Sin(gameTime * 4f) * 0.3f + 0.7f;
+
+            foreach (Point cell in coverCells)
+            {
+                Vector3 position = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    0.08f,
+                    cell.Y * cellSize + cellSize / 2f
+                );
+
+                Color highlightColor = new Color(100, 255, 100) * 0.6f * pulse;
+                DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), highlightColor);
+            }
+        }
+
+        /// <summary>
+        /// Dessine un indicateur de flanking (unité flanquée)
+        /// </summary>
+        public void DrawFlankingIndicator(Unit unit, int cellSize, float gameTime)
+        {
+            float pulse = (float)Math.Sin(gameTime * 6f) * 0.4f + 0.6f;
+
+            Vector3 position = new Vector3(
+                unit.VisualPosition.X,
+                cellSize * 1.5f,
+                unit.VisualPosition.Z
+            );
+
+            // X rouge pour flanked
+            Color dangerColor = new Color(255, 50, 50) * pulse;
+            float size = cellSize * 0.4f;
+            float thickness = cellSize * 0.08f;
+
+            // Barre diagonale \
+            Matrix rotation1 = Matrix.CreateRotationY(MathHelper.PiOver4);
+            basic.World = Matrix.CreateScale(new Vector3(size, thickness, thickness)) *
+                         rotation1 *
+                         Matrix.CreateTranslation(position);
+
+            var verts1 = cubeVerts.Select(v => new VertexPositionColor(v.Position, dangerColor)).ToArray();
+            foreach (var pass in basic.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts1, 0, 8, cubeIdx, 0, 12);
+            }
+
+            // Barre diagonale /
+            Matrix rotation2 = Matrix.CreateRotationY(-MathHelper.PiOver4);
+            basic.World = Matrix.CreateScale(new Vector3(size, thickness, thickness)) *
+                         rotation2 *
+                         Matrix.CreateTranslation(position);
+
+            var verts2 = cubeVerts.Select(v => new VertexPositionColor(v.Position, dangerColor)).ToArray();
+            foreach (var pass in basic.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts2, 0, 8, cubeIdx, 0, 12);
+            }
+        }
     }
 }

@@ -29,6 +29,8 @@ namespace XCOM_3
         private List<Unit> playerUnits;
         private List<Unit> enemyUnits;
 
+        private CoverSystem coverSystem;
+
         public CombatSystem(Random random, PathfindingSystem pathfinding, 
             Func<Point, Unit> getUnitAtCell, OptimizedUnitManager unitManager)
         {
@@ -166,6 +168,8 @@ namespace XCOM_3
             {
                 TrySimpleMove(enemy, target, cellSize);
             }
+
+
 
             if (enemy.ActionPoints <= 0)
                 EnemyTurnIndex++;
@@ -307,14 +311,34 @@ namespace XCOM_3
             shooter.FireTarget = target.Cell;
             shooter.FireProgress = 0f;
 
+            // ✅ CALCUL AVEC COUVERTURE
             int baseAccuracy = shooter.WeaponData.Accuracy + shooter.Skills.GetAccuracyBonus();
-            int effectiveAccuracy = Math.Max(baseAccuracy - distance * 5, 10);
-            
+            int effectiveAccuracy = baseAccuracy - distance * 5;
+
+            // Appliquer le malus de couverture
+            if (coverSystem != null)
+            {
+                int coverBonus = coverSystem.GetEffectiveDefenseBonus(target, shooter);
+                effectiveAccuracy -= coverBonus;
+
+                if (coverBonus > 0)
+                {
+                    Console.WriteLine($"[COMBAT] {target.Name}'s cover gives -{coverBonus}% to hit");
+                }
+
+                if (target.CoverType != CoverType.None && coverSystem.IsUnitFlanked(target, shooter))
+                {
+                    Console.WriteLine($"[COMBAT] {target.Name} is FLANKED! No cover bonus!");
+                }
+            }
+
+            effectiveAccuracy = Math.Max(effectiveAccuracy, 5);
+
             shooter.WillHit = random.Next(100) < effectiveAccuracy;
             shooter.PendingTarget = target;
             shooter.ActionPoints--;
 
-            Console.WriteLine($"[COMBAT] {shooter.Name} tire sur {target.Name} ({effectiveAccuracy}% chance)");
+            Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance)");
         }
 
         /// <summary>
@@ -438,5 +462,84 @@ namespace XCOM_3
         // Events
         public event Action OnFireCompleted;
         public event Action<Unit> OnUnitKilled;
+
+        public void InitializeCoverSystem(int gridWidth, int gridHeight, HashSet<WallSegment> walls)
+        {
+            coverSystem = new CoverSystem(gridWidth, gridHeight, walls, getUnitAtCell);
+            Console.WriteLine("[COMBAT] Cover system initialized");
+        }
+
+        public CoverSystem GetCoverSystem()
+        {
+            return coverSystem;
+        }
+
+        public bool TakeCover(Unit unit)
+        {
+            if (unit.ActionPoints <= 0)
+            {
+                Console.WriteLine($"[COMBAT] {unit.Name} has no AP to take cover");
+                return false;
+            }
+
+            if (coverSystem == null)
+            {
+                Console.WriteLine("[COMBAT] Cover system not initialized!");
+                return false;
+            }
+
+            CoverData cover = coverSystem.GetCoverAt(unit.Cell);
+
+            if (cover.Type == CoverType.None)
+            {
+                Console.WriteLine($"[COMBAT] No cover available at {unit.Cell}");
+                return false;
+            }
+
+            unit.EnterCover(cover);
+            unit.ActionPoints--;
+
+            Console.WriteLine($"[COMBAT] {unit.Name} takes {cover.Type} cover (Defense +{cover.DefenseBonus}%)");
+            return true;
+        }
+
+        public void LeaveCover(Unit unit)
+        {
+            if (unit.CoverType != CoverType.None)
+            {
+                unit.ExitCover();
+                Console.WriteLine($"[COMBAT] {unit.Name} leaves cover");
+            }
+        }
+
+        public List<Point> GetReachableCoverCells(Unit unit)
+        {
+            if (coverSystem == null || pathfinding == null)
+                return new List<Point>();
+
+            List<Point> movableCells = pathfinding.GetMovableCells(unit);
+
+            List<Point> coverCells = new List<Point>();
+            foreach (Point cell in movableCells)
+            {
+                CoverData cover = coverSystem.GetCoverAt(cell);
+                if (cover.Type != CoverType.None)
+                {
+                    coverCells.Add(cell);
+                }
+            }
+
+            return coverCells;
+        }
+
+        public Point? FindBestCoverForEnemy(Unit enemy)
+        {
+            if (coverSystem == null || pathfinding == null)
+                return null;
+
+            List<Point> movableCells = pathfinding.GetMovableCells(enemy);
+            return coverSystem.GetBestCoverPosition(enemy.Cell, movableCells);
+        }
+
     }
 }

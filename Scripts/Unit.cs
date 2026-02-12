@@ -56,6 +56,12 @@ namespace XCOM_3
         public UnitSkills Skills = new UnitSkills();
         private Point? lastPosition = null;
 
+        // NOUVELLES PROPRIÉTÉS DE COUVERTURE
+        public CoverType CoverType { get; set; } = CoverType.None;
+        public CoverDirection CoverDirections { get; set; } = CoverDirection.None;
+        public bool IsCrouched { get; set; } = false;
+        public float CoverTransitionProgress { get; set; } = 0f;
+
         public Unit(Point cell, Team team, string name, string unitClass, string weapon, WeaponData weaponData)
         {
             Cell = cell;
@@ -112,6 +118,12 @@ namespace XCOM_3
 
             Skills = new UnitSkills(other.Skills);
             lastPosition = other.lastPosition;
+
+            CoverType = other.CoverType;
+            CoverDirections = other.CoverDirections;
+            IsCrouched = other.IsCrouched;
+            CoverTransitionProgress = other.CoverTransitionProgress;
+
         }
 
         public int GetTotalArmor()
@@ -229,6 +241,69 @@ namespace XCOM_3
                 IdleTime += deltaTime;
                 IdleBobOffset = (float)Math.Sin(IdleTime * 2f) * 0.05f;
             }
+
+            UpdateCoverTransition(deltaTime);
         }
+
+        public void EnterCover(CoverData coverData)
+        {
+            if (coverData.Type == CoverType.None)
+            {
+                Console.WriteLine($"[COVER] {Name} tried to take cover but none available");
+                return;
+            }
+
+            CoverType = coverData.Type;
+            CoverDirections = coverData.Directions;
+            IsCrouched = true;
+            CoverTransitionProgress = 0f;
+
+            Console.WriteLine($"[COVER] {Name} takes {coverData.Type} cover (+{coverData.DefenseBonus}% defense)");
+        }
+
+        public void ExitCover()
+        {
+            if (CoverType == CoverType.None)
+                return;
+
+            Console.WriteLine($"[COVER] {Name} leaves {CoverType} cover");
+
+            CoverType = CoverType.None;
+            CoverDirections = CoverDirection.None;
+            IsCrouched = false;
+            CoverTransitionProgress = 0f;
+        }
+
+        public void UpdateCoverTransition(float deltaTime)
+        {
+            if (IsCrouched && CoverTransitionProgress < 1f)
+            {
+                CoverTransitionProgress += deltaTime * 3f;
+                if (CoverTransitionProgress > 1f)
+                    CoverTransitionProgress = 1f;
+            }
+            else if (!IsCrouched && CoverTransitionProgress > 0f)
+            {
+                CoverTransitionProgress -= deltaTime * 3f;
+                if (CoverTransitionProgress < 0f)
+                    CoverTransitionProgress = 0f;
+            }
+        }
+
+        public int GetCoverDefenseBonus()
+        {
+            return CoverType switch
+            {
+                CoverType.Half => CoverSystem.HALF_COVER_BONUS,
+                CoverType.Full => CoverSystem.FULL_COVER_BONUS,
+                _ => 0
+            };
+        }
+
+        public bool HasCoverFrom(CoverDirection direction)
+        {
+            return (CoverDirections & direction) != 0;
+        }
+
     }
 }

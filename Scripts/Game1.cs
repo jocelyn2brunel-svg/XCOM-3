@@ -127,6 +127,7 @@ namespace XCOM_3
 
         private StatsPanel statsPanel;
 
+        private bool showCoverIndicators = false;
 
         public Game1()
         {
@@ -609,6 +610,42 @@ namespace XCOM_3
             DrawPath3D(gameTime);
             DrawHoveredCell3D(gameTime);
             DrawThrowMode3D(gameTime);
+
+            // Dessiner les indicateurs de couverture (en mode debug)
+            if (showCoverIndicators) // Variable bool à ajouter
+            {
+                renderer3D.DrawCoverIndicators(
+                    combatSystem.GetCoverSystem(),
+                    gridWidth,
+                    gridHeight,
+                    cellSize,
+                    (float)gameTime.TotalGameTime.TotalSeconds
+                );
+            }
+
+            // Dessiner l'icône de couverture sur les unités
+            foreach (var unit in playerUnits.Concat(enemyUnits))
+            {
+                if (unit.CoverType != CoverType.None)
+                {
+                    renderer3D.DrawUnitCoverIcon(unit, cellSize,
+                        (float)gameTime.TotalGameTime.TotalSeconds);
+                }
+            }
+
+            if (selectedUnit != null && combatUI.SelectedFireTarget != null)
+            {
+                var coverSystem = combatSystem.GetCoverSystem();
+                if (coverSystem.IsUnitFlanked(combatUI.SelectedFireTarget, selectedUnit))
+                {
+                    renderer3D.DrawFlankingIndicator(
+                        combatUI.SelectedFireTarget,
+                        cellSize,
+                        (float)gameTime.TotalGameTime.TotalSeconds
+                    );
+                }
+            }
+
         }
 
         private Color GetSkyColor(float time)
@@ -874,6 +911,8 @@ namespace XCOM_3
             unitManager.InitializeForMission(playerUnits, enemyUnits);
             combatSystem.SetUnits(playerUnits, enemyUnits);
             combatSystem.StartPlayerTurn();
+            // Initialiser le système de couverture
+            combatSystem.InitializeCoverSystem(gridWidth, gridHeight, wallSegments);
 
             Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
         }       
@@ -1000,8 +1039,15 @@ namespace XCOM_3
                         }
                         break;
 
-                    case "COUVERT":
-                        Console.WriteLine("Action future : COUVERT");
+                    case "COVER":
+                        if (selectedUnit != null && selectedUnit.ActionPoints > 0)
+                        {
+                            bool success = combatSystem.TakeCover(selectedUnit);
+                            if (success)
+                            {
+                                Console.WriteLine($"{selectedUnit.Name} took cover!");
+                            }
+                        }
                         break;
 
                     case "RECHARGER":
