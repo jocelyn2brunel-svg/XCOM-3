@@ -42,6 +42,8 @@ namespace XCOM_3
         // Dans la section ÉTAT de InventorySystem.cs
         private GridItem hoveredItem = null; //
         private float totalElapsedTime = 0f; // Pour l'effet de pulsation
+                                             // Dans la section ÉTAT de InventorySystem.cs
+        private Point? previewPos = null;
 
         // ═══════════════════════════════════════════════════════════════════════
         // CONSTRUCTEUR
@@ -181,9 +183,31 @@ namespace XCOM_3
             }
 
             // Drag en cours
+            // Dans InventorySystem.Update(...)
             if (draggedItem != null && mouse.LeftButton == ButtonState.Pressed)
             {
                 HandleDragUpdate(mouse, gridStartX, gridStartY);
+
+                // ✅ La formule doit être identique à celle de HandleEndDrag
+                // On soustrait l'offset pour trouver où le coin (0,0) de l'item se situerait
+                int targetX = (mouse.X - gridStartX) / CELL_SIZE - dragGridOffset.X;
+                int targetY = (mouse.Y - gridStartY) / CELL_SIZE - dragGridOffset.Y;
+
+                Point potentialPos = new Point(targetX, targetY);
+
+                // On vérifie la validité avec la grille
+                if (inventoryGrid.CanPlaceItem(potentialPos, draggedItem.GetCurrentSize()))
+                {
+                    previewPos = potentialPos;
+                }
+                else
+                {
+                    previewPos = null;
+                }
+            }
+            else if (draggedItem == null)
+            {
+                previewPos = null; // Reset quand on ne drag plus
             }
 
             // Terminer le drag
@@ -556,6 +580,24 @@ namespace XCOM_3
                     hoveredItem.PixelBounds,
                     totalElapsedTime
                 );
+            }
+
+            // ✅ DESSIN DU FANTÔME DE PRÉVISUALISATION
+            if (draggedItem != null && previewPos.HasValue)
+            {
+                Rectangle previewRect = new Rectangle(
+                    gridStartX + previewPos.Value.X * CELL_SIZE,
+                    gridStartY + previewPos.Value.Y * CELL_SIZE,
+                    draggedItem.GetCurrentSize().Width * CELL_SIZE,
+                    draggedItem.GetCurrentSize().Height * CELL_SIZE
+                );
+
+                // Remplissage holographique vert (style Parasite Eve)
+                // On utilise HoverOverlay pour la transparence
+                spriteBatch.Draw(pixel, previewRect, ParasiteEveTheme.HoverOverlay * 0.6f);
+
+                // Bordure subtile pour délimiter la zone
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, ParasiteEveTheme.SelectionOutline * 0.5f, 1);
             }
 
             // ✅ Item en cours de drag (avec transparence)
