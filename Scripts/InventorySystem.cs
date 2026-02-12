@@ -662,33 +662,38 @@ namespace XCOM_3
 
         private void DrawEquipmentSlots(int equipX, int equipY, Unit unit)
         {
-            // ✅ Utiliser les positions centralisées
-            equipX = GetEquipX();
-            equipY = GetEquipY();
+            // Zone globale de l'équipement (ajustée pour être compacte en haut à droite)
+            Rectangle equipArea = new Rectangle(equipX, equipY, 195, 420);
 
-            Rectangle equipArea = new Rectangle(equipX, equipY, 190, 410);
-            spriteBatch.Draw(pixel, equipArea, new Color(40, 40, 40, 200));
-            DrawRectangleBorder(equipArea, Color.Gray, 2);
+            // Rendu style Holographique PE2
+            ParasiteEveTheme.DrawPanel(spriteBatch, pixel, equipArea);
+            ParasiteEveTheme.DrawScanlines(spriteBatch, pixel, equipArea, 0.05f);
 
-            spriteBatch.DrawString(font, "Equipement:",
-                new Vector2(equipX + 5, equipY - 20), Color.White);
+            // Titre de section "TECH-EQUIP"
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EQUIPMENT",
+                new Vector2(equipX + 10, equipY + 10), ParasiteEveTheme.TextHighlight, 0.75f);
 
             bool isDragging = draggedItem != null;
 
-            DrawEquipmentSlot(GetWeaponSlotBounds(), "Arme", unit.EquippedWeapon,
+            // Slots d'équipement principaux (Organisés en 2 colonnes)
+            DrawEquipmentSlot(GetWeaponSlotBounds(), "WEAPON", unit.EquippedWeapon,
                 isDragging && draggedItem.Data.Type == ItemType.Weapon);
-            DrawEquipmentSlot(GetHelmetSlotBounds(), "Casque", unit.EquippedHelmet,
-                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Head);
-            DrawEquipmentSlot(GetArmorSlotBounds(), "Gilet", unit.EquippedArmor,
-                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Torso);
-            DrawEquipmentSlot(GetShieldSlotBounds(), "Bouclier", unit.EquippedShield,
+
+            DrawEquipmentSlot(GetShieldSlotBounds(), "OFF-HAND", unit.EquippedShield,
                 isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield);
-            DrawEquipmentSlot(GetShirtSlotBounds(), "Chemise", unit.EquippedShirt,
+
+            DrawEquipmentSlot(GetHelmetSlotBounds(), "HEAD", unit.EquippedHelmet,
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Head);
+
+            DrawEquipmentSlot(GetShirtSlotBounds(), "SUIT", unit.EquippedShirt,
                 isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shirt);
 
-            // ✅ GRENADES
-            spriteBatch.DrawString(font, "Grenades:",
-                new Vector2(equipX + 5, equipY + 330), Color.White, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+            DrawEquipmentSlot(GetArmorSlotBounds(), "VEST", unit.EquippedArmor,
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Torso);
+
+            // Section Grenades (Tactical)
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "TACTICAL",
+                new Vector2(equipX + 10, equipY + 335), ParasiteEveTheme.TextHighlight, 0.65f);
 
             for (int i = 0; i < 3; i++)
             {
@@ -723,75 +728,65 @@ namespace XCOM_3
 
         private void DrawEquipmentSlot(Rectangle slot, string label, Item equippedItem, bool highlight = false)
         {
-            // Fond de slot
-            spriteBatch.Draw(pixel, slot, ParasiteEveTheme.BackgroundDark);
+            // Fond de slot sombre
+            spriteBatch.Draw(pixel, slot, ParasiteEveTheme.BackgroundDark * 0.8f);
 
-            // Bordure : verte si highlight (compatible), sinon normale
+            // Bordure dynamique : brille si l'item traîné est compatible
             Color borderColor = highlight ? ParasiteEveTheme.SelectionOutline : ParasiteEveTheme.BorderColor;
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, slot, borderColor, highlight ? 2 : 1);
 
-            // Label au dessus
+            // Label au-dessus du slot
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, label,
-                new Vector2(slot.X, slot.Y - 18), ParasiteEveTheme.TextDim, 0.7f);
+                new Vector2(slot.X, slot.Y - 15), ParasiteEveTheme.TextDim, 0.6f);
 
             if (equippedItem != null && draggedItem == null)
             {
-                Rectangle inner = new Rectangle(slot.X + 4, slot.Y + 4, slot.Width - 8, slot.Height - 8);
-                spriteBatch.Draw(pixel, inner, ParasiteEveTheme.ButtonHover);
+                // Petit effet de surbrillance pour l'objet équipé
+                Rectangle inner = new Rectangle(slot.X + 2, slot.Y + 2, slot.Width - 4, slot.Height - 4);
+                spriteBatch.Draw(pixel, inner, ParasiteEveTheme.ButtonNormal * 0.5f);
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, equippedItem.Data.Name,
-                    new Vector2(inner.X + 2, inner.Y + inner.Height / 2 - 5),
-                    ParasiteEveTheme.TextNormal, 0.5f);
+                    new Vector2(inner.X + 4, inner.Y + inner.Height / 2 - 5), ParasiteEveTheme.TextNormal, 0.5f);
             }
         }
 
         private void DrawGrenadeSlot(Rectangle slot, string label, GrenadeData grenadeData, bool highlight)
         {
-            Color slotColor = highlight ? new Color(60, 120, 60, 200) : new Color(60, 60, 60, 200);
-            Color borderColor = highlight ? Color.Green : Color.Gray;
+            // Fond du slot : Sombre par défaut, vert holographique si survolé par une grenade
+            Color slotColor = highlight ? ParasiteEveTheme.HoverOverlay * 0.4f : ParasiteEveTheme.BackgroundDark;
+            Color borderColor = highlight ? ParasiteEveTheme.SelectionOutline : ParasiteEveTheme.BorderColor;
 
             spriteBatch.Draw(pixel, slot, slotColor);
-            DrawRectangleBorder(slot, borderColor, highlight ? 3 : 2);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, slot, borderColor, highlight ? 2 : 1);
 
             if (grenadeData != null && draggedItem == null)
             {
-                Color grenadeColor = GrenadeDatabase.GetGrenadeColor(grenadeData.Type);
+                // On utilise la couleur du type de grenade mais avec le style de bouton PE2
+                Color grenadeTypeColor = GrenadeDatabase.GetGrenadeColor(grenadeData.Type);
+                Rectangle inner = new Rectangle(slot.X + 4, slot.Y + 4, slot.Width - 8, slot.Height - 8);
 
-                Rectangle itemRect = new Rectangle(slot.X + 3, slot.Y + 3, slot.Width - 6, slot.Height - 6);
-                spriteBatch.Draw(pixel, itemRect, grenadeColor);
+                spriteBatch.Draw(pixel, inner, ParasiteEveTheme.ButtonNormal);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, inner, grenadeTypeColor, 1);
 
                 string symbol = GrenadeDatabase.GetGrenadeSymbol(grenadeData.Type);
                 Vector2 symbolSize = font.MeasureString(symbol);
-                float scale = Math.Min(1.0f, (slot.Width - 10) / symbolSize.X);
+                float scale = Math.Min(0.8f, (slot.Width - 15) / symbolSize.X);
 
-                spriteBatch.DrawString(font, symbol,
-                    new Vector2(slot.Center.X - symbolSize.X * scale / 2, slot.Center.Y - symbolSize.Y * scale / 2),
-                    Color.White, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, symbol,
+                    new Vector2(slot.Center.X - (symbolSize.X * scale) / 2, slot.Center.Y - (symbolSize.Y * scale) / 2),
+                    ParasiteEveTheme.TextNormal, scale);
             }
             else if (grenadeData == null)
             {
-                spriteBatch.DrawString(font, "-",
-                    new Vector2(slot.Center.X - 4, slot.Center.Y - 8),
-                    Color.Gray, 0f, Vector2.Zero, 1.0f, SpriteEffects.None, 0f);
+                // Symbole vide discret
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "-",
+                    new Vector2(slot.Center.X - 4, slot.Center.Y - 8), ParasiteEveTheme.TextDim, 0.8f);
             }
-        }
-
-        private void DrawRectangleBorder(Rectangle rect, Color color, int thickness)
-        {
-            spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Y, rect.Width, thickness), color);
-            spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Bottom - thickness, rect.Width, thickness), color);
-            spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Y, thickness, rect.Height), color);
-            spriteBatch.Draw(pixel, new Rectangle(rect.Right - thickness, rect.Y, thickness, rect.Height), color);
-        }
+        }      
 
         // ═══════════════════════════════════════════════════════════════════════
         // CALCUL DES BOUNDS DES SLOTS - Centralisé
         // ═══════════════════════════════════════════════════════════════════════
-
-        private int GetPanelX()
-        {
-            return graphicsDevice.Viewport.Width / 2 - 375; // panelWidth / 2
-        }
 
         private int GetPanelY()
         {
@@ -800,13 +795,20 @@ namespace XCOM_3
 
         private int GetEquipX()
         {
-            return GetPanelX() + 20 + GRID_WIDTH * CELL_SIZE + 30;
+            int panelWidth = (int)(graphicsDevice.Viewport.Width * 0.75f);
+            int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
+
+            // On place le bloc d'équipement à l'extrémité droite du panel (moins sa propre largeur)
+            // 195 est la largeur du bloc d'équipement définie dans DrawEquipmentSlots
+            return panelX + panelWidth - 195 - 20;
         }
 
         private int GetEquipY()
         {
+            // Aligné sur le header (40px) + une petite marge de 20px
             return GetPanelY() + 60;
         }
+
 
         private Rectangle GetWeaponSlotBounds()
         {
