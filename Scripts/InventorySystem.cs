@@ -39,6 +39,10 @@ namespace XCOM_3
         // État des touches
         private KeyboardState previousKeyboardState;
 
+        // Dans la section ÉTAT de InventorySystem.cs
+        private GridItem hoveredItem = null; //
+        private float totalElapsedTime = 0f; // Pour l'effet de pulsation
+
         // ═══════════════════════════════════════════════════════════════════════
         // CONSTRUCTEUR
         // ═══════════════════════════════════════════════════════════════════════
@@ -144,10 +148,23 @@ namespace XCOM_3
         {
             if (selectedUnit == null) return;
 
-            int panelWidth = (int)(graphicsDevice.Viewport.Width * 0.75f);   // 75% de la largeur
-            int panelHeight = (int)(graphicsDevice.Viewport.Height * 0.85f); // 85% de la hauteur
-            int gridStartX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2 + 20;
-            int gridStartY = graphicsDevice.Viewport.Height / 2 - panelHeight / 2 + 60;
+            // Accumuler le temps pour l'effet Sinus du pulse
+            totalElapsedTime += 0.016f; // Environ 60 FPS, ou utilise gameTime.ElapsedGameTime
+
+            int panelX = graphicsDevice.Viewport.Width / 2 - (int)(graphicsDevice.Viewport.Width * 0.75f) / 2;
+            int panelY = graphicsDevice.Viewport.Height / 2 - (int)(graphicsDevice.Viewport.Height * 0.85f) / 2;
+            int gridStartX = panelX + 20;
+            int gridStartY = panelY + 60;
+
+            // Détection de l'item survolé dans la grille
+            int gridX = (mouse.X - gridStartX) / CELL_SIZE;
+            int gridY = (mouse.Y - gridStartY) / CELL_SIZE;
+
+            hoveredItem = null;
+            if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT)
+            {
+                hoveredItem = inventoryGrid.GetItemAt(new Point(gridX, gridY)); //
+            }
 
             // Rotation avec touche R
             bool rPressed = keyboard.IsKeyDown(Keys.R) && previousKeyboardState.IsKeyUp(Keys.R);
@@ -524,6 +541,22 @@ namespace XCOM_3
             int equipX = GetEquipX();
             int equipY = GetEquipY();
             DrawEquipmentSlots(equipX, equipY, selectedUnit);
+
+            // ✅ DESSIN DE L'EFFET DE SÉLECTION
+            // Si on survole un item et qu'on n'est pas en train d'en déplacer un
+            if (hoveredItem != null && draggedItem == null)
+            {
+                // On s'assure que les PixelBounds sont à jour pour l'item survolé
+                hoveredItem.UpdatePixelBounds(panelX + 20, panelY + 60);
+
+                // Appel de la méthode de ton thème
+                ParasiteEveTheme.DrawSelectionIndicator(
+                    spriteBatch,
+                    pixel,
+                    hoveredItem.PixelBounds,
+                    totalElapsedTime
+                );
+            }
 
             // ✅ Item en cours de drag (avec transparence)
             if (draggedItem != null)
