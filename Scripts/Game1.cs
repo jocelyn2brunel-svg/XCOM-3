@@ -286,7 +286,7 @@ namespace XCOM_3
                     statsPanel.Hide();
             }
 
-            statsPanel.Update();
+            statsPanel.Update(gameTime);
 
             renderer3D.Update(gameTime);
 
@@ -305,6 +305,8 @@ namespace XCOM_3
 
                 case GameState.Playing:
                     UpdatePlaying(gameTime, mouse, keyboard, leftClick, escapePressed);
+                    combatUI.Update(gameTime);
+
                     break;
 
                 case GameState.MapEditor:

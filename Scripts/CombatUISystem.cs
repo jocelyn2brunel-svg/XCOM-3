@@ -4,21 +4,19 @@ using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using XCOM_3.Scripts;
 
 namespace XCOM_3
 {
-    /// <summary>
-    /// UI de cible de tir
-    /// </summary>
+
     public class FireTargetUI
     {
         public Unit Target;
         public Rectangle Bounds;
         public int HitChance;
     }
-
     /// <summary>
-    /// Gère l'interface utilisateur du combat
+    /// Gère l'interface utilisateur du combat - STYLE PARASITE EVE 2
     /// </summary>
     public class CombatUISystem
     {
@@ -26,6 +24,7 @@ namespace XCOM_3
         private SpriteBatch spriteBatch;
         private SpriteFont font;
         private Texture2D pixel;
+        private float pulseTimer = 0f; // Pour les effets de pulsation
 
         // État UI
         public Unit SelectedFireTarget { get; set; }
@@ -41,8 +40,8 @@ namespace XCOM_3
         public bool EndTurnHovered { get; private set; }
 
         // Constantes
-        public const int ActionButtonWidth = 100;
-        public const int ActionButtonHeight = 36;
+        public const int ActionButtonWidth = 120;
+        public const int ActionButtonHeight = 40;
 
         public CombatUISystem(GraphicsDevice graphicsDevice, SpriteBatch spriteBatch,
             SpriteFont font, Texture2D pixel)
@@ -53,6 +52,10 @@ namespace XCOM_3
             this.pixel = pixel;
         }
 
+        public void Update(GameTime gameTime)
+        {
+            pulseTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+        }
 
         /// <summary>
         /// Met à jour les cibles de tir
@@ -75,14 +78,14 @@ namespace XCOM_3
                 var target = validTargets[i];
                 int distance = Math.Abs(target.Cell.X - selectedUnit.Cell.X) +
                               Math.Abs(target.Cell.Y - selectedUnit.Cell.Y);
-                
+
                 int chance = Math.Max(selectedUnit.WeaponData.Accuracy - distance * 5, 10);
 
                 FireTargetsUI.Add(new FireTargetUI
                 {
                     Target = target,
                     HitChance = chance,
-                    Bounds = Rectangle.Empty // Sera mis à jour dans UpdateFireTargetsUIPositions
+                    Bounds = Rectangle.Empty
                 });
             }
 
@@ -97,30 +100,28 @@ namespace XCOM_3
             if (FireTargetsUI.Count == 0)
                 return;
 
-            int icon = 48, space = 10;
+            int icon = 52, space = 8;
             int total = FireTargetsUI.Count * icon + (FireTargetsUI.Count - 1) * space;
 
             int startX, y;
-            int bw = ActionButtonWidth, bh = ActionButtonHeight;
-            int by = graphicsDevice.Viewport.Height - bh - 15;
+            int bh = ActionButtonHeight;
+            int by = graphicsDevice.Viewport.Height - bh - 20;
 
             if (SelectedFireTarget != null && selectedUnit != null && selectedUnit.ActionPoints > 0)
             {
-                // Au-dessus du bouton CONFIRMER
-                int fireConfirmWidth = 140;
+                int fireConfirmWidth = 180;
                 int fireConfirmHeight = 50;
                 int fireButtonX = graphicsDevice.Viewport.Width / 2 - fireConfirmWidth / 2;
-                int fireButtonY = by - fireConfirmHeight - 10;
+                int fireButtonY = by - fireConfirmHeight - 15;
 
                 startX = fireButtonX + (fireConfirmWidth - total) / 2;
-                y = fireButtonY - icon - 10;
+                y = fireButtonY - icon - 15;
             }
             else
             {
-                // Au-dessus du bouton TIRER
-                int bx = (graphicsDevice.Viewport.Width - bw) / 2;
-                startX = bx - 110 + (bw - total) / 2;
-                y = by - icon - 10;
+                int bx = (graphicsDevice.Viewport.Width - ActionButtonWidth) / 2;
+                startX = bx - 130 + (ActionButtonWidth - total) / 2;
+                y = by - icon - 15;
             }
 
             for (int i = 0; i < FireTargetsUI.Count; i++)
@@ -130,43 +131,69 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Dessine le panneau d'info de l'unité
+        /// Dessine le panneau d'info de l'unité - STYLE PE2
         /// </summary>
         public void DrawUnitInfoPanel(Unit selectedUnit, Dictionary<string, GrenadeData> grenadeDatabase)
         {
             if (selectedUnit == null)
                 return;
 
-            int m = 10, w = 300, h = 200;
+            int m = 15, w = 320, h = 240;
             int x = m, y = graphicsDevice.Viewport.Height - h - m;
             Rectangle panel = new Rectangle(x, y, w, h);
 
-            spriteBatch.Draw(pixel, panel, new Color(0, 0, 0, 180));
+            // ✅ Panel PE2
+            ParasiteEveTheme.DrawPanel(spriteBatch, pixel, panel);
 
-            Vector2 p = new Vector2(x + 10, y + 10);
-            spriteBatch.DrawString(font, $"Name: {selectedUnit.Name}", p, Color.White);
-            spriteBatch.DrawString(font, $"Class: {selectedUnit.Class}", p + new Vector2(0, 20), Color.White);
-            spriteBatch.DrawString(font, $"Weapon: {selectedUnit.Weapon}", p + new Vector2(0, 40), Color.White);
-            spriteBatch.DrawString(font, $"AP: {selectedUnit.ActionPoints}", p + new Vector2(0, 60), Color.White);
-            spriteBatch.DrawString(font, $"HP: {selectedUnit.Health} / {selectedUnit.MaxHealth}", p + new Vector2(0, 80), Color.White);
+            // Header
+            Rectangle header = new Rectangle(x, y, w, 30);
+            ParasiteEveTheme.DrawSectionHeader(spriteBatch, pixel, font, header, selectedUnit.Name.ToUpper());
 
+            Vector2 p = new Vector2(x + 12, y + 40);
+
+            // Classe et Arme
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                $"CLASS: {selectedUnit.Class}", p, ParasiteEveTheme.TextNormal);
+
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                $"WEAPON: {selectedUnit.Weapon}", p + new Vector2(0, 22), ParasiteEveTheme.TextNormal);
+
+            // Barre de santé
+            p.Y += 52;
+            spriteBatch.DrawString(font, "HP", p, ParasiteEveTheme.TextHighlight);
+            Rectangle hpBar = new Rectangle(x + 60, (int)p.Y, w - 70, 16);
+            ParasiteEveTheme.DrawHealthBar(spriteBatch, pixel, hpBar, selectedUnit.Health, selectedUnit.MaxHealth);
+
+            string hpText = $"{selectedUnit.Health} / {selectedUnit.MaxHealth}";
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, hpText,
+                new Vector2(hpBar.X + hpBar.Width + 5, p.Y), ParasiteEveTheme.TextNormal, 0.8f);
+
+            // Barre de MP (Action Points)
+            p.Y += 25;
+            spriteBatch.DrawString(font, "AP", p, ParasiteEveTheme.TextHighlight);
+            Rectangle apBar = new Rectangle(x + 60, (int)p.Y, w - 70, 16);
+            ParasiteEveTheme.DrawProgressBar(spriteBatch, pixel, apBar,
+                selectedUnit.ActionPoints, 3, ParasiteEveTheme.BarMP);
+
+            string apText = $"{selectedUnit.ActionPoints}";
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, apText,
+                new Vector2(apBar.X + apBar.Width + 5, p.Y), ParasiteEveTheme.TextNormal, 0.8f);
+
+            // Armure
+            p.Y += 28;
             int totalArmor = selectedUnit.GetTotalArmor();
-            spriteBatch.DrawString(font, $"Armor: {totalArmor}", p + new Vector2(0, 100), Color.Cyan);
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                $"ARMOR: +{totalArmor}", p, ParasiteEveTheme.BarXP);
 
-            int mobilityPenalty = selectedUnit.GetMobilityPenalty();
-            if (mobilityPenalty > 0)
-            {
-                spriteBatch.DrawString(font, $"Mobilite: -{mobilityPenalty} PM",
-                    p + new Vector2(0, 120), Color.Orange);
-            }
-
-            spriteBatch.DrawString(font, $"Niveau: {selectedUnit.Skills.OverallLevel}",
-                p + new Vector2(0, 140), Color.Gold);
+            // Niveau
+            p.Y += 22;
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                $"LV: {selectedUnit.Skills.OverallLevel}", p, new Color(255, 220, 100));
 
             // Grenades
-            Vector2 grenadePos = p + new Vector2(0, 160);
-            spriteBatch.DrawString(font, $"Grenades: {selectedUnit.Grenades.Count}/{selectedUnit.MaxGrenades}",
-                grenadePos, Color.Orange);
+            p.Y += 28;
+            spriteBatch.DrawString(font, "GRENADES", p, ParasiteEveTheme.TextHighlight);
+            p.Y += 20;
 
             for (int i = 0; i < selectedUnit.Grenades.Count; i++)
             {
@@ -174,33 +201,44 @@ namespace XCOM_3
                 string symbol = GrenadeDatabase.GetGrenadeSymbol(grenade.Type);
                 Color color = GrenadeDatabase.GetGrenadeColor(grenade.Type);
 
+                Rectangle grenadeIcon = new Rectangle(
+                    (int)p.X + i * 35, (int)p.Y, 30, 30);
+
+                ParasiteEveTheme.DrawPanel(spriteBatch, pixel, grenadeIcon, false);
+                spriteBatch.Draw(pixel, grenadeIcon, color * 0.3f);
+
+                Vector2 symbolSize = font.MeasureString(symbol);
                 spriteBatch.DrawString(font, symbol,
-                    grenadePos + new Vector2(i * 30, 20),
-                    color, 0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0f);
+                    new Vector2(grenadeIcon.Center.X - symbolSize.X / 2,
+                               grenadeIcon.Center.Y - symbolSize.Y / 2),
+                    color, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
             }
+
+            // Scanlines effect
+            ParasiteEveTheme.DrawScanlines(spriteBatch, pixel, panel, 0.08f);
         }
 
         /// <summary>
-        /// Dessine les boutons d'action
+        /// Dessine les boutons d'action - STYLE PE2
         /// </summary>
         public void DrawActionButtons(Unit selectedUnit, MouseState mouse)
         {
             UnitActionButtons.Clear();
 
             int bw = ActionButtonWidth, bh = ActionButtonHeight;
-            int by = graphicsDevice.Viewport.Height - bh - 15;
+            int by = graphicsDevice.Viewport.Height - bh - 20;
             int bx = (graphicsDevice.Viewport.Width - bw) / 2;
 
             var buttons = new List<Button>
             {
-                new Button("COUVERT", new Vector2(bx - 220, by)),
-                new Button("TIRER", new Vector2(bx - 110, by)),
-                new Button("RECHARGER", new Vector2(bx, by))
+                new Button("COVER", new Vector2(bx - 260, by)),
+                new Button("FIRE", new Vector2(bx - 130, by)),
+                new Button("RELOAD", new Vector2(bx, by))
             };
 
             if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
             {
-                buttons.Add(new Button("GRENADE", new Vector2(bx + 110, by)));
+                buttons.Add(new Button("GRENADE", new Vector2(bx + 130, by)));
             }
 
             UnitActionButtons.AddRange(buttons);
@@ -208,37 +246,38 @@ namespace XCOM_3
             foreach (var btn in UnitActionButtons)
             {
                 Rectangle r = new Rectangle((int)btn.Position.X, (int)btn.Position.Y, bw, bh);
-                Color c = r.Contains(mouse.Position) ? Color.Orange : Color.DarkOrange;
+                bool isHovered = r.Contains(mouse.Position);
 
-                spriteBatch.Draw(pixel, r, c);
-
-                Vector2 ts = font.MeasureString(btn.Text);
-                spriteBatch.DrawString(font, btn.Text,
-                    new Vector2(r.X + (bw - ts.X) / 2, r.Y + (bh - ts.Y) / 2),
-                    Color.Black);
+                ParasiteEveTheme.DrawButton(spriteBatch, pixel, font, r,
+                    btn.Text, isHovered, false, btn.IsEnabled);
             }
 
             // Bouton CONFIRMER TIR
             if (SelectedFireTarget != null && selectedUnit != null && selectedUnit.ActionPoints > 0)
             {
-                int fireConfirmWidth = 140;
+                int fireConfirmWidth = 180;
                 int fireConfirmHeight = 50;
                 FireButton = new Rectangle(
                     graphicsDevice.Viewport.Width / 2 - fireConfirmWidth / 2,
-                    by - fireConfirmHeight - 10,
+                    by - fireConfirmHeight - 15,
                     fireConfirmWidth,
                     fireConfirmHeight
                 );
 
-                Color fireColor = FireButton.Contains(mouse.Position) ? Color.Red : Color.DarkRed;
-                spriteBatch.Draw(pixel, FireButton, fireColor);
+                bool isHovered = FireButton.Contains(mouse.Position);
 
-                string fireText = "CONFIRMER TIR";
+                // Fond spécial pour le bouton de tir (rouge)
+                Color bgColor = isHovered ? new Color(180, 60, 60) : new Color(140, 40, 40);
+                spriteBatch.Draw(pixel, FireButton, bgColor);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, FireButton,
+                    isHovered ? new Color(255, 100, 100) : ParasiteEveTheme.BorderColor, 2);
+
+                string fireText = ">> CONFIRM FIRE <<";
                 Vector2 fireTextSize = font.MeasureString(fireText);
-                spriteBatch.DrawString(font, fireText,
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, fireText,
                     new Vector2(FireButton.X + (fireConfirmWidth - fireTextSize.X) / 2,
                                FireButton.Y + (fireConfirmHeight - fireTextSize.Y) / 2),
-                    Color.White);
+                    isHovered ? Color.White : new Color(255, 200, 200));
             }
             else
             {
@@ -247,11 +286,11 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Dessine le bouton de fin de tour
+        /// Dessine le bouton de fin de tour - STYLE PE2
         /// </summary>
         public void DrawEndTurnButton(MouseState mouse)
         {
-            int w = 140, h = 36;
+            int w = 160, h = 42;
             EndTurnButton = new Rectangle(
                 graphicsDevice.Viewport.Width - w - 20,
                 graphicsDevice.Viewport.Height - h - 20,
@@ -259,18 +298,23 @@ namespace XCOM_3
             );
 
             EndTurnHovered = EndTurnButton.Contains(mouse.Position);
-            Color color = EndTurnHovered ? Color.DarkRed : Color.Red;
-            spriteBatch.Draw(pixel, EndTurnButton, color);
 
-            Vector2 txtSize = font.MeasureString("FIN DU TOUR");
-            spriteBatch.DrawString(font, "FIN DU TOUR",
+            // Couleur rouge pour end turn
+            Color bgColor = EndTurnHovered ? new Color(180, 60, 60) : new Color(120, 40, 40);
+            spriteBatch.Draw(pixel, EndTurnButton, bgColor);
+
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, EndTurnButton,
+                EndTurnHovered ? new Color(255, 150, 150) : ParasiteEveTheme.BorderColor, 2);
+
+            Vector2 txtSize = font.MeasureString("END TURN");
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "END TURN",
                 new Vector2(EndTurnButton.X + (w - txtSize.X) / 2,
                            EndTurnButton.Y + (h - txtSize.Y) / 2),
-                Color.White);
+                EndTurnHovered ? Color.White : ParasiteEveTheme.TextNormal);
         }
 
         /// <summary>
-        /// Dessine les icônes de cibles de tir
+        /// Dessine les icônes de cibles de tir - STYLE PE2
         /// </summary>
         public void DrawFireTargets(MouseState mouse)
         {
@@ -287,23 +331,40 @@ namespace XCOM_3
 
             foreach (var ui in FireTargetsUI)
             {
-                Color bg = ui.Target == SelectedFireTarget ? Color.OrangeRed : Color.DarkRed;
+                bool isSelected = ui.Target == SelectedFireTarget;
+                bool isHovered = ui.Target == HoveredFireTarget;
+
+                // Fond
+                Color bg = isSelected ? new Color(140, 40, 40) :
+                          isHovered ? ParasiteEveTheme.ButtonHover :
+                          ParasiteEveTheme.ButtonNormal;
+
                 spriteBatch.Draw(pixel, ui.Bounds, bg);
 
-                Vector2 size = font.MeasureString(ui.HitChance + "%");
-                spriteBatch.DrawString(font, ui.HitChance + "%",
+                // Bordure
+                Color borderColor = isSelected || isHovered ?
+                    ParasiteEveTheme.SelectionOutline :
+                    ParasiteEveTheme.BorderColor;
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, ui.Bounds, borderColor, 2);
+
+                // Pourcentage de chance de toucher
+                string chanceText = ui.HitChance + "%";
+                Vector2 size = font.MeasureString(chanceText);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, chanceText,
                     new Vector2(ui.Bounds.Center.X - size.X / 2, ui.Bounds.Center.Y - size.Y / 2),
-                    Color.White);
+                    ui.HitChance >= 75 ? ParasiteEveTheme.BarHealth :
+                    ui.HitChance >= 50 ? ParasiteEveTheme.TextWarning :
+                    ParasiteEveTheme.TextDanger);
             }
 
+            // Effet de sélection pulsant
             Unit highlight = SelectedFireTarget ?? HoveredFireTarget;
             if (highlight != null)
             {
                 var ui = FireTargetsUI.FirstOrDefault(f => f.Target == highlight);
                 if (ui != null)
                 {
-                    spriteBatch.Draw(pixel, ui.Bounds, Color.Red * 0.4f);
-                    DrawBorder(ui.Bounds, Color.Red, 3);
+                    ParasiteEveTheme.DrawSelectionIndicator(spriteBatch, pixel, ui.Bounds, pulseTimer);
                 }
             }
         }
@@ -317,7 +378,7 @@ namespace XCOM_3
             {
                 Rectangle r = new Rectangle((int)btn.Position.X, (int)btn.Position.Y,
                     ActionButtonWidth, ActionButtonHeight);
-                
+
                 if (r.Contains(mouse.Position))
                     return true;
             }
@@ -367,23 +428,6 @@ namespace XCOM_3
             }
 
             return false;
-        }
-
-        private void DrawBorder(Rectangle rect, Color color, int thickness)
-        {
-            DrawLine(new Vector2(rect.Left, rect.Top), new Vector2(rect.Right, rect.Top), color, thickness);
-            DrawLine(new Vector2(rect.Left, rect.Bottom), new Vector2(rect.Right, rect.Bottom), color, thickness);
-            DrawLine(new Vector2(rect.Left, rect.Top), new Vector2(rect.Left, rect.Bottom), color, thickness);
-            DrawLine(new Vector2(rect.Right, rect.Top), new Vector2(rect.Right, rect.Bottom), color, thickness);
-        }
-
-        private void DrawLine(Vector2 start, Vector2 end, Color color, float thickness)
-        {
-            Vector2 delta = end - start;
-            float length = delta.Length();
-            float rotation = (float)Math.Atan2(delta.Y, delta.X);
-            spriteBatch.Draw(pixel, start, null, color, rotation, Vector2.Zero,
-                new Vector2(length, thickness), SpriteEffects.None, 0f);
         }
     }
 }
