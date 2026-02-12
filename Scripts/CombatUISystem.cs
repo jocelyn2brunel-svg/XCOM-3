@@ -141,6 +141,13 @@ namespace XCOM_3
             int m = 15, w = 320, h = 240;
             int x = m, y = graphicsDevice.Viewport.Height - h - m;
             Rectangle panel = new Rectangle(x, y, w, h);
+            int padding = 12;
+
+            int innerLeft = panel.X + padding;
+            int innerRight = panel.Right - padding;
+            int innerTop = panel.Y + padding;
+            int innerWidth = innerRight - innerLeft;
+
 
             // ✅ Panel PE2
             ParasiteEveTheme.DrawPanel(spriteBatch, pixel, panel);
@@ -161,23 +168,29 @@ namespace XCOM_3
             // Barre de santé
             p.Y += 52;
             spriteBatch.DrawString(font, "HP", p, ParasiteEveTheme.TextHighlight);
-            Rectangle hpBar = new Rectangle(x + 60, (int)p.Y, w - 70, 16);
+            int barX = innerLeft + 40; // espace pour le texte "HP"
+            int barWidth = innerRight - barX;
+
+            Rectangle hpBar = new Rectangle(barX, (int)p.Y, barWidth, 16);
             ParasiteEveTheme.DrawHealthBar(spriteBatch, pixel, hpBar, selectedUnit.Health, selectedUnit.MaxHealth);
 
             string hpText = $"{selectedUnit.Health} / {selectedUnit.MaxHealth}";
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, hpText,
-                new Vector2(hpBar.X + hpBar.Width + 5, p.Y), ParasiteEveTheme.TextNormal, 0.8f);
+                new Vector2(hpBar.Right - font.MeasureString(hpText).X, p.Y),
+                ParasiteEveTheme.TextNormal, 0.8f);
+
 
             // Barre de MP (Action Points)
             p.Y += 25;
             spriteBatch.DrawString(font, "AP", p, ParasiteEveTheme.TextHighlight);
-            Rectangle apBar = new Rectangle(x + 60, (int)p.Y, w - 70, 16);
+            Rectangle apBar = new Rectangle(barX, (int)p.Y, barWidth, 16);
             ParasiteEveTheme.DrawProgressBar(spriteBatch, pixel, apBar,
                 selectedUnit.ActionPoints, 3, ParasiteEveTheme.BarMP);
 
             string apText = $"{selectedUnit.ActionPoints}";
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, apText,
-                new Vector2(apBar.X + apBar.Width + 5, p.Y), ParasiteEveTheme.TextNormal, 0.8f);
+                new Vector2(apBar.Right - font.MeasureString(apText).X, p.Y),
+                ParasiteEveTheme.TextNormal, 0.8f);
 
             // Armure
             p.Y += 28;
@@ -195,15 +208,27 @@ namespace XCOM_3
             spriteBatch.DrawString(font, "GRENADES", p, ParasiteEveTheme.TextHighlight);
             p.Y += 20;
 
+            int grenadeSize = 30;
+            int spacing = 5;
+
+            int maxPerRow = innerWidth / (grenadeSize + spacing);
+
             for (int i = 0; i < selectedUnit.Grenades.Count; i++)
             {
+                int row = i / maxPerRow;
+                int col = i % maxPerRow;
+
+                int gx = innerLeft + col * (grenadeSize + spacing);
+                int gy = (int)p.Y + row * (grenadeSize + spacing);
+
+                Rectangle grenadeIcon = new Rectangle(gx, gy, grenadeSize, grenadeSize);
+
+
+
                 var grenade = selectedUnit.Grenades[i];
                 string symbol = GrenadeDatabase.GetGrenadeSymbol(grenade.Type);
                 Color color = GrenadeDatabase.GetGrenadeColor(grenade.Type);
-
-                Rectangle grenadeIcon = new Rectangle(
-                    (int)p.X + i * 35, (int)p.Y, 30, 30);
-
+                
                 ParasiteEveTheme.DrawPanel(spriteBatch, pixel, grenadeIcon, false);
                 spriteBatch.Draw(pixel, grenadeIcon, color * 0.3f);
 
