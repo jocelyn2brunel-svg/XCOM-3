@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using XCOM_3.Scripts;
 
 namespace XCOM_3
@@ -544,6 +545,9 @@ namespace XCOM_3
         {
             if (selectedUnit == null) return;
 
+            // ✅ AJOUT : Récupérer l'état de la souris pour l'utiliser dans le dessin
+            MouseState mouse = Mouse.GetState();
+
             int panelWidth = (int)(graphicsDevice.Viewport.Width * 0.75f);
             int panelHeight = (int)(graphicsDevice.Viewport.Height * 0.85f);
             int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
@@ -582,22 +586,40 @@ namespace XCOM_3
                 );
             }
 
-            // ✅ DESSIN DU FANTÔME DE PRÉVISUALISATION
-            if (draggedItem != null && previewPos.HasValue)
+            // ✅ DESSIN DU FANTÔME DE PRÉVISUALISATION (AMÉLIORÉ)
+            if (draggedItem != null)
             {
+                // 1. Calcul de la position théorique dans la grille (identique à HandleEndDrag)
+                int ghostGridX = (mouse.X - gridStartX) / CELL_SIZE - dragGridOffset.X;
+                int ghostGridY = (mouse.Y - gridStartY) / CELL_SIZE - dragGridOffset.Y;
+                Point ghostPos = new Point(ghostGridX, ghostGridY);
+
+                // 2. Définition du rectangle visuel
                 Rectangle previewRect = new Rectangle(
-                    gridStartX + previewPos.Value.X * CELL_SIZE,
-                    gridStartY + previewPos.Value.Y * CELL_SIZE,
+                    gridStartX + ghostGridX * CELL_SIZE,
+                    gridStartY + ghostGridY * CELL_SIZE,
                     draggedItem.GetCurrentSize().Width * CELL_SIZE,
                     draggedItem.GetCurrentSize().Height * CELL_SIZE
                 );
 
-                // Remplissage holographique vert (style Parasite Eve)
-                // On utilise HoverOverlay pour la transparence
-                spriteBatch.Draw(pixel, previewRect, ParasiteEveTheme.HoverOverlay * 0.6f);
+                // 3. Vérification de la validité via InventoryGrid
+                // On passe 'draggedItem' à CanPlaceItem pour qu'il ne se bloque pas lui-même
+                bool canPlace = inventoryGrid.CanPlaceItem(ghostPos, draggedItem.GetCurrentSize(), draggedItem);
 
-                // Bordure subtile pour délimiter la zone
-                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, ParasiteEveTheme.SelectionOutline * 0.5f, 1);
+                // 4. Choix des couleurs selon le thème PE2
+                // Fond : Vert holographique (HoverOverlay) ou Rouge (TextDanger)
+                Color ghostColor = canPlace ?
+                    ParasiteEveTheme.HoverOverlay * 0.6f :
+                    ParasiteEveTheme.TextDanger * 0.4f;
+
+                // Bordure : Plus intense pour la visibilité
+                Color borderColor = canPlace ?
+                    ParasiteEveTheme.SelectionOutline * 0.5f :
+                    ParasiteEveTheme.TextDanger * 0.8f;
+
+                // 5. Rendu
+                spriteBatch.Draw(pixel, previewRect, ghostColor);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
             }
 
             // ✅ Item en cours de drag (avec transparence)
