@@ -208,8 +208,8 @@ namespace XCOM_3
             Vector2 center = globeData.Center;
             float radius = globeData.Radius;
 
-            DrawCircle(center, radius, new Color(25, 50, 95));
-            DrawCircleOutline(center, radius, 2f, Color.CornflowerBlue);
+            DrawSphere(center, radius);
+            DrawCircleOutline(center, radius, 2f, new Color(100, 170, 255));
 
             foreach (var missionRenderData in globeData.Missions.Where(m => !m.IsFront).OrderBy(m => m.Depth))
             {
@@ -257,19 +257,66 @@ namespace XCOM_3
 
         private void DrawCircle(Vector2 center, float radius, Color color)
         {
-            Rectangle rect = new Rectangle(
-                (int)(center.X - radius),
-                (int)(center.Y - radius),
-                (int)(radius * 2f),
-                (int)(radius * 2f));
+            int intRadius = Math.Max(1, (int)MathF.Ceiling(radius));
+            for (int y = -intRadius; y <= intRadius; y++)
+            {
+                float normalizedY = y / radius;
+                if (normalizedY * normalizedY > 1f)
+                    continue;
 
-            _spriteBatch.Draw(_pixel, rect, color);
+                int halfWidth = (int)MathF.Sqrt(radius * radius - y * y);
+                _spriteBatch.Draw(
+                    _pixel,
+                    new Rectangle((int)center.X - halfWidth, (int)center.Y + y, halfWidth * 2, 1),
+                    color);
+            }
         }
 
         private void DrawCircleOutline(Vector2 center, float radius, float thickness, Color color)
         {
-            DrawLine(center + new Vector2(-radius, 0), center + new Vector2(radius, 0), thickness, color);
-            DrawLine(center + new Vector2(0, -radius), center + new Vector2(0, radius), thickness, color);
+            const int segmentCount = 96;
+            Vector2 previousPoint = center + new Vector2(radius, 0f);
+
+            for (int i = 1; i <= segmentCount; i++)
+            {
+                float t = i / (float)segmentCount;
+                float angle = MathHelper.TwoPi * t;
+                Vector2 currentPoint = center + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+                DrawLine(previousPoint, currentPoint, thickness, color);
+                previousPoint = currentPoint;
+            }
+        }
+
+        private void DrawSphere(Vector2 center, float radius)
+        {
+            int intRadius = Math.Max(1, (int)MathF.Ceiling(radius));
+            Vector3 lightDirection = Vector3.Normalize(new Vector3(-0.65f, -0.35f, 0.67f));
+            Color deepOcean = new Color(12, 26, 64);
+            Color brightOcean = new Color(44, 108, 189);
+
+            for (int y = -intRadius; y <= intRadius; y++)
+            {
+                float normalizedY = y / radius;
+                float ySquared = normalizedY * normalizedY;
+                if (ySquared > 1f)
+                    continue;
+
+                float normalizedXEdge = MathF.Sqrt(1f - ySquared);
+                int halfWidth = Math.Max(1, (int)(normalizedXEdge * radius));
+
+                float sampleX = -normalizedXEdge * 0.35f;
+                float sampleZSquared = MathF.Max(0f, 1f - sampleX * sampleX - ySquared);
+                Vector3 normal = Vector3.Normalize(new Vector3(sampleX, normalizedY, MathF.Sqrt(sampleZSquared)));
+                float light = MathHelper.Clamp(Vector3.Dot(normal, lightDirection) * 0.7f + 0.3f, 0f, 1f);
+                Color rowColor = Color.Lerp(deepOcean, brightOcean, light);
+
+                _spriteBatch.Draw(
+                    _pixel,
+                    new Rectangle((int)center.X - halfWidth, (int)center.Y + y, halfWidth * 2, 1),
+                    rowColor);
+            }
+
+            DrawCircle(center + new Vector2(-radius * 0.25f, -radius * 0.22f), radius * 0.52f, new Color(170, 220, 255, 40));
         }
 
         private void DrawLine(Vector2 start, Vector2 end, float thickness, Color color)
