@@ -20,7 +20,6 @@ namespace XCOM_3
 
         // --- Contrôle caméra du globe ---
         private float _globeYaw = -0.25f;
-        private float _globePitch = 0.15f;
         private bool _isDragging;
         private Point _lastMousePosition;
 
@@ -110,8 +109,6 @@ namespace XCOM_3
             {
                 Point delta = mouseState.Position - _lastMousePosition;
                 _globeYaw += delta.X * 0.01f;
-                _globePitch -= delta.Y * 0.01f;
-                _globePitch = MathHelper.Clamp(_globePitch, -1.1f, 1.1f);
                 _lastMousePosition = mouseState.Position;
             }
         }
@@ -207,8 +204,11 @@ namespace XCOM_3
             var globeData = ComputeGlobeData();
             Vector2 center = globeData.Center;
             float radius = globeData.Radius;
+            Matrix rotation = CreateGlobeRotationMatrix();
 
             DrawSphere(center, radius);
+            DrawLatitudeLongitudeGrid(center, radius, rotation, false);
+            DrawLatitudeLongitudeGrid(center, radius, rotation, true);
             DrawCircleOutline(center, radius, 2f, new Color(100, 170, 255));
 
             foreach (var missionRenderData in globeData.Missions.Where(m => !m.IsFront).OrderBy(m => m.Depth))
@@ -222,7 +222,7 @@ namespace XCOM_3
             float radius = MathF.Min(_graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height) * 0.28f;
             Vector2 center = new Vector2(_graphicsDevice.Viewport.Width * 0.5f, _graphicsDevice.Viewport.Height * 0.5f + 20f);
 
-            Matrix rotation = Matrix.CreateFromYawPitchRoll(_globeYaw, _globePitch, 0f);
+            Matrix rotation = CreateGlobeRotationMatrix();
             List<MissionRenderData> missions = new();
 
             foreach (var mission in _missionPoints)
@@ -254,6 +254,12 @@ namespace XCOM_3
                 cosLat * MathF.Cos(lon)
             );
         }
+
+        private Matrix CreateGlobeRotationMatrix()
+        {
+            return Matrix.CreateFromYawPitchRoll(_globeYaw, 0f, 0f);
+        }
+
 
         private void DrawCircle(Vector2 center, float radius, Color color)
         {
@@ -317,6 +323,55 @@ namespace XCOM_3
             }
 
             DrawCircle(center + new Vector2(-radius * 0.25f, -radius * 0.22f), radius * 0.52f, new Color(170, 220, 255, 40));
+        }
+
+        private void DrawLatitudeLongitudeGrid(Vector2 center, float radius, Matrix rotation, bool frontHemisphere)
+        {
+            Color latitudeColor = frontHemisphere ? new Color(138, 188, 245, 80) : new Color(70, 94, 128, 45);
+            Color longitudeColor = frontHemisphere ? new Color(108, 162, 228, 85) : new Color(60, 84, 120, 50);
+
+            for (int latitude = -60; latitude <= 60; latitude += 30)
+            {
+                DrawLatitudeLine(center, radius, rotation, latitude, latitudeColor, frontHemisphere);
+            }
+
+            for (int longitude = -150; longitude <= 180; longitude += 30)
+            {
+                DrawLongitudeLine(center, radius, rotation, longitude, longitudeColor, frontHemisphere);
+            }
+        }
+
+        private void DrawLatitudeLine(Vector2 center, float radius, Matrix rotation, int latitude, Color color, bool frontHemisphere)
+        {
+            const int step = 8;
+            for (int longitude = -180; longitude < 180; longitude += step)
+            {
+                Vector3 start = Vector3.Transform(LatLonToSphere(latitude, longitude), rotation);
+                Vector3 end = Vector3.Transform(LatLonToSphere(latitude, longitude + step), rotation);
+                DrawGridSegment(center, radius, start, end, color, frontHemisphere);
+            }
+        }
+
+        private void DrawLongitudeLine(Vector2 center, float radius, Matrix rotation, int longitude, Color color, bool frontHemisphere)
+        {
+            const int step = 8;
+            for (int latitude = -88; latitude < 88; latitude += step)
+            {
+                Vector3 start = Vector3.Transform(LatLonToSphere(latitude, longitude), rotation);
+                Vector3 end = Vector3.Transform(LatLonToSphere(latitude + step, longitude), rotation);
+                DrawGridSegment(center, radius, start, end, color, frontHemisphere);
+            }
+        }
+
+        private void DrawGridSegment(Vector2 center, float radius, Vector3 start, Vector3 end, Color color, bool frontHemisphere)
+        {
+            bool segmentIsFront = (start.Z + end.Z) * 0.5f >= 0f;
+            if (segmentIsFront != frontHemisphere)
+                return;
+
+            Vector2 startScreen = new Vector2(center.X + start.X * radius, center.Y - start.Y * radius);
+            Vector2 endScreen = new Vector2(center.X + end.X * radius, center.Y - end.Y * radius);
+            DrawLine(startScreen, endScreen, 1f, color);
         }
 
         private void DrawLine(Vector2 start, Vector2 end, float thickness, Color color)
