@@ -38,6 +38,7 @@ namespace XCOM_3
                 GridWidth = random.Next(minWidth, maxWidth),
                 GridHeight = random.Next(minHeight, maxHeight),
                 CellSize = 2,
+                FloorCount = random.Next(2, 4),
                 TimeOfDay = (float)random.NextDouble()
             };
 
@@ -60,8 +61,9 @@ namespace XCOM_3
 
             // Générer les zones de spawn
             map.GenerateDefaultSpawnZones();
+            map.StairConnections = GenerateDefaultStairs(map.GridWidth, map.GridHeight, map.FloorCount);
 
-            Console.WriteLine($"[MAP GEN] Generated {map.Name}: {map.GridWidth}x{map.GridHeight}, {map.Walls.Count} walls");
+            Console.WriteLine($"[MAP GEN] Generated {map.Name}: {map.GridWidth}x{map.GridHeight}, floors={map.FloorCount}, {map.Walls.Count} walls");
 
             return map;
         }
@@ -80,12 +82,15 @@ namespace XCOM_3
                 GridWidth = width,
                 GridHeight = height,
                 CellSize = 2,
+                FloorCount = 3,
                 TimeOfDay = 0.5f
             };
 
             map.GenerateDefaultSpawnZones();
+            map.FloorCount = 3;
+            map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount);
 
-            Console.WriteLine($"[MAP GEN] Created empty map: {width}x{height}");
+            Console.WriteLine($"[MAP GEN] Created empty map: {width}x{height}, floors={map.FloorCount}");
 
             return map;
         }
@@ -108,6 +113,7 @@ namespace XCOM_3
                 GridWidth = width,
                 GridHeight = height,
                 CellSize = 2,
+                FloorCount = 3,
                 TimeOfDay = 0.5f
             };
 
@@ -117,10 +123,43 @@ namespace XCOM_3
 
             map.SetWalls(walls);
             map.GenerateDefaultSpawnZones();
+            map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount);
 
-            Console.WriteLine($"[MAP GEN] Generated {pattern} map: {width}x{height}");
+            Console.WriteLine($"[MAP GEN] Generated {pattern} map: {width}x{height}, floors={map.FloorCount}");
 
             return map;
+        }
+
+
+        private List<StairConnectionData> GenerateDefaultStairs(int width, int height, int floorCount)
+        {
+            var stairs = new List<StairConnectionData>();
+            for (int floor = 0; floor < floorCount - 1; floor++)
+            {
+                stairs.Add(new StairConnectionData
+                {
+                    FromX = Math.Max(1, width / 4),
+                    FromY = Math.Max(1, height / 4),
+                    FromFloor = floor,
+                    ToX = Math.Max(2, width / 4 + 1),
+                    ToY = Math.Max(2, height / 4 + 1),
+                    ToFloor = floor + 1,
+                    Bidirectional = true
+                });
+
+                stairs.Add(new StairConnectionData
+                {
+                    FromX = Math.Max(1, (width * 3) / 4),
+                    FromY = Math.Max(1, (height * 3) / 4),
+                    FromFloor = floor,
+                    ToX = Math.Max(2, (width * 3) / 4 - 1),
+                    ToY = Math.Max(2, (height * 3) / 4 - 1),
+                    ToFloor = floor + 1,
+                    Bidirectional = true
+                });
+            }
+
+            return stairs;
         }
 
         /// <summary>

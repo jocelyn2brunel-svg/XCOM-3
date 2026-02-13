@@ -198,7 +198,7 @@ namespace XCOM_3
             inventorySystem = new InventorySystem(GraphicsDevice, _spriteBatch, font, pixel);
             unitManager = new OptimizedUnitManager();
 
-            pathfinding = new PathfindingSystem(gridWidth, gridHeight, new HashSet<WallSegment>(), GetUnitAtCell);
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, 1, new HashSet<WallSegment>(), new List<StairConnectionData>(), GetUnitAtCell, GetUnitAtCellOnFloor);
             statsPanel = new StatsPanel(
                 Content.Load<SpriteFont>("Arial"),
                 GraphicsDevice);
@@ -890,7 +890,24 @@ namespace XCOM_3
 
         Unit GetUnitAtCell(Point cell)
         {
-            return unitManager.SpatialHash.GetUnitAt(cell);
+            return unitManager.SpatialHash.GetUnitAt(cell, 0);
+        }
+
+        Unit GetUnitAtCellOnFloor(Point cell, int floor)
+        {
+            return unitManager.SpatialHash.GetUnitAt(cell, floor);
+        }
+
+        Unit GetUnitAtCellAnyFloor(Point cell)
+        {
+            for (int floor = 0; floor < Math.Max(1, currentMap?.FloorCount ?? 1); floor++)
+            {
+                var unit = unitManager.SpatialHash.GetUnitAt(cell, floor);
+                if (unit != null)
+                    return unit;
+            }
+
+            return null;
         }
 
         
@@ -922,7 +939,7 @@ namespace XCOM_3
 
             CreateUnits(missionType);
             wallSegments = currentMap.GetWalls();
-            pathfinding = new PathfindingSystem(gridWidth, gridHeight, wallSegments, GetUnitAtCell);
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallSegments, currentMap.StairConnections, GetUnitAtCell, GetUnitAtCellOnFloor);
             combatSystem.SetPathfinding(pathfinding);
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
             unitManager.InitializeForMission(playerUnits, enemyUnits);
@@ -956,7 +973,7 @@ namespace XCOM_3
                 // 3. ONLY recalculate the path if the mouse moved to a new cell
                 if (hoveredCell != lastHoveredCell)
                 {
-                    currentPath = pathfinding.FindPath(selectedUnit.Cell, hoveredCell, maxRange, selectedUnit);
+                    currentPath = pathfinding.FindPathDetailed(selectedUnit.Cell, selectedUnit.Floor, hoveredCell, selectedUnit.Floor, maxRange, selectedUnit).Cells;
                     lastHoveredCell = hoveredCell;
 
                     for (int i = 0; i < currentPath.Count; i++)
@@ -1001,7 +1018,7 @@ namespace XCOM_3
 
         private void HandleGridClick(Point clickedCell)
         {
-            Unit clickedUnit = GetUnitAtCell(clickedCell);
+            Unit clickedUnit = GetUnitAtCellAnyFloor(clickedCell);
 
             if (clickedUnit != null)
             {
@@ -1035,8 +1052,30 @@ namespace XCOM_3
                 var zones = pathfinding.GetMovementZones(selectedUnit);
 
                 // Calculer le chemin
-                var path = pathfinding.FindPath(selectedUnit.Cell, clickedCell,
+                Point movementGoal = clickedCell;
+                int goalFloor = selectedUnit.Floor;
+
+                var stair = currentMap?.StairConnections?.FirstOrDefault(st =>
+                    (st.FromFloor == selectedUnit.Floor && st.FromX == clickedCell.X && st.FromY == clickedCell.Y) ||
+                    (st.Bidirectional && st.ToFloor == selectedUnit.Floor && st.ToX == clickedCell.X && st.ToY == clickedCell.Y));
+
+                if (stair != null)
+                {
+                    if (stair.FromFloor == selectedUnit.Floor)
+                    {
+                        movementGoal = new Point(stair.ToX, stair.ToY);
+                        goalFloor = stair.ToFloor;
+                    }
+                    else
+                    {
+                        movementGoal = new Point(stair.FromX, stair.FromY);
+                        goalFloor = stair.FromFloor;
+                    }
+                }
+
+                var detailedPath = pathfinding.FindPathDetailed(selectedUnit.Cell, selectedUnit.Floor, movementGoal, goalFloor,
                                                selectedUnit.GetSprintRange(), selectedUnit);
+                var path = detailedPath.Cells;
 
                 if (path.Count == 0) return;
 
@@ -1076,7 +1115,9 @@ namespace XCOM_3
                 }
 
                 // Effectuer le déplacement
-                selectedUnit.StartMoveAlongPath(path, cellSize); unitManager.OnUnitMoved(selectedUnit, clickedCell);
+                selectedUnit.StartMoveAlongPath(path, cellSize);
+                selectedUnit.Floor = detailedPath.EndFloor;
+                unitManager.OnUnitMoved(selectedUnit, movementGoal, detailedPath.EndFloor);
                 selectedUnit.ActionPoints -= apCost;
                 combatSystem.UpdateUnitCover(selectedUnit);
                 // Consommer stamina si sprint
@@ -1246,7 +1287,7 @@ namespace XCOM_3
 
             foreach (var cell in affectedCells)
             {
-                Unit unit = GetUnitAtCell(cell);
+                Unit unit = GetUnitAtCellAnyFloor(cell);
                 if (unit != null)
                 {
                     int damage = explosionManager.CalculateExplosionDamage(grenadeData.Damage, center, cell, grenadeData.Radius);

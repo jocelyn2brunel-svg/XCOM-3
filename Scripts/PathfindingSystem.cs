@@ -5,95 +5,175 @@ using System.Linq;
 
 namespace XCOM_3
 {
+    public readonly struct GridNode : IEquatable<GridNode>
+    {
+        public Point Cell { get; }
+        public int Floor { get; }
+
+        public GridNode(Point cell, int floor)
+        {
+            Cell = cell;
+            Floor = floor;
+        }
+
+        public bool Equals(GridNode other) => Cell == other.Cell && Floor == other.Floor;
+        public override bool Equals(object obj) => obj is GridNode other && Equals(other);
+        public override int GetHashCode() => HashCode.Combine(Cell, Floor);
+    }
+
+    public class PathResult
+    {
+        public List<Point> Cells { get; set; } = new List<Point>();
+        public int EndFloor { get; set; }
+    }
+
     public class PathfindingSystem
     {
         private int gridW, gridH;
+        private int floorCount;
         private HashSet<WallSegment> walls;
-        private Func<Point, Unit> getUnit;
+        private readonly Func<Point, Unit> getUnit;
+        private readonly Func<Point, int, Unit> getUnitByFloor;
+        private readonly List<StairConnectionData> stairs;
 
         public PathfindingSystem(int w, int h, HashSet<WallSegment> walls, Func<Point, Unit> getUnit)
-        { gridW = w; gridH = h; this.walls = walls; this.getUnit = getUnit; }
+            : this(w, h, 1, walls, new List<StairConnectionData>(), getUnit, (cell, floor) => floor == 0 ? getUnit(cell) : null)
+        { }
+
+        public PathfindingSystem(int w, int h, int floors, HashSet<WallSegment> walls,
+            List<StairConnectionData> stairs,
+            Func<Point, Unit> getUnit,
+            Func<Point, int, Unit> getUnitByFloor)
+        {
+            gridW = w;
+            gridH = h;
+            floorCount = Math.Max(1, floors);
+            this.walls = walls;
+            this.stairs = stairs ?? new List<StairConnectionData>();
+            this.getUnit = getUnit;
+            this.getUnitByFloor = getUnitByFloor;
+        }
 
         public void UpdateGrid(int w, int h) { gridW = w; gridH = h; }
 
-        // ════════════════════ A* ════════════════════
-        public List<Point> FindPath(Point start, Point goal, int maxCost, Unit movingUnit)
+        public PathResult FindPathDetailed(Point start, int startFloor, Point goal, int goalFloor, int maxCost, Unit movingUnit)
         {
-            if (start == goal) return new List<Point>();
-            var open = new List<Point> { start };
-            var came = new Dictionary<Point, Point>();
-            var g = new Dictionary<Point, int> { { start, 0 } };
-            var f = new Dictionary<Point, int> { { start, Heuristic(start, goal) } };
+            var startNode = new GridNode(start, startFloor);
+            var goalNode = new GridNode(goal, goalFloor);
+
+            if (startNode.Equals(goalNode))
+            {
+                return new PathResult { Cells = new List<Point>(), EndFloor = goalFloor };
+            }
+
+            var open = new List<GridNode> { startNode };
+            var came = new Dictionary<GridNode, GridNode>();
+            var g = new Dictionary<GridNode, int> { { startNode, 0 } };
+            var f = new Dictionary<GridNode, int> { { startNode, Heuristic(startNode, goalNode) } };
 
             while (open.Count > 0)
             {
-                Point cur = open.OrderBy(p => f.GetValueOrDefault(p, int.MaxValue)).First();
-                if (cur == goal) return ReconstructPath(came, cur);
+                GridNode cur = open.OrderBy(p => f.GetValueOrDefault(p, int.MaxValue)).First();
+                if (cur.Equals(goalNode))
+                    return ReconstructPath(came, cur);
+
                 open.Remove(cur);
 
-                foreach (var n in new[]{ new Point(cur.X-1,cur.Y), new Point(cur.X+1,cur.Y),
-                                         new Point(cur.X,cur.Y-1), new Point(cur.X,cur.Y+1) })
+                foreach (var n in GetNeighbors(cur))
                 {
-                    if (n != goal && (!IsWalkable(n, movingUnit) || (getUnit(n) is Unit u && u != movingUnit))) continue;
-                    if (BlocksMovement(cur, n)) continue;
+                    if (n.Floor < 0 || n.Floor >= floorCount) continue;
+
+                    if (!n.Equals(goalNode))
+                    {
+                        if (!IsWalkable(n.Cell, n.Floor, movingUnit))
+                            continue;
+
+                        if (n.Floor == cur.Floor && BlocksMovement(cur.Cell, n.Cell))
+                            continue;
+                    }
+
                     int tentative = g[cur] + 1;
+                    if (tentative > maxCost) continue;
+
                     if (tentative < g.GetValueOrDefault(n, int.MaxValue))
                     {
-                        came[n] = cur; g[n] = tentative; f[n] = tentative + Heuristic(n, goal);
+                        came[n] = cur;
+                        g[n] = tentative;
+                        f[n] = tentative + Heuristic(n, goalNode);
                         if (!open.Contains(n)) open.Add(n);
                     }
                 }
             }
-            return new List<Point>();
+
+            return new PathResult { Cells = new List<Point>(), EndFloor = startFloor };
         }
 
-        private int Heuristic(Point a, Point b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
-
-        private List<Point> ReconstructPath(Dictionary<Point, Point> came, Point cur)
+        public List<Point> FindPath(Point start, Point goal, int maxCost, Unit movingUnit)
         {
-            var path = new List<Point> { cur };
-            while (came.ContainsKey(cur)) { cur = came[cur]; path.Insert(0, cur); }
-            path.RemoveAt(0);
-            return path;
+            int startFloor = movingUnit?.Floor ?? 0;
+            var result = FindPathDetailed(start, startFloor, goal, startFloor, maxCost, movingUnit);
+            return result.Cells;
         }
 
-        // ════════════════════ Mouvement ════════════════════
-        /// <summary>
-        /// Obtient les cellules de mouvement court (1 AP) - VERT
-        /// </summary>
+        private int Heuristic(GridNode a, GridNode b)
+        {
+            return Math.Abs(a.Cell.X - b.Cell.X) + Math.Abs(a.Cell.Y - b.Cell.Y) + Math.Abs(a.Floor - b.Floor);
+        }
+
+        private PathResult ReconstructPath(Dictionary<GridNode, GridNode> came, GridNode cur)
+        {
+            var nodes = new List<GridNode> { cur };
+            while (came.ContainsKey(cur))
+            {
+                cur = came[cur];
+                nodes.Insert(0, cur);
+            }
+
+            if (nodes.Count > 0)
+                nodes.RemoveAt(0);
+
+            return new PathResult
+            {
+                Cells = nodes.Select(n => n.Cell).ToList(),
+                EndFloor = nodes.Count > 0 ? nodes[^1].Floor : cur.Floor
+            };
+        }
+
+        private IEnumerable<GridNode> GetNeighbors(GridNode node)
+        {
+            yield return new GridNode(new Point(node.Cell.X - 1, node.Cell.Y), node.Floor);
+            yield return new GridNode(new Point(node.Cell.X + 1, node.Cell.Y), node.Floor);
+            yield return new GridNode(new Point(node.Cell.X, node.Cell.Y - 1), node.Floor);
+            yield return new GridNode(new Point(node.Cell.X, node.Cell.Y + 1), node.Floor);
+
+            foreach (var stair in stairs)
+            {
+                if (stair.FromFloor == node.Floor && stair.FromX == node.Cell.X && stair.FromY == node.Cell.Y)
+                    yield return new GridNode(new Point(stair.ToX, stair.ToY), stair.ToFloor);
+
+                if (stair.Bidirectional && stair.ToFloor == node.Floor && stair.ToX == node.Cell.X && stair.ToY == node.Cell.Y)
+                    yield return new GridNode(new Point(stair.FromX, stair.FromY), stair.FromFloor);
+            }
+        }
+
         public List<Point> GetShortMoveCells(Unit u)
         {
             if (u == null || u.ActionPoints <= 0) return new List<Point>();
-
-            int range = u.GetShortMoveRange();
-            return GetCellsInRange(u, range);
+            return GetCellsInRange(u, u.GetShortMoveRange());
         }
 
-        /// <summary>
-        /// Obtient les cellules de mouvement complet (2 AP) - BLEU
-        /// </summary>
         public List<Point> GetMaxMoveCells(Unit u)
         {
             if (u == null || u.ActionPoints < 2) return new List<Point>();
-
-            int range = u.GetMaxMoveRange();
-            return GetCellsInRange(u, range);
+            return GetCellsInRange(u, u.GetMaxMoveRange());
         }
 
-        /// <summary>
-        /// Obtient les cellules de sprint (2 AP + stamina) - JAUNE
-        /// </summary>
         public List<Point> GetSprintCells(Unit u)
         {
             if (u == null || !u.CanSprint()) return new List<Point>();
-
-            int range = u.GetSprintRange();
-            return GetCellsInRange(u, range);
+            return GetCellsInRange(u, u.GetSprintRange());
         }
 
-        /// <summary>
-        /// Méthode utilitaire pour obtenir les cellules dans un rayon
-        /// </summary>
         private List<Point> GetCellsInRange(Unit u, int range)
         {
             var cells = new List<Point>();
@@ -103,11 +183,11 @@ namespace XCOM_3
                 for (int y = u.Cell.Y - range; y <= u.Cell.Y + range; y++)
                 {
                     var t = new Point(x, y);
-                    if (t == u.Cell || x < 0 || y < 0 || x >= gridW || y >= gridH || !IsWalkable(t))
+                    if (t == u.Cell || x < 0 || y < 0 || x >= gridW || y >= gridH || !IsWalkable(t, u.Floor, u))
                         continue;
 
-                    var path = FindPath(u.Cell, t, range, u);
-                    if (path.Count > 0 && path.Count <= range)
+                    var path = FindPathDetailed(u.Cell, u.Floor, t, u.Floor, range, u);
+                    if (path.Cells.Count > 0 && path.Cells.Count <= range)
                         cells.Add(t);
                 }
             }
@@ -115,67 +195,30 @@ namespace XCOM_3
             return cells;
         }
 
-        /// <summary>
-        /// Obtient TOUTES les cellules accessibles (pour compatibilité)
-        /// </summary>
         public List<Point> GetMovableCells(Unit u)
         {
             if (u == null || u.ActionPoints <= 0) return new List<Point>();
-
-            // Retourne toutes les cellules accessibles (jusqu'au sprint si possible)
             int maxRange = u.CanSprint() ? u.GetSprintRange() : u.GetMaxMoveRange();
             return GetCellsInRange(u, maxRange);
         }
 
-        /// <summary>
-        /// Structure pour stocker les 3 zones de mouvement
-        /// </summary>
         public class MovementZones
         {
-            public List<Point> ShortMove { get; set; } = new List<Point>();  // 1 AP - Vert
-            public List<Point> MaxMove { get; set; } = new List<Point>();    // 2 AP - Bleu
-            public List<Point> Sprint { get; set; } = new List<Point>();     // 2 AP + Stamina - Jaune
-
-            public MovementZones() { }
+            public List<Point> ShortMove { get; set; } = new List<Point>();
+            public List<Point> MaxMove { get; set; } = new List<Point>();
+            public List<Point> Sprint { get; set; } = new List<Point>();
         }
 
-        /// <summary>
-        /// Obtient les 3 zones de mouvement pour affichage
-        /// </summary>
         public MovementZones GetMovementZones(Unit u)
         {
             var zones = new MovementZones();
-
             if (u == null) return zones;
-
-            // Zone 1 : Mouvement court (1 AP)
-            if (u.ActionPoints >= 1)
-            {
-                zones.ShortMove = GetShortMoveCells(u);
-            }
-
-            // Zone 2 : Mouvement max (2 AP) - exclure zone court
-            if (u.ActionPoints >= 2)
-            {
-                var maxCells = GetMaxMoveCells(u);
-                zones.MaxMove = maxCells.Except(zones.ShortMove).ToList();
-            }
-
-            // Zone 3 : Sprint (2 AP + stamina) - exclure zones précédentes
-            if (u.CanSprint())
-            {
-                var sprintCells = GetSprintCells(u);
-                zones.Sprint = sprintCells
-                    .Except(zones.ShortMove)
-                    .Except(zones.MaxMove)
-                    .ToList();
-            }
-
+            if (u.ActionPoints >= 1) zones.ShortMove = GetShortMoveCells(u);
+            if (u.ActionPoints >= 2) zones.MaxMove = GetMaxMoveCells(u).Except(zones.ShortMove).ToList();
+            if (u.CanSprint()) zones.Sprint = GetSprintCells(u).Except(zones.ShortMove).Except(zones.MaxMove).ToList();
             return zones;
         }
 
-
-        // ════════════════════ Ligne de vue ════════════════════
         public bool HasLineOfSight(Point from, Point to)
         {
             int x0 = from.X, y0 = from.Y, x1 = to.X, y1 = to.Y;
@@ -193,9 +236,6 @@ namespace XCOM_3
             return true;
         }
 
-        // ════════════════════ Murs et Collisions ════════════════════
-
-        // 1. Récupère les données du mur entre deux cases (s'il y en a un)
         public WallSegment? GetWallBetween(Point a, Point b)
         {
             int dx = b.X - a.X, dy = b.Y - a.Y;
@@ -208,37 +248,36 @@ namespace XCOM_3
                     (dx == 1 && !w.IsHorizontal && w.Start.X == b.X && a.Y >= w.Start.Y && a.Y < w.End.Y) ||
                     (dx == -1 && !w.IsHorizontal && w.Start.X == a.X && a.Y >= w.Start.Y && a.Y < w.End.Y))
                 {
-                    return w; // Retourne le mur trouvé
+                    return w;
                 }
             }
             return null;
         }
 
-        // 2. Vérifie si le mouvement est bloqué (Murs pleins ET fenêtres)
         public bool BlocksMovement(Point a, Point b)
         {
             var wall = GetWallBetween(a, b);
             return wall.HasValue && (wall.Value.Type == WallType.Full || wall.Value.Type == WallType.Window);
         }
 
-        // 3. Vérifie si la vue est bloquée (SEULEMENT les murs pleins)
         public bool BlocksSight(Point a, Point b)
         {
             var wall = GetWallBetween(a, b);
             return wall.HasValue && wall.Value.Type == WallType.Full;
         }
 
-        // ════════════════════ Voisinage et marchabilité ════════════════════
         public List<Point> GetNeighbors(Point c)
         {
             return new[] { new Point(c.X, c.Y - 1), new Point(c.X, c.Y + 1), new Point(c.X - 1, c.Y), new Point(c.X + 1, c.Y) }
                    .Where(n => n.X >= 0 && n.X < gridW && n.Y >= 0 && n.Y < gridH && !BlocksMovement(c, n)).ToList();
         }
 
-        public bool IsWalkable(Point c, Unit movingUnit = null)
+        public bool IsWalkable(Point c, Unit movingUnit = null) => IsWalkable(c, movingUnit?.Floor ?? 0, movingUnit);
+
+        public bool IsWalkable(Point c, int floor, Unit movingUnit = null)
         {
-            if (c.X < 0 || c.Y < 0 || c.X >= gridW || c.Y >= gridH) return false;
-            var u = getUnit(c);
+            if (c.X < 0 || c.Y < 0 || c.X >= gridW || c.Y >= gridH || floor < 0 || floor >= floorCount) return false;
+            var u = getUnitByFloor(c, floor);
             return u == null || u == movingUnit;
         }
 
@@ -249,12 +288,8 @@ namespace XCOM_3
             walls = newWalls;
         }
 
-
-        // ════════════════════ Utilitaires ════════════════════
         public int ManhattanDistance(Point a, Point b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
         public bool AreAdjacent(Point a, Point b) => ManhattanDistance(a, b) == 1;
         public int GetPathCost(List<Point> path) => path.Count;
-
-
     }
 }
