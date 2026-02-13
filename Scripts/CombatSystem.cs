@@ -277,7 +277,7 @@ namespace XCOM_3
             foreach (Point move in moves)
             {
                 if (pathfinding.IsWalkable(move, enemy) &&
-                    !pathfinding.HasWallBetween(enemy.Cell, move) &&
+                    !pathfinding.BlocksMovement(enemy.Cell, move) &&
                     getUnitAtCell(move) == null)
                 {
                     enemy.StartMoveTo(move, cellSize);

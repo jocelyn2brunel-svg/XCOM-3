@@ -154,33 +154,49 @@ namespace XCOM_3
                     ? new Color(140, 140, 140)  // Gris clair en mode éditeur
                     : new Color(100, 85, 70);   // Beige/brun en jeu
 
-                // ? Corps principal du mur
-                DrawCube(center, scale, wallColor);
-
-                // ? Dessus du mur (plus clair)
-                Vector3 topCenter = center;
-                topCenter.Y = wallHeight;
-                Vector3 topScale = s.IsHorizontal
-                    ? new Vector3(size, thickness * 0.5f, thickness)
-                    : new Vector3(thickness, thickness * 0.5f, size);
-
-                Color topColor = editorMode
-                    ? new Color(180, 180, 180)  // Gris très clair
-                    : new Color(120, 105, 90);  // Beige plus clair
-
-                DrawCube(topCenter, topScale, topColor);
-
-                // ? Ligne de démarcation (jointure au milieu)
-                if (!editorMode)
+                // ------------------- NOUVEAU : GESTION DES FENÊTRES -------------------
+                if (s.Type == WallType.Window)
                 {
-                    Vector3 jointCenter = center;
-                    jointCenter.Y = wallHeight * 0.6f;
-                    Vector3 jointScale = s.IsHorizontal
-                        ? new Vector3(size * 1.02f, thickness * 0.3f, thickness * 1.1f)
-                        : new Vector3(thickness * 1.1f, thickness * 0.3f, size * 1.02f);
+                    // 1. ALLÈGE (Le muret du bas - 35% de la hauteur totale)
+                    float bottomHeight = wallHeight * 0.35f;
+                    Vector3 bottomCenter = center;
+                    bottomCenter.Y = bottomHeight / 2f; // On le pose au sol
+                    Vector3 bottomScale = s.IsHorizontal
+                        ? new Vector3(size, bottomHeight, thickness)
+                        : new Vector3(thickness, bottomHeight, size);
 
-                    DrawCube(jointCenter, jointScale, new Color(80, 65, 50));
+                    DrawCube(bottomCenter, bottomScale, wallColor);
+
+                    // 2. LINTEAU (Le muret du haut - 20% de la hauteur totale)
+                    float topPartHeight = wallHeight * 0.2f;
+                    Vector3 topPartCenter = center;
+                    topPartCenter.Y = wallHeight - (topPartHeight / 2f); // On le colle en haut
+                    Vector3 topPartScale = s.IsHorizontal
+                        ? new Vector3(size, topPartHeight, thickness)
+                        : new Vector3(thickness, topPartHeight, size);
+
+                    DrawCube(topPartCenter, topPartScale, wallColor);
+
+                    // Le milieu reste vide pour laisser passer la ligne de vue !
                 }
+                else
+                {
+                    // Mur plein classique (Portes et Murs normaux)
+                    DrawCube(center, scale, wallColor);
+
+                    // ? Ligne de démarcation (jointure au milieu) - Uniquement pour les murs pleins
+                    if (!editorMode)
+                    {
+                        Vector3 jointCenter = center;
+                        jointCenter.Y = wallHeight * 0.6f;
+                        Vector3 jointScale = s.IsHorizontal
+                            ? new Vector3(size * 1.02f, thickness * 0.3f, thickness * 1.1f)
+                            : new Vector3(thickness * 1.1f, thickness * 0.3f, size * 1.02f);
+
+                        DrawCube(jointCenter, jointScale, new Color(80, 65, 50));
+                    }
+                }
+             
 
                 // ? Ombre portée au sol
                 if (!editorMode)

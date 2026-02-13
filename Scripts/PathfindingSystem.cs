@@ -35,7 +35,7 @@ namespace XCOM_3
                                          new Point(cur.X,cur.Y-1), new Point(cur.X,cur.Y+1) })
                 {
                     if (n != goal && (!IsWalkable(n, movingUnit) || (getUnit(n) is Unit u && u != movingUnit))) continue;
-                    if (HasWallBetween(cur, n)) continue;
+                    if (BlocksMovement(cur, n)) continue;
                     int tentative = g[cur] + 1;
                     if (tentative < g.GetValueOrDefault(n, int.MaxValue))
                     {
@@ -184,7 +184,7 @@ namespace XCOM_3
 
             while (true)
             {
-                if (cur != from && HasWallBetween(prev, cur)) return false;
+                if (cur != from && BlocksSight(prev, cur)) return false;
                 if (cur.X == x1 && cur.Y == y1) break;
                 prev = cur; int e2 = 2 * err;
                 if (e2 > -dy) { err -= dy; cur.X += sx; }
@@ -193,23 +193,46 @@ namespace XCOM_3
             return true;
         }
 
-        // ════════════════════ Murs ════════════════════
-        public bool HasWallBetween(Point a, Point b)
+        // ════════════════════ Murs et Collisions ════════════════════
+
+        // 1. Récupère les données du mur entre deux cases (s'il y en a un)
+        public WallSegment? GetWallBetween(Point a, Point b)
         {
             int dx = b.X - a.X, dy = b.Y - a.Y;
-            if (Math.Abs(dx) + Math.Abs(dy) != 1) return false;
-            return walls.Any(w =>
-                (dy == 1 && w.IsHorizontal && w.Start.Y == b.Y && a.X >= w.Start.X && a.X < w.End.X) ||
-                (dy == -1 && w.IsHorizontal && w.Start.Y == a.Y && a.X >= w.Start.X && a.X < w.End.X) ||
-                (dx == 1 && !w.IsHorizontal && w.Start.X == b.X && a.Y >= w.Start.Y && a.Y < w.End.Y) ||
-                (dx == -1 && !w.IsHorizontal && w.Start.X == a.X && a.Y >= w.Start.Y && a.Y < w.End.Y));
+            if (Math.Abs(dx) + Math.Abs(dy) != 1) return null;
+
+            foreach (var w in walls)
+            {
+                if ((dy == 1 && w.IsHorizontal && w.Start.Y == b.Y && a.X >= w.Start.X && a.X < w.End.X) ||
+                    (dy == -1 && w.IsHorizontal && w.Start.Y == a.Y && a.X >= w.Start.X && a.X < w.End.X) ||
+                    (dx == 1 && !w.IsHorizontal && w.Start.X == b.X && a.Y >= w.Start.Y && a.Y < w.End.Y) ||
+                    (dx == -1 && !w.IsHorizontal && w.Start.X == a.X && a.Y >= w.Start.Y && a.Y < w.End.Y))
+                {
+                    return w; // Retourne le mur trouvé
+                }
+            }
+            return null;
+        }
+
+        // 2. Vérifie si le mouvement est bloqué (Murs pleins ET fenêtres)
+        public bool BlocksMovement(Point a, Point b)
+        {
+            var wall = GetWallBetween(a, b);
+            return wall.HasValue && (wall.Value.Type == WallType.Full || wall.Value.Type == WallType.Window);
+        }
+
+        // 3. Vérifie si la vue est bloquée (SEULEMENT les murs pleins)
+        public bool BlocksSight(Point a, Point b)
+        {
+            var wall = GetWallBetween(a, b);
+            return wall.HasValue && wall.Value.Type == WallType.Full;
         }
 
         // ════════════════════ Voisinage et marchabilité ════════════════════
         public List<Point> GetNeighbors(Point c)
         {
             return new[] { new Point(c.X, c.Y - 1), new Point(c.X, c.Y + 1), new Point(c.X - 1, c.Y), new Point(c.X + 1, c.Y) }
-                   .Where(n => n.X >= 0 && n.X < gridW && n.Y >= 0 && n.Y < gridH && !HasWallBetween(c, n)).ToList();
+                   .Where(n => n.X >= 0 && n.X < gridW && n.Y >= 0 && n.Y < gridH && !BlocksMovement(c, n)).ToList();
         }
 
         public bool IsWalkable(Point c, Unit movingUnit = null)

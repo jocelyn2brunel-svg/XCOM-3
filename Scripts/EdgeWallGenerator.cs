@@ -15,19 +15,26 @@ namespace XCOM_3
     /// <summary>
     /// Représente un segment de mur entre deux cases
     /// </summary>
+    public enum WallType { Full, Window, Door }
+
     public struct WallSegment
     {
-        public Point Start;      // Case de départ
-        public Point End;        // Case d'arrivée
-        public bool IsHorizontal; // true = horizontal, false = vertical
+        public Point Start;
+        public Point End;
+        public bool IsHorizontal;
+        public WallType Type; // NOUVEAU
 
-        public WallSegment(Point start, Point end, bool isHorizontal)
+        // On ajoute le paramètre optionnel "type"
+        public WallSegment(Point start, Point end, bool isHorizontal, WallType type = WallType.Full)
         {
             Start = start;
             End = end;
             IsHorizontal = isHorizontal;
+            Type = type;
         }
 
+        // Garde tes méthodes Equals et GetHashCode telles quelles ! 
+        // On veut toujours identifier un mur par sa position, peu importe s'il se transforme en fenêtre.
         public override bool Equals(object obj)
         {
             if (!(obj is WallSegment)) return false;
@@ -104,9 +111,11 @@ namespace XCOM_3
         /// <summary>
         /// Ajoute un mur horizontal entre (x,y) et (x+1,y)
         /// </summary>
-        private void AddHorizontalWall(HashSet<WallSegment> walls, int x, int y)
+        public void AddHorizontalWall(HashSet<WallSegment> walls, int x, int y)
         {
-            walls.Add(new WallSegment(new Point(x, y), new Point(x + 1, y), true));
+            // 20% de chances d'être une fenêtre sur les murs extérieurs par exemple
+            WallType type = (random.Next(100) < 20) ? WallType.Window : WallType.Full;
+            walls.Add(new WallSegment(new Point(x, y), new Point(x + 1, y), true, type));
         }
 
         /// <summary>
@@ -114,6 +123,7 @@ namespace XCOM_3
         /// </summary>
         private void AddVerticalWall(HashSet<WallSegment> walls, int x, int y)
         {
+            WallType type = (random.Next(100) < 20) ? WallType.Window : WallType.Full;
             walls.Add(new WallSegment(new Point(x, y), new Point(x, y + 1), false));
         }
 
