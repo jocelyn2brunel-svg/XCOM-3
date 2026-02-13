@@ -176,7 +176,7 @@ namespace XCOM_3
             mainMenuManager.OnQuitRequested += () => Exit();
 
             // 2. Mission Select Manager
-            missionSelectManager = new MissionSelectManager(_spriteBatch, font);
+            missionSelectManager = new MissionSelectManager(GraphicsDevice, _spriteBatch, font, pixel);
             missionSelectManager.OnMissionSelected += (missionType) =>
             {
                 selectedMission = missionType;
@@ -366,7 +366,6 @@ namespace XCOM_3
                 mapEditor.Draw3D(gameTime);
             if (currentState == GameState.Playing)
                 DrawWorld3D(gameTime); // monde + unités + murs
-
             // --- EFFETS VISUELS 3D ---
             VisualEffects.Draw(); // explosions et particules
 
