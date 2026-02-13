@@ -25,6 +25,7 @@ namespace XCOM_3
         public int GridWidth { get; set; }
         public int GridHeight { get; set; }
         public int CellSize { get; set; } = 2;
+        public int FloorCount { get; set; } = 1;
 
         // Environnement
         public float TimeOfDay { get; set; } = 0.5f; // 0.0 = minuit, 0.5 = midi
@@ -39,6 +40,7 @@ namespace XCOM_3
 
         // Points d'intérêt
         public List<ObjectivePoint> Objectives { get; set; } = new List<ObjectivePoint>();
+        public List<StairConnectionData> StairConnections { get; set; } = new List<StairConnectionData>();
 
         // Paramètres de mission
         public string SuggestedMissionType { get; set; } = "Tutorial";
@@ -192,9 +194,27 @@ namespace XCOM_3
                 return false;
             }
 
+            if (FloorCount < 1 || FloorCount > 8)
+            {
+                error = "Invalid floor count (min 1, max 8)";
+                return false;
+            }
+
             error = null;
             return true;
         }
+    }
+
+    [Serializable]
+    public class StairConnectionData
+    {
+        public int FromX { get; set; }
+        public int FromY { get; set; }
+        public int FromFloor { get; set; }
+        public int ToX { get; set; }
+        public int ToY { get; set; }
+        public int ToFloor { get; set; }
+        public bool Bidirectional { get; set; } = true;
     }
 
     /// <summary>

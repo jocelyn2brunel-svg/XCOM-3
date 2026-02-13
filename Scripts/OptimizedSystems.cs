@@ -7,28 +7,32 @@ namespace XCOM_3
 {
     public class UnitSpatialHash
     {
-        private Dictionary<Point, Unit> cellToUnit = new();
-        private Dictionary<Unit, Point> unitToCell = new();
+        private Dictionary<(Point Cell, int Floor), Unit> cellToUnit = new();
+        private Dictionary<Unit, (Point Cell, int Floor)> unitToCell = new();
 
         public void AddUnit(Unit u)
         {
             if (unitToCell.ContainsKey(u)) RemoveUnit(u);
-            cellToUnit[u.Cell] = u; unitToCell[u] = u.Cell;
+            cellToUnit[(u.Cell, u.Floor)] = u; unitToCell[u] = (u.Cell, u.Floor);
         }
 
         public void RemoveUnit(Unit u)
         {
-            if (unitToCell.TryGetValue(u, out Point c)) { cellToUnit.Remove(c); unitToCell.Remove(u); }
+            if (unitToCell.TryGetValue(u, out var c)) { cellToUnit.Remove(c); unitToCell.Remove(u); }
         }
 
-        public void MoveUnit(Unit u, Point newCell)
+        public void MoveUnit(Unit u, Point newCell, int newFloor)
         {
-            if (unitToCell.TryGetValue(u, out Point old)) cellToUnit.Remove(old);
-            cellToUnit[newCell] = u; unitToCell[u] = newCell; u.Cell = newCell;
+            if (unitToCell.TryGetValue(u, out var old)) cellToUnit.Remove(old);
+            cellToUnit[(newCell, newFloor)] = u; unitToCell[u] = (newCell, newFloor); u.Cell = newCell; u.Floor = newFloor;
         }
 
-        public Unit GetUnitAt(Point c) => cellToUnit.TryGetValue(c, out Unit u) ? u : null;
-        public bool IsCellOccupied(Point c) => cellToUnit.ContainsKey(c);
+        public void MoveUnit(Unit u, Point newCell) => MoveUnit(u, newCell, u.Floor);
+
+        public Unit GetUnitAt(Point c) => GetUnitAt(c, 0);
+        public Unit GetUnitAt(Point c, int floor) => cellToUnit.TryGetValue((c, floor), out Unit u) ? u : null;
+        public bool IsCellOccupied(Point c) => IsCellOccupied(c, 0);
+        public bool IsCellOccupied(Point c, int floor) => cellToUnit.ContainsKey((c, floor));
 
         public List<Unit> GetUnitsInRadius(Point center, int r)
         {
@@ -36,7 +40,7 @@ namespace XCOM_3
             for (int x = center.X - r; x <= center.X + r; x++)
                 for (int y = center.Y - r; y <= center.Y + r; y++)
                     if (Vector2.Distance(new Vector2(center.X, center.Y), new Vector2(x, y)) <= r)
-                        if (GetUnitAt(new Point(x, y)) is Unit u) list.Add(u);
+                        if (GetUnitAt(new Point(x, y), 0) is Unit u) list.Add(u);
             return list;
         }
 
@@ -75,7 +79,8 @@ namespace XCOM_3
         public void InitializeForMission(List<Unit> player, List<Unit> enemy)
         { SpatialHash.RebuildFromLists(player, enemy); MovementCache.Clear(); }
 
-        public void OnUnitMoved(Unit u, Point c) => SpatialHash.MoveUnit(u, c);
+        public void OnUnitMoved(Unit u, Point c) => SpatialHash.MoveUnit(u, c, u.Floor);
+        public void OnUnitMoved(Unit u, Point c, int floor) => SpatialHash.MoveUnit(u, c, floor);
         public void OnUnitDied(Unit u) { SpatialHash.RemoveUnit(u); MovementCache.RemoveUnit(u); }
         public void OnWallsDestroyed() => MovementCache.Invalidate();
         public void OnNewTurn() => MovementCache.RefreshAll();

@@ -10,6 +10,7 @@ namespace XCOM_3
     public partial class Unit
     {
         public Point Cell;
+        public int Floor { get; set; } = 0;
         public Team Team { get; set; }
         public string Name, Weapon;
         public int ActionPoints = 2;
@@ -80,6 +81,7 @@ namespace XCOM_3
         public Unit(Point cell, Team team, string name, string unitClass, string weapon, WeaponData weaponData)
         {
             Cell = cell;
+            Floor = 0;
             Team = team;
             Name = name;
             Class = unitClass;
@@ -114,6 +116,7 @@ namespace XCOM_3
         public Unit(Unit other)
         {
             Cell = other.Cell;
+            Floor = other.Floor;
             Team = other.Team;
             Name = other.Name;
             Class = other.Class;
@@ -185,7 +188,7 @@ namespace XCOM_3
         {
             VisualPosition = new Vector3(
                 Cell.X * cellSize + cellSize / 2f,
-                0,
+                Floor * cellSize,
                 Cell.Y * cellSize + cellSize / 2f
             );
         }
