@@ -46,6 +46,11 @@ namespace XCOM_3
             enemyUnits = enemies;
         }
 
+        public void SetPathfinding(PathfindingSystem newPathfinding)
+        {
+            pathfinding = newPathfinding;
+        }
+
         /// <summary>
         /// Démarre le tour du joueur
         /// </summary>

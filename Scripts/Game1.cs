@@ -923,11 +923,10 @@ namespace XCOM_3
             LoadMap(); // Génère automatiquement une carte selon selectedMission
 
             CreateUnits(missionType);
-
-            pathfinding = new PathfindingSystem(gridWidth, gridHeight, wallSegments, GetUnitAtCell);
-
-            Console.WriteLine($"Mission '{missionType}' launched in 3D!");
             wallSegments = currentMap.GetWalls();
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, wallSegments, GetUnitAtCell);
+            combatSystem.SetPathfinding(pathfinding);
+            Console.WriteLine($"Mission '{missionType}' launched in 3D!");
             unitManager.InitializeForMission(playerUnits, enemyUnits);
             combatSystem.SetUnits(playerUnits, enemyUnits);
             combatSystem.StartPlayerTurn();
