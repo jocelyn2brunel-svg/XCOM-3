@@ -55,6 +55,7 @@ namespace XCOM_3
         public float MoveProgress = 0f;
         private Vector3 moveSegmentStart;
         private readonly Queue<Vector3> movementWaypoints = new Queue<Vector3>();
+        private float? finalMoveOrientation;
 
         // Animation idle
         public float IdleTime = 0f;
@@ -235,7 +236,10 @@ namespace XCOM_3
 
             Vector3 direction = TargetPosition - VisualPosition;
             if (direction.LengthSquared() > 0.001f)
+            {
                 TargetOrientation = (float)Math.Atan2(direction.X, direction.Z);
+                finalMoveOrientation = TargetOrientation;
+            }
         }
 
         public void UpdateAnimation(float deltaTime)
@@ -273,6 +277,11 @@ namespace XCOM_3
                     {
                         MoveProgress = 1f;
                         IsMoving = false;
+
+                        if (finalMoveOrientation.HasValue)
+                            TargetOrientation = finalMoveOrientation.Value;
+
+                        finalMoveOrientation = null;
                         WalkCycleTime = 0f;
                         LegSwing = 0f;
                         ArmSwing = 0f;
