@@ -474,5 +474,125 @@ namespace XCOM_3
                 gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts2, 0, 8, cubeIdx, 0, 12);
             }
         }
+
+        /// <summary>
+        /// Dessine les 3 zones de mouvement (court, max, sprint)
+        /// </summary>
+        /// <summary>
+        /// Dessine les 3 zones de mouvement (court, max, sprint)
+        /// </summary>
+        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime)
+        {
+            if (zones == null) return;
+
+            float pulse = (float)Math.Sin(gameTime * 3f) * 0.15f + 0.85f;
+
+            // Zone 1 : Mouvement court (1 AP) - VERT
+            foreach (var cell in zones.ShortMove)
+            {
+                Vector3 pos = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    0.02f,
+                    cell.Y * cellSize + cellSize / 2f
+                );
+
+                Color color = new Color(0, 255, 0, 150) * pulse; // Vert transparent
+                DrawPlane(pos, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), color);
+            }
+
+            // Zone 2 : Mouvement max (2 AP) - BLEU
+            foreach (var cell in zones.MaxMove)
+            {
+                Vector3 pos = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    0.03f,
+                    cell.Y * cellSize + cellSize / 2f
+                );
+
+                Color color = new Color(0, 150, 255, 130) * pulse; // Bleu transparent
+                DrawPlane(pos, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), color);
+            }
+
+            // Zone 3 : Sprint (2 AP + stamina) - JAUNE avec warning
+            foreach (var cell in zones.Sprint)
+            {
+                Vector3 pos = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    0.04f,
+                    cell.Y * cellSize + cellSize / 2f
+                );
+
+                // Pulse plus rapide pour le warning
+                float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
+                Color color = new Color(255, 200, 0, 140) * sprintPulse; // Jaune avertissement
+                DrawPlane(pos, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), color);
+
+                // Petit indicateur de stamina au centre
+                DrawSprintIndicator(cell, cellSize, gameTime);
+            }
+        }
+
+        /// <summary>
+        /// Dessine un indicateur de sprint (petit symbole au centre de la case)
+        /// </summary>
+        private void DrawSprintIndicator(Point cell, int cellSize, float gameTime)
+        {
+            float pulse = (float)Math.Sin(gameTime * 6f) * 0.3f + 0.7f;
+
+            Vector3 pos = new Vector3(
+                cell.X * cellSize + cellSize / 2f,
+                0.15f,
+                cell.Y * cellSize + cellSize / 2f
+            );
+
+            // Petit cube jaune qui pulse
+            float size = cellSize * 0.15f;
+            Color color = new Color(255, 220, 0) * pulse;
+            DrawCube(pos, new Vector3(size, size * 0.3f, size), color);
+        }
+
+        /// <summary>
+        /// Dessine le chemin avec coloration selon le coût (VERSION SIMPLIFIÉE)
+        /// </summary>
+        public void DrawMovementPath(List<Point> path, Unit unit, int cellSize, float gameTime)
+        {
+            if (path == null || path.Count == 0 || unit == null) return;
+
+            int shortRange = unit.GetShortMoveRange();
+            int maxRange = unit.GetMaxMoveRange();
+
+            for (int i = 0; i < path.Count; i++)
+            {
+                Point cell = path[i];
+                int distance = i + 1;
+
+                // Déterminer la couleur selon la distance
+                Color pathColor;
+                if (distance <= shortRange)
+                {
+                    pathColor = new Color(0, 255, 100, 200); // Vert
+                }
+                else if (distance <= maxRange)
+                {
+                    pathColor = new Color(0, 200, 255, 200); // Bleu
+                }
+                else
+                {
+                    pathColor = new Color(255, 200, 0, 200); // Jaune (sprint)
+                }
+
+                Vector3 pos = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    0.08f,
+                    cell.Y * cellSize + cellSize / 2f
+                );
+
+                float pulse = (float)Math.Sin(gameTime * 4f + i * 0.3f) * 0.2f + 0.8f;
+                DrawPlane(pos, new Vector3(cellSize * 0.7f, 1, cellSize * 0.7f), pathColor * pulse);
+            }
+        }
+
+
+
     }
 }

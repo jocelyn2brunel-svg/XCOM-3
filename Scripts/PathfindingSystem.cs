@@ -58,21 +58,122 @@ namespace XCOM_3
         }
 
         // ════════════════════ Mouvement ════════════════════
-        public List<Point> GetMovableCells(Unit u)
+        /// <summary>
+        /// Obtient les cellules de mouvement court (1 AP) - VERT
+        /// </summary>
+        public List<Point> GetShortMoveCells(Unit u)
         {
-            if (u == null || u.MovementPoints <= 0) return new List<Point>();
-            int r = u.MovementPoints; var cells = new List<Point>();
+            if (u == null || u.ActionPoints <= 0) return new List<Point>();
 
-            for (int x = u.Cell.X - r; x <= u.Cell.X + r; x++)
-                for (int y = u.Cell.Y - r; y <= u.Cell.Y + r; y++)
+            int range = u.GetShortMoveRange();
+            return GetCellsInRange(u, range);
+        }
+
+        /// <summary>
+        /// Obtient les cellules de mouvement complet (2 AP) - BLEU
+        /// </summary>
+        public List<Point> GetMaxMoveCells(Unit u)
+        {
+            if (u == null || u.ActionPoints < 2) return new List<Point>();
+
+            int range = u.GetMaxMoveRange();
+            return GetCellsInRange(u, range);
+        }
+
+        /// <summary>
+        /// Obtient les cellules de sprint (2 AP + stamina) - JAUNE
+        /// </summary>
+        public List<Point> GetSprintCells(Unit u)
+        {
+            if (u == null || !u.CanSprint()) return new List<Point>();
+
+            int range = u.GetSprintRange();
+            return GetCellsInRange(u, range);
+        }
+
+        /// <summary>
+        /// Méthode utilitaire pour obtenir les cellules dans un rayon
+        /// </summary>
+        private List<Point> GetCellsInRange(Unit u, int range)
+        {
+            var cells = new List<Point>();
+
+            for (int x = u.Cell.X - range; x <= u.Cell.X + range; x++)
+            {
+                for (int y = u.Cell.Y - range; y <= u.Cell.Y + range; y++)
                 {
                     var t = new Point(x, y);
-                    if (t == u.Cell || x < 0 || y < 0 || x >= gridW || y >= gridH || !IsWalkable(t)) continue;
-                    var path = FindPath(u.Cell, t, r, u);
-                    if (path.Count > 0 && path.Count <= r) cells.Add(t);
+                    if (t == u.Cell || x < 0 || y < 0 || x >= gridW || y >= gridH || !IsWalkable(t))
+                        continue;
+
+                    var path = FindPath(u.Cell, t, range, u);
+                    if (path.Count > 0 && path.Count <= range)
+                        cells.Add(t);
                 }
+            }
+
             return cells;
         }
+
+        /// <summary>
+        /// Obtient TOUTES les cellules accessibles (pour compatibilité)
+        /// </summary>
+        public List<Point> GetMovableCells(Unit u)
+        {
+            if (u == null || u.ActionPoints <= 0) return new List<Point>();
+
+            // Retourne toutes les cellules accessibles (jusqu'au sprint si possible)
+            int maxRange = u.CanSprint() ? u.GetSprintRange() : u.GetMaxMoveRange();
+            return GetCellsInRange(u, maxRange);
+        }
+
+        /// <summary>
+        /// Structure pour stocker les 3 zones de mouvement
+        /// </summary>
+        public class MovementZones
+        {
+            public List<Point> ShortMove { get; set; } = new List<Point>();  // 1 AP - Vert
+            public List<Point> MaxMove { get; set; } = new List<Point>();    // 2 AP - Bleu
+            public List<Point> Sprint { get; set; } = new List<Point>();     // 2 AP + Stamina - Jaune
+
+            public MovementZones() { }
+        }
+
+        /// <summary>
+        /// Obtient les 3 zones de mouvement pour affichage
+        /// </summary>
+        public MovementZones GetMovementZones(Unit u)
+        {
+            var zones = new MovementZones();
+
+            if (u == null) return zones;
+
+            // Zone 1 : Mouvement court (1 AP)
+            if (u.ActionPoints >= 1)
+            {
+                zones.ShortMove = GetShortMoveCells(u);
+            }
+
+            // Zone 2 : Mouvement max (2 AP) - exclure zone court
+            if (u.ActionPoints >= 2)
+            {
+                var maxCells = GetMaxMoveCells(u);
+                zones.MaxMove = maxCells.Except(zones.ShortMove).ToList();
+            }
+
+            // Zone 3 : Sprint (2 AP + stamina) - exclure zones précédentes
+            if (u.CanSprint())
+            {
+                var sprintCells = GetSprintCells(u);
+                zones.Sprint = sprintCells
+                    .Except(zones.ShortMove)
+                    .Except(zones.MaxMove)
+                    .ToList();
+            }
+
+            return zones;
+        }
+
 
         // ════════════════════ Ligne de vue ════════════════════
         public bool HasLineOfSight(Point from, Point to)

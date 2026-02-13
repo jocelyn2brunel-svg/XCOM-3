@@ -12,8 +12,17 @@ namespace XCOM_3
         public Team Team { get; set; }
         public string Name, Weapon;
         public int ActionPoints = 2;
-        public int MovementPoints = 5;
+        public int MaxActionPoints = 2;
+        public int Stamina = 100;
+        public int MaxStamina = 100;
+        public int MovementRange = 4; // Portée max en cases
         public int Health = 100, MaxHealth = 100;
+
+        /// <summary>
+        /// Coût en stamina pour sprinter
+        /// </summary>
+        public const int SPRINT_STAMINA_COST = 20;
+
         public WeaponData WeaponData;
         public bool IsFiring = false, WillHit = false;
         public Point? FireTarget = null;
@@ -73,6 +82,13 @@ namespace XCOM_3
             Weapon = weapon;
             WeaponData = weaponData;
 
+            ActionPoints = 2;
+            MaxActionPoints = 2;
+            Stamina = 100;
+            MaxStamina = 100;
+            MovementRange = 4;
+
+
             UpdateVisualPosition();
             TargetPosition = VisualPosition;
 
@@ -100,6 +116,10 @@ namespace XCOM_3
             Weapon = other.Weapon;
             WeaponData = other.WeaponData;
             ActionPoints = other.ActionPoints;
+            MaxActionPoints = other.MaxActionPoints;
+            Stamina = other.Stamina;
+            MaxStamina = other.MaxStamina;
+            MovementRange = other.MovementRange;
             Health = other.Health;
             MaxHealth = other.MaxHealth;
 
@@ -154,9 +174,7 @@ namespace XCOM_3
 
         public int GetMaxMovementPoints()
         {
-            int baseMovement = MovementPoints + Skills.GetMovementBonus();
-            int penalty = GetMobilityPenalty();
-            return Math.Max(1, baseMovement - penalty); // Minimum 1 PM
+            return GetMaxMoveRange(); // Utilise la nouvelle méthode
         }
 
         public void UpdateVisualPosition(int cellSize = 2)
@@ -306,6 +324,85 @@ namespace XCOM_3
         {
             return (CoverDirections & direction) != 0;
         }
+
+        /// <summary>
+        /// Obtient la portée de mouvement court (1 AP)
+        /// </summary>
+        public int GetShortMoveRange()
+        {
+            int baseRange = MovementRange / 2; // Moitié de la portée max
+            int penalty = GetMobilityPenalty();
+            return Math.Max(1, baseRange - penalty);
+        }
+
+        /// <summary>
+        /// Obtient la portée de mouvement maximale (2 AP)
+        /// </summary>
+        public int GetMaxMoveRange()
+        {
+            int baseRange = MovementRange + Skills.GetMovementBonus();
+            int penalty = GetMobilityPenalty();
+            return Math.Max(1, baseRange - penalty);
+        }
+
+        /// <summary>
+        /// Obtient la portée de sprint (2 AP + stamina)
+        /// </summary>
+        public int GetSprintRange()
+        {
+            return GetMaxMoveRange() + 1; // +1 case en sprint
+        }
+
+        /// <summary>
+        /// Vérifie si l'unité peut sprinter
+        /// </summary>
+        public bool CanSprint()
+        {
+            return Stamina >= SPRINT_STAMINA_COST && ActionPoints >= 2;
+        }
+
+        /// <summary>
+        /// Consomme la stamina pour un sprint
+        /// </summary>
+        public void ConsumeSprint()
+        {
+            Stamina = Math.Max(0, Stamina - SPRINT_STAMINA_COST);
+            Console.WriteLine($"[UNIT] {Name} sprints! Stamina: {Stamina}/{MaxStamina}");
+        }
+
+        /// <summary>
+        /// Régénère la stamina (appelé chaque tour)
+        /// </summary>
+        public void RegenerateStamina()
+        {
+            int regenAmount = 10; // Régénère 10 stamina par tour
+            Stamina = Math.Min(MaxStamina, Stamina + regenAmount);
+        }
+
+        /// <summary>
+        /// Obtient le coût en AP d'un déplacement
+        /// </summary>
+        public int GetMovementAPCost(int distance)
+        {
+            int shortRange = GetShortMoveRange();
+            int maxRange = GetMaxMoveRange();
+
+            if (distance <= shortRange)
+                return 1; // Mouvement court
+            else if (distance <= maxRange)
+                return 2; // Mouvement complet
+            else
+                return 2; // Sprint (+ stamina)
+        }
+
+        /// <summary>
+        /// Vérifie si un mouvement est un sprint
+        /// </summary>
+        public bool IsSprint(int distance)
+        {
+            return distance > GetMaxMoveRange();
+        }
+
 
     }
 }

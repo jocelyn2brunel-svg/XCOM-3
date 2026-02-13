@@ -192,6 +192,26 @@ namespace XCOM_3
                 new Vector2(apBar.Right - font.MeasureString(apText).X, p.Y),
                 ParasiteEveTheme.TextNormal, 0.8f);
 
+            // Barre de Stamina
+            p.Y += 25;
+            spriteBatch.DrawString(font, "STM", p, new Color(255, 200, 50));
+            Rectangle staminaBar = new Rectangle(x + 60, (int)p.Y, w - 70, 16);
+            ParasiteEveTheme.DrawProgressBar(spriteBatch, pixel, staminaBar,
+                selectedUnit.Stamina, selectedUnit.MaxStamina, new Color(255, 200, 50));
+
+            string staminaText = $"{selectedUnit.Stamina}";
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, staminaText,
+                new Vector2(staminaBar.X + staminaBar.Width + 5, p.Y), ParasiteEveTheme.TextNormal, 0.8f);
+
+            // Indicateur si stamina basse
+            if (selectedUnit.Stamina < Unit.SPRINT_STAMINA_COST)
+            {
+                p.Y += 20;
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "⚠ LOW STAMINA",
+                    p, ParasiteEveTheme.TextWarning, 0.7f);
+            }
+
+
             // Armure
             p.Y += 28;
             int totalArmor = selectedUnit.GetTotalArmor();
@@ -454,5 +474,100 @@ namespace XCOM_3
 
             return false;
         }
+
+
+        /// <summary>
+        /// Dessine les informations de mouvement (portées et coûts)
+        /// </summary>
+        public void DrawMovementInfo(Unit selectedUnit, Point hoveredCell, List<Point> currentPath)
+        {
+            if (selectedUnit == null || selectedUnit.Team != Team.Player)
+                return;
+
+            int x = graphicsDevice.Viewport.Width - 250;
+            int y = 80;
+            int w = 230;
+            int h = 160;
+
+            Rectangle panel = new Rectangle(x, y, w, h);
+            ParasiteEveTheme.DrawPanel(spriteBatch, pixel, panel);
+
+            // Header
+            Rectangle header = new Rectangle(x, y, w, 30);
+            ParasiteEveTheme.DrawSectionHeader(spriteBatch, pixel, font, header, "MOVEMENT");
+
+            Vector2 pos = new Vector2(x + 12, y + 40);
+
+            // Portées
+            int shortRange = selectedUnit.GetShortMoveRange();
+            int maxRange = selectedUnit.GetMaxMoveRange();
+            int sprintRange = selectedUnit.GetSprintRange();
+
+            // Court (1 AP)
+            string shortText = $"Short: {shortRange} cells (1 AP)";
+            Color shortColor = selectedUnit.ActionPoints >= 1 ?
+                new Color(100, 255, 100) : ParasiteEveTheme.TextDim;
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, shortText,
+                pos, shortColor, 0.8f);
+            pos.Y += 20;
+
+            // Max (2 AP)
+            string maxText = $"Max: {maxRange} cells (2 AP)";
+            Color maxColor = selectedUnit.ActionPoints >= 2 ?
+                new Color(100, 200, 255) : ParasiteEveTheme.TextDim;
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, maxText,
+                pos, maxColor, 0.8f);
+            pos.Y += 20;
+
+            // Sprint (2 AP + stamina)
+            string sprintText = $"Sprint: {sprintRange} cells (2 AP + {Unit.SPRINT_STAMINA_COST} STM)";
+            Color sprintColor = selectedUnit.CanSprint() ?
+                new Color(255, 200, 50) : ParasiteEveTheme.TextDim;
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, sprintText,
+                pos, sprintColor, 0.8f);
+
+            // Info du chemin survolé
+            if (hoveredCell.X != -1 && currentPath != null && currentPath.Count > 0)
+            {
+                pos.Y += 30;
+
+                int distance = currentPath.Count;
+                int apCost = selectedUnit.GetMovementAPCost(distance);
+                bool isSprint = selectedUnit.IsSprint(distance);
+
+                string moveType;
+                Color moveColor;
+
+                if (distance <= shortRange)
+                {
+                    moveType = "SHORT MOVE";
+                    moveColor = new Color(100, 255, 100);
+                }
+                else if (distance <= maxRange)
+                {
+                    moveType = "MAX MOVE";
+                    moveColor = new Color(100, 200, 255);
+                }
+                else
+                {
+                    moveType = "SPRINT";
+                    moveColor = new Color(255, 200, 50);
+                }
+
+                string costText = isSprint ?
+                    $"{distance} cells: {apCost} AP + {Unit.SPRINT_STAMINA_COST} STM" :
+                    $"{distance} cells: {apCost} AP";
+
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, moveType,
+                    pos, moveColor, 0.75f);
+                pos.Y += 16;
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, costText,
+                    pos, ParasiteEveTheme.TextNormal, 0.7f);
+            }
+
+            ParasiteEveTheme.DrawScanlines(spriteBatch, pixel, panel, 0.06f);
+        }
+
+
     }
 }

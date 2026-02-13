@@ -129,6 +129,9 @@ namespace XCOM_3
 
         private bool showCoverIndicators = false;
 
+        private Point lastHoveredCell = new Point(-1, -1);
+
+
         public Game1()
         {
             // NOUVEAU: Créer une console Windows
@@ -577,6 +580,11 @@ namespace XCOM_3
 
             if (combatUI.ShowFireTargets && selectedUnit?.Team == Team.Player) combatUI.DrawFireTargets(mouse);
 
+            if (selectedUnit != null && selectedUnit.Team == Team.Player)
+            {
+                combatUI.DrawMovementInfo(selectedUnit, hoveredCell, currentPath);
+            }
+
             _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | I: Inventaire", new Vector2(10, 10), Color.White);
 
             string timeStr = GetTimeOfDayString(timeOfDay);
@@ -606,8 +614,6 @@ namespace XCOM_3
             renderer3D.DrawCraters(craters, cellSize);
             renderer3D.DrawGrenades(activeGrenades, cellSize);
 
-            DrawMovableCells3D(gameTime);
-            DrawPath3D(gameTime);
             DrawHoveredCell3D(gameTime);
             DrawThrowMode3D(gameTime);
 
@@ -644,6 +650,20 @@ namespace XCOM_3
                         (float)gameTime.TotalGameTime.TotalSeconds
                     );
                 }
+            }
+
+            if (selectedUnit != null && selectedUnit.Team == Team.Player)
+            {
+                var zones = pathfinding.GetMovementZones(selectedUnit);
+                renderer3D.DrawMovementZones(zones, cellSize,
+                    (float)gameTime.TotalGameTime.TotalSeconds);
+            }
+
+            // Afficher le chemin
+            if (currentPath.Count > 0 && selectedUnit != null)
+            {
+                renderer3D.DrawMovementPath(currentPath, selectedUnit, cellSize,
+                    (float)gameTime.TotalGameTime.TotalSeconds);
             }
 
         }
@@ -915,21 +935,44 @@ namespace XCOM_3
             combatSystem.InitializeCoverSystem(gridWidth, gridHeight, wallSegments);
 
             Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
-        }       
+        }
+
 
         private void HandlePlayerTurn(MouseState mouse, bool leftClick, KeyboardState keyboard)
         {
             if (IsTabPressed(keyboard)) SelectNextActiveUnit();
 
             hoveredCell = camera.GetCellFromMouse(mouse.Position, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
-            currentPath.Clear(); pathCosts.Clear();
 
+            // We moved the clears here to ensure a clean slate, but only populate if needed
+            currentPath.Clear();
+            pathCosts.Clear();
+
+            // 1. Check if we have a valid unit and valid cell
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 &&
                 cachedMovableCells.Contains(hoveredCell) && selectedUnit.Team == Team.Player)
             {
-                currentPath = pathfinding.FindPath(selectedUnit.Cell, hoveredCell, selectedUnit.MovementPoints, selectedUnit);
-                pathCosts.Clear();
-                for (int i = 0; i < currentPath.Count; i++) pathCosts[currentPath[i]] = i + 1;
+                // 2. Define maxRange here
+                int maxRange = selectedUnit.CanSprint() ?
+                    selectedUnit.GetSprintRange() : selectedUnit.GetMaxMoveRange();
+
+                // 3. ONLY recalculate the path if the mouse moved to a new cell
+                if (hoveredCell != lastHoveredCell)
+                {
+                    currentPath = pathfinding.FindPath(selectedUnit.Cell, hoveredCell, maxRange, selectedUnit);
+                    lastHoveredCell = hoveredCell;
+
+                    for (int i = 0; i < currentPath.Count; i++)
+                    {
+                        pathCosts[currentPath[i]] = i + 1;
+                    }
+                }
+            }
+            else
+            {
+                // If the mouse isn't on a valid movement cell, update the last hovered cell anyway
+                // so it recalculates correctly when it re-enters a valid cell
+                lastHoveredCell = hoveredCell;
             }
 
             if (throwMode) HandleGrenadeThrow(mouse, leftClick);
@@ -990,24 +1033,72 @@ namespace XCOM_3
             else if (selectedUnit != null && selectedUnit.ActionPoints > 0)
             {
                 if (pathfinding == null) return;
-                var movable = pathfinding.GetMovableCells(selectedUnit);
-                if (movable.Contains(clickedCell))
+
+                // ✅ NOUVEAU : Vérifier dans quelle zone se trouve la cellule cliquée
+                var zones = pathfinding.GetMovementZones(selectedUnit);
+
+                // Calculer le chemin
+                var path = pathfinding.FindPath(selectedUnit.Cell, clickedCell,
+                                               selectedUnit.GetSprintRange(), selectedUnit);
+
+                if (path.Count == 0) return;
+
+                int distance = path.Count;
+                int shortRange = selectedUnit.GetShortMoveRange();
+                int maxRange = selectedUnit.GetMaxMoveRange();
+                int sprintRange = selectedUnit.GetSprintRange();
+
+                // Déterminer le coût
+                int apCost = 0;
+                bool isSprint = false;
+
+                if (distance <= shortRange && selectedUnit.ActionPoints >= 1)
                 {
-                    var path = pathfinding.FindPath(selectedUnit.Cell, clickedCell, selectedUnit.MovementPoints, selectedUnit);
-                    if (path.Count > 0 && path.Count <= selectedUnit.MovementPoints)
-                    {
-                        selectedUnit.StartMoveTo(clickedCell);
-                        unitManager.OnUnitMoved(selectedUnit, clickedCell);
-                        selectedUnit.ActionPoints--;
-                        var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
-                        combatUI.UpdateFireTargets(selectedUnit, validTargets);
-                        cachedMovableCells = selectedUnit.ActionPoints > 0 ? pathfinding.GetMovableCells(selectedUnit) : new List<Point>();
-                        currentPath.Clear();
-                        pathCosts.Clear();
-                    }
+                    // Zone verte (1 AP)
+                    apCost = 1;
+                    Console.WriteLine($"[MOVEMENT] Short move: {distance} cells (1 AP)");
                 }
+                else if (distance <= maxRange && selectedUnit.ActionPoints >= 2)
+                {
+                    // Zone bleue (2 AP)
+                    apCost = 2;
+                    Console.WriteLine($"[MOVEMENT] Max move: {distance} cells (2 AP)");
+                }
+                else if (distance <= sprintRange && selectedUnit.CanSprint())
+                {
+                    // Zone jaune (2 AP + stamina)
+                    apCost = 2;
+                    isSprint = true;
+                    Console.WriteLine($"[MOVEMENT] SPRINT: {distance} cells (2 AP + {Unit.SPRINT_STAMINA_COST} stamina)");
+                }
+                else
+                {
+                    // Hors de portée ou pas assez de ressources
+                    Console.WriteLine($"[MOVEMENT] Cannot reach: {distance} cells (out of range or insufficient resources)");
+                    return;
+                }
+
+                // Effectuer le déplacement
+                selectedUnit.StartMoveTo(clickedCell, cellSize);
+                unitManager.OnUnitMoved(selectedUnit, clickedCell);
+                selectedUnit.ActionPoints -= apCost;
+
+                // Consommer stamina si sprint
+                if (isSprint)
+                {
+                    selectedUnit.ConsumeSprint();
+                }
+
+                // Mettre à jour l'UI
+                var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
+                combatUI.UpdateFireTargets(selectedUnit, validTargets);
+                cachedMovableCells = selectedUnit.ActionPoints > 0 ?
+                    pathfinding.GetMovableCells(selectedUnit) : new List<Point>();
+                currentPath.Clear();
+                pathCosts.Clear();
             }
         }
+
 
         private void HandleUnitActionButtons(MouseState mouse)
         {

@@ -53,17 +53,18 @@ namespace XCOM_3
         {
             foreach (var u in playerUnits)
             {
-                u.ActionPoints = 3;
-                u.MovementPoints = u.GetMaxMovementPoints();
+                u.ActionPoints = u.MaxActionPoints; // ← Utiliser MaxActionPoints au lieu de 3
+                u.RegenerateStamina(); // ← NOUVEAU : Régénérer la stamina
             }
-            
+
             CurrentTurn = TurnState.PlayerTurn;
             if (unitManager == null)
                 throw new InvalidOperationException("unitManager n'a pas été initialisé !");
             unitManager.OnNewTurn();
-            
+
             Console.WriteLine("[COMBAT] Tour du joueur");
         }
+
 
         /// <summary>
         /// Démarre le tour ennemi
@@ -141,7 +142,7 @@ namespace XCOM_3
 
             if (path.Count > 0)
             {
-                int steps = Math.Min(enemy.MovementPoints, path.Count);
+                int steps = Math.Min(enemy.GetMaxMoveRange(), path.Count);
                 Point? validCell = null;
 
                 for (int i = steps - 1; i >= 0; i--)
