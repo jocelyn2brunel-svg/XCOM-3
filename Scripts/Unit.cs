@@ -11,7 +11,8 @@ namespace XCOM_3
         public Point Cell;
         public Team Team { get; set; }
         public string Name, Weapon;
-        public int ActionPoints = 2, MovementPoints = 5;
+        public int ActionPoints = 2;
+        public int MovementPoints = 5;
         public int Health = 100, MaxHealth = 100;
         public WeaponData WeaponData;
         public bool IsFiring = false, WillHit = false;
