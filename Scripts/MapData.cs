@@ -67,7 +67,8 @@ namespace XCOM_3
                     StartY = wall.Start.Y,
                     EndX = wall.End.X,
                     EndY = wall.End.Y,
-                    IsHorizontal = wall.IsHorizontal
+                    IsHorizontal = wall.IsHorizontal,
+                    Type = (int)wall.Type
                 });
             }
         }
@@ -83,7 +84,8 @@ namespace XCOM_3
                 wallSegments.Add(new WallSegment(
                     new Point(wallData.StartX, wallData.StartY),
                     new Point(wallData.EndX, wallData.EndY),
-                    wallData.IsHorizontal
+                    wallData.IsHorizontal,
+                    (WallType)wallData.Type
                 ));
             }
             return wallSegments;
@@ -199,13 +201,14 @@ namespace XCOM_3
     /// Données d'un mur sérialisables (pas de Point car pas JSON-friendly)
     /// </summary>
     [Serializable]
-    public class WallSegmentData
+    public struct WallSegmentData
     {
         public int StartX { get; set; }
         public int StartY { get; set; }
         public int EndX { get; set; }
         public int EndY { get; set; }
         public bool IsHorizontal { get; set; }
+        public int Type { get; set; } // AJOUTE CETTE LIGNE (0=Full, 1=Window, etc.)
     }
 
     /// <summary>

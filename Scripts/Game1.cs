@@ -927,12 +927,13 @@ namespace XCOM_3
             pathfinding = new PathfindingSystem(gridWidth, gridHeight, wallSegments, GetUnitAtCell);
 
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
-
+            wallSegments = currentMap.GetWalls();
             unitManager.InitializeForMission(playerUnits, enemyUnits);
             combatSystem.SetUnits(playerUnits, enemyUnits);
             combatSystem.StartPlayerTurn();
             // Initialiser le système de couverture
             combatSystem.InitializeCoverSystem(gridWidth, gridHeight, wallSegments);
+
 
             Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
         }
