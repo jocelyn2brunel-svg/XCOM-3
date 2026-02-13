@@ -472,26 +472,29 @@ namespace XCOM_3
                               int width, int height,
                               BuildingType type)
         {
+            // --- NOUVEAUTÉ ICI ---
+            // Si c'est une petite maison, on utilise notre nouveau gabarit architectural
+            if (type == BuildingType.SmallHouse)
+            {
+                GenerateModernHouseInterior(walls, x, y, width, height);
+                return; // Très important : on quitte la méthode ici pour ne pas exécuter la découpe aléatoire en dessous !
+            }
+            // ---------------------
+
+            // L'ancien système aléatoire (pour les appartements, bureaux et entrepôts)
             int roomCount;
 
             switch (type)
             {
-                case BuildingType.SmallHouse:
-                    roomCount = random.Next(2, 4);
-                    break;
-
                 case BuildingType.Apartment:
                     roomCount = random.Next(4, 7);
                     break;
-
                 case BuildingType.Office:
                     roomCount = random.Next(3, 6);
                     break;
-
                 case BuildingType.Warehouse:
                     roomCount = random.Next(1, 3);
                     break;
-
                 default:
                     roomCount = 3;
                     break;
@@ -522,6 +525,64 @@ namespace XCOM_3
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Génère un intérieur de maison moderne avec séparation Jour (Open Space) / Nuit (Chambres)
+        /// </summary>
+        private void GenerateModernHouseInterior(HashSet<WallSegment> walls, int x, int y, int width, int height)
+        {
+            // Sécurité : si le bâtiment est trop petit, on ne fait pas de divisions complexes
+            if (width < 6 || height < 6) return;
+
+            // Étape 1 : Le Zonage principal (Séparation Nuit / Jour)
+            // On coupe le bâtiment verticalement à environ 45% de sa largeur
+            int splitX = x + (int)(width * 0.45f);
+
+            // Mur central (avec une grande ouverture au milieu pour le couloir)
+            int doorY = y + height / 2;
+            for (int i = y + 1; i < y + height - 1; i++)
+            {
+                if (i != doorY && i != doorY + 1) // On laisse une double porte pour circuler
+                {
+                    AddVerticalWall(walls, splitX, i);
+                }
+            }
+
+            // Étape 2 : Zone Nuit (Côté Gauche) - Très compartimentée
+            // On coupe la zone gauche en 2 chambres horizontalement
+            int roomSplitY = y + height / 2;
+            for (int i = x + 1; i < splitX; i++)
+            {
+                AddHorizontalWall(walls, i, roomSplitY);
+            }
+
+            // Portes pour les chambres (donnant sur le centre)
+            walls.Remove(new WallSegment(new Point(splitX, y + height / 4), new Point(splitX, y + height / 4 + 1), false));
+            walls.Remove(new WallSegment(new Point(splitX, y + 3 * height / 4), new Point(splitX, y + 3 * height / 4 + 1), false));
+
+            // Étape 3 : Zone Jour (Côté Droit) - Open Space + Bloc utilitaire
+            int rightWidth = (x + width) - splitX;
+
+            // On crée juste un petit bloc (Salle de bain / Buanderie) dans le coin en haut à droite
+            int bathWidth = Math.Max(2, rightWidth / 3);
+            int bathHeight = Math.Max(2, height / 3);
+
+            int bathStartX = (x + width) - bathWidth;
+            int bathBottomY = y + bathHeight;
+
+            // Mur sud de la salle de bain
+            for (int i = bathStartX; i < x + width; i++)
+            {
+                // On laisse une porte
+                if (i != bathStartX + 1) AddHorizontalWall(walls, i, bathBottomY);
+            }
+            // Mur ouest de la salle de bain
+            for (int i = y; i < bathBottomY; i++)
+            {
+                AddVerticalWall(walls, bathStartX, i);
+            }
+            // Le reste du côté droit reste totalement ouvert (Salon, Salle à manger, Cuisine) !
         }
 
     }
