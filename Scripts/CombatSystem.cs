@@ -158,6 +158,7 @@ namespace XCOM_3
                 {
                     enemy.StartMoveTo(validCell.Value, cellSize);
                     unitManager.OnUnitMoved(enemy, validCell.Value);
+                    UpdateUnitCover(enemy);
                     enemy.ActionPoints--;
                 }
                 else
@@ -282,6 +283,7 @@ namespace XCOM_3
                 {
                     enemy.StartMoveTo(move, cellSize);
                     unitManager.OnUnitMoved(enemy, move);
+                    UpdateUnitCover(enemy);
                     enemy.ActionPoints--;
                     return;
                 }
@@ -503,6 +505,52 @@ namespace XCOM_3
             Console.WriteLine($"[COMBAT] {unit.Name} takes {cover.Type} cover (Defense +{cover.DefenseBonus}%)");
             return true;
         }
+
+        /// <summary>
+        /// Met à jour automatiquement la couverture de l'unité selon sa cellule actuelle.
+        /// </summary>
+        public void UpdateUnitCover(Unit unit)
+        {
+            if (unit == null || coverSystem == null)
+                return;
+
+            CoverData cover = coverSystem.GetCoverAt(unit.Cell);
+
+            if (cover.Type == CoverType.None)
+            {
+                LeaveCover(unit);
+                return;
+            }
+
+            bool coverChanged = unit.CoverType != cover.Type || unit.CoverDirections != cover.Directions;
+            if (coverChanged)
+            {
+                unit.EnterCover(cover);
+                Console.WriteLine($"[COMBAT] {unit.Name} auto-updated to {cover.Type} cover");
+            }
+        }
+
+        /// <summary>
+        /// Met à jour automatiquement la couverture de toutes les unités vivantes.
+        /// </summary>
+        public void RefreshAllUnitsCover()
+        {
+            if (playerUnits == null || enemyUnits == null)
+                return;
+
+            foreach (var unit in playerUnits)
+            {
+                if (unit.Health > 0)
+                    UpdateUnitCover(unit);
+            }
+
+            foreach (var unit in enemyUnits)
+            {
+                if (unit.Health > 0)
+                    UpdateUnitCover(unit);
+            }
+        }
+
 
         public void LeaveCover(Unit unit)
         {

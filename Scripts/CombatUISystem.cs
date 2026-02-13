@@ -276,7 +276,6 @@ namespace XCOM_3
 
             var buttons = new List<Button>
             {
-                new Button("COVER", new Vector2(bx - 260, by)),
                 new Button("FIRE", new Vector2(bx - 130, by)),
                 new Button("RELOAD", new Vector2(bx, by))
             };

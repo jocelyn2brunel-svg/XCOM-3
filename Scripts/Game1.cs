@@ -933,8 +933,7 @@ namespace XCOM_3
             combatSystem.StartPlayerTurn();
             // Initialiser le système de couverture
             combatSystem.InitializeCoverSystem(gridWidth, gridHeight, wallSegments);
-
-
+            combatSystem.RefreshAllUnitsCover();
             Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
         }
 
@@ -1083,7 +1082,7 @@ namespace XCOM_3
                 selectedUnit.StartMoveTo(clickedCell, cellSize);
                 unitManager.OnUnitMoved(selectedUnit, clickedCell);
                 selectedUnit.ActionPoints -= apCost;
-
+                combatSystem.UpdateUnitCover(selectedUnit);
                 // Consommer stamina si sprint
                 if (isSprint)
                 {
@@ -1130,18 +1129,7 @@ namespace XCOM_3
                             Console.WriteLine($"Mode grenade activé: {selectedGrenade.Name}");
                         }
                         break;
-
-                    case "COVER":
-                        if (selectedUnit != null && selectedUnit.ActionPoints > 0)
-                        {
-                            bool success = combatSystem.TakeCover(selectedUnit);
-                            if (success)
-                            {
-                                Console.WriteLine($"{selectedUnit.Name} took cover!");
-                            }
-                        }
-                        break;
-
+                    
                     case "RECHARGER":
                         Console.WriteLine("Action future : RECHARGER");
                         break;
