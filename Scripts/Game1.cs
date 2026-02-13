@@ -1078,8 +1078,7 @@ namespace XCOM_3
                 }
 
                 // Effectuer le déplacement
-                selectedUnit.StartMoveTo(clickedCell, cellSize);
-                unitManager.OnUnitMoved(selectedUnit, clickedCell);
+                selectedUnit.StartMoveAlongPath(path, cellSize); unitManager.OnUnitMoved(selectedUnit, clickedCell);
                 selectedUnit.ActionPoints -= apCost;
                 combatSystem.UpdateUnitCover(selectedUnit);
                 // Consommer stamina si sprint

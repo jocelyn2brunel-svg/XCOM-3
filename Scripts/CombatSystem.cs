@@ -161,7 +161,15 @@ namespace XCOM_3
 
                 if (validCell.HasValue)
                 {
-                    enemy.StartMoveTo(validCell.Value, cellSize);
+                    int targetIndex = path.IndexOf(validCell.Value);
+                    if (targetIndex >= 0)
+                    {
+                        enemy.StartMoveAlongPath(path.Take(targetIndex + 1).ToList(), cellSize);
+                    }
+                    else
+                    {
+                        enemy.StartMoveTo(validCell.Value, cellSize);
+                    }
                     unitManager.OnUnitMoved(enemy, validCell.Value);
                     UpdateUnitCover(enemy);
                     enemy.ActionPoints--;

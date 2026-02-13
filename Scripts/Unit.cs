@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using System;
+using System.Collections.Generic;
 
 namespace XCOM_3
 {
@@ -52,6 +53,8 @@ namespace XCOM_3
         public Vector3 VisualPosition { get; set; }
         public Vector3 TargetPosition;
         public float MoveProgress = 0f;
+        private Vector3 moveSegmentStart;
+        private readonly Queue<Vector3> movementWaypoints = new Queue<Vector3>();
 
         // Animation idle
         public float IdleTime = 0f;
@@ -188,11 +191,19 @@ namespace XCOM_3
 
         public void StartMoveTo(Point newCell, int cellSize = 2)
         {
+            StartMoveAlongPath(new List<Point> { newCell }, cellSize);
+        }
+
+        public void StartMoveAlongPath(List<Point> path, int cellSize = 2)
+        {
+            if (path == null || path.Count == 0)
+                return;
+
+            Point newCell = path[path.Count - 1];
+
             if (lastPosition.HasValue && Team == Team.Player)
             {
-                int distance = Math.Abs(newCell.X - lastPosition.Value.X) +
-                              Math.Abs(newCell.Y - lastPosition.Value.Y);
-                Skills.GainMovementXP(distance);
+                Skills.GainMovementXP(path.Count);
             }
 
             lastPosition = Cell;
@@ -201,17 +212,30 @@ namespace XCOM_3
             MoveProgress = 0f;
             WalkCycleTime = 0f;
 
-            TargetPosition = new Vector3(
-                newCell.X * cellSize + cellSize / 2f,
-                0,
-                newCell.Y * cellSize + cellSize / 2f
-            );
+            movementWaypoints.Clear();
+            foreach (Point cell in path)
+            {
+                movementWaypoints.Enqueue(new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    0,
+                    cell.Y * cellSize + cellSize / 2f
+                ));
+            }
+
+            BeginNextMoveSegment();
+        }
+
+        private void BeginNextMoveSegment()
+        {
+            if (movementWaypoints.Count == 0)
+                return;
+
+            moveSegmentStart = VisualPosition;
+            TargetPosition = movementWaypoints.Dequeue();
 
             Vector3 direction = TargetPosition - VisualPosition;
             if (direction.LengthSquared() > 0.001f)
-            {
                 TargetOrientation = (float)Math.Atan2(direction.X, direction.Z);
-            }
         }
 
         public void UpdateAnimation(float deltaTime)
@@ -238,18 +262,26 @@ namespace XCOM_3
 
                 if (MoveProgress >= 1f)
                 {
-                    MoveProgress = 1f;
                     VisualPosition = TargetPosition;
-                    IsMoving = false;
-                    WalkCycleTime = 0f;
-                    LegSwing = 0f;
-                    ArmSwing = 0f;
-                    BodyBob = 0f;
+
+                    if (movementWaypoints.Count > 0)
+                    {
+                        MoveProgress = 0f;
+                        BeginNextMoveSegment();
+                    }
+                    else
+                    {
+                        MoveProgress = 1f;
+                        IsMoving = false;
+                        WalkCycleTime = 0f;
+                        LegSwing = 0f;
+                        ArmSwing = 0f;
+                        BodyBob = 0f;
+                    }
                 }
                 else
                 {
-                    VisualPosition = Vector3.Lerp(VisualPosition, TargetPosition, MoveProgress);
-
+                    VisualPosition = Vector3.Lerp(moveSegmentStart, TargetPosition, MoveProgress);
                     WalkCycleTime += deltaTime * 8f;
                     LegSwing = (float)Math.Sin(WalkCycleTime) * 0.3f;
                     ArmSwing = (float)Math.Sin(WalkCycleTime + MathHelper.Pi) * 0.2f;
