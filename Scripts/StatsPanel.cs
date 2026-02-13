@@ -25,8 +25,10 @@ namespace XCOM_3
         public bool IsVisible => _visible;
 
         public void Hide() => _visible = false;
-        public void Show() => _visible = true;
-
+        public void Show()
+        {
+            _visible = true;
+        }
         public StatsPanel(SpriteFont font, GraphicsDevice device)
         {
             _font = font;
@@ -37,7 +39,7 @@ namespace XCOM_3
 
         public void Toggle() => _visible = !_visible;
 
-        public void Update(GameTime gameTime)
+        public void Update(GameTime gameTime, MouseState mouseState, MouseState previousMouseState)
         {
             if (!_visible) return;
 
@@ -45,8 +47,8 @@ namespace XCOM_3
             _pulseTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             // Scroll avec molette
-            var wheel = Mouse.GetState().ScrollWheelValue;
-            _scrollOffset = Math.Clamp(_scrollOffset - wheel / 120 * 20, 0, 800);
+            int scrollDelta = mouseState.ScrollWheelValue - previousMouseState.ScrollWheelValue;
+            _scrollOffset = Math.Clamp(_scrollOffset - (scrollDelta / 120) * 20, 0, 800);
         }
 
         public void Draw(SpriteBatch sb, Unit unit)

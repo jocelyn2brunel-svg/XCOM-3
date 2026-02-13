@@ -146,7 +146,7 @@ namespace XCOM_3
         /// <summary>
         /// Gère les contrôles de la caméra (clavier + souris)
         /// </summary>
-        public void HandleControls(KeyboardState keyboard, MouseState mouse, MouseState previousMouse, GameTime gameTime)
+        public void HandleControls(KeyboardState keyboard, MouseState mouse, MouseState previousMouse, GameTime gameTime, bool allowZoom = true)
         {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
@@ -154,7 +154,7 @@ namespace XCOM_3
             HandleRotation(keyboard, deltaTime);
 
             // ═══ ZOOM (Molette) ═══
-            HandleZoom(mouse);
+            HandleZoom(mouse, allowZoom);
 
             // ═══ DÉPLACEMENT (WASD + Clic molette) ═══
             HandleMovement(keyboard, mouse, previousMouse, deltaTime);
@@ -213,12 +213,12 @@ namespace XCOM_3
             previousKeyboardState = keyboard;
         }
 
-        private void HandleZoom(MouseState mouse)
+        private void HandleZoom(MouseState mouse, bool allowZoom)
         {
             float scrollDelta = (mouse.ScrollWheelValue - previousScrollValue) / 120f;
             previousScrollValue = mouse.ScrollWheelValue;
 
-            if (scrollDelta != 0f)
+            if (allowZoom && scrollDelta != 0f)
             {
                 zoomLevel = MathHelper.Clamp(zoomLevel + scrollDelta * 0.1f, minZoom, maxZoom);
             }

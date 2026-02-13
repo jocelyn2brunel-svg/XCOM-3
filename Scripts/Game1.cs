@@ -290,7 +290,7 @@ namespace XCOM_3
                     statsPanel.Hide();
             }
 
-            statsPanel.Update(gameTime);
+            statsPanel.Update(gameTime, mouse, previousMouseState);
 
             renderer3D.Update(gameTime);
 
@@ -466,8 +466,7 @@ namespace XCOM_3
             else if (combatSystem.CurrentTurn == TurnState.EnemyTurn) combatSystem.UpdateEnemyTurn(cellSize);
 
             combatSystem.UpdateFiringAnimations(gameTime);
-            camera.HandleControls(keyboard, mouse, previousMouseState, gameTime);
-            UpdateDayNightCycle(gameTime);
+            camera.HandleControls(keyboard, mouse, previousMouseState, gameTime, allowZoom: !statsPanel.IsVisible); UpdateDayNightCycle(gameTime);
 
             if (escapePressed) ReturnToMainMenuWithSave();
         }
