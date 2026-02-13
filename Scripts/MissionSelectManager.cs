@@ -20,8 +20,13 @@ namespace XCOM_3
 
         // --- Contrôle caméra du globe ---
         private float _globeYaw = -0.25f;
+        private float _globeZoom = 1f;
         private bool _isDragging;
         private Point _lastMousePosition;
+
+        private const float MinGlobeZoom = 0.65f;
+        private const float MaxGlobeZoom = 1.75f;
+        private const float ZoomStepPerWheelNotch = 0.08f;
 
         // --- UI ---
         private Rectangle _backButtonBounds;
@@ -58,6 +63,7 @@ namespace XCOM_3
         public void Update(MouseState mouseState, MouseState previousMouseState)
         {
             HandleGlobeRotation(mouseState, previousMouseState);
+            HandleGlobeZoom(mouseState, previousMouseState);
             HandleMissionClicks(mouseState, previousMouseState);
         }
 
@@ -165,6 +171,17 @@ namespace XCOM_3
             }
         }
 
+        private void HandleGlobeZoom(MouseState mouseState, MouseState previousMouseState)
+        {
+            int wheelDelta = mouseState.ScrollWheelValue - previousMouseState.ScrollWheelValue;
+            if (wheelDelta == 0)
+                return;
+
+            float wheelNotches = wheelDelta / 120f;
+            _globeZoom += wheelNotches * ZoomStepPerWheelNotch;
+            _globeZoom = MathHelper.Clamp(_globeZoom, MinGlobeZoom, MaxGlobeZoom);
+        }
+
         private void DrawTitle(string text)
         {
             _spriteBatch.DrawString(
@@ -211,8 +228,7 @@ namespace XCOM_3
 
         private void DrawHintText()
         {
-            string hint = "Clique-glisse pour tourner la Terre | Clique un point d'interet pour lancer une mission";
-            Vector2 hintSize = _font.MeasureString(hint);
+            string hint = "Clique-glisse: tourner | Molette: zoom | Clique un point d'interet: lancer une mission"; Vector2 hintSize = _font.MeasureString(hint);
             Vector2 hintPos = new Vector2((_graphicsDevice.Viewport.Width - hintSize.X) / 2f, _graphicsDevice.Viewport.Height - 35f);
             _spriteBatch.DrawString(_font, hint, hintPos, Color.LightGray);
 
@@ -243,7 +259,8 @@ namespace XCOM_3
 
         private GlobeRenderData ComputeGlobeData()
         {
-            float radius = MathF.Min(_graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height) * 0.28f;
+            float baseRadius = MathF.Min(_graphicsDevice.Viewport.Width, _graphicsDevice.Viewport.Height) * 0.28f;
+            float radius = baseRadius * _globeZoom;
             Vector2 center = new Vector2(_graphicsDevice.Viewport.Width * 0.5f, _graphicsDevice.Viewport.Height * 0.5f + 20f);
 
             Matrix rotation = CreateGlobeRotationMatrix();
