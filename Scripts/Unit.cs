@@ -325,8 +325,9 @@ namespace XCOM_3
 
         public static float ComputeOrientationFromDelta(float deltaX, float deltaZ)
         {
-            // Système de coordonnées monde : inversion X pour corriger droite/gauche à l'écran.
-            return (float)Math.Atan2(-deltaX, deltaZ);
+            // Le modèle humanoïde est orienté « dos » vers +Z dans son espace local,
+            // on applique donc un demi-tour pour que la face regarde la direction du déplacement.
+            return MathHelper.WrapAngle((float)Math.Atan2(-deltaX, deltaZ) + MathHelper.Pi);
         }
 
         public void UpdateVisualPosition(int cellSize = 2)

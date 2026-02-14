@@ -949,8 +949,8 @@ namespace XCOM_3
                             dims.th, topWidth, bottomWidth, dims.td, body, r);
 
             // Abdomen = prisme rectangulaire
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.2f, 0),
-                new Vector3(dims.tw * 0.64f, dims.th * 0.38f, dims.td * 0.72f), body * 0.9f, r);
+            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.24f, 0),
+                new Vector3(dims.tw * 0.5f, dims.th * 0.3f, dims.td * 0.58f), body * 0.9f, r);
 
             // Bassin/fessier = forme culotte
             DrawTorsoPolygon(d, e, p, new Vector3(0, dims.ll - dims.th * 0.04f, 0),
