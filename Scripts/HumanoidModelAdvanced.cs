@@ -843,7 +843,7 @@ namespace XCOM_3
                                   bool hasPants = false,
                                   Unit.Handedness dominantHand = Unit.Handedness.Right)
         {
-            bool useTPose = !hasWeapon;
+            bool useTPose = false;
 
             switch (type)
             {
@@ -862,6 +862,39 @@ namespace XCOM_3
             {
                 DrawWeaponGripPose(d, e, p, dims, r, c, isAiming, dominantHand);
             }
+            else if (!hasWeapon)
+            {
+                DrawUnarmedDominantArmForwardPose(d, e, p, dims, r, c, dominantHand);
+            }
+        }
+
+        private void DrawUnarmedDominantArmForwardPose(GraphicsDevice d, BasicEffect e, Vector3 p,
+                                                       UnitDimensions dims, Matrix r, Color bodyColor,
+                                                       Unit.Handedness dominantHand)
+        {
+            Color armColor = bodyColor * 0.9f;
+            Color forearmColor = armColor * 0.95f;
+            Color jointColor = bodyColor * 0.62f;
+
+            float dominantSign = dominantHand == Unit.Handedness.Left ? -1f : 1f;
+            float shoulderY = dims.ll + dims.th * 0.86f;
+            float shoulderX = dominantSign * dims.tw * 0.58f;
+
+            Vector3 shoulder = new Vector3(shoulderX, shoulderY, 0f);
+            Vector3 elbow = new Vector3(shoulderX, shoulderY - dims.al * 0.06f, dims.al * 0.48f);
+            Vector3 wrist = new Vector3(shoulderX, shoulderY - dims.al * 0.1f, dims.al * 0.96f);
+
+            DrawRoundedHead(d, e, p, shoulder, dims.lw * 0.28f, armColor * 0.88f, r);
+            DrawFrustumBetween(d, e, p, shoulder, elbow,
+                dims.lw * 0.58f, dims.lw * 0.46f, armColor, r, 6);
+            DrawForearmBetween(d, e, p, elbow, wrist,
+                dims.lw * 0.46f, dims.lw * 0.36f, forearmColor, r, 6);
+
+            Vector3 handPos = wrist + new Vector3(0f, -dims.lw * 0.08f, dims.lw * 0.26f);
+            DrawBodyPart(d, e, p, handPos,
+                new Vector3(dims.lw * 0.62f, dims.lw * 0.36f, dims.lw * 0.72f), forearmColor * 0.95f, r);
+
+            DrawRoundedHead(d, e, p, elbow, dims.lw * 0.3f, jointColor, r);
         }
 
 

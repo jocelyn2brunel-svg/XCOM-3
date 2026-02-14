@@ -2098,7 +2098,7 @@ namespace XCOM_3
                 bool useFemale = i % 2 == 0;
                 int nameIndex = (i / 2) % femaleNames.Length;
                 string callSign = useFemale ? femaleNames[nameIndex] : maleNames[nameIndex];
-                playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, callSign, "Assault", "Rifle", weaponDatabase["M16A1"]));
+                playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, callSign, "Assault", string.Empty, null));
             }
 
             foreach (var unit in playerUnits)
@@ -2115,7 +2115,7 @@ namespace XCOM_3
                     for (int i = 0; i < 6; i++)
                     {
                         var t = enemyPool[random.Next(enemyPool.Count)];
-                        enemyUnits.Add(new Unit(new Point(2 + i, 1), Team.Enemy, t.Name, t.Class, t.Weapon, weaponDatabase[t.Weapon]) { ActionPoints = t.ActionPoints });
+                        enemyUnits.Add(new Unit(new Point(2 + i, 1), Team.Enemy, t.Name, t.Class, string.Empty, null) { ActionPoints = t.ActionPoints });
                     }
                     break;
 
@@ -2123,7 +2123,7 @@ namespace XCOM_3
                     for (int i = 0; i < 10; i++)
                     {
                         var t = enemyPool[random.Next(enemyPool.Count)];
-                        enemyUnits.Add(new Unit(new Point(2 + (i % 8), i < 8 ? 1 : 2), Team.Enemy, t.Name, t.Class, t.Weapon, weaponDatabase[t.Weapon]) { ActionPoints = t.ActionPoints });
+                        enemyUnits.Add(new Unit(new Point(2 + (i % 8), i < 8 ? 1 : 2), Team.Enemy, t.Name, t.Class, string.Empty, null) { ActionPoints = t.ActionPoints });
                     }
                     break;
 
@@ -2132,7 +2132,7 @@ namespace XCOM_3
                     for (int i = 0; i < 8; i++)
                     {
                         var t = aliens[random.Next(aliens.Count)];
-                        enemyUnits.Add(new Unit(new Point(2 + i, 1), Team.Enemy, t.Name, t.Class, t.Weapon, weaponDatabase[t.Weapon]) { ActionPoints = t.ActionPoints });
+                        enemyUnits.Add(new Unit(new Point(2 + i, 1), Team.Enemy, t.Name, t.Class, string.Empty, null) { ActionPoints = t.ActionPoints });
                     }
                     break;
 
@@ -2162,8 +2162,8 @@ namespace XCOM_3
                                 Team.Enemy,
                                 zombie.Name,
                                 zombie.Class,
-                                zombie.Weapon,
-                                weaponDatabase[zombie.Weapon])
+                                string.Empty,
+                                null)
                             { ActionPoints = zombie.ActionPoints });
                         }
 
@@ -2182,8 +2182,8 @@ namespace XCOM_3
                                 Team.Enemy,
                                 zombie.Name,
                                 zombie.Class,
-                                zombie.Weapon,
-                                weaponDatabase[zombie.Weapon])
+                                string.Empty,
+                                null)
                             { ActionPoints = zombie.ActionPoints });
                         }
 
