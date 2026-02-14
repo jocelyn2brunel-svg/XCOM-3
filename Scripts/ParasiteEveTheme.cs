@@ -292,7 +292,10 @@ namespace XCOM_3.Scripts
             
             // Titre
             Vector2 titleSize = font.MeasureString(safeTitle);
-            sb.DrawString(font, safeTitle, 
+            DrawTextWithGlow(
+                sb,
+                font,
+                safeTitle,
                 new Vector2(bounds.X + 10, bounds.Y + (bounds.Height - titleSize.Y) / 2),
                 TextHighlight);
             
@@ -413,6 +416,36 @@ namespace XCOM_3.Scripts
             
             // Texte principal
             sb.DrawString(font, safeText, position, color, 
+                         0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+        }
+
+        /// <summary>
+        /// Dessine un texte avec halo lumineux pour renforcer la lisibilité sur fond sombre.
+        /// </summary>
+        public static void DrawTextWithGlow(SpriteBatch sb, SpriteFont font, string text,
+                                            Vector2 position, Color color, float scale = 1f)
+        {
+            string safeText = SanitizeForSpriteFont(font, text);
+
+            // Glow (effet de halo lumineux)
+            Color glowColor = color * 0.3f;
+
+            // 8 passes autour du texte principal
+            for (int x = -1; x <= 1; x++)
+            {
+                for (int y = -1; y <= 1; y++)
+                {
+                    if (x != 0 || y != 0)
+                    {
+                        Vector2 offset = new Vector2(x, y);
+                        sb.DrawString(font, safeText, position + offset, glowColor,
+                                     0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+                    }
+                }
+            }
+
+            // Texte principal par-dessus
+            sb.DrawString(font, safeText, position, color,
                          0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
         }
 
