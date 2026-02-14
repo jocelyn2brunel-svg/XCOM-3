@@ -870,8 +870,8 @@ namespace XCOM_3
             float rearLegPhase = -legPhase;
             Vector3 leftKnee = new Vector3(-dims.tw * 0.3f, dims.ll * (0.5f + Math.Max(0f, legPhase) * 0.18f), legPhase * dims.ll * 0.34f);
             Vector3 rightKnee = new Vector3(dims.tw * 0.3f, dims.ll * (0.5f + Math.Max(0f, rearLegPhase) * 0.18f), rearLegPhase * dims.ll * 0.34f);
-            DrawKneeJoint(d, e, p, leftKnee, dims, jointColor, r);
-            DrawKneeJoint(d, e, p, rightKnee, dims, jointColor, r);
+            DrawRoundedHead(d, e, p, leftKnee, dims.lw * 0.28f, jointColor, r);
+            DrawRoundedHead(d, e, p, rightKnee, dims.lw * 0.28f, jointColor, r);
 
             DrawRoundedHead(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.9f, 0), dims.lw * 0.28f, jointColor, r);
             DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.9f, 0), dims.lw * 0.28f, jointColor, r);
@@ -882,19 +882,6 @@ namespace XCOM_3
             Vector3 rightElbow = new Vector3(dims.tw * 0.6f, dims.ll + dims.th * (0.57f + Math.Max(0f, oppositeArmPhase) * 0.06f), oppositeArmPhase * dims.al * 0.32f);
             DrawRoundedHead(d, e, p, leftElbow, dims.lw * 0.28f, jointColor, r);
             DrawRoundedHead(d, e, p, rightElbow, dims.lw * 0.28f, jointColor, r);
-        }
-
-        private void DrawKneeJoint(GraphicsDevice d, BasicEffect e, Vector3 pos,
-                                   Vector3 jointPos, UnitDimensions dims,
-                                   Color color, Matrix rot)
-        {
-            DrawRoundedHead(d, e, pos, jointPos, dims.lw * 0.3f, color, rot);
-
-            Vector3 kneecapPos = jointPos + new Vector3(0, 0, dims.lw * 0.18f);
-            DrawRoundedHead(d, e, pos, kneecapPos, dims.lw * 0.18f, color * 1.08f, rot);
-
-            Vector3 backPos = jointPos + new Vector3(0, 0, -dims.lw * 0.12f);
-            DrawRoundedHead(d, e, pos, backPos, dims.lw * 0.12f, color * 0.85f, rot);
         }
 
         private void DrawWeaponGripPose(GraphicsDevice d, BasicEffect e, Vector3 p, UnitDimensions dims,
@@ -966,12 +953,14 @@ namespace XCOM_3
 
             // Biceps + avant-bras = cônes tronqués
             DrawFrustumBetween(d, e, p, shoulder, elbow,
-                dims.lw * (radiusScale * 1.08f), dims.lw * (radiusScale * 0.88f), armColor, r, 12);
+                dims.lw * (radiusScale * 1.08f), dims.lw * (radiusScale * 0.88f), armColor, r, 6);
             DrawForearmBetween(d, e, p, elbow, wrist,
-                dims.lw * (radiusScale * 0.9f), dims.lw * (radiusScale * 0.72f), armColor * 0.97f, r, 12);
+                dims.lw * (radiusScale * 0.9f), dims.lw * (radiusScale * 0.72f), armColor * 0.95f, r, 6);
 
+            // Main = prisme rectangulaire
             Vector3 handPos = wrist + new Vector3(0f, -dims.lw * 0.25f, forward * dims.lw * 0.95f);
-            DrawDetailedHand(d, e, p, handPos, dims, armColor * 0.95f, r, false);
+            Vector3 handScale = new Vector3(dims.lw * (radiusScale * 1.02f), dims.lw * (radiusScale * 0.82f), dims.lw * (radiusScale * 1.08f));
+            DrawBodyPart(d, e, p, handPos, handScale, armColor * 0.92f, r);
         }
 
         private void DrawRunningLeg(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
@@ -1009,77 +998,43 @@ namespace XCOM_3
 
             // Cuisse = gros tronc de cône.
             DrawFrustumBetween(d, e, p, hip, knee,
-                dims.lw * (legRadiusScale * 1.36f), dims.lw * (legRadiusScale * 1.0f), legColor, r, 12);
+                dims.lw * (legRadiusScale * 1.36f), dims.lw * (legRadiusScale * 1.0f), legColor, r, 7);
 
             // Genou = bloc de transition avec rotule frontale plate.
             DrawBodyPart(d, e, p, knee,
                 new Vector3(dims.lw * (legRadiusScale * 0.86f), dims.lw * (legRadiusScale * 0.62f), dims.lw * (legRadiusScale * 0.72f)),
-                legColor * 0.93f, r);
+                legColor * 0.86f, r);
             DrawBodyPart(d, e, p, knee + new Vector3(0f, 0f, dims.lw * 0.26f),
                 new Vector3(dims.lw * (legRadiusScale * 0.34f), dims.lw * (legRadiusScale * 0.22f), dims.lw * (legRadiusScale * 0.14f)),
-                legColor * 0.93f, r);
+                legColor * 0.72f, r);
 
             // Mollet asymétrique (renflé en haut/arrière), puis tibia affiné.
             DrawFrustumBetween(d, e, p, knee, calf,
-                dims.lw * (legRadiusScale * 0.98f), dims.lw * (legRadiusScale * 1.05f), legColor * 0.97f, r, 12);
+                dims.lw * (legRadiusScale * 0.98f), dims.lw * (legRadiusScale * 1.05f), legColor * 0.95f, r, 7);
             DrawFrustumBetween(d, e, p, calf, ankle,
-                dims.lw * (legRadiusScale * 1.05f), dims.lw * (legRadiusScale * 0.62f), legColor * 0.97f, r, 12);
+                dims.lw * (legRadiusScale * 1.05f), dims.lw * (legRadiusScale * 0.62f), legColor * 0.93f, r, 7);
 
             // Tibia mis en avant par une face dure.
             Vector3 shinPlatePos = Vector3.Lerp(knee, ankle, 0.56f) + new Vector3(0f, -dims.ll * 0.02f, dims.lw * 0.18f);
             DrawBodyPart(d, e, p, shinPlatePos,
                 new Vector3(dims.lw * (legRadiusScale * 0.32f), dims.ll * 0.16f, dims.lw * (legRadiusScale * 0.08f)),
-                legColor * 0.93f, r);
+                legColor * 0.7f, r);
 
             // Cheville = bloc rectangulaire avec malléoles décalées.
             DrawBodyPart(d, e, p, ankle,
                 new Vector3(dims.lw * (legRadiusScale * 0.56f), dims.lw * (legRadiusScale * 0.42f), dims.lw * (legRadiusScale * 0.44f)),
-                legColor * 0.95f, r);
-            DrawRoundedHead(d, e, p, ankle + new Vector3(-dims.lw * 0.2f, dims.lw * 0.09f, 0f), dims.lw * (legRadiusScale * 0.12f), legColor * 0.97f, r);
-            DrawRoundedHead(d, e, p, ankle + new Vector3(dims.lw * 0.2f, -dims.lw * 0.02f, 0f), dims.lw * (legRadiusScale * 0.11f), legColor * 0.95f, r);
+                legColor * 0.84f, r);
+            DrawRoundedHead(d, e, p, ankle + new Vector3(-dims.lw * 0.2f, dims.lw * 0.09f, 0f), dims.lw * (legRadiusScale * 0.12f), legColor * 0.9f, r);
+            DrawRoundedHead(d, e, p, ankle + new Vector3(dims.lw * 0.2f, -dims.lw * 0.02f, 0f), dims.lw * (legRadiusScale * 0.11f), legColor * 0.82f, r);
 
+            // Pied = prisme en coin pour l'appui au sol.
             Vector3 footCenter = ankle + new Vector3(0f, -dims.ll * 0.08f, dims.lw * (0.56f + forwardLift * 0.26f));
-            DrawDetailedFoot(d, e, p, footCenter, dims, footColor, r, legRadiusScale);
-        }
-
-        private void DrawDetailedFoot(GraphicsDevice d, BasicEffect e, Vector3 pos,
-                                      Vector3 footPos, UnitDimensions dims,
-                                      Color footColor, Matrix rot, float legRadiusScale)
-        {
-            Vector3 heelScale = new Vector3(dims.lw * (legRadiusScale * 0.8f), dims.lw * (legRadiusScale * 0.6f), dims.lw * (legRadiusScale * 0.7f));
-            DrawBodyPart(d, e, pos, footPos, heelScale, footColor * 0.95f, rot);
-
-            Vector3 toesPos = footPos + new Vector3(0, 0, dims.lw * (legRadiusScale * 0.85f));
-            Vector3 toesScale = new Vector3(dims.lw * (legRadiusScale * 0.75f), dims.lw * (legRadiusScale * 0.4f), dims.lw * (legRadiusScale * 0.8f));
-            DrawBodyPart(d, e, pos, toesPos, toesScale, footColor, rot);
-
-            Vector3 archPos = footPos + new Vector3(0, dims.lw * (legRadiusScale * 0.08f), dims.lw * (legRadiusScale * 0.4f));
-            Vector3 archScale = new Vector3(dims.lw * (legRadiusScale * 0.7f), dims.lw * (legRadiusScale * 0.35f), dims.lw * (legRadiusScale * 0.6f));
-            DrawBodyPart(d, e, pos, archPos, archScale, footColor * 0.95f, rot);
-        }
-
-        private void DrawDetailedHand(GraphicsDevice d, BasicEffect e, Vector3 pos,
-                                      Vector3 handPos, UnitDimensions dims,
-                                      Color handColor, Matrix rot, bool isOpen = false)
-        {
-            Vector3 palmScale = new Vector3(dims.lw * 0.8f, dims.lw * 0.5f, dims.lw * 0.9f);
-            DrawBodyPart(d, e, pos, handPos, palmScale, handColor, rot);
-
-            if (isOpen)
-            {
-                for (int i = 0; i < 5; i++)
-                {
-                    float fingerSpread = (i - 2) * dims.lw * 0.18f;
-                    Vector3 fingerPos = handPos + new Vector3(fingerSpread, 0, dims.lw * 0.6f);
-                    Vector3 fingerScale = new Vector3(dims.lw * 0.12f, dims.lw * 0.4f, dims.lw * 0.5f);
-                    DrawBodyPart(d, e, pos, fingerPos, fingerScale, handColor * 0.95f, rot);
-                }
-            }
-            else
-            {
-                Vector3 fistPos = handPos + new Vector3(0, 0, dims.lw * 0.4f);
-                DrawRoundedHead(d, e, pos, fistPos, dims.lw * 0.45f, handColor * 0.97f, rot);
-            }
+            DrawBodyPart(d, e, p, footCenter,
+                new Vector3(dims.lw * (legRadiusScale * 0.86f), dims.ll * 0.08f, dims.lw * (legRadiusScale * 1.9f)),
+                footColor, r);
+            DrawBodyPart(d, e, p, footCenter + new Vector3(0f, dims.ll * 0.05f, -dims.lw * 0.22f),
+                new Vector3(dims.lw * (legRadiusScale * 0.7f), dims.ll * 0.05f, dims.lw * (legRadiusScale * 1.2f)),
+                footColor * 0.9f, r);
         }
 
         private void DrawSoldier(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
@@ -1093,12 +1048,12 @@ namespace XCOM_3
                                      bool hasPants = false, bool useKungFuPose = false)
         {
             Color skin = new(220, 180, 140);
-            Color body = skin * 0.97f;
-            Color dark = body * 0.95f;
+            Color body = skin * 0.95f;
+            Color dark = body * 0.85f;
 
             if (!hasPants)
             {
-                DrawRunningLegPair(d, e, p, r, dims, l, 0.3f, 0.55f, dark, dark * 0.93f);
+                DrawRunningLegPair(d, e, p, r, dims, l, 0.3f, 0.55f, dark, dark * 0.8f);
             }
 
             DrawStructuredTorso(d, e, p, r, dims, body, dark, bodyType);
@@ -1145,8 +1100,8 @@ namespace XCOM_3
             float trunkCenterZ = 0f;
 
             // 1) Cage thoracique
-            float ribTopWidth = dims.tw * (feminine ? 1.06f : 1.1f);
-            float ribBottomWidth = dims.tw * (feminine ? 0.86f : 0.85f);
+            float ribTopWidth = dims.tw * (feminine ? 1.0f : 1.08f);
+            float ribBottomWidth = dims.tw * (feminine ? 0.9f : 0.84f);
             float chestDepth = dims.td;
             Matrix ribRot = Matrix.CreateRotationX(MathHelper.ToRadians(-2f)) * r;
             DrawTorsoPolygon(d, e, p, new Vector3(0, ribCenterY, trunkCenterZ),

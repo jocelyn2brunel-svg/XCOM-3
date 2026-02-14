@@ -36,21 +36,8 @@ namespace XCOM_3
         {
             basic = new BasicEffect(gd) { VertexColorEnabled = true, LightingEnabled = true };
             basic.EnableDefaultLighting();
-            basic.PreferPerPixelLighting = true;
-            basic.DirectionalLight0.Enabled = true;
-            basic.DirectionalLight0.DiffuseColor = new Vector3(0.9f, 0.9f, 0.85f);
-            basic.DirectionalLight0.Direction = Vector3.Normalize(new Vector3(-0.5f, -1f, -0.5f));
-            basic.DirectionalLight0.SpecularColor = new Vector3(0.3f, 0.3f, 0.3f);
-            basic.AmbientLightColor = new Vector3(0.4f, 0.4f, 0.45f);
-
             textured = new BasicEffect(gd) { TextureEnabled = true, LightingEnabled = true };
             textured.EnableDefaultLighting();
-            textured.PreferPerPixelLighting = true;
-            textured.DirectionalLight0.Enabled = true;
-            textured.DirectionalLight0.DiffuseColor = new Vector3(0.9f, 0.9f, 0.85f);
-            textured.DirectionalLight0.Direction = Vector3.Normalize(new Vector3(-0.5f, -1f, -0.5f));
-            textured.DirectionalLight0.SpecularColor = new Vector3(0.3f, 0.3f, 0.3f);
-            textured.AmbientLightColor = new Vector3(0.4f, 0.4f, 0.45f);
         }
 
         private void InitPrimitives()
@@ -320,14 +307,6 @@ namespace XCOM_3
             {
                 armSwing = unit.DominantHand == Unit.Handedness.Right ? -0.28f : 0.28f;
             }
-
-            gd.BlendState = BlendState.AlphaBlend;
-            gd.RasterizerState = new RasterizerState
-            {
-                CullMode = CullMode.CullCounterClockwiseFace,
-                FillMode = FillMode.Solid,
-                MultiSampleAntiAlias = true
-            };
 
             // ✅ NOUVEAU : Utiliser DrawWithEquipment au lieu de Draw
             humanoidModel.DrawWithEquipment(
