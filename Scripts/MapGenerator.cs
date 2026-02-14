@@ -289,7 +289,7 @@ namespace XCOM_3
         {
             return missionType switch
             {
-                "Centre-Ville" => random.Next(5, 11),
+                "Centre-Ville" => random.Next(3, 6),
                 _ => random.Next(2, 4)
             };
         }

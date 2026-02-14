@@ -1578,12 +1578,14 @@ namespace XCOM_3
             // Si aucune carte fournie, générer une carte aléatoire
             if (map == null)
             {
+                (int minSize, int maxSize) = GetMissionMapSizeRange(selectedMission);
+
                 map = mapGenerator.GenerateRandomMap(
                     selectedMission,
-                    minWidth: 20,
-                    maxWidth: 100,
-                    minHeight: 20,
-                    maxHeight: 100
+                    minWidth: minSize,
+                    maxWidth: maxSize,
+                    minHeight: minSize,
+                    maxHeight: maxSize
                 );
             }
 
@@ -1660,6 +1662,16 @@ namespace XCOM_3
             // Réinitialiser spatial hash
             if (unitManager != null)
                 unitManager.InitializeForMission(playerUnits, enemyUnits);
+        }
+
+        private static (int MinSize, int MaxSize) GetMissionMapSizeRange(string missionType)
+        {
+            return missionType switch
+            {
+                // Mission très dense (IA + bâtiments + étages) : limiter la taille évite les chutes de FPS.
+                "Centre-Ville" => (30, 60),
+                _ => (20, 100)
+            };
         }
 
         private HashSet<WallSegment> GetWallsForFloor(int floor)
@@ -2396,10 +2408,14 @@ namespace XCOM_3
                 .ToList();
 
             int count = Math.Min(requestedCount, perimeter.Count);
-            return perimeter
-                .OrderBy(_ => random.Next())
-                .Take(count)
-                .ToList();
+
+            for (int i = 0; i < count; i++)
+            {
+                int swapIndex = random.Next(i, perimeter.Count);
+                (perimeter[i], perimeter[swapIndex]) = (perimeter[swapIndex], perimeter[i]);
+            }
+
+            return perimeter.Take(count).ToList();
         }
 
         private IEnumerable<Unit> AllUnits()
