@@ -1121,7 +1121,7 @@ namespace XCOM_3
             foreach (var unit in unitsOnFloor)
                 renderer3D.DrawUnit(unit, cellSize);
 
-            DrawAlliedTacticalFlashlightBeams(floorToRender);
+            DrawAlliedTacticalFlashlightBeams(floorToRender, floorCount);
 
             var unitsBelowViewedFloor = playerUnits.Where(u => u.Floor < viewedFloor)
                 .Concat(enemyUnits.Where(u => u.Floor < viewedFloor && IsEnemyVisibleToPlayers(u)))
@@ -1259,23 +1259,30 @@ namespace XCOM_3
 
         }
 
-        private void DrawAlliedTacticalFlashlightBeams(int floorToRender)
+        private void DrawAlliedTacticalFlashlightBeams(int fromFloor, int floorCount)
         {
-            var alliedUnitsOnFloor = playerUnits
-                .Where(u => u.Health > 0 && u.Floor == floorToRender)
-                .ToList();
-            var wallsOnFloor = GetWallsForFloor(floorToRender);
-
-            if (alliedUnitsOnFloor.Count == 0)
-                return;
+            int minFloor = Math.Max(GetMinimumViewFloor(), fromFloor);
+            int maxFloor = Math.Max(minFloor, floorCount - 1);
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
 
-            foreach (var ally in alliedUnitsOnFloor)
+            for (int floor = minFloor; floor <= maxFloor; floor++)
             {
-                DrawTacticalFlashlightBeam(ally, floorToRender);
-                if (wallsOnFloor.Count > 0)
-                    DrawTacticalFlashlightWallHighlights(ally, floorToRender, wallsOnFloor);
+                var alliedUnitsOnFloor = playerUnits
+                    .Where(u => u.Health > 0 && u.Floor == floor)
+                    .ToList();
+
+                if (alliedUnitsOnFloor.Count == 0)
+                    continue;
+
+                var wallsOnFloor = GetWallsForFloor(floor);
+
+                foreach (var ally in alliedUnitsOnFloor)
+                {
+                    DrawTacticalFlashlightBeam(ally, floor);
+                    if (wallsOnFloor.Count > 0)
+                        DrawTacticalFlashlightWallHighlights(ally, floor, wallsOnFloor);
+                }
             }
 
             GraphicsDevice.BlendState = BlendState.Opaque;
@@ -1353,7 +1360,6 @@ namespace XCOM_3
 
             float wallHeight = cellSize * WallHeightRatio;
             float floorHeightOffset = floorToRender * cellSize;
-            float wallThickness = cellSize * 0.15f;
 
             foreach (var wall in wallsOnFloor)
             {
@@ -1377,21 +1383,43 @@ namespace XCOM_3
                 if (intensity <= 0.04f)
                     continue;
 
-                Vector3 wallCenterWorld = new Vector3(
-                    wallCenter.X * cellSize,
-                    floorHeightOffset + wallHeight * 0.5f,
-                    wallCenter.Y * cellSize);
-
-                Vector3 highlightScale = wall.IsHorizontal
-                    ? new Vector3(cellSize * 0.98f, wallHeight * 0.94f, wallThickness * 1.05f)
-                    : new Vector3(wallThickness * 1.05f, wallHeight * 0.94f, cellSize * 0.98f);
-
                 Color highlightColor = Color.Lerp(
                     new Color(255, 220, 140, 40),
                     new Color(255, 245, 210, 185),
                     intensity);
 
-                renderer3D.DrawCube(wallCenterWorld, highlightScale, highlightColor * (0.35f + intensity * 0.65f));
+                float highlightAlpha = 0.35f + intensity * 0.65f;
+                float surfaceInset = cellSize * 0.06f;
+                float surfaceYOffset = floorHeightOffset + wallHeight * 0.52f;
+
+                if (wall.IsHorizontal)
+                {
+                    float litFaceZ = toWallDir.Y >= 0f
+                        ? wall.Start.Y + surfaceInset
+                        : wall.Start.Y - surfaceInset;
+
+                    renderer3D.DrawPlane(
+                        new Vector3(wallCenter.X * cellSize, surfaceYOffset, litFaceZ * cellSize),
+                        new Vector3(cellSize * 0.96f, wallHeight * 0.92f, 1f),
+                        highlightColor * highlightAlpha,
+                        rotationX: MathHelper.PiOver2,
+                        rotationY: 0f,
+                        rotationZ: 0f);
+                }
+                else
+                {
+                    float litFaceX = toWallDir.X >= 0f
+                        ? wall.Start.X + surfaceInset
+                        : wall.Start.X - surfaceInset;
+
+                    renderer3D.DrawPlane(
+                        new Vector3(litFaceX * cellSize, surfaceYOffset, wallCenter.Y * cellSize),
+                        new Vector3(cellSize * 0.96f, wallHeight * 0.92f, 1f),
+                        highlightColor * highlightAlpha,
+                        rotationX: MathHelper.PiOver2,
+                        rotationY: MathHelper.PiOver2,
+                        rotationZ: 0f);
+                }
             }
         }
 
@@ -2387,12 +2415,69 @@ namespace XCOM_3
                     }
             }
 
+            DistributeEnemiesAcrossUpperFloors();
+
             AssignRandomPants(enemyUnits);
 
             foreach (var unit in playerUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
             foreach (var unit in enemyUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
 
             Console.WriteLine($"Units created for {missionType}: 6 player, {enemyUnits.Count} enemy");
+        }
+
+        private void DistributeEnemiesAcrossUpperFloors()
+        {
+            int maxFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
+            if (maxFloor <= 0 || enemyUnits.Count == 0)
+                return;
+
+            var upperFloorAssignments = new List<(Point Cell, int Floor)>();
+            var occupied = new HashSet<(int Floor, Point Cell)>();
+
+            foreach (var player in playerUnits)
+                occupied.Add((player.Floor, player.Cell));
+
+            foreach (var enemy in enemyUnits)
+                occupied.Add((enemy.Floor, enemy.Cell));
+
+            for (int floor = 1; floor <= maxFloor; floor++)
+            {
+                var floorCells = GetCellsForFloor(floor)
+                    .Where(c => !occupied.Contains((floor, c)))
+                    .ToList();
+
+                if (floorCells.Count == 0)
+                    continue;
+
+                for (int i = floorCells.Count - 1; i > 0; i--)
+                {
+                    int swapIndex = random.Next(i + 1);
+                    (floorCells[i], floorCells[swapIndex]) = (floorCells[swapIndex], floorCells[i]);
+                }
+
+                int desiredForFloor = Math.Max(1, enemyUnits.Count / (maxFloor + 2));
+                int assignCount = Math.Min(desiredForFloor, floorCells.Count);
+                for (int i = 0; i < assignCount; i++)
+                {
+                    var cell = floorCells[i];
+                    upperFloorAssignments.Add((cell, floor));
+                    occupied.Add((floor, cell));
+                }
+            }
+
+            if (upperFloorAssignments.Count == 0)
+                return;
+
+            var movableEnemies = enemyUnits.OrderBy(_ => random.Next()).ToList();
+            int moved = Math.Min(upperFloorAssignments.Count, movableEnemies.Count);
+
+            for (int i = 0; i < moved; i++)
+            {
+                var enemy = movableEnemies[i];
+                var assignment = upperFloorAssignments[i];
+                enemy.Cell = assignment.Cell;
+                enemy.Floor = assignment.Floor;
+            }
         }
 
         private void AssignRandomPants(List<Unit> units)
