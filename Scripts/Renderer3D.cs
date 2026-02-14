@@ -565,46 +565,46 @@ namespace XCOM_3
             // Zone 1 : Mouvement court (1 AP) - VERT
             foreach (var cell in zones.ShortMove)
             {
-                Vector3 pos = new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
-                    0.02f,
-                    cell.Y * cellSize + cellSize / 2f
-                );
-
-                Color color = new Color(0, 255, 0, 150) * pulse; // Vert transparent
-                DrawPlane(pos, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), color);
+                Color color = new Color(0, 255, 0, 190) * pulse;
+                DrawCellOutline(cell, cellSize, 0.02f, color);
             }
 
             // Zone 2 : Mouvement max (2 AP) - BLEU
             foreach (var cell in zones.MaxMove)
             {
-                Vector3 pos = new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
-                    0.03f,
-                    cell.Y * cellSize + cellSize / 2f
-                );
-
-                Color color = new Color(0, 150, 255, 130) * pulse; // Bleu transparent
-                DrawPlane(pos, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), color);
+                Color color = new Color(0, 150, 255, 175) * pulse;
+                DrawCellOutline(cell, cellSize, 0.03f, color);
             }
 
             // Zone 3 : Sprint (2 AP + stamina) - JAUNE avec warning
             foreach (var cell in zones.Sprint)
             {
-                Vector3 pos = new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
-                    0.04f,
-                    cell.Y * cellSize + cellSize / 2f
-                );
-
                 // Pulse plus rapide pour le warning
                 float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
-                Color color = new Color(255, 200, 0, 140) * sprintPulse; // Jaune avertissement
-                DrawPlane(pos, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), color);
+                Color color = new Color(255, 200, 0, 185) * sprintPulse;
+                DrawCellOutline(cell, cellSize, 0.04f, color);
 
                 // Petit indicateur de stamina au centre
                 DrawSprintIndicator(cell, cellSize, gameTime);
             }
+        }
+
+        private void DrawCellOutline(Point cell, int cellSize, float height, Color color)
+        {
+            float outlineThickness = Math.Max(cellSize * 0.08f, 0.05f);
+            float outlineLength = cellSize * 0.9f;
+
+            float centerX = cell.X * cellSize + cellSize / 2f;
+            float centerZ = cell.Y * cellSize + cellSize / 2f;
+            float halfLength = outlineLength / 2f;
+
+            // Haut / bas
+            DrawCube(new Vector3(centerX, height, centerZ - halfLength), new Vector3(outlineLength, 0.03f, outlineThickness), color);
+            DrawCube(new Vector3(centerX, height, centerZ + halfLength), new Vector3(outlineLength, 0.03f, outlineThickness), color);
+
+            // Gauche / droite
+            DrawCube(new Vector3(centerX - halfLength, height, centerZ), new Vector3(outlineThickness, 0.03f, outlineLength), color);
+            DrawCube(new Vector3(centerX + halfLength, height, centerZ), new Vector3(outlineThickness, 0.03f, outlineLength), color);
         }
 
         /// <summary>
@@ -658,12 +658,40 @@ namespace XCOM_3
 
                 Vector3 pos = new Vector3(
                     cell.X * cellSize + cellSize / 2f,
-                    0.08f,
+                    0.09f,
                     cell.Y * cellSize + cellSize / 2f
                 );
 
                 float pulse = (float)Math.Sin(gameTime * 4f + i * 0.3f) * 0.2f + 0.8f;
-                DrawPlane(pos, new Vector3(cellSize * 0.7f, 1, cellSize * 0.7f), pathColor * pulse);
+
+                // Marqueur de point de passage
+                DrawCube(pos, new Vector3(cellSize * 0.22f, 0.05f, cellSize * 0.22f), pathColor * pulse);
+
+                // Tracé de trajectoire entre 2 cases
+                if (i < path.Count - 1)
+                {
+                    Point nextCell = path[i + 1];
+                    Vector3 nextPos = new Vector3(
+                        nextCell.X * cellSize + cellSize / 2f,
+                        0.09f,
+                        nextCell.Y * cellSize + cellSize / 2f
+                    );
+
+                    DrawPathSegment(pos, nextPos, pathColor * pulse, cellSize);
+                }
+            }
+        }
+
+        private void DrawPathSegment(Vector3 start, Vector3 end, Color color, int cellSize)
+        {
+            Vector3 delta = end - start;
+            int steps = Math.Max(2, (int)(delta.Length() / (cellSize * 0.12f)));
+
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                Vector3 pos = Vector3.Lerp(start, end, t);
+                DrawCube(pos, new Vector3(cellSize * 0.1f, 0.03f, cellSize * 0.1f), color);
             }
         }
 
