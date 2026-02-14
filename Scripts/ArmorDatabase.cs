@@ -46,6 +46,7 @@ namespace XCOM_3
             AddShields(list);
             AddCombatShirts(list);
             AddPants(list);
+            AddChestRigs(list);
 
             return list.ToArray();
         }
@@ -158,6 +159,33 @@ namespace XCOM_3
                 2f,
                 6,
                 "Pantalon cargo (2 lb). Ajoute 6 poches 1x1."
+            ));
+        }
+
+        private static void AddChestRigs(List<ItemData> list)
+        {
+            list.Add(new ItemData(
+                "Chest Rig Léger",
+                ItemType.Armor,
+                0,
+                ArmorSlot.ChestRig,
+                ProtectionLevel.None,
+                0,
+                1.2f,
+                3,
+                "Chest rig léger. Ajoute 3 emplacements utilitaires 1x1."
+            ));
+
+            list.Add(new ItemData(
+                "Chest Rig Assaut",
+                ItemType.Armor,
+                1,
+                ArmorSlot.ChestRig,
+                ProtectionLevel.Fragmentation,
+                0,
+                1.8f,
+                4,
+                "Chest rig assaut renforcé. Ajoute 4 emplacements utilitaires 1x1."
             ));
         }
 
