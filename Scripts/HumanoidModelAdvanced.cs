@@ -979,24 +979,7 @@ namespace XCOM_3
                 DrawRunningLegPair(d, e, p, r, dims, l, 0.3f, 0.55f, dark, dark * 0.8f);
             }
 
-            // Poitrine = prisme trapézoïdal inversé
-            bool feminine = bodyType == Unit.HumanBodyType.Feminine;
-            float topWidth = dims.tw * (feminine ? 1.0f : 1.08f);
-            float bottomWidth = dims.tw * (feminine ? 0.84f : 0.76f);
-            DrawTorsoPolygon(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0),
-                            dims.th, topWidth, bottomWidth, dims.td, body, r);
-
-            // Abdomen = prisme rectangulaire
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.24f, 0),
-                new Vector3(dims.tw * 0.5f, dims.th * 0.3f, dims.td * 0.58f), body * 0.9f, r);
-
-            // Bassin/fessier = forme culotte
-            DrawTorsoPolygon(d, e, p, new Vector3(0, dims.ll - dims.th * 0.04f, 0),
-                dims.th * 0.24f, dims.tw * 0.86f, dims.tw * 0.74f, dims.td * 0.9f, dark * 0.94f, r);
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.24f, dims.ll - dims.th * 0.06f, -dims.td * 0.05f),
-                new Vector3(dims.tw * 0.26f, dims.th * 0.16f, dims.td * 0.6f), dark * 0.88f, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.24f, dims.ll - dims.th * 0.06f, -dims.td * 0.05f),
-                new Vector3(dims.tw * 0.26f, dims.th * 0.16f, dims.td * 0.6f), dark * 0.88f, r);
+            DrawStructuredTorso(d, e, p, r, dims, body, dark, bodyType);
 
             // Bras: épaules sphériques, segments en cônes tronqués, mains en prismes rectangulaires
             DrawSwingingArmPair(d, e, p, r, dims, a, 0.6f, 0.9f, 0f, 0.52f, body * 0.9f);
@@ -1010,6 +993,48 @@ namespace XCOM_3
                 dims.head * 0.52f, skin, r);
 
             // Pas d'accessoires vestimentaires/cosmétiques.
+        }
+
+        private void DrawStructuredTorso(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
+                                         UnitDimensions dims, Color chestColor, Color pelvisColor,
+                                         Unit.HumanBodyType bodyType)
+        {
+            bool feminine = bodyType == Unit.HumanBodyType.Feminine;
+
+            // 1) Cage thoracique : bloc principal en tronc de cône inversé, légèrement incliné vers l'arrière.
+            float ribTopWidth = dims.tw * (feminine ? 1.0f : 1.08f);
+            float ribBottomWidth = dims.tw * (feminine ? 0.84f : 0.76f);
+            float ribHeight = dims.th * 0.62f;
+            Vector3 ribPos = new Vector3(0, dims.ll + dims.th * 0.58f, -dims.td * 0.03f);
+            Matrix ribRot = Matrix.CreateRotationX(MathHelper.ToRadians(-8f)) * r;
+            DrawTorsoPolygon(d, e, p, ribPos, ribHeight, ribTopWidth, ribBottomWidth, dims.td, chestColor, ribRot);
+
+            // 2) Zone de torsion : cylindre souple entre côtes et bassin.
+            DrawRoundedCapsuleY(d, e, p, new Vector3(0, dims.ll + dims.th * 0.28f, 0),
+                dims.th * 0.33f, dims.tw * 0.33f, chestColor * 0.86f, r, 5);
+
+            // 3) Bassin : boîte trapézoïdale plus stable, basculée vers l'avant.
+            float pelvisTopWidth = dims.tw * (feminine ? 0.94f : 0.88f);
+            float pelvisBottomWidth = dims.tw * (feminine ? 1.02f : 0.92f);
+            float pelvisHeight = dims.th * 0.27f;
+            Vector3 pelvisPos = new Vector3(0, dims.ll - dims.th * 0.04f, dims.td * 0.02f);
+            Matrix pelvisRot = Matrix.CreateRotationX(MathHelper.ToRadians(10f)) * r;
+            DrawTorsoPolygon(d, e, p, pelvisPos, pelvisHeight, pelvisTopWidth, pelvisBottomWidth, dims.td * 0.92f, pelvisColor * 0.94f, pelvisRot);
+
+            // Points de repère : épaules, plexus (V inversé), axe central.
+            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.88f, -dims.td * 0.02f),
+                new Vector3(dims.tw * 0.74f, dims.th * 0.08f, dims.td * 0.56f), chestColor * 1.04f, r);
+
+            float plexusY = dims.ll + dims.th * 0.46f;
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.08f, plexusY, dims.td * 0.46f),
+                new Vector3(dims.tw * 0.08f, dims.th * 0.035f, dims.td * 0.04f), chestColor * 0.7f, r);
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.08f, plexusY, dims.td * 0.46f),
+                new Vector3(dims.tw * 0.08f, dims.th * 0.035f, dims.td * 0.04f), chestColor * 0.7f, r);
+            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.43f, dims.td * 0.47f),
+                new Vector3(dims.tw * 0.035f, dims.th * 0.05f, dims.td * 0.04f), chestColor * 0.66f, r);
+
+            DrawRoundedCapsuleY(d, e, p, new Vector3(0, dims.ll + dims.th * 0.34f, dims.td * 0.48f),
+                dims.th * 0.52f, dims.tw * 0.03f, chestColor * 0.72f, r, 4);
         }
 
         private void DrawHumanHeadFeatures(GraphicsDevice d, BasicEffect e, Vector3 p, Color c,
