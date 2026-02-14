@@ -312,7 +312,7 @@ namespace XCOM_3
             // Afficher l'équipement porté (armes, armures, vêtements, poches)
             if (drawEquipment)
             {
-                DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, legSwing, isAiming, unit.DominantHand);
+                DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, legSwing, armSwing, isAiming, unit.DominantHand);
             }
         }
 
@@ -331,7 +331,7 @@ namespace XCOM_3
         // ═══════════════════════════════════════════════════════════════════════
 
         private void DrawEquipment(GraphicsDevice device, BasicEffect effect, Vector3 pos, Unit unit,
-                                   float scale, Matrix rot, UnitDimensions dims, float legSwing, bool isAiming,
+                                   float scale, Matrix rot, UnitDimensions dims, float legSwing, float armSwing, bool isAiming,
                                    Unit.Handedness dominantHand)
         {
             Item weaponToDraw = GetDisplayedWeapon(unit);
@@ -363,7 +363,7 @@ namespace XCOM_3
             // CHEMISE (sous le gilet)
             if (unit.EquippedShirt != null)
             {
-                DrawShirt(device, effect, pos, unit.EquippedShirt, scale, rot, dims);
+                DrawShirt(device, effect, pos, unit.EquippedShirt, scale, rot, dims, armSwing);
             }
 
             // PANTALON + POCHES CARGO
@@ -377,6 +377,65 @@ namespace XCOM_3
             {
                 DrawEquippedGrenades(device, effect, pos, unit.Grenades, scale, rot, dims);
             }
+        }
+
+        private void DrawLimbAlignedBand(GraphicsDevice device, BasicEffect effect, Vector3 center,
+                                         Vector3 start, Vector3 end, float normalizedPosition,
+                                         Vector3 bandScale, Color color, Matrix modelRot)
+        {
+            Vector3 limb = end - start;
+            if (limb.LengthSquared() < 1e-5f)
+                return;
+
+            Vector3 bandPos = Vector3.Lerp(start, end, MathHelper.Clamp(normalizedPosition, 0f, 1f));
+            Matrix limbRot = CreateRotationFromUpTo(limb);
+            Matrix partRot = limbRot * modelRot;
+            DrawBodyPart(device, effect, center, bandPos, bandScale, color, modelRot, partRot);
+        }
+
+        private static void ComputeSwingingArmPoints(UnitDimensions dims, float phase, float shoulderX,
+                                                      float shoulderHeight, float bendBias,
+                                                      out Vector3 shoulder, out Vector3 elbow, out Vector3 wrist)
+        {
+            float normalizedPhase = MathHelper.Clamp(phase / 0.3f, -1f, 1f);
+            float forward = normalizedPhase;
+            float backward = -normalizedPhase;
+
+            shoulder = new Vector3(shoulderX, dims.ll + dims.th * shoulderHeight, -forward * dims.al * 0.08f);
+            elbow = new Vector3(
+                shoulderX,
+                dims.ll + dims.th * (shoulderHeight - 0.3f) + Math.Max(0f, forward) * dims.al * 0.15f,
+                forward * dims.al * 0.34f + bendBias * dims.al * 0.12f);
+
+            wrist = elbow + new Vector3(
+                0f,
+                -dims.al * (0.32f + Math.Max(0f, backward) * 0.1f),
+                forward * dims.al * 0.28f + Math.Max(0f, backward) * dims.al * 0.12f + bendBias * dims.al * 0.08f);
+        }
+
+        private static void ComputeRunningLegPoints(UnitDimensions dims, float phase, float hipX,
+                                                     out Vector3 hip, out Vector3 knee, out Vector3 ankle)
+        {
+            float normalizedPhase = MathHelper.Clamp(phase / 0.42f, -1f, 1f);
+            float forward = normalizedPhase;
+            float backward = -normalizedPhase;
+
+            float arcSign = hipX < 0f ? -1f : 1f;
+            float forwardLift = Math.Max(0f, forward);
+            float trailingCompression = Math.Max(0f, backward);
+
+            hip = new Vector3(
+                hipX,
+                dims.ll + dims.th * 0.03f,
+                -forward * dims.ll * 0.06f + arcSign * dims.lw * 0.12f);
+            knee = new Vector3(
+                hipX * 0.88f,
+                dims.ll * (0.49f + forwardLift * 0.2f),
+                forward * dims.ll * 0.33f + dims.lw * 0.08f);
+            ankle = knee + new Vector3(
+                arcSign * dims.lw * 0.05f,
+                -dims.ll * (0.42f + trailingCompression * 0.14f),
+                -dims.ll * 0.05f + forward * dims.ll * 0.16f + trailingCompression * dims.ll * 0.26f);
         }
 
         private Item GetDisplayedWeapon(Unit unit)
@@ -569,7 +628,7 @@ namespace XCOM_3
         }
 
         private void DrawShirt(GraphicsDevice device, BasicEffect effect, Vector3 pos, Item shirt,
-                               float scale, Matrix rot, UnitDimensions dims)
+                               float scale, Matrix rot, UnitDimensions dims, float armSwing)
         {
             Color shirtColor = new Color(100, 120, 80); // Couleur militaire
 
@@ -579,13 +638,21 @@ namespace XCOM_3
 
             DrawBodyPart(device, effect, pos, shirtPos, shirtScale, shirtColor * 0.8f, rot);
 
-            // Manches visibles
-            Vector3 leftSleevePos = new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.7f, 0);
-            Vector3 sleeveScale = new Vector3(dims.lw * 1.1f, dims.al * 0.8f, dims.lw * 1.1f);
-            DrawBodyPart(device, effect, pos, leftSleevePos, sleeveScale, shirtColor * 0.85f, rot);
+            // Manches alignées aux bras animés (proportions + direction)
+            ComputeSwingingArmPoints(dims, armSwing, -dims.tw * 0.6f, 0.9f, 0f,
+                out Vector3 leftShoulder, out Vector3 leftElbow, out Vector3 leftWrist);
+            ComputeSwingingArmPoints(dims, -armSwing, dims.tw * 0.6f, 0.9f, 0f,
+                out Vector3 rightShoulder, out Vector3 rightElbow, out Vector3 rightWrist);
 
-            Vector3 rightSleevePos = new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.7f, 0);
-            DrawBodyPart(device, effect, pos, rightSleevePos, sleeveScale, shirtColor * 0.85f, rot);
+            DrawFrustumBetween(device, effect, pos, leftShoulder, leftElbow,
+                dims.lw * 0.62f, dims.lw * 0.56f, shirtColor * 0.9f, rot, 5);
+            DrawFrustumBetween(device, effect, pos, leftElbow, leftWrist,
+                dims.lw * 0.56f, dims.lw * 0.5f, shirtColor * 0.84f, rot, 5);
+
+            DrawFrustumBetween(device, effect, pos, rightShoulder, rightElbow,
+                dims.lw * 0.62f, dims.lw * 0.56f, shirtColor * 0.9f, rot, 5);
+            DrawFrustumBetween(device, effect, pos, rightElbow, rightWrist,
+                dims.lw * 0.56f, dims.lw * 0.5f, shirtColor * 0.84f, rot, 5);
         }
 
 
@@ -666,16 +733,31 @@ namespace XCOM_3
                 DrawBodyPart(device, effect, pos, pocketOffsets[i], pocketScale, pocketColor, rot);
             }
 
+            float hipCornerOffset = dims.tw * 0.06f;
+            float leftHipX = -dims.tw * 0.3f - hipCornerOffset;
+            float rightHipX = dims.tw * 0.3f + hipCornerOffset;
+            ComputeRunningLegPoints(pantsDims, legSwing, leftHipX, out _, out Vector3 leftKnee, out _);
+            ComputeRunningLegPoints(pantsDims, -legSwing, rightHipX, out _, out Vector3 rightKnee, out _);
+
             if (showKneePads)
             {
                 Color padColor = new Color(40, 48, 36);
                 Vector3 padScale = new Vector3(dims.lw * 0.82f, dims.ll * 0.2f, dims.lw * 0.52f);
 
-                Vector3 leftKneePos = new Vector3(-dims.tw * 0.24f, dims.ll * 0.36f, dims.td * 0.3f);
-                Vector3 rightKneePos = new Vector3(dims.tw * 0.24f, dims.ll * 0.36f, dims.td * 0.3f);
+                DrawBodyPart(device, effect, pos, leftKnee + new Vector3(0f, 0f, dims.lw * 0.16f), padScale, padColor, rot);
+                DrawBodyPart(device, effect, pos, rightKnee + new Vector3(0f, 0f, dims.lw * 0.16f), padScale, padColor, rot);
+            }
 
-                DrawBodyPart(device, effect, pos, leftKneePos, padScale, padColor, rot);
-                DrawBodyPart(device, effect, pos, rightKneePos, padScale, padColor, rot);
+            // Poches cargo latérales orientées selon l'axe de chaque cuisse
+            if (visiblePockets > 0)
+            {
+                ComputeRunningLegPoints(pantsDims, legSwing, leftHipX, out Vector3 leftHip, out Vector3 leftLegKnee, out _);
+                ComputeRunningLegPoints(pantsDims, -legSwing, rightHipX, out Vector3 rightHip, out Vector3 rightLegKnee, out _);
+
+                Vector3 cargoPocketScale = new Vector3(pocketSize * 0.8f, pocketSize * 0.5f, pocketSize * 0.22f);
+                DrawLimbAlignedBand(device, effect, pos, leftHip, leftLegKnee, 0.55f, cargoPocketScale, pocketColor * 0.95f, rot);
+                if (visiblePockets > 1)
+                    DrawLimbAlignedBand(device, effect, pos, rightHip, rightLegKnee, 0.55f, cargoPocketScale, pocketColor * 0.95f, rot);
             }
         }
 
