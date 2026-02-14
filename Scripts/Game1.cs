@@ -1892,6 +1892,9 @@ namespace XCOM_3
                 GraphicsDevice.Viewport.Height,
                 viewedFloor * cellSize);
 
+            if (hoveredCell.X != -1 && !IsCellAvailableOnFloor(hoveredCell, viewedFloor))
+                hoveredCell = new Point(-1, -1);
+
             // We moved the clears here to ensure a clean slate, but only populate if needed
             currentPath.Clear();
             pathCosts.Clear();
@@ -1953,7 +1956,10 @@ namespace XCOM_3
 
         private void HandleGridClick(Point clickedCell)
         {
-            Unit clickedUnit = GetUnitAtCellAnyFloor(clickedCell);
+            if (!IsCellAvailableOnFloor(clickedCell, viewedFloor))
+                return;
+
+            Unit clickedUnit = GetUnitAtCellOnFloor(clickedCell, viewedFloor);
 
             if (clickedUnit != null && clickedUnit.Team == Team.Enemy && !IsEnemyVisibleToPlayers(clickedUnit))
             {
@@ -2013,6 +2019,9 @@ namespace XCOM_3
                         goalFloor = stair.FromFloor;
                     }
                 }
+
+                if (!IsCellAvailableOnFloor(movementGoal, goalFloor))
+                    return;
 
                 var detailedPath = pathfinding.FindPathDetailed(selectedUnit.Cell, selectedUnit.Floor, movementGoal, goalFloor,
                                                selectedUnit.GetSprintRange(), selectedUnit);
