@@ -524,13 +524,16 @@ namespace XCOM_3
             DrawBodyPart(device, effect, pos, handlePos, handleScale, new Color(100, 70, 40), rot);
         }
 
+        private static float GetHandSideSign(Unit.Handedness dominantHand)
+            => dominantHand == Unit.Handedness.Left ? 1f : -1f;
+
         private void DrawWeapon(GraphicsDevice device, BasicEffect effect, Vector3 pos, Item weapon,
                                 float scale, Matrix rot, UnitDimensions dims, bool isAiming,
                                 Unit.Handedness dominantHand)
         {
             Color weaponColor = GetWeaponColor(weapon.Data.Name);
             WeaponType weaponType = GetWeaponType(weapon.Data.Name);
-            float handSign = dominantHand == Unit.Handedness.Left ? -1f : 1f;
+            float handSign = GetHandSideSign(dominantHand);
 
             // Position calée entre les deux mains (pose articulée)
             Vector3 weaponPos = isAiming
@@ -887,7 +890,7 @@ namespace XCOM_3
             Color forearmColor = armColor * 0.95f;
             Color jointColor = bodyColor * 0.62f;
 
-            float dominantSign = dominantHand == Unit.Handedness.Left ? -1f : 1f;
+            float dominantSign = GetHandSideSign(dominantHand);
             float shoulderY = dims.ll + dims.th * 0.86f;
             float shoulderX = dominantSign * dims.tw * 0.58f;
 
@@ -940,7 +943,7 @@ namespace XCOM_3
             float elbowY = dims.ll + dims.th * (isAiming ? 0.82f : 0.72f);
             float handY = dims.ll + dims.th * (isAiming ? 0.76f : 0.64f);
             float handZ = dims.td * (isAiming ? 0.95f : 0.45f);
-            float handSign = dominantHand == Unit.Handedness.Left ? -1f : 1f;
+            float handSign = GetHandSideSign(dominantHand);
             float supportSign = -handSign;
 
             DrawRoundedCapsuleY(d, e, p, new Vector3(handSign * dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.35f),
