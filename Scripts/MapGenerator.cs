@@ -71,7 +71,7 @@ namespace XCOM_3
 
             // Générer les zones de spawn
             map.GenerateDefaultSpawnZones();
-            map.StairConnections = GenerateDefaultStairs(map.GridWidth, map.GridHeight, map.FloorCount);
+            map.StairConnections = GenerateDefaultStairs(map.GridWidth, map.GridHeight, map.FloorCount, map.Buildings);
 
             Console.WriteLine($"[MAP GEN] Generated {map.Name}: {map.GridWidth}x{map.GridHeight}, floors={map.FloorCount}, {map.Walls.Count} walls");
 
@@ -98,7 +98,7 @@ namespace XCOM_3
 
             map.GenerateDefaultSpawnZones();
             map.FloorCount = 3;
-            map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount);
+            map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
 
             Console.WriteLine($"[MAP GEN] Created empty map: {width}x{height}, floors={map.FloorCount}");
 
@@ -143,7 +143,7 @@ namespace XCOM_3
                     BasementCount = Math.Max(0, b.BasementCount)
                 });
             map.GenerateDefaultSpawnZones();
-            map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount);
+            map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
 
             Console.WriteLine($"[MAP GEN] Generated {pattern} map: {width}x{height}, floors={map.FloorCount}");
 
@@ -151,7 +151,11 @@ namespace XCOM_3
         }
 
 
-        private List<StairConnectionData> GenerateDefaultStairs(int width, int height, int floorCount)
+        private List<StairConnectionData> GenerateDefaultStairs(
+            int width,
+            int height,
+            int floorCount,
+            List<BuildingFootprintData> buildings)
         {
             var stairs = new List<StairConnectionData>();
             for (int floor = 0; floor < floorCount - 1; floor++)
@@ -177,6 +181,43 @@ namespace XCOM_3
                     ToFloor = floor + 1,
                     Bidirectional = true
                 });
+            }
+
+            // Ajouter des cages d'escaliers internes sur certains gros bâtiments.
+            // On les privilégie quand un sous-sol est annoncé (parking souterrain). Même si
+            // le gameplay multi-sous-sol n'est pas encore activé, ces connexions matérialisent
+            // les accès verticaux dès le RDC et cassent le motif trop uniforme des étages.
+            if (buildings != null && floorCount > 1)
+            {
+                foreach (var building in buildings)
+                {
+                    bool hasBasement = building.BasementCount > 0;
+                    bool isLarge = building.Width * building.Height >= 72;
+
+                    if (!hasBasement && !isLarge)
+                        continue;
+
+                    int maxBuildingFloor = Math.Clamp(building.FloorCount, 1, floorCount);
+                    if (maxBuildingFloor <= 1)
+                        continue;
+
+                    int sx = Math.Clamp(building.X + (building.Width / 2), 1, width - 2);
+                    int sy = Math.Clamp(building.Y + (building.Height / 2), 1, height - 2);
+
+                    for (int floor = 0; floor < maxBuildingFloor - 1; floor++)
+                    {
+                        stairs.Add(new StairConnectionData
+                        {
+                            FromX = sx,
+                            FromY = sy,
+                            FromFloor = floor,
+                            ToX = Math.Clamp(sx + 1, 1, width - 2),
+                            ToY = Math.Clamp(sy + 1, 1, height - 2),
+                            ToFloor = floor + 1,
+                            Bidirectional = true
+                        });
+                    }
+                }
             }
 
             return stairs;
