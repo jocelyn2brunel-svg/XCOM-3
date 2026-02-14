@@ -10,6 +10,7 @@ namespace XCOM_3
     /// </summary>
     public class HumanoidModelAdvanced
     {
+        private const float TacticalFlashlightWeightGrams = 300f;
         private VertexPositionColor[] cubeVertices;
         private short[] cubeIndices;
 
@@ -362,6 +363,12 @@ namespace XCOM_3
                 DrawWeapon(device, effect, pos, weaponToDraw, scale, rot, dims, isAiming, dominantHand);
             }
 
+            // Lampe tactique 1x1 en aluminium (300 g), portée gérée dans le rendu de la scène.
+            if (unit.Team == Team.Player)
+            {
+                DrawTacticalFlashlight(device, effect, pos, rot, dims, dominantHand, isAiming, weaponToDraw != null);
+            }
+
             // CHEMISE (sous le gilet)
             if (unit.EquippedShirt != null)
             {
@@ -380,6 +387,26 @@ namespace XCOM_3
             {
                 DrawEquippedGrenades(device, effect, pos, unit.Grenades, scale, rot, dims);
             }
+        }
+
+        private void DrawTacticalFlashlight(GraphicsDevice device, BasicEffect effect, Vector3 pos,
+                                            Matrix rot, UnitDimensions dims, Unit.Handedness dominantHand,
+                                            bool isAiming, bool hasWeapon)
+        {
+            float massFactor = MathHelper.Clamp(TacticalFlashlightWeightGrams / 300f, 0.5f, 1.5f);
+            float handSign = GetHandSideSign(dominantHand);
+            Vector3 handPos = hasWeapon
+                ? new Vector3(handSign * dims.tw * 0.48f, dims.ll + dims.th * (isAiming ? 0.75f : 0.68f), dims.td * (isAiming ? 0.94f : 0.6f))
+                : new Vector3(handSign * dims.tw * 0.62f, dims.ll + dims.th * 0.68f, dims.td * 0.95f);
+
+            // Corps en aluminium (1x1, compacte) orienté vers l'avant.
+            Vector3 bodyScale = new Vector3(dims.lw * 0.28f, dims.lw * 0.28f, dims.lw * 0.62f * massFactor);
+            DrawBodyPart(device, effect, pos, handPos, bodyScale, new Color(150, 155, 165), rot);
+
+            // Lentille avant lumineuse.
+            Vector3 lensPos = handPos + new Vector3(0f, 0f, bodyScale.Z * 0.58f);
+            Vector3 lensScale = new Vector3(bodyScale.X * 0.85f, bodyScale.Y * 0.85f, bodyScale.Z * 0.22f);
+            DrawBodyPart(device, effect, pos, lensPos, lensScale, new Color(255, 244, 190), rot);
         }
 
         private void DrawLimbAlignedBand(GraphicsDevice device, BasicEffect effect, Vector3 center,

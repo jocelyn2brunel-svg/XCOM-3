@@ -56,6 +56,7 @@ namespace XCOM_3
 
         // Constantes
         private const int BaseThrowRange = 20;
+        private const int TacticalFlashlightRangeCells = 40;
         private const float Mk2WeightLbs = 1.3228f; // 600 grammes
 
         // --- Système de cartes ---
@@ -1120,6 +1121,8 @@ namespace XCOM_3
             foreach (var unit in unitsOnFloor)
                 renderer3D.DrawUnit(unit, cellSize);
 
+            DrawAlliedTacticalFlashlightBeams(floorToRender);
+
             var unitsBelowViewedFloor = playerUnits.Where(u => u.Floor < viewedFloor)
                 .Concat(enemyUnits.Where(u => u.Floor < viewedFloor && IsEnemyVisibleToPlayers(u)))
                 .Where(u => u.Health > 0)
@@ -1254,6 +1257,80 @@ namespace XCOM_3
                     (float)gameTime.TotalGameTime.TotalSeconds);
             }
 
+        }
+
+        private void DrawAlliedTacticalFlashlightBeams(int floorToRender)
+        {
+            var alliedUnitsOnFloor = playerUnits
+                .Where(u => u.Health > 0 && u.Floor == floorToRender)
+                .ToList();
+
+            if (alliedUnitsOnFloor.Count == 0)
+                return;
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+
+            foreach (var ally in alliedUnitsOnFloor)
+            {
+                DrawTacticalFlashlightBeam(ally, floorToRender);
+            }
+
+            GraphicsDevice.BlendState = BlendState.Opaque;
+        }
+
+        private void DrawTacticalFlashlightBeam(Unit ally, int floorToRender)
+        {
+            if (ally == null)
+                return;
+
+            const float halfConeAngleRadians = MathHelper.Pi / 9f; // 20°
+            float cosHalfConeAngle = (float)Math.Cos(halfConeAngleRadians);
+
+            Vector2 beamOrigin = new Vector2(ally.VisualPosition.X / cellSize, ally.VisualPosition.Z / cellSize);
+            Vector2 forward = new Vector2((float)Math.Sin(ally.Orientation), (float)Math.Cos(ally.Orientation));
+            if (forward.LengthSquared() < 0.0001f)
+                return;
+
+            forward.Normalize();
+
+            int minX = Math.Max(0, (int)Math.Floor(beamOrigin.X - TacticalFlashlightRangeCells));
+            int maxX = Math.Min(gridWidth - 1, (int)Math.Ceiling(beamOrigin.X + TacticalFlashlightRangeCells));
+            int minY = Math.Max(0, (int)Math.Floor(beamOrigin.Y - TacticalFlashlightRangeCells));
+            int maxY = Math.Min(gridHeight - 1, (int)Math.Ceiling(beamOrigin.Y + TacticalFlashlightRangeCells));
+
+            float floorYOffset = floorToRender * cellSize + 0.06f;
+
+            for (int x = minX; x <= maxX; x++)
+            {
+                for (int y = minY; y <= maxY; y++)
+                {
+                    Point cell = new Point(x, y);
+                    if (!pathfinding.HasLineOfSight(ally.Cell, cell))
+                        continue;
+
+                    Vector2 toCell = new Vector2(x + 0.5f, y + 0.5f) - beamOrigin;
+                    float distance = toCell.Length();
+                    if (distance < 0.05f || distance > TacticalFlashlightRangeCells)
+                        continue;
+
+                    Vector2 toCellDir = toCell / distance;
+                    float angleDot = Vector2.Dot(forward, toCellDir);
+                    if (angleDot < cosHalfConeAngle)
+                        continue;
+
+                    float distanceFactor = 1f - (distance / TacticalFlashlightRangeCells);
+                    float coneFactor = (angleDot - cosHalfConeAngle) / (1f - cosHalfConeAngle);
+                    float intensity = MathHelper.Clamp(distanceFactor * coneFactor, 0f, 1f);
+                    if (intensity <= 0.02f)
+                        continue;
+
+                    Color beamColor = Color.Lerp(new Color(255, 230, 150, 30), new Color(255, 250, 220, 190), intensity);
+                    renderer3D.DrawPlane(
+                        new Vector3(x * cellSize + cellSize / 2f, floorYOffset, y * cellSize + cellSize / 2f),
+                        new Vector3(cellSize * 0.9f, 1f, cellSize * 0.9f),
+                        beamColor * (0.35f + intensity * 0.65f));
+                }
+            }
         }
 
         private Color GetSkyColor(float time)

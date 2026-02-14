@@ -123,6 +123,16 @@ namespace XCOM_3
             ItemDatabase["EMP Grenade"] = new ItemData("EMP Grenade", grenadeDB["EMP Grenade"]);
             ItemDatabase["Demolition Charge"] = new ItemData("Demolition Charge", grenadeDB["Demolition Charge"]);
             ItemDatabase["MK 2"] = new ItemData("MK 2", grenadeDB["MK 2"], Mk2WeightLbs, "Grenade MK2 (1x1) - 600g");
+            ItemDatabase["Lampe tactique aluminium"] = new ItemData(
+                "Lampe tactique aluminium",
+                ItemType.Accessory,
+                armorValue: 0,
+                armorSlot: ArmorSlot.Head,
+                protectionLevel: ProtectionLevel.None,
+                mobilityPenalty: 0,
+                weightLbs: 0.6614f,
+                bonusInventorySlots: 0,
+                description: "Lampe tactique aluminium (1x1) - 300g");
 
             // Armures (charger depuis ArmorDatabase)
             foreach (var armor in ArmorDatabase.GetAllArmors())
