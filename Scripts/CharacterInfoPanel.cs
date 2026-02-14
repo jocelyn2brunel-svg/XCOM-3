@@ -35,11 +35,13 @@ namespace XCOM_3
             _previewEffect = new BasicEffect(graphicsDevice)
             {
                 VertexColorEnabled = true,
-                LightingEnabled = true,
+                // Le modèle humanoïde est rendu en VertexPositionColor (sans normales).
+                // Activer le lighting de BasicEffect noircit complètement le mesh,
+                // donnant l'impression que l'unité a disparu dans l'aperçu 3D.
+                LightingEnabled = false,
                 AmbientLightColor = new Vector3(0.5f),
                 DiffuseColor = new Vector3(1f)
             };
-            _previewEffect.EnableDefaultLighting();
 
             _previewModel = new HumanoidModelAdvanced();
         }
