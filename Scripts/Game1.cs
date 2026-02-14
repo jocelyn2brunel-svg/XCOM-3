@@ -1234,11 +1234,15 @@ namespace XCOM_3
                 return false;
 
             float wallHeight = cellSize * WallHeightRatio;
-            float wallMidHeight = floorHeightOffset + wallHeight * 0.5f;
-            float viewMin = Math.Min(cameraPos.Y, unitPos.Y);
-            float viewMax = Math.Max(cameraPos.Y, unitPos.Y);
+            float wallBottom = floorHeightOffset;
+            float wallTop = floorHeightOffset + wallHeight;
 
-            return wallMidHeight >= viewMin - 0.5f && wallMidHeight <= viewMax + 0.5f;
+            float viewMin = Math.Min(cameraPos.Y, unitPos.Y) - 0.5f;
+            float viewMax = Math.Max(cameraPos.Y, unitPos.Y) + 0.5f;
+
+            // Considérer le mur comme bloquant dès que sa hauteur chevauche le rayon caméra->unité.
+            // L'ancien test sur le milieu du mur ratait des cas où seule la partie haute/basse du mur occultait l'unité.
+            return wallTop >= viewMin && wallBottom <= viewMax;
         }
 
         private static bool SegmentsIntersect(Vector2 p1, Vector2 p2, Vector2 q1, Vector2 q2)
