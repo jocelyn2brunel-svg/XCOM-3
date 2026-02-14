@@ -1058,7 +1058,6 @@ namespace XCOM_3
                     ComputeOcclusionFromPathArea(wallsForUpperFloor, upperFloorOffset, fadedUpperWalls);
 
                     var opaqueUpperWalls = new HashSet<WallSegment>(wallsForUpperFloor.Where(w => !fadedUpperWalls.Contains(w)));
-                    opaqueUpperWalls = FilterCameraFacingWallsForNonViewedFloor(opaqueUpperWalls);
                     if (opaqueUpperWalls.Count > 0)
                     {
                         renderer3D.DrawWalls(
