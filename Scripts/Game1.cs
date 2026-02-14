@@ -901,6 +901,29 @@ namespace XCOM_3
             foreach (var unit in unitsOnFloor)
                 renderer3D.DrawUnit(unit, cellSize);
 
+            var unitsBelowViewedFloor = playerUnits.Where(u => u.Floor < viewedFloor)
+                .Concat(enemyUnits.Where(u => u.Floor < viewedFloor && IsEnemyVisibleToPlayers(u)))
+                .Where(u => u.Health > 0)
+                .ToList();
+
+            if (unitsBelowViewedFloor.Count > 0)
+            {
+                GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                GraphicsDevice.DepthStencilState = DepthStencilState.None;
+
+                foreach (var unit in unitsBelowViewedFloor)
+                {
+                    Color belowFloorColor = unit.Team == Team.Player
+                        ? new Color(80, 200, 255, 135)
+                        : new Color(255, 120, 90, 115);
+
+                    renderer3D.DrawUnitSilhouette(unit, cellSize, belowFloorColor);
+                }
+
+                GraphicsDevice.BlendState = BlendState.Opaque;
+                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            }
+
             if (occludedUnits.Count > 0)
             {
                 GraphicsDevice.BlendState = BlendState.AlphaBlend;
@@ -1974,6 +1997,7 @@ namespace XCOM_3
             if (distanceCells > GetEffectivePerceptionRange(observer))
                 return false;
 
+            // Vision 360°: pas de contrainte d'angle, uniquement portée + ligne de vue.
             return pathfinding.HasLineOfSight(observer.Cell, target.Cell);
         }
 
