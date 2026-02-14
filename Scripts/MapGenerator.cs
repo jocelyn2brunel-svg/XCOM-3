@@ -183,26 +183,21 @@ namespace XCOM_3
                 });
             }
 
-            // Ajouter des cages d'escaliers internes sur certains gros bâtiments.
-            // On les privilégie quand un sous-sol est annoncé (parking souterrain). Même si
-            // le gameplay multi-sous-sol n'est pas encore activé, ces connexions matérialisent
-            // les accès verticaux dès le RDC et cassent le motif trop uniforme des étages.
+            // Ajouter des cages d'escaliers internes sur chaque bâtiment multi-étage.
+            // Cela garantit une circulation verticale cohérente même quand les étages
+            // supérieurs ont un retrait (setback) et deviennent plus petits.
             if (buildings != null && floorCount > 1)
             {
                 foreach (var building in buildings)
                 {
-                    bool hasBasement = building.BasementCount > 0;
-                    bool isLarge = building.Width * building.Height >= 72;
-
-                    if (!hasBasement && !isLarge)
-                        continue;
-
                     int maxBuildingFloor = Math.Clamp(building.FloorCount, 1, floorCount);
-                    if (maxBuildingFloor <= 1)
+                    if (maxBuildingFloor <= 1 || building.Width < 3 || building.Height < 3)
                         continue;
 
-                    int sx = Math.Clamp(building.X + (building.Width / 2), 1, width - 2);
-                    int sy = Math.Clamp(building.Y + (building.Height / 2), 1, height - 2);
+                    int sx = Math.Clamp(building.X + (building.Width / 2), building.X + 1, building.X + building.Width - 2);
+                    int sy = Math.Clamp(building.Y + (building.Height / 2), building.Y + 1, building.Y + building.Height - 2);
+                    sx = Math.Clamp(sx, 1, width - 2);
+                    sy = Math.Clamp(sy, 1, height - 2);
 
                     for (int floor = 0; floor < maxBuildingFloor - 1; floor++)
                     {
@@ -211,8 +206,8 @@ namespace XCOM_3
                             FromX = sx,
                             FromY = sy,
                             FromFloor = floor,
-                            ToX = Math.Clamp(sx + 1, 1, width - 2),
-                            ToY = Math.Clamp(sy + 1, 1, height - 2),
+                            ToX = sx,
+                            ToY = sy,
                             ToFloor = floor + 1,
                             Bidirectional = true
                         });

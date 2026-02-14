@@ -1600,6 +1600,8 @@ namespace XCOM_3
                 if (maxX - minX < 3 || maxY - minY < 3)
                     continue;
 
+                AddExteriorWallsForFloor(filteredWalls, minX, minY, maxX, maxY);
+
                 foreach (var wall in wallSegments)
                 {
                     bool inBounds = wall.IsHorizontal
@@ -1617,6 +1619,20 @@ namespace XCOM_3
             }
 
             return filteredWalls;
+        }
+
+        private static void AddExteriorWallsForFloor(HashSet<WallSegment> target, int minX, int minY, int maxX, int maxY)
+        {
+            if (target == null)
+                return;
+
+            if (maxX - minX < 2 || maxY - minY < 2)
+                return;
+
+            target.Add(new WallSegment(new Point(minX, minY), new Point(maxX, minY), true, WallType.Full));
+            target.Add(new WallSegment(new Point(minX, maxY), new Point(maxX, maxY), true, WallType.Full));
+            target.Add(new WallSegment(new Point(minX, minY), new Point(minX, maxY), false, WallType.Full));
+            target.Add(new WallSegment(new Point(maxX, minY), new Point(maxX, maxY), false, WallType.Full));
         }
 
         private HashSet<WallSegment> FilterUpperFloorWallsForLowerView(int sourceFloor, int viewedFloor, HashSet<WallSegment> walls)
