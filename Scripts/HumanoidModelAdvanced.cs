@@ -574,20 +574,49 @@ namespace XCOM_3
         private void DrawPants(GraphicsDevice device, BasicEffect effect, Vector3 pos, Item pants,
                                List<Item> pocketItems, float scale, Matrix rot, UnitDimensions dims, float legSwing)
         {
-            Color denimColor = new Color(45, 75, 130);
+            string pantsName = pants?.Data?.Name ?? string.Empty;
+
+            Color baseColor = new Color(45, 75, 130); // Jeans par défaut
+            Color legA = baseColor * 0.94f;
+            Color legB = baseColor * 0.8f;
+            Color pocketColor = baseColor * 0.75f;
+            float legWidthFactor = 0.68f;
+            float hipDepthFactor = 0.92f;
+            bool showKneePads = false;
+
+            if (pantsName.Contains("Cargo", StringComparison.OrdinalIgnoreCase))
+            {
+                // Cargo tactique : silhouette plus utilitaire + genouillères
+                baseColor = new Color(72, 88, 62);
+                legA = baseColor * 0.96f;
+                legB = baseColor * 0.82f;
+                pocketColor = new Color(58, 74, 52);
+                legWidthFactor = 0.74f;
+                hipDepthFactor = 0.98f;
+                showKneePads = true;
+            }
+            else if (pantsName.Contains("Travail", StringComparison.OrdinalIgnoreCase))
+            {
+                // Pantalon de travail : ton sombre + coupe un peu plus épaisse
+                baseColor = new Color(70, 70, 74);
+                legA = baseColor * 0.95f;
+                legB = baseColor * 0.84f;
+                pocketColor = new Color(58, 58, 62);
+                legWidthFactor = 0.72f;
+                hipDepthFactor = 0.95f;
+            }
 
             Vector3 hipPos = new Vector3(0, dims.ll * 1.02f, 0);
-            Vector3 hipScale = new Vector3(dims.tw * 0.95f, dims.ll * 0.55f, dims.td * 0.92f);
-            DrawBodyPart(device, effect, pos, hipPos, hipScale, denimColor, rot);
+            Vector3 hipScale = new Vector3(dims.tw * 0.95f, dims.ll * 0.55f, dims.td * hipDepthFactor);
+            DrawBodyPart(device, effect, pos, hipPos, hipScale, baseColor, rot);
 
             UnitDimensions pantsDims = dims;
-            pantsDims.lw *= 0.68f;
+            pantsDims.lw *= legWidthFactor;
 
-            DrawRunningLegPair(device, effect, pos, rot, pantsDims, legSwing, 0.3f, 0.88f, denimColor * 0.94f, denimColor * 0.8f);
+            DrawRunningLegPair(device, effect, pos, rot, pantsDims, legSwing, 0.3f, 0.88f, legA, legB);
 
             int visiblePockets = Math.Min(Math.Max(pocketItems?.Count ?? 0, 0), 4);
             float pocketSize = dims.lw * 0.45f;
-            Color pocketColor = denimColor * 0.75f;
 
             Vector3[] pocketOffsets =
             {
@@ -601,6 +630,18 @@ namespace XCOM_3
             {
                 Vector3 pocketScale = new Vector3(pocketSize * 0.9f, pocketSize * 0.55f, pocketSize * 0.25f);
                 DrawBodyPart(device, effect, pos, pocketOffsets[i], pocketScale, pocketColor, rot);
+            }
+
+            if (showKneePads)
+            {
+                Color padColor = new Color(40, 48, 36);
+                Vector3 padScale = new Vector3(dims.lw * 0.82f, dims.ll * 0.2f, dims.lw * 0.52f);
+
+                Vector3 leftKneePos = new Vector3(-dims.tw * 0.24f, dims.ll * 0.36f, dims.td * 0.3f);
+                Vector3 rightKneePos = new Vector3(dims.tw * 0.24f, dims.ll * 0.36f, dims.td * 0.3f);
+
+                DrawBodyPart(device, effect, pos, leftKneePos, padScale, padColor, rot);
+                DrawBodyPart(device, effect, pos, rightKneePos, padScale, padColor, rot);
             }
         }
 

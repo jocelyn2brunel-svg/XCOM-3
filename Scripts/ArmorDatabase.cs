@@ -126,39 +126,39 @@ namespace XCOM_3
         private static void AddPants(List<ItemData> list)
         {
             list.Add(new ItemData(
-                "Jeans Leger",
+                "Jeans Léger",
                 ItemType.Armor,
                 0,
                 ArmorSlot.Pants,
                 ProtectionLevel.None,
                 0,
-                1f,
+                1.2f,
                 4,
-                "Jeans léger (1 lb). Ajoute 4 poches 1x1."
+                "Jeans léger modernisé (1.2 lb). Ajoute 4 poches 1x1."
             ));
 
             list.Add(new ItemData(
-                "Jeans de Travail",
+                "Pantalon de Travail",
                 ItemType.Armor,
                 0,
                 ArmorSlot.Pants,
                 ProtectionLevel.None,
                 0,
-                2f,
-                4,
-                "Jeans de travail (2 lb). Ajoute 4 poches 1x1."
+                2.2f,
+                5,
+                "Pantalon de travail renforcé (2.2 lb). Ajoute 5 poches 1x1."
             ));
 
             list.Add(new ItemData(
-                "Pantalon Cargo",
+                "Pantalon Cargo Tactique",
                 ItemType.Armor,
                 0,
                 ArmorSlot.Pants,
                 ProtectionLevel.None,
                 0,
-                2f,
+                2.4f,
                 6,
-                "Pantalon cargo (2 lb). Ajoute 6 poches 1x1."
+                "Pantalon cargo tactique (2.4 lb). Ajoute 6 poches 1x1."
             ));
         }
 

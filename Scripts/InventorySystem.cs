@@ -120,8 +120,8 @@ namespace XCOM_3
                 "MTV",
                 "OTV + SAPI",
                 "Army Combat Shirt",
-                "Jeans Leger",
-                "Jeans de Travail",
+                "Jeans Léger",
+                "Pantalon de Travail",
                 // ✅ Grenades
                 "Frag Grenade",
                 "Smoke Grenade",
