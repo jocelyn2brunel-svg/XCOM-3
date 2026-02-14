@@ -24,9 +24,6 @@ namespace XCOM_3
         private SpriteBatch spriteBatch;
         private SpriteFont font;
         private Texture2D pixel;
-        private readonly BasicEffect unitPreviewEffect;
-        private readonly HumanoidModelAdvanced unitPreviewModel;
-        private RenderTarget2D unitPreviewRenderTarget;
         private float pulseTimer = 0f; // Pour les effets de pulsation
 
         // État UI
@@ -45,7 +42,6 @@ namespace XCOM_3
         // Constantes
         public const int ActionButtonWidth = 120;
         public const int ActionButtonHeight = 40;
-        private const float UnitPreviewModelScale = 1.45f;
 
         public CombatUISystem(GraphicsDevice graphicsDevice, SpriteBatch spriteBatch,
             SpriteFont font, Texture2D pixel)
@@ -54,16 +50,6 @@ namespace XCOM_3
             this.spriteBatch = spriteBatch;
             this.font = font;
             this.pixel = pixel;
-
-            unitPreviewEffect = new BasicEffect(graphicsDevice)
-            {
-                VertexColorEnabled = true,
-                LightingEnabled = false,
-                AmbientLightColor = new Vector3(0.5f),
-                DiffuseColor = new Vector3(1f)
-            };
-
-            unitPreviewModel = new HumanoidModelAdvanced();
         }
 
         public void Update(GameTime gameTime)
@@ -152,16 +138,13 @@ namespace XCOM_3
             if (selectedUnit == null)
                 return;
 
-            int m = 15, w = 520, h = 260;
+            int m = 15, w = 320, h = 240;
             int x = m, y = graphicsDevice.Viewport.Height - h - m;
             Rectangle panel = new Rectangle(x, y, w, h);
             int padding = 12;
 
-            Rectangle previewRect = new Rectangle(panel.X + panel.Width - 180, panel.Y + 42, 160, 192);
-            DrawUnitInfoPreview(selectedUnit, previewRect);
-
             int innerLeft = panel.X + padding;
-            int innerRight = previewRect.X - 12;
+            int innerRight = panel.Right - padding;
             int innerWidth = innerRight - innerLeft;
 
 
@@ -180,18 +163,6 @@ namespace XCOM_3
 
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
                 $"WEAPON: {selectedUnit.Weapon}", p + new Vector2(0, 22), ParasiteEveTheme.TextNormal);
-
-            if (unitPreviewRenderTarget != null)
-                spriteBatch.Draw(unitPreviewRenderTarget, previewRect, Color.White);
-
-            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, ParasiteEveTheme.BorderColor, 2);
-            Rectangle previewHeader = new Rectangle(previewRect.X + 2, previewRect.Y + 2, previewRect.Width - 4, 22);
-            spriteBatch.Draw(pixel, previewHeader, new Color(8, 20, 12, 180));
-            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                "PREVIEW",
-                new Vector2(previewRect.X + 8, previewRect.Y + 6),
-                ParasiteEveTheme.TextHighlight,
-                0.7f);
 
             // Barre de santé
             p.Y += 52;
@@ -289,82 +260,6 @@ namespace XCOM_3
 
             // Scanlines effect
             ParasiteEveTheme.DrawScanlines(spriteBatch, pixel, panel, 0.08f);
-        }
-
-        private void DrawUnitInfoPreview(Unit unit, Rectangle previewRect)
-        {
-            EnsureUnitPreviewRenderTarget(previewRect.Width, previewRect.Height);
-            if (unitPreviewRenderTarget == null)
-                return;
-
-            Viewport originalViewport = graphicsDevice.Viewport;
-            DepthStencilState originalDepth = graphicsDevice.DepthStencilState;
-            BlendState originalBlend = graphicsDevice.BlendState;
-            RasterizerState originalRasterizer = graphicsDevice.RasterizerState;
-            RenderTargetBinding[] originalRenderTargets = graphicsDevice.GetRenderTargets();
-
-            graphicsDevice.SetRenderTarget(unitPreviewRenderTarget);
-            graphicsDevice.Viewport = new Viewport(0, 0, unitPreviewRenderTarget.Width, unitPreviewRenderTarget.Height);
-            graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            graphicsDevice.BlendState = BlendState.Opaque;
-            graphicsDevice.RasterizerState = RasterizerState.CullNone;
-            graphicsDevice.Clear(new Color(14, 18, 28));
-
-            unitPreviewEffect.View = Matrix.CreateLookAt(new Vector3(0f, 2.1f, 5.2f), new Vector3(0f, 1.5f, 0f), Vector3.Up);
-            unitPreviewEffect.Projection = Matrix.CreatePerspectiveFieldOfView(
-                MathHelper.ToRadians(43f),
-                Math.Max(0.2f, previewRect.Width / (float)previewRect.Height),
-                0.1f,
-                100f);
-
-            Unit previewUnit = new Unit(unit)
-            {
-                VisualPosition = Vector3.Zero,
-                IsMoving = false,
-                IsAiming = false,
-                IsFiring = false
-            };
-            previewUnit.LegSwing = 0f;
-            previewUnit.ArmSwing = 0f;
-            previewUnit.BodyBob = 0f;
-            previewUnit.IdleBobOffset = 0f;
-
-            unitPreviewModel.DrawWithEquipment(
-                graphicsDevice,
-                unitPreviewEffect,
-                previewUnit,
-                UnitPreviewModelScale,
-                MathHelper.Pi + 0.35f);
-
-            graphicsDevice.SetRenderTargets(originalRenderTargets);
-            graphicsDevice.Viewport = originalViewport;
-            graphicsDevice.DepthStencilState = originalDepth;
-            graphicsDevice.BlendState = originalBlend;
-            graphicsDevice.RasterizerState = originalRasterizer;
-        }
-
-        private void EnsureUnitPreviewRenderTarget(int width, int height)
-        {
-            if (width <= 0 || height <= 0)
-                return;
-
-            if (unitPreviewRenderTarget != null &&
-                (unitPreviewRenderTarget.Width != width || unitPreviewRenderTarget.Height != height))
-            {
-                unitPreviewRenderTarget.Dispose();
-                unitPreviewRenderTarget = null;
-            }
-
-            if (unitPreviewRenderTarget == null)
-            {
-                unitPreviewRenderTarget = new RenderTarget2D(
-                    graphicsDevice,
-                    width,
-                    height,
-                    false,
-                    SurfaceFormat.Color,
-                    DepthFormat.Depth24);
-            }
         }
 
         /// <summary>
