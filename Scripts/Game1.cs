@@ -142,6 +142,7 @@ namespace XCOM_3
         private const int TabSpacing = 8;
         private const int TabTopMargin = 12;
         private const float WallHeightRatio = 0.92f;
+        private RasterizerState hoveredCellWireframeState;
 
 
         public Game1()
@@ -167,6 +168,11 @@ namespace XCOM_3
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             font = Content.Load<SpriteFont>("Arial");
             pixel = new Texture2D(GraphicsDevice, 1, 1); pixel.SetData(new[] { Color.White });
+            hoveredCellWireframeState = new RasterizerState
+            {
+                CullMode = CullMode.None,
+                FillMode = FillMode.WireFrame
+            };
 
             // ✅ INITIALISATION DES MANAGERS
 
@@ -1177,9 +1183,23 @@ namespace XCOM_3
                 return;
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
-            Vector3 position = new Vector3(hoveredCell.X * cellSize + cellSize / 2f, viewedFloor * cellSize + 0.15f, hoveredCell.Y * cellSize + cellSize / 2f);
+            float floorYOffset = viewedFloor * cellSize;
+            Vector3 position = new Vector3(hoveredCell.X * cellSize + cellSize / 2f, floorYOffset + 0.15f, hoveredCell.Y * cellSize + cellSize / 2f);
+            Vector3 wireframePosition = new Vector3(position.X, floorYOffset + (cellSize * WallHeightRatio * 0.5f), position.Z);
+            Vector3 wireframeScale = new Vector3(cellSize * 0.96f, cellSize * WallHeightRatio, cellSize * 0.96f);
+            RasterizerState previousRasterizer = GraphicsDevice.RasterizerState;
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
 
             renderer3D.DrawPlane(position, new Vector3(cellSize, 1, cellSize), Color.Yellow * pulse);
+
+            GraphicsDevice.RasterizerState = hoveredCellWireframeState;
+            renderer3D.DrawCube(wireframePosition, wireframeScale, new Color(255, 240, 120, 180) * pulse);
+
+            GraphicsDevice.RasterizerState = previousRasterizer;
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
         }
 
         private void LoadMap(MapData map = null)
