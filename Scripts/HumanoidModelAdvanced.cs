@@ -638,7 +638,7 @@ namespace XCOM_3
             if (type == UnitType.Soldier && bodyType == Unit.HumanBodyType.Feminine)
             {
                 baseDimensions.head *= 0.98f;
-                baseDimensions.tw *= 0.9f;
+                baseDimensions.tw *= 0.94f;
                 baseDimensions.th *= 0.97f;
                 baseDimensions.td *= 0.92f;
                 baseDimensions.lw *= 0.9f;
@@ -813,14 +813,17 @@ namespace XCOM_3
 
             // Torse en polygones (silhouette triangulaire selon le type de corps)
             bool feminine = bodyType == Unit.HumanBodyType.Feminine;
-            float topWidth = dims.tw * (feminine ? 0.82f : 1.05f);
-            float bottomWidth = dims.tw * (feminine ? 1.04f : 0.7f);
+            float topWidth = dims.tw * (feminine ? 0.9f : 1.05f);
+            float bottomWidth = dims.tw * (feminine ? 1.1f : 0.7f);
             DrawTorsoPolygon(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0),
                             dims.th, topWidth, bottomWidth, dims.td, body, r);
 
             // Poitrine plus triangulaire
+            float chestWidth = dims.tw * (feminine ? 0.82f : 0.75f);
+            float chestHeight = dims.th * (feminine ? 0.36f : 0.33f);
+            float chestDepth = dims.td * (feminine ? 0.95f : 0.85f);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.8f, dims.td * 0.15f),
-                        new Vector3(dims.tw * 0.75f, dims.th * 0.33f, dims.td * 0.85f), body * 0.92f, r);
+                        new Vector3(chestWidth, chestHeight, chestDepth), body * 0.92f, r);
 
             // Bras articulés (épaule → coude → poignet)
             DrawSwingingArmPair(d, e, p, r, dims, a, 0.6f, 0.9f, 0f, 0.52f, body * 0.9f);
