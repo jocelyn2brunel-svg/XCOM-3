@@ -15,22 +15,26 @@ namespace XCOM_3.Scripts
         // COULEURS PRINCIPALES (Parasite Eve 2)
         // ═══════════════════════════════════════════════════════════════════
 
-        // Fond principal (vert très foncé, presque noir)
-        public static readonly Color BackgroundDark = new Color(10, 25, 15, 230);
-        public static readonly Color BackgroundMedium = new Color(15, 35, 20, 220);
+        // Fond principal (dégradé optimisé)
+        public static readonly Color BackgroundDark = new Color(8, 22, 16, 235);
+        public static readonly Color BackgroundMedium = new Color(12, 32, 20, 220);
         
         // Bordures et panels (vert moyen)
-        public static readonly Color BorderColor = new Color(60, 140, 80, 255);
+        public static readonly Color BorderColor = new Color(40, 220, 140, 255);
         public static readonly Color BorderDark = new Color(20, 100, 65, 255);
         public static readonly Color BorderMain = new Color(40, 220, 140, 255);
-        public static readonly Color PanelBackground = new Color(20, 45, 25, 200);
-        public static readonly Color PanelBackgroundDark = new Color(10, 25, 15, 230);
-        public static readonly Color PanelBackgroundLight = new Color(20, 45, 25, 220);
+        public static readonly Color BorderHighlight = new Color(80, 255, 180, 255);
+        public static readonly Color PanelBackground = new Color(12, 32, 20, 220);
+        public static readonly Color PanelBackgroundDark = new Color(8, 22, 16, 235);
+        public static readonly Color PanelBackgroundMid = new Color(12, 32, 20, 220);
+        public static readonly Color PanelBackgroundLight = new Color(18, 42, 26, 210);
         
         // Texte
-        public static readonly Color TextNormal = new Color(200, 255, 200, 255);  // Vert clair
-        public static readonly Color TextHighlight = new Color(150, 255, 150, 255); // Vert vif
-        public static readonly Color TextDim = new Color(100, 150, 100, 200);     // Vert sombre
+        public static readonly Color TextNormal = new Color(180, 255, 180, 255);  // Vert clair standard
+        public static readonly Color TextHighlight = new Color(220, 255, 100, 255); // Jaune-vert (sélection)
+        public static readonly Color TextSelected = new Color(220, 255, 100, 255);
+        public static readonly Color TextWhite = new Color(240, 255, 240, 255);
+        public static readonly Color TextDim = new Color(80, 130, 90, 200);     // Vert sombre
         public static readonly Color TextWarning = new Color(255, 200, 100, 255); // Orange
         public static readonly Color TextDanger = new Color(255, 100, 100, 255);  // Rouge
         
@@ -54,7 +58,7 @@ namespace XCOM_3.Scripts
         public static readonly Color ElementEarth = new Color(180, 140, 80, 255);
         
         // Sélection et hover
-        public static readonly Color SelectionOutline = new Color(150, 255, 150, 255);
+        public static readonly Color SelectionOutline = new Color(80, 255, 180, 255);
         public static readonly Color HoverOverlay = new Color(60, 140, 80, 100);
 
         // ═══════════════════════════════════════════════════════════════════
