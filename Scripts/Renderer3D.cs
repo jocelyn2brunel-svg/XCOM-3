@@ -151,7 +151,7 @@ namespace XCOM_3
 
                 // ? Hauteur du mur augmentée
                 float wallHeight = size * 1.8f;
-                center.Y = wallHeight / 2f;
+                center.Y = floorHeightOffset + wallHeight / 2f;
 
                 // ? Épaisseur du mur
                 float thickness = size * 0.15f;
@@ -171,7 +171,7 @@ namespace XCOM_3
                     // 1. ALLÈGE (Le muret du bas - 35% de la hauteur totale)
                     float bottomHeight = wallHeight * 0.35f;
                     Vector3 bottomCenter = center;
-                    bottomCenter.Y = bottomHeight / 2f; // On le pose au sol
+                    bottomCenter.Y = floorHeightOffset + bottomHeight / 2f; // On le pose au sol
                     Vector3 bottomScale = s.IsHorizontal
                         ? new Vector3(size, bottomHeight, thickness)
                         : new Vector3(thickness, bottomHeight, size);
@@ -181,7 +181,7 @@ namespace XCOM_3
                     // 2. LINTEAU (Le muret du haut - 20% de la hauteur totale)
                     float topPartHeight = wallHeight * 0.2f;
                     Vector3 topPartCenter = center;
-                    topPartCenter.Y = wallHeight - (topPartHeight / 2f); // On le colle en haut
+                    topPartCenter.Y = floorHeightOffset + wallHeight - (topPartHeight / 2f); // On le colle en haut
                     Vector3 topPartScale = s.IsHorizontal
                         ? new Vector3(size, topPartHeight, thickness)
                         : new Vector3(thickness, topPartHeight, size);
@@ -199,7 +199,7 @@ namespace XCOM_3
                     if (!editorMode)
                     {
                         Vector3 jointCenter = center;
-                        jointCenter.Y = wallHeight * 0.6f;
+                        jointCenter.Y = floorHeightOffset + wallHeight * 0.6f;
                         Vector3 jointScale = s.IsHorizontal
                             ? new Vector3(size * 1.02f, thickness * 0.3f, thickness * 1.1f)
                             : new Vector3(thickness * 1.1f, thickness * 0.3f, size * 1.02f);
@@ -213,7 +213,7 @@ namespace XCOM_3
                 if (!editorMode)
                 {
                     Vector3 shadowCenter = (start + end) / 2f;
-                    shadowCenter.Y = 0.01f;
+                    shadowCenter.Y = floorHeightOffset + 0.01f;
 
                     float shadowWidth = s.IsHorizontal ? size : thickness * 2.5f;
                     float shadowLength = s.IsHorizontal ? thickness * 2.5f : size;
@@ -228,11 +228,11 @@ namespace XCOM_3
                     float markerSize = size * 0.12f;
 
                     // Marqueur début (jaune/orange)
-                    Vector3 startMarker = new Vector3(s.Start.X * size, wallHeight, s.Start.Y * size);
+                    Vector3 startMarker = new Vector3(s.Start.X * size, floorHeightOffset + wallHeight, s.Start.Y * size);
                     DrawCube(startMarker, new Vector3(markerSize), new Color(255, 200, 0));
 
                     // Marqueur fin (jaune/orange)
-                    Vector3 endMarker = new Vector3(s.End.X * size, wallHeight, s.End.Y * size);
+                    Vector3 endMarker = new Vector3(s.End.X * size, floorHeightOffset + wallHeight, s.End.Y * size);
                     DrawCube(endMarker, new Vector3(markerSize), new Color(255, 200, 0));
                 }
             }
