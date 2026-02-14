@@ -1530,52 +1530,66 @@ namespace XCOM_3
             Vector2 wallStart = new Vector2(wall.Start.X * cellSize, wall.Start.Y * cellSize);
             Vector2 wallEnd = new Vector2(wall.End.X * cellSize, wall.End.Y * cellSize);
 
-            if (!SegmentsIntersect(camera2D, unit2D, wallStart, wallEnd))
+            if (!TryGetSegmentIntersectionParam(camera2D, unit2D, wallStart, wallEnd, out float rayT))
                 return false;
 
             float wallHeight = cellSize * WallHeightRatio;
             float wallBottom = floorHeightOffset;
             float wallTop = floorHeightOffset + wallHeight;
 
-            float viewMin = Math.Min(cameraPos.Y, unitPos.Y) - 0.5f;
-            float viewMax = Math.Max(cameraPos.Y, unitPos.Y) + 0.5f;
-
-            // Considérer le mur comme bloquant dès que sa hauteur chevauche le rayon caméra->unité.
-            // L'ancien test sur le milieu du mur ratait des cas où seule la partie haute/basse du mur occultait l'unité.
-            return wallTop >= viewMin && wallBottom <= viewMax;
+            // Évaluer la hauteur réelle du rayon caméra->cible au point d'intersection avec le mur.
+            // Cela évite de partir du "pied" de caméra (projection au sol) et respecte la vraie hauteur Y de la caméra.
+            float rayHeightAtWall = MathHelper.Lerp(cameraPos.Y, unitPos.Y, rayT);
+            const float verticalTolerance = 0.5f;
+            return rayHeightAtWall >= wallBottom - verticalTolerance &&
+                   rayHeightAtWall <= wallTop + verticalTolerance;
         }
 
-        private static bool SegmentsIntersect(Vector2 p1, Vector2 p2, Vector2 q1, Vector2 q2)
+        private static bool TryGetSegmentIntersectionParam(Vector2 p1, Vector2 p2, Vector2 q1, Vector2 q2, out float rayT)
         {
             const float epsilon = 0.0001f;
-            float o1 = Orientation(p1, p2, q1);
-            float o2 = Orientation(p1, p2, q2);
-            float o3 = Orientation(q1, q2, p1);
-            float o4 = Orientation(q1, q2, p2);
+            rayT = 0f;
 
-            if ((o1 > epsilon && o2 < -epsilon || o1 < -epsilon && o2 > epsilon) &&
-                (o3 > epsilon && o4 < -epsilon || o3 < -epsilon && o4 > epsilon))
+            Vector2 r = p2 - p1;
+            Vector2 s = q2 - q1;
+            float denominator = Cross(r, s);
+            Vector2 delta = q1 - p1;
+
+            if (Math.Abs(denominator) <= epsilon)
             {
+                // Segments parallèles (ou colinéaires).
+                if (Math.Abs(Cross(delta, r)) > epsilon)
+                    return false;
+
+                float rLenSq = r.LengthSquared();
+                if (rLenSq <= epsilon)
+                    return false;
+
+                float t0 = Vector2.Dot(q1 - p1, r) / rLenSq;
+                float t1 = Vector2.Dot(q2 - p1, r) / rLenSq;
+                float minT = Math.Max(0f, Math.Min(t0, t1));
+                float maxT = Math.Min(1f, Math.Max(t0, t1));
+
+                if (minT > maxT)
+                    return false;
+
+                rayT = minT;
                 return true;
             }
 
-            if (Math.Abs(o1) <= epsilon && OnSegment(p1, q1, p2)) return true;
-            if (Math.Abs(o2) <= epsilon && OnSegment(p1, q2, p2)) return true;
-            if (Math.Abs(o3) <= epsilon && OnSegment(q1, p1, q2)) return true;
-            if (Math.Abs(o4) <= epsilon && OnSegment(q1, p2, q2)) return true;
+            float t = Cross(delta, s) / denominator;
+            float u = Cross(delta, r) / denominator;
 
-            return false;
+            if (t < -epsilon || t > 1f + epsilon || u < -epsilon || u > 1f + epsilon)
+                return false;
+
+            rayT = MathHelper.Clamp(t, 0f, 1f);
+            return true;
         }
 
-        private static float Orientation(Vector2 a, Vector2 b, Vector2 c)
+        private static float Cross(Vector2 a, Vector2 b)
         {
-            return (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
-        }
-
-        private static bool OnSegment(Vector2 a, Vector2 p, Vector2 b)
-        {
-            return p.X <= Math.Max(a.X, b.X) && p.X >= Math.Min(a.X, b.X) &&
-                   p.Y <= Math.Max(a.Y, b.Y) && p.Y >= Math.Min(a.Y, b.Y);
+            return a.X * b.Y - a.Y * b.X;
         }
 
         private HashSet<Point> GetCellsForFloor(int floor)
