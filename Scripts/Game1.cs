@@ -890,11 +890,10 @@ namespace XCOM_3
                 {
                     float upperFloorOffset = upperFloor * cellSize;
                     var wallsForUpperFloor = GetWallsForFloor(upperFloor);
-                    var upperFloorUnits = GetVisibleUnitsForFloor(upperFloor);
                     var fadedUpperWalls = new HashSet<WallSegment>();
 
-                    if (upperFloorUnits.Count > 0)
-                        ComputeOcclusionFromWalls(wallsForUpperFloor, upperFloorUnits, upperFloorOffset, fadedUpperWalls, new HashSet<Unit>());
+                    if (unitsOnFloor.Count > 0)
+                        ComputeOcclusionFromWalls(wallsForUpperFloor, unitsOnFloor, upperFloorOffset, fadedUpperWalls, new HashSet<Unit>());
 
                     var opaqueUpperWalls = new HashSet<WallSegment>(wallsForUpperFloor.Where(w => !fadedUpperWalls.Contains(w)));
                     if (opaqueUpperWalls.Count > 0)
