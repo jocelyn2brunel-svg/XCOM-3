@@ -2219,22 +2219,26 @@ namespace XCOM_3
                         var zombie = enemyPool.First(e => e.Name == "Zombie");
                         int zombieCount = 30;
 
-                        Random rnd = new Random();
-                        for (int i = 0; i < zombieCount; i++)
+                        var occupiedCells = new HashSet<Point>(playerUnits.Select(u => u.Cell));
+                        var availableCells = new List<Point>(gridWidth * gridHeight - occupiedCells.Count);
+
+                        for (int x = 0; x < gridWidth; x++)
                         {
-                            Point spawn;
-                            bool valid;
-
-                            do
+                            for (int y = 0; y < gridHeight; y++)
                             {
-                                spawn = new Point(rnd.Next(0, gridWidth), rnd.Next(0, gridHeight));
+                                var cell = new Point(x, y);
+                                if (!occupiedCells.Contains(cell))
+                                    availableCells.Add(cell);
+                            }
+                        }
 
-                                // Vérifie qu'aucune unité n'est déjà sur cette case
-                                valid = !enemyUnits.Any(u => u.Cell == spawn)
-                                        && !playerUnits.Any(u => u.Cell == spawn);
+                        int spawnCount = Math.Min(zombieCount, availableCells.Count);
+                        for (int i = 0; i < spawnCount; i++)
+                        {
+                            int swapIndex = random.Next(i, availableCells.Count);
+                            (availableCells[i], availableCells[swapIndex]) = (availableCells[swapIndex], availableCells[i]);
 
-                            } while (!valid);
-
+                            var spawn = availableCells[i];
                             enemyUnits.Add(new Unit(
                                 spawn,
                                 Team.Enemy,
