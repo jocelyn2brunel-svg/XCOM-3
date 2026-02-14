@@ -854,6 +854,15 @@ namespace XCOM_3
             int floorToRender = Math.Clamp(viewedFloor, 0, floorCount - 1);
             float yOffset = floorToRender * cellSize;
 
+            List<Unit> unitsOnFloor = playerUnits.Where(u => u.Floor == viewedFloor)
+                .Concat(enemyUnits.Where(u => u.Floor == viewedFloor && IsEnemyVisibleToPlayers(u)))
+                .ToList();
+
+            var wallsForFloor = GetWallsForFloor(floorToRender);
+            HashSet<WallSegment> fadedWalls = new HashSet<WallSegment>();
+            HashSet<Unit> occludedUnits = new HashSet<Unit>();
+            ComputeOcclusionFromWalls(wallsForFloor, unitsOnFloor, yOffset, fadedWalls, occludedUnits);
+
             if (floorToRender == 0)
             {
                 renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture, yOffset);
@@ -865,8 +874,9 @@ namespace XCOM_3
                     renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, yOffset);
             }
 
-            var wallsForFloor = GetWallsForFloor(floorToRender);
-            renderer3D.DrawWalls(wallsForFloor, cellSize, editorMode: false, floorHeightOffset: yOffset);
+            var opaqueWalls = new HashSet<WallSegment>(wallsForFloor.Where(w => !fadedWalls.Contains(w)));
+            if (opaqueWalls.Count > 0)
+                renderer3D.DrawWalls(opaqueWalls, cellSize, editorMode: false, floorHeightOffset: yOffset);
 
             for (int upperFloor = floorToRender + 1; upperFloor < floorCount; upperFloor++)
             {
@@ -882,8 +892,26 @@ namespace XCOM_3
 
             renderer3D.DrawStairConnections(currentMap?.StairConnections, floorToRender, cellSize);
 
-            foreach (var unit in playerUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
-            foreach (var unit in enemyUnits.Where(u => u.Floor == viewedFloor && IsEnemyVisibleToPlayers(u))) renderer3D.DrawUnit(unit, cellSize);
+            foreach (var unit in unitsOnFloor)
+                renderer3D.DrawUnit(unit, cellSize);
+
+            if (occludedUnits.Count > 0)
+            {
+                GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                GraphicsDevice.DepthStencilState = DepthStencilState.None;
+
+                foreach (var unit in occludedUnits)
+                {
+                    renderer3D.DrawUnitSilhouette(unit, cellSize, new Color(70, 220, 255, 150));
+                }
+
+                GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+                renderer3D.DrawWalls(fadedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset,
+                    wallOverrideColor: new Color(100, 85, 70, 64));
+
+                GraphicsDevice.BlendState = BlendState.Opaque;
+                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            }
 
             if (selectedUnit != null && selectedUnit.Floor == viewedFloor) renderer3D.DrawSelectionIndicator(selectedUnit, cellSize, new Color(0, 255, 255, 128));
 
@@ -896,8 +924,7 @@ namespace XCOM_3
             DrawHoveredCell3D(gameTime);
             DrawThrowMode3D(gameTime);
 
-            // Dessiner les indicateurs de couverture (en mode debug)
-            if (showCoverIndicators) // Variable bool à ajouter
+            if (showCoverIndicators)
             {
                 renderer3D.DrawCoverIndicators(
                     combatSystem.GetCoverSystem(),
@@ -908,7 +935,6 @@ namespace XCOM_3
                 );
             }
 
-            // Dessiner l'icône de couverture sur les unités
             foreach (var unit in playerUnits.Where(u => u.Floor == viewedFloor))
             {
                 if (unit.CoverType != CoverType.None)
@@ -948,7 +974,6 @@ namespace XCOM_3
                     (float)gameTime.TotalGameTime.TotalSeconds);
             }
 
-            // Afficher le chemin
             if (currentPath.Count > 0 && selectedUnit != null && selectedUnit.Floor == viewedFloor)
             {
                 renderer3D.DrawMovementPath(currentPath, selectedUnit, cellSize,
@@ -1114,6 +1139,89 @@ namespace XCOM_3
             }
 
             return filteredWalls.Count > 0 ? filteredWalls : wallSegments;
+        }
+
+        private void ComputeOcclusionFromWalls(
+            IEnumerable<WallSegment> walls,
+            IEnumerable<Unit> units,
+            float floorHeightOffset,
+            HashSet<WallSegment> fadedWalls,
+            HashSet<Unit> occludedUnits)
+        {
+            Vector3 cameraPos = camera.Position;
+
+            foreach (var unit in units)
+            {
+                Vector3 unitPosition = unit.VisualPosition + new Vector3(0f, cellSize * 0.9f, 0f);
+                bool blocked = false;
+
+                foreach (var wall in walls)
+                {
+                    if (wall.Type == WallType.Window || wall.Type == WallType.Door)
+                        continue;
+
+                    if (!IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, unitPosition))
+                        continue;
+
+                    fadedWalls.Add(wall);
+                    blocked = true;
+                }
+
+                if (blocked)
+                    occludedUnits.Add(unit);
+            }
+        }
+
+        private bool IsWallBetweenCameraAndUnit(WallSegment wall, float floorHeightOffset, Vector3 cameraPos, Vector3 unitPos)
+        {
+            Vector2 camera2D = new Vector2(cameraPos.X, cameraPos.Z);
+            Vector2 unit2D = new Vector2(unitPos.X, unitPos.Z);
+
+            Vector2 wallStart = new Vector2(wall.Start.X * cellSize, wall.Start.Y * cellSize);
+            Vector2 wallEnd = new Vector2(wall.End.X * cellSize, wall.End.Y * cellSize);
+
+            if (!SegmentsIntersect(camera2D, unit2D, wallStart, wallEnd))
+                return false;
+
+            float wallHeight = cellSize * 1.8f;
+            float wallMidHeight = floorHeightOffset + wallHeight * 0.5f;
+            float viewMin = Math.Min(cameraPos.Y, unitPos.Y);
+            float viewMax = Math.Max(cameraPos.Y, unitPos.Y);
+
+            return wallMidHeight >= viewMin - 0.5f && wallMidHeight <= viewMax + 0.5f;
+        }
+
+        private static bool SegmentsIntersect(Vector2 p1, Vector2 p2, Vector2 q1, Vector2 q2)
+        {
+            const float epsilon = 0.0001f;
+            float o1 = Orientation(p1, p2, q1);
+            float o2 = Orientation(p1, p2, q2);
+            float o3 = Orientation(q1, q2, p1);
+            float o4 = Orientation(q1, q2, p2);
+
+            if ((o1 > epsilon && o2 < -epsilon || o1 < -epsilon && o2 > epsilon) &&
+                (o3 > epsilon && o4 < -epsilon || o3 < -epsilon && o4 > epsilon))
+            {
+                return true;
+            }
+
+            if (Math.Abs(o1) <= epsilon && OnSegment(p1, q1, p2)) return true;
+            if (Math.Abs(o2) <= epsilon && OnSegment(p1, q2, p2)) return true;
+            if (Math.Abs(o3) <= epsilon && OnSegment(q1, p1, q2)) return true;
+            if (Math.Abs(o4) <= epsilon && OnSegment(q1, p2, q2)) return true;
+
+            return false;
+        }
+
+        private static float Orientation(Vector2 a, Vector2 b, Vector2 c)
+        {
+            return (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
+        }
+
+        private static bool OnSegment(Vector2 a, Vector2 p, Vector2 b)
+        {
+            return p.X <= Math.Max(a.X, b.X) && p.X >= Math.Min(a.X, b.X) &&
+                   p.Y <= Math.Max(a.Y, b.Y) && p.Y >= Math.Min(a.Y, b.Y);
         }
 
         private HashSet<Point> GetCellsForFloor(int floor)

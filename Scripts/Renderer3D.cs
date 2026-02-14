@@ -273,17 +273,13 @@ namespace XCOM_3
 
 
 
-        public void DrawUnit(Unit unit, int cellSize)
+        public void DrawUnit(Unit unit, int cellSize, Color? bodyColorOverride = null, bool drawEquipment = true)
         {
             if (humanoidModel == null)
             {
                 Console.WriteLine("[RENDERER3D] ERROR: humanoidModel is null!");
                 return;
             }
-
-            Color teamColor = unit.Team == Team.Player ?
-                new Color(100, 150, 255) :
-                new Color(255, 100, 100);
 
             // Une cellule représente un volume de 5x5x5 pieds.
             // On calibre la hauteur visuelle d'un humain (~6 pieds) à ~1.2 cellule.
@@ -318,8 +314,15 @@ namespace XCOM_3
                 legSwing,
                 armSwing,
                 bodyBob,
-                idleBob
+                idleBob,
+                bodyColorOverride,
+                drawEquipment
             );
+        }
+
+        public void DrawUnitSilhouette(Unit unit, int cellSize, Color silhouetteColor)
+        {
+            DrawUnit(unit, cellSize, silhouetteColor, drawEquipment: false);
         }
 
 

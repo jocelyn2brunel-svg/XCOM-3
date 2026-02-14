@@ -286,10 +286,11 @@ namespace XCOM_3
         /// </summary>
         public void DrawWithEquipment(GraphicsDevice device, BasicEffect effect, Unit unit, float scale,
                                       float orientation = 0f, float legSwing = 0f, float armSwing = 0f,
-                                      float bodyBob = 0f, float idleBob = 0f)
+                                      float bodyBob = 0f, float idleBob = 0f,
+                                      Color? bodyColorOverride = null, bool drawEquipment = true)
         {
             Vector3 pos = unit.VisualPosition;
-            Color teamColor = unit.Team == Team.Player ? new Color(100, 150, 255) : new Color(255, 100, 100);
+            Color teamColor = bodyColorOverride ?? (unit.Team == Team.Player ? new Color(100, 150, 255) : new Color(255, 100, 100));
 
             Vector3 animatedPos = pos + new Vector3(0, bodyBob + idleBob, 0);
             Matrix rot = Matrix.CreateRotationY(orientation);
@@ -308,7 +309,10 @@ namespace XCOM_3
             DrawUnitBody(device, effect, animatedPos, teamColor, scale, type, rot, legSwing, armSwing, dims, hasWeapon, isAiming, unit.BodyType, hasPants, unit.DominantHand);
 
             // Afficher l'équipement porté (armes, armures, vêtements, poches)
-            DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, legSwing, isAiming, unit.DominantHand);
+            if (drawEquipment)
+            {
+                DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, legSwing, isAiming, unit.DominantHand);
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════
