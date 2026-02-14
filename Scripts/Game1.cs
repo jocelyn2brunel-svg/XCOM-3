@@ -997,6 +997,11 @@ namespace XCOM_3
                 .Where(u => u.Health > 0)
                 .ToList();
 
+            var unitsAboveViewedFloor = playerUnits.Where(u => u.Floor > viewedFloor)
+                .Concat(enemyUnits.Where(u => u.Floor > viewedFloor && IsEnemyVisibleToPlayers(u)))
+                .Where(u => u.Health > 0)
+                .ToList();
+
             if (unitsBelowViewedFloor.Count > 0)
             {
                 GraphicsDevice.BlendState = BlendState.AlphaBlend;
@@ -1009,6 +1014,24 @@ namespace XCOM_3
                         : new Color(255, 120, 90, 115);
 
                     renderer3D.DrawUnitSilhouette(unit, cellSize, belowFloorColor);
+                }
+
+                GraphicsDevice.BlendState = BlendState.Opaque;
+                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            }
+
+            if (unitsAboveViewedFloor.Count > 0)
+            {
+                GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                GraphicsDevice.DepthStencilState = DepthStencilState.None;
+
+                foreach (var unit in unitsAboveViewedFloor)
+                {
+                    Color aboveFloorColor = unit.Team == Team.Player
+                        ? new Color(80, 200, 255, 135)
+                        : new Color(255, 120, 90, 115);
+
+                    renderer3D.DrawUnitSilhouette(unit, cellSize, aboveFloorColor);
                 }
 
                 GraphicsDevice.BlendState = BlendState.Opaque;
