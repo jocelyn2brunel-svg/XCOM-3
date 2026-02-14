@@ -75,9 +75,9 @@ namespace XCOM_3
         public float BodyBob = 0f;
         public MovementGait CurrentMovementGait = MovementGait.Jog;
 
-        private readonly int jogRangeCells;
-        private readonly int runRangeCells;
-        private readonly int sprintRangeCells;
+        private int jogRangeCells;
+        private int runRangeCells;
+        private int sprintRangeCells;
 
         // Système de compétences et progression
         public UnitSkills Skills = new UnitSkills();
