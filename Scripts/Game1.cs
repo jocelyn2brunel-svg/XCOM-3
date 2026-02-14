@@ -538,7 +538,7 @@ namespace XCOM_3
                 {
                     float deltaX = targetUnit.Cell.X - selectedUnit.Cell.X;
                     float deltaZ = targetUnit.Cell.Y - selectedUnit.Cell.Y;
-                    selectedUnit.TargetOrientation = (float)Math.Atan2(deltaX, deltaZ);
+                    selectedUnit.TargetOrientation = Unit.ComputeOrientationFromDelta(deltaX, deltaZ);
                     selectedUnit.IsAiming = true;
                     aimingUnit = selectedUnit;
                 }
