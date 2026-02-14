@@ -146,6 +146,7 @@ namespace XCOM_3
                 "MTV",
                 "OTV + SAPI",
                 "Army Combat Shirt",
+                "T-Shirt Noir",
                 "Jeans Léger",
                 "Pantalon de Travail",
                 // ✅ Grenades
