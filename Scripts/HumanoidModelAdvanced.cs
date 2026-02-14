@@ -52,6 +52,31 @@ namespace XCOM_3
             }
         }
 
+        private void DrawRoundedCapsuleY(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
+                                         float height, float radius, Color color, Matrix rot, int segments = 4)
+        {
+            int safeSegments = Math.Max(2, segments);
+            float segmentHeight = height / safeSegments;
+            float half = (safeSegments - 1) * 0.5f;
+
+            for (int i = 0; i < safeSegments; i++)
+            {
+                float t = safeSegments == 1 ? 0f : i / (safeSegments - 1f);
+                float arch = 1f - MathF.Abs((t - 0.5f) * 2f);
+                float bulge = 0.82f + arch * 0.18f;
+
+                Vector3 segPos = relative + new Vector3(0f, (i - half) * segmentHeight, 0f);
+                Vector3 segScale = new Vector3(radius * bulge, segmentHeight * 1.05f, radius * bulge);
+                DrawBodyPart(device, effect, center, segPos, segScale, color * (0.92f + arch * 0.08f), rot);
+            }
+        }
+
+        private void DrawRoundedHead(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
+                                     float radius, Color color, Matrix rot)
+        {
+            DrawRoundedCapsuleY(device, effect, center, relative, radius * 1.35f, radius * 1.05f, color, rot, 5);
+        }
+
         /// <summary>
         /// Dessine une unité avec son équipement visible
         /// </summary>
@@ -552,15 +577,13 @@ namespace XCOM_3
                                         Matrix r, Color bodyColor, float legSwing, float armSwing)
         {
             Color jointColor = bodyColor * 0.65f;
-            Vector3 jointScale = new Vector3(dims.lw * 0.55f, dims.lw * 0.55f, dims.lw * 0.55f);
+            DrawRoundedHead(d, e, p, new Vector3(-dims.tw * 0.3f + legSwing * 0.04f, dims.ll * 0.42f, legSwing * 0.08f), dims.lw * 0.28f, jointColor, r);
+            DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.3f - legSwing * 0.04f, dims.ll * 0.42f, -legSwing * 0.08f), dims.lw * 0.28f, jointColor, r);
 
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.3f + legSwing * 0.04f, dims.ll * 0.42f, legSwing * 0.08f), jointScale, jointColor, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.3f - legSwing * 0.04f, dims.ll * 0.42f, -legSwing * 0.08f), jointScale, jointColor, r);
-
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.94f, 0), jointScale, jointColor, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.94f, 0), jointScale, jointColor, r);
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.62f, -armSwing * 0.1f), jointScale, jointColor, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.62f, armSwing * 0.1f), jointScale, jointColor, r);
+            DrawRoundedHead(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.94f, 0), dims.lw * 0.28f, jointColor, r);
+            DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.94f, 0), dims.lw * 0.28f, jointColor, r);
+            DrawRoundedHead(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.62f, -armSwing * 0.1f), dims.lw * 0.28f, jointColor, r);
+            DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.62f, armSwing * 0.1f), dims.lw * 0.28f, jointColor, r);
         }
 
         private void DrawWeaponGripPose(GraphicsDevice d, BasicEffect e, Vector3 p, UnitDimensions dims,
@@ -572,20 +595,19 @@ namespace XCOM_3
             float handY = dims.ll + dims.th * (isAiming ? 0.76f : 0.64f);
             float handZ = dims.td * (isAiming ? 0.95f : 0.45f);
 
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.35f),
-                new Vector3(dims.lw * 0.95f, dims.al * 0.5f, dims.lw * 0.9f), armColor, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.62f, (elbowY + handY) * 0.5f, handZ * 0.7f),
-                new Vector3(dims.lw * 0.85f, dims.al * 0.5f, dims.lw * 0.8f), armColor * 0.95f, r);
+            DrawRoundedCapsuleY(d, e, p, new Vector3(dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.35f),
+                dims.al * 0.52f, dims.lw * 0.5f, armColor, r, 4);
+            DrawRoundedCapsuleY(d, e, p, new Vector3(dims.tw * 0.62f, (elbowY + handY) * 0.5f, handZ * 0.7f),
+                dims.al * 0.48f, dims.lw * 0.46f, armColor * 0.95f, r, 4);
 
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.45f),
-                new Vector3(dims.lw * 0.95f, dims.al * 0.45f, dims.lw * 0.9f), armColor * 0.95f, r);
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.42f, (elbowY + handY) * 0.5f, handZ * 0.85f),
-                new Vector3(dims.lw * 0.85f, dims.al * 0.45f, dims.lw * 0.8f), armColor * 0.9f, r);
+            DrawRoundedCapsuleY(d, e, p, new Vector3(-dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.45f),
+                dims.al * 0.46f, dims.lw * 0.5f, armColor * 0.95f, r, 4);
+            DrawRoundedCapsuleY(d, e, p, new Vector3(-dims.tw * 0.42f, (elbowY + handY) * 0.5f, handZ * 0.85f),
+                dims.al * 0.42f, dims.lw * 0.46f, armColor * 0.9f, r, 4);
 
             Color jointColor = bodyColor * 0.6f;
-            Vector3 elbowScale = new Vector3(dims.lw * 0.6f, dims.lw * 0.6f, dims.lw * 0.6f);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, elbowY, handZ * 0.5f), elbowScale, jointColor, r);
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.5f, elbowY, handZ * 0.6f), elbowScale, jointColor, r);
+            DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.6f, elbowY, handZ * 0.5f), dims.lw * 0.3f, jointColor, r);
+            DrawRoundedHead(d, e, p, new Vector3(-dims.tw * 0.5f, elbowY, handZ * 0.6f), dims.lw * 0.3f, jointColor, r);
         }
         private void DrawSoldier(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
         {
@@ -599,10 +621,10 @@ namespace XCOM_3
             Color skin = new(220, 180, 140), dark = new(52, 58, 90);
 
             // Jambes
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.3f + l * 0.05f, dims.ll * 0.5f, l * 0.1f),
-                        new Vector3(dims.lw, dims.ll, dims.lw), dark, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.3f - l * 0.05f, dims.ll * 0.5f, -l * 0.1f),
-                        new Vector3(dims.lw, dims.ll, dims.lw), dark, r);
+            DrawRoundedCapsuleY(d, e, p, new Vector3(-dims.tw * 0.3f + l * 0.05f, dims.ll * 0.5f, l * 0.1f),
+                dims.ll, dims.lw * 0.55f, dark, r, 5);
+            DrawRoundedCapsuleY(d, e, p, new Vector3(dims.tw * 0.3f - l * 0.05f, dims.ll * 0.5f, -l * 0.1f),
+                dims.ll, dims.lw * 0.55f, dark, r, 5);
 
             // Bottes volumineuses style low-poly PS1
             DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.3f + l * 0.05f, dims.ll * 0.08f, dims.lw * 0.4f),
@@ -619,10 +641,10 @@ namespace XCOM_3
                         new Vector3(dims.tw * 0.75f, dims.th * 0.33f, dims.td * 0.85f), c * 0.8f, r);
 
             // Bras
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.7f, -a * 0.15f),
-                        new Vector3(dims.lw, dims.al, dims.lw), c * 0.85f, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.7f, a * 0.15f),
-                        new Vector3(dims.lw, dims.al, dims.lw), c * 0.85f, r);
+            DrawRoundedCapsuleY(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.7f, -a * 0.15f),
+                dims.al, dims.lw * 0.52f, c * 0.85f, r, 5);
+            DrawRoundedCapsuleY(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.7f, a * 0.15f),
+                dims.al, dims.lw * 0.52f, c * 0.85f, r, 5);
 
             // Bracelets / avant-bras plus marqués
             DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.58f, -a * 0.15f),
@@ -631,8 +653,8 @@ namespace XCOM_3
                         new Vector3(dims.lw * 1.5f, dims.al * 0.22f, dims.lw * 1.25f), new Color(55, 70, 100), r);
 
             // Tête
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0),
-                        new Vector3(dims.head, dims.head * 1.2f, dims.head), skin, r);
+            DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0),
+                dims.head * 0.52f, skin, r);
 
             DrawCloudInspiredFeatures(d, e, p, c, r, dims);
         }
@@ -698,7 +720,7 @@ namespace XCOM_3
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, -0.1f * s), new Vector3(dims.tw, dims.th, dims.td), c * 0.7f, r);
             DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.5f, 0.15f * s - a * 0.1f), new Vector3(dims.lw, dims.al, dims.lw), c * 0.6f, r);
             DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.5f, 0.15f * s + a * 0.1f), new Vector3(dims.lw, dims.al, dims.lw), c * 0.6f, r);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, -0.05f * s), new Vector3(dims.head, dims.head * 1.1f, dims.head), skin, r);
+            DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, -0.05f * s), dims.head * 0.5f, skin, r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, dims.head * 0.55f), new Vector3(dims.head * 0.5f, dims.head * 0.2f, dims.head * 0.05f), new Color(180, 0, 0), r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.4f, dims.td * 0.9f), new Vector3(dims.lw * 1.5f, dims.lw, dims.lw * 2f), c * 0.5f, r);
         }
@@ -718,7 +740,7 @@ namespace XCOM_3
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0), new Vector3(dims.tw, dims.th, dims.td), c, r);
             DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.65f, dims.ll + dims.th * 0.7f, -a * 0.1f), new Vector3(dims.lw * 1.3f, dims.al, dims.lw * 1.3f), c * 0.85f, r);
             DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.65f, dims.ll + dims.th * 0.7f, a * 0.1f), new Vector3(dims.lw * 1.3f, dims.al, dims.lw * 1.3f), c * 0.85f, r);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, 0), new Vector3(dims.head * 1.1f, dims.head, dims.head * 1.1f), skin, r);
+            DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, 0), dims.head * 0.56f, skin, r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, dims.head * 0.6f), new Vector3(dims.head * 0.8f, dims.head * 0.4f, dims.head * 0.15f), new Color(30, 30, 30), r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, dims.td * 0.9f), new Vector3(dims.tw * 0.4f, dims.th * 0.4f, dims.td * 0.7f), new Color(60, 60, 60), r);
 
@@ -740,7 +762,7 @@ namespace XCOM_3
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0), new Vector3(dims.tw, dims.th, dims.td), c, r);
             DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.55f, dims.ll + dims.th * 0.7f, -a * 0.18f), new Vector3(dims.lw, dims.al, dims.lw), c * 0.85f, r);
             DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.55f, dims.ll + dims.th * 0.7f, a * 0.18f), new Vector3(dims.lw, dims.al, dims.lw), c * 0.85f, r);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0), new Vector3(dims.head, dims.head * 1.2f, dims.head), skin, r);
+            DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0), dims.head * 0.5f, skin, r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f + 0.05f * s, dims.head * 0.6f), new Vector3(dims.head * 0.7f, dims.head * 0.25f, dims.head * 0.08f), new Color(50, 100, 150), r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, dims.head * 0.8f), new Vector3(dims.head * 0.1f, dims.head * 0.1f, dims.head * 0.35f), new Color(255, 0, 0), r);
 
