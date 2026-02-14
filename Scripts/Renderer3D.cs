@@ -39,6 +39,12 @@ namespace XCOM_3
             basic.EnableDefaultLighting();
             textured = new BasicEffect(gd) { TextureEnabled = true, LightingEnabled = true };
             textured.EnableDefaultLighting();
+
+            // Rendu mat pour les tuiles : on coupe les reflets spéculaires.
+            textured.SpecularColor = Vector3.Zero;
+            textured.DirectionalLight0.SpecularColor = Vector3.Zero;
+            textured.DirectionalLight1.SpecularColor = Vector3.Zero;
+            textured.DirectionalLight2.SpecularColor = Vector3.Zero;
         }
 
         private void InitPrimitives()
