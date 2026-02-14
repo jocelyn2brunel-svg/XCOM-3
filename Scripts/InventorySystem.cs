@@ -46,6 +46,32 @@ namespace XCOM_3
                                              // Dans la section ÉTAT de InventorySystem.cs
         private Point? previewPos = null;
 
+        private const double DoubleClickThresholdSeconds = 0.35;
+        private double lastClickTimeSeconds = -10;
+        private string lastClickItemKey = string.Empty;
+
+        private bool showContextMenu = false;
+        private Rectangle contextMenuRect;
+        private ItemContextInfo contextMenuItem;
+
+        private bool showExaminePopup = false;
+        private Rectangle examinePopupRect;
+        private ItemData examinedItemData;
+
+        private struct ItemContextInfo
+        {
+            public ItemData Data;
+            public string Source;
+            public int Index;
+            public Point GridPosition;
+
+            public string GetKey()
+            {
+                return $"{Source}:{Index}:{GridPosition.X}:{GridPosition.Y}:{Data?.Name}";
+            }
+        }
+
+
         // ═══════════════════════════════════════════════════════════════════════
         // CONSTRUCTEUR
         // ═══════════════════════════════════════════════════════════════════════
@@ -149,9 +175,11 @@ namespace XCOM_3
         // UPDATE
         // ═══════════════════════════════════════════════════════════════════════
 
-        public void Update(MouseState mouse, bool leftClick, KeyboardState keyboard, Unit selectedUnit)
+        public void Update(MouseState mouse, MouseState previousMouse, bool leftClick, KeyboardState keyboard, Unit selectedUnit)
         {
             if (selectedUnit == null) return;
+
+            bool rightClick = mouse.RightButton == ButtonState.Pressed && previousMouse.RightButton == ButtonState.Released;
 
             // Accumuler le temps pour l'effet Sinus du pulse
             totalElapsedTime += 0.016f; // Environ 60 FPS, ou utilise gameTime.ElapsedGameTime
@@ -171,6 +199,13 @@ namespace XCOM_3
                 hoveredItem = inventoryGrid.GetItemAt(new Point(gridX, gridY)); //
             }
 
+            HandleContextMenus(mouse, leftClick, rightClick, selectedUnit, gridStartX, gridStartY);
+            if (showContextMenu || showExaminePopup)
+            {
+                previousKeyboardState = keyboard;
+                return;
+            }
+
             // Rotation avec touche R
             bool rPressed = keyboard.IsKeyDown(Keys.R) && previousKeyboardState.IsKeyUp(Keys.R);
             if (rPressed && draggedItem != null)
@@ -182,7 +217,8 @@ namespace XCOM_3
             // Démarrer le drag
             if (leftClick && draggedItem == null)
             {
-                HandleStartDrag(mouse, selectedUnit, gridStartX, gridStartY);
+                if (!HandleDoubleClick(mouse, selectedUnit, gridStartX, gridStartY))
+                    HandleStartDrag(mouse, selectedUnit, gridStartX, gridStartY);
             }
 
             // Drag en cours
@@ -380,7 +416,7 @@ namespace XCOM_3
         private void HandleEndDrag(MouseState mouse, Unit unit, int gridStartX, int gridStartY)
         {
             // ✅ VÉRIFIER D'ABORD L'ÉQUIPEMENT (priorité absolue)
-            bool equipped = TryEquipInSlot(mouse, draggedItem, unit);
+            bool equipped = TryEquipInSlot(mouse.Position, draggedItem, unit);
 
             if (!equipped)
             {
@@ -441,9 +477,9 @@ namespace XCOM_3
             draggedItem = null;
         }
 
-        private bool TryEquipInSlot(MouseState mouse, GridItem item, Unit unit)
+        private bool TryEquipInSlot(Point mousePosition, GridItem item, Unit unit)
         {
-            Console.WriteLine($"[INVENTORY] TryEquipInSlot: {item.Data.Name} (Type: {item.Data.Type}) at mouse {mouse.Position}");
+            Console.WriteLine($"[INVENTORY] TryEquipInSlot: {item.Data.Name} (Type: {item.Data.Type}) at mouse {mousePosition}");
             Console.WriteLine($"[INVENTORY] Viewport: {graphicsDevice.Viewport.Width}x{graphicsDevice.Viewport.Height}");
 
             // ✅ Les grenades ne vont QUE dans des slots utilitaires (poches / chest rig)
@@ -456,7 +492,7 @@ namespace XCOM_3
             }
 
             Rectangle weaponSlot = GetWeaponSlotBounds();
-            if (item.Data.Type == ItemType.Weapon && weaponSlot.Contains(mouse.Position))
+            if (item.Data.Type == ItemType.Weapon && weaponSlot.Contains(mousePosition))
             {
                 if (unit.EquippedWeapon != null)
                     ReturnItemToGrid(unit.EquippedWeapon);
@@ -478,7 +514,7 @@ namespace XCOM_3
                 for (int i = 0; i < pantsCapacity; i++)
                 {
                     Rectangle pocketSlot = GetPantsPocketSlotByIndex(i);
-                    if (pocketSlot.Contains(mouse.Position))
+                    if (pocketSlot.Contains(mousePosition))
                     {
                         if (!isPocketSized)
                             return false;
@@ -503,7 +539,7 @@ namespace XCOM_3
                 for (int i = 0; i < chestRigCapacity; i++)
                 {
                     Rectangle rigSlot = GetChestRigPocketSlotByIndex(i, unit);
-                    if (rigSlot.Contains(mouse.Position))
+                    if (rigSlot.Contains(mousePosition))
                     {
                         if (!isPocketSized)
                             return false;
@@ -530,7 +566,7 @@ namespace XCOM_3
             if (item.Data.Type == ItemType.Armor)
             {
                 Rectangle helmetSlot = GetHelmetSlotBounds();
-                if (item.Data.ArmorSlot == ArmorSlot.Head && helmetSlot.Contains(mouse.Position))
+                if (item.Data.ArmorSlot == ArmorSlot.Head && helmetSlot.Contains(mousePosition))
                 {
                     if (unit.EquippedHelmet != null)
                         ReturnItemToGrid(unit.EquippedHelmet);
@@ -540,7 +576,7 @@ namespace XCOM_3
                 }
 
                 Rectangle armorSlot = GetArmorSlotBounds();
-                if (item.Data.ArmorSlot == ArmorSlot.Torso && armorSlot.Contains(mouse.Position))
+                if (item.Data.ArmorSlot == ArmorSlot.Torso && armorSlot.Contains(mousePosition))
                 {
                     if (unit.EquippedArmor != null)
                         ReturnItemToGrid(unit.EquippedArmor);
@@ -550,7 +586,7 @@ namespace XCOM_3
                 }
 
                 Rectangle shieldSlot = GetShieldSlotBounds();
-                if (item.Data.ArmorSlot == ArmorSlot.Shield && shieldSlot.Contains(mouse.Position))
+                if (item.Data.ArmorSlot == ArmorSlot.Shield && shieldSlot.Contains(mousePosition))
                 {
                     if (unit.EquippedShield != null)
                         ReturnItemToGrid(unit.EquippedShield);
@@ -560,7 +596,7 @@ namespace XCOM_3
                 }
 
                 Rectangle shirtSlot = GetShirtSlotBounds();
-                if (item.Data.ArmorSlot == ArmorSlot.Shirt && shirtSlot.Contains(mouse.Position))
+                if (item.Data.ArmorSlot == ArmorSlot.Shirt && shirtSlot.Contains(mousePosition))
                 {
                     if (unit.EquippedShirt != null)
                         ReturnItemToGrid(unit.EquippedShirt);
@@ -570,7 +606,7 @@ namespace XCOM_3
                 }
 
                 Rectangle pantsSlot = GetPantsSlotBounds();
-                if (item.Data.ArmorSlot == ArmorSlot.Pants && pantsSlot.Contains(mouse.Position))
+                if (item.Data.ArmorSlot == ArmorSlot.Pants && pantsSlot.Contains(mousePosition))
                 {
                     if (unit.EquippedPants != null)
                     {
@@ -591,7 +627,7 @@ namespace XCOM_3
                 }
 
                 Rectangle chestRigSlot = GetChestRigSlotBounds();
-                if (item.Data.ArmorSlot == ArmorSlot.ChestRig && chestRigSlot.Contains(mouse.Position))
+                if (item.Data.ArmorSlot == ArmorSlot.ChestRig && chestRigSlot.Contains(mousePosition))
                 {
                     if (unit.EquippedChestRig != null)
                     {
@@ -627,6 +663,257 @@ namespace XCOM_3
                 inventoryGrid.PlaceItem(gridItem);
                 Console.WriteLine($"[INVENTORY] Returned old item to grid: {item.Data.Name}");
             }
+        }
+
+        private bool HandleDoubleClick(MouseState mouse, Unit unit, int gridStartX, int gridStartY)
+        {
+            var clickedItem = GetItemUnderMouse(mouse.Position, unit, gridStartX, gridStartY);
+            if (!clickedItem.HasValue)
+                return false;
+
+            double now = DateTime.UtcNow.TimeOfDay.TotalSeconds;
+            string key = clickedItem.Value.GetKey();
+            bool isDoubleClick = key == lastClickItemKey && (now - lastClickTimeSeconds) <= DoubleClickThresholdSeconds;
+
+            lastClickItemKey = key;
+            lastClickTimeSeconds = now;
+
+            if (!isDoubleClick)
+                return false;
+
+            return TryEquipByContext(clickedItem.Value, unit);
+        }
+
+        private void HandleContextMenus(MouseState mouse, bool leftClick, bool rightClick, Unit unit, int gridStartX, int gridStartY)
+        {
+            if (rightClick)
+            {
+                var clickedItem = GetItemUnderMouse(mouse.Position, unit, gridStartX, gridStartY);
+                if (clickedItem.HasValue)
+                {
+                    contextMenuItem = clickedItem.Value;
+                    contextMenuRect = new Rectangle(mouse.X, mouse.Y, 140, 64);
+                    showContextMenu = true;
+                    showExaminePopup = false;
+                }
+                else
+                {
+                    showContextMenu = false;
+                }
+            }
+
+            if (leftClick && showContextMenu)
+            {
+                Rectangle equipRect = new Rectangle(contextMenuRect.X + 4, contextMenuRect.Y + 4, contextMenuRect.Width - 8, 24);
+                Rectangle examineRect = new Rectangle(contextMenuRect.X + 4, contextMenuRect.Y + 34, contextMenuRect.Width - 8, 24);
+
+                if (equipRect.Contains(mouse.Position))
+                {
+                    TryEquipByContext(contextMenuItem, unit);
+                    showContextMenu = false;
+                }
+                else if (examineRect.Contains(mouse.Position))
+                {
+                    examinedItemData = contextMenuItem.Data;
+                    int width = 360;
+                    int height = 260;
+                    examinePopupRect = new Rectangle(
+                        graphicsDevice.Viewport.Width / 2 - width / 2,
+                        graphicsDevice.Viewport.Height / 2 - height / 2,
+                        width,
+                        height);
+                    showExaminePopup = true;
+                    showContextMenu = false;
+                }
+                else if (!contextMenuRect.Contains(mouse.Position))
+                {
+                    showContextMenu = false;
+                }
+            }
+
+            if (leftClick && showExaminePopup && !examinePopupRect.Contains(mouse.Position))
+            {
+                showExaminePopup = false;
+            }
+        }
+
+        private bool TryEquipByContext(ItemContextInfo info, Unit unit)
+        {
+            if (info.Data == null)
+                return false;
+
+            if (IsAlreadyEquippedInCompatibleSlot(info))
+                return true;
+
+            Point target;
+            if (!TryGetAutoEquipTarget(info.Data, unit, out target))
+                return false;
+
+            RemoveItemFromSource(info, unit);
+
+            var quickItem = new GridItem(info.Data, Point.Zero, ItemSizeDatabase.GetItemSize(info.Data.Name), false);
+            bool equipped = TryEquipInSlot(target, quickItem, unit);
+            if (!equipped)
+            {
+                RestoreItemToSource(info, unit);
+            }
+
+            return equipped;
+        }
+
+        private bool IsAlreadyEquippedInCompatibleSlot(ItemContextInfo info)
+        {
+            if (info.Data.Type == ItemType.Weapon && info.Source == "weapon")
+                return true;
+
+            if (info.Data.Type == ItemType.Armor)
+            {
+                if (info.Data.ArmorSlot == ArmorSlot.Head && info.Source == "helmet") return true;
+                if (info.Data.ArmorSlot == ArmorSlot.Torso && info.Source == "armor") return true;
+                if (info.Data.ArmorSlot == ArmorSlot.Shield && info.Source == "shield") return true;
+                if (info.Data.ArmorSlot == ArmorSlot.Shirt && info.Source == "shirt") return true;
+                if (info.Data.ArmorSlot == ArmorSlot.Pants && info.Source == "pants") return true;
+                if (info.Data.ArmorSlot == ArmorSlot.ChestRig && info.Source == "chestrig") return true;
+            }
+
+            bool isPocket = ItemSizeDatabase.IsPocketSized(info.Data.Name);
+            if (isPocket && (info.Source == "pantspocket" || info.Source == "rigpocket"))
+                return true;
+
+            return false;
+        }
+
+        private bool TryGetAutoEquipTarget(ItemData data, Unit unit, out Point target)
+        {
+            if (data.Type == ItemType.Weapon)
+            {
+                target = GetWeaponSlotBounds().Center;
+                return true;
+            }
+
+            if (data.Type == ItemType.Armor)
+            {
+                switch (data.ArmorSlot)
+                {
+                    case ArmorSlot.Head: target = GetHelmetSlotBounds().Center; return true;
+                    case ArmorSlot.Torso: target = GetArmorSlotBounds().Center; return true;
+                    case ArmorSlot.Shield: target = GetShieldSlotBounds().Center; return true;
+                    case ArmorSlot.Shirt: target = GetShirtSlotBounds().Center; return true;
+                    case ArmorSlot.Pants: target = GetPantsSlotBounds().Center; return true;
+                    case ArmorSlot.ChestRig: target = GetChestRigSlotBounds().Center; return true;
+                }
+            }
+
+            bool isPocketSized = ItemSizeDatabase.IsPocketSized(data.Name);
+            if (isPocketSized)
+            {
+                for (int i = 0; i < unit.GetPantsInventoryCapacity(); i++)
+                {
+                    if (i >= unit.PantsInventory.Count || unit.PantsInventory[i] == null)
+                    {
+                        target = GetPantsPocketSlotByIndex(i).Center;
+                        return true;
+                    }
+                }
+
+                for (int i = 0; i < unit.GetChestRigInventoryCapacity(); i++)
+                {
+                    if (i >= unit.ChestRigInventory.Count || unit.ChestRigInventory[i] == null)
+                    {
+                        target = GetChestRigPocketSlotByIndex(i, unit).Center;
+                        return true;
+                    }
+                }
+            }
+
+            target = Point.Zero;
+            return false;
+        }
+
+        private ItemContextInfo? GetItemUnderMouse(Point mousePos, Unit unit, int gridStartX, int gridStartY)
+        {
+            int gridX = (mousePos.X - gridStartX) / CELL_SIZE;
+            int gridY = (mousePos.Y - gridStartY) / CELL_SIZE;
+            if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT)
+            {
+                var gridItem = inventoryGrid.GetItemAt(new Point(gridX, gridY));
+                if (gridItem != null)
+                {
+                    return new ItemContextInfo { Data = gridItem.Data, Source = "grid", GridPosition = gridItem.GridPosition, Index = -1 };
+                }
+            }
+
+            if (unit.EquippedWeapon != null && GetWeaponSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedWeapon.Data, Source = "weapon", Index = -1 };
+            if (unit.EquippedHelmet != null && GetHelmetSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedHelmet.Data, Source = "helmet", Index = -1 };
+            if (unit.EquippedArmor != null && GetArmorSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedArmor.Data, Source = "armor", Index = -1 };
+            if (unit.EquippedShield != null && GetShieldSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedShield.Data, Source = "shield", Index = -1 };
+            if (unit.EquippedShirt != null && GetShirtSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedShirt.Data, Source = "shirt", Index = -1 };
+            if (unit.EquippedPants != null && GetPantsSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedPants.Data, Source = "pants", Index = -1 };
+            if (unit.EquippedChestRig != null && GetChestRigSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedChestRig.Data, Source = "chestrig", Index = -1 };
+
+            for (int i = 0; i < unit.GetPantsInventoryCapacity(); i++)
+            {
+                if (i < unit.PantsInventory.Count && unit.PantsInventory[i] != null && GetPantsPocketSlotByIndex(i).Contains(mousePos))
+                    return new ItemContextInfo { Data = unit.PantsInventory[i].Data, Source = "pantspocket", Index = i };
+            }
+
+            for (int i = 0; i < unit.GetChestRigInventoryCapacity(); i++)
+            {
+                if (i < unit.ChestRigInventory.Count && unit.ChestRigInventory[i] != null && GetChestRigPocketSlotByIndex(i, unit).Contains(mousePos))
+                    return new ItemContextInfo { Data = unit.ChestRigInventory[i].Data, Source = "rigpocket", Index = i };
+            }
+
+            return null;
+        }
+
+        private void RemoveItemFromSource(ItemContextInfo info, Unit unit)
+        {
+            switch (info.Source)
+            {
+                case "grid":
+                    var inGrid = inventoryGrid.GetItemAt(info.GridPosition);
+                    if (inGrid != null) inventoryGrid.RemoveItem(inGrid);
+                    break;
+                case "weapon": unit.EquippedWeapon = null; unit.Weapon = string.Empty; unit.WeaponData = null; break;
+                case "helmet": unit.EquippedHelmet = null; break;
+                case "armor": unit.EquippedArmor = null; break;
+                case "shield": unit.EquippedShield = null; break;
+                case "shirt": unit.EquippedShirt = null; break;
+                case "pants": unit.EquippedPants = null; break;
+                case "chestrig": unit.EquippedChestRig = null; break;
+                case "pantspocket": if (info.Index >= 0 && info.Index < unit.PantsInventory.Count) unit.PantsInventory.RemoveAt(info.Index); break;
+                case "rigpocket": if (info.Index >= 0 && info.Index < unit.ChestRigInventory.Count) unit.ChestRigInventory.RemoveAt(info.Index); break;
+            }
+            unit.RefreshGrenadeInventoryFromEquipment();
+        }
+
+        private void RestoreItemToSource(ItemContextInfo info, Unit unit)
+        {
+            var restored = new Item(info.Data, Point.Zero);
+            switch (info.Source)
+            {
+                case "grid":
+                    var size = ItemSizeDatabase.GetItemSize(info.Data.Name);
+                    if (inventoryGrid.CanPlaceItem(info.GridPosition, size))
+                        inventoryGrid.PlaceItem(new GridItem(info.Data, info.GridPosition, size, false));
+                    else
+                        ReturnItemToGrid(restored);
+                    break;
+                case "weapon": unit.EquippedWeapon = restored; unit.Weapon = info.Data.Name; unit.WeaponData = info.Data.WeaponData; break;
+                case "helmet": unit.EquippedHelmet = restored; break;
+                case "armor": unit.EquippedArmor = restored; break;
+                case "shield": unit.EquippedShield = restored; break;
+                case "shirt": unit.EquippedShirt = restored; break;
+                case "pants": unit.EquippedPants = restored; break;
+                case "chestrig": unit.EquippedChestRig = restored; break;
+                case "pantspocket":
+                    if (info.Index >= 0 && info.Index <= unit.PantsInventory.Count) unit.PantsInventory.Insert(info.Index, restored);
+                    break;
+                case "rigpocket":
+                    if (info.Index >= 0 && info.Index <= unit.ChestRigInventory.Count) unit.ChestRigInventory.Insert(info.Index, restored);
+                    break;
+            }
+            unit.RefreshGrenadeInventoryFromEquipment();
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -721,8 +1008,53 @@ namespace XCOM_3
             }
 
             // ✅ Texte d'aide avec ombre
-            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "DRAG TO EQUIP | R: ROTATE",
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "DOUBLE CLICK: EQUIP | RIGHT CLICK: ACTIONS | R: ROTATE",
                 new Vector2(panelX + 20, panelY + panelHeight - 40), ParasiteEveTheme.TextWarning, 0.8f);
+
+            DrawContextMenuAndExamine();
+        }
+
+        private void DrawContextMenuAndExamine()
+        {
+            if (showContextMenu)
+            {
+                ParasiteEveTheme.DrawPanel(spriteBatch, pixel, contextMenuRect);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextMenuRect, ParasiteEveTheme.SelectionOutline, 1);
+
+                Rectangle equipRect = new Rectangle(contextMenuRect.X + 4, contextMenuRect.Y + 4, contextMenuRect.Width - 8, 24);
+                Rectangle examineRect = new Rectangle(contextMenuRect.X + 4, contextMenuRect.Y + 34, contextMenuRect.Width - 8, 24);
+
+                spriteBatch.Draw(pixel, equipRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                spriteBatch.Draw(pixel, examineRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EQUIP", new Vector2(equipRect.X + 8, equipRect.Y + 5), ParasiteEveTheme.TextNormal, 0.7f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EXAMINE", new Vector2(examineRect.X + 8, examineRect.Y + 5), ParasiteEveTheme.TextNormal, 0.7f);
+            }
+
+            if (showExaminePopup && examinedItemData != null)
+            {
+                ParasiteEveTheme.DrawPanel(spriteBatch, pixel, examinePopupRect);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, examinePopupRect, ParasiteEveTheme.SelectionOutline, 1);
+
+                ParasiteEveTheme.DrawSectionHeader(spriteBatch, pixel, font, new Rectangle(examinePopupRect.X, examinePopupRect.Y, examinePopupRect.Width, 32), $"EXAMINE - {examinedItemData.Name.ToUpper()}");
+
+                Rectangle imageRect = new Rectangle(examinePopupRect.X + 16, examinePopupRect.Y + 48, 96, 96);
+                spriteBatch.Draw(pixel, imageRect, ParasiteEveTheme.BackgroundMedium);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, imageRect, ParasiteEveTheme.BorderColor, 1);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "IMAGE", new Vector2(imageRect.X + 24, imageRect.Y + 40), ParasiteEveTheme.TextDim, 0.6f);
+
+                float textY = examinePopupRect.Y + 52;
+                float textX = imageRect.Right + 16;
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Type: {examinedItemData.Type}", new Vector2(textX, textY), ParasiteEveTheme.TextNormal, 0.7f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Poids: {examinedItemData.WeightLbs:0.##} lbs", new Vector2(textX, textY + 24), ParasiteEveTheme.TextNormal, 0.7f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Slots bonus: {examinedItemData.BonusInventorySlots}", new Vector2(textX, textY + 48), ParasiteEveTheme.TextNormal, 0.7f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Mobilite: -{examinedItemData.MobilityPenalty}", new Vector2(textX, textY + 72), ParasiteEveTheme.TextNormal, 0.7f);
+
+                if (!string.IsNullOrWhiteSpace(examinedItemData.Description))
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, examinedItemData.Description, new Vector2(examinePopupRect.X + 16, examinePopupRect.Y + 164), ParasiteEveTheme.TextDim, 0.6f);
+
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "Click outside to close", new Vector2(examinePopupRect.X + 16, examinePopupRect.Bottom - 26), ParasiteEveTheme.TextWarning, 0.6f);
+            }
         }
 
         private void DrawInventoryGrid(int gridStartX, int gridStartY)

@@ -140,6 +140,13 @@ namespace XCOM_3
             return new ItemSize(1, 1);
         }
 
+
+        public static bool IsPocketSized(string name)
+        {
+            ItemSize size = GetItemSize(name);
+            return size.Width == 1 && size.Height == 1;
+        }
+
         public static Color GetItemColor(ItemType type) => type switch
         {
             ItemType.Weapon => new Color(100, 150, 255),
