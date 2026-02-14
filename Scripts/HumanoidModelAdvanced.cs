@@ -715,19 +715,26 @@ namespace XCOM_3
                                      float radiusScale, Color armColor)
         {
             float normalizedPhase = MathHelper.Clamp(phase / 0.3f, -1f, 1f);
+            float forward = normalizedPhase;
+            float backward = -normalizedPhase;
 
-            Vector3 shoulder = new Vector3(shoulderX, dims.ll + dims.th * shoulderHeight, -normalizedPhase * dims.al * 0.08f);
+            Vector3 shoulder = new Vector3(shoulderX, dims.ll + dims.th * shoulderHeight, -forward * dims.al * 0.08f);
             Vector3 elbow = new Vector3(
                 shoulderX,
-                dims.ll + dims.th * (shoulderHeight - 0.33f) + Math.Max(0f, normalizedPhase) * dims.al * 0.18f,
-                normalizedPhase * dims.al * 0.32f + bendBias * dims.al * 0.12f);
-            Vector3 wrist = new Vector3(
-                shoulderX,
-                dims.ll + dims.th * (shoulderHeight - 0.66f) + Math.Max(0f, normalizedPhase) * dims.al * 0.1f,
-                elbow.Z - Math.Min(0f, normalizedPhase) * dims.al * 0.22f + bendBias * dims.al * 0.1f);
+                dims.ll + dims.th * (shoulderHeight - 0.3f) + Math.Max(0f, forward) * dims.al * 0.15f,
+                forward * dims.al * 0.34f + bendBias * dims.al * 0.12f);
+
+            Vector3 wrist = elbow + new Vector3(
+                0f,
+                -dims.al * (0.32f + Math.Max(0f, backward) * 0.1f),
+                forward * dims.al * 0.28f + Math.Max(0f, backward) * dims.al * 0.12f + bendBias * dims.al * 0.08f);
 
             DrawRoundedCapsuleBetween(d, e, p, shoulder, elbow, dims.lw * radiusScale, armColor, r, 4);
             DrawRoundedCapsuleBetween(d, e, p, elbow, wrist, dims.lw * (radiusScale * 0.92f), armColor * 0.95f, r, 4);
+
+            Vector3 handPos = wrist + new Vector3(0f, -dims.lw * 0.25f, forward * dims.lw * 0.95f);
+            Vector3 handScale = new Vector3(dims.lw * (radiusScale * 1.15f), dims.lw * (radiusScale * 0.85f), dims.lw * (radiusScale * 1.35f));
+            DrawBodyPart(d, e, p, handPos, handScale, armColor * 0.92f, r);
         }
 
         private void DrawRunningLeg(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
@@ -735,21 +742,23 @@ namespace XCOM_3
                                     float legRadiusScale, Color legColor, Color footColor)
         {
             float normalizedPhase = MathHelper.Clamp(phase / 0.42f, -1f, 1f);
+            float forward = normalizedPhase;
+            float backward = -normalizedPhase;
 
-            Vector3 hip = new Vector3(hipX, dims.ll, -normalizedPhase * dims.ll * 0.04f);
+            Vector3 hip = new Vector3(hipX, dims.ll, -forward * dims.ll * 0.04f);
             Vector3 knee = new Vector3(
                 hipX,
-                dims.ll * (0.5f + Math.Max(0f, normalizedPhase) * 0.18f),
-                normalizedPhase * dims.ll * 0.34f);
-            Vector3 ankle = new Vector3(
-                hipX,
-                dims.ll * 0.08f + Math.Max(0f, normalizedPhase) * dims.ll * 0.12f,
-                knee.Z - Math.Min(0f, normalizedPhase) * dims.ll * 0.28f + Math.Max(0f, normalizedPhase) * dims.ll * 0.06f);
+                dims.ll * (0.5f + Math.Max(0f, forward) * 0.18f),
+                forward * dims.ll * 0.34f);
+            Vector3 ankle = knee + new Vector3(
+                0f,
+                -dims.ll * (0.44f + Math.Max(0f, backward) * 0.12f),
+                forward * dims.ll * 0.18f + Math.Max(0f, backward) * dims.ll * 0.24f);
 
             DrawRoundedCapsuleBetween(d, e, p, hip, knee, dims.lw * legRadiusScale, legColor, r, 4);
             DrawRoundedCapsuleBetween(d, e, p, knee, ankle, dims.lw * (legRadiusScale * 0.92f), legColor * 0.96f, r, 4);
 
-            Vector3 bootPos = ankle + new Vector3(0f, dims.ll * 0.05f, dims.lw * (0.45f + Math.Max(0f, normalizedPhase) * 0.35f));
+            Vector3 bootPos = ankle + new Vector3(0f, dims.ll * 0.05f, dims.lw * (0.45f + Math.Max(0f, forward) * 0.35f));
             Vector3 bootScale = new Vector3(dims.lw * (legRadiusScale * 2.35f), dims.ll * 0.2f, dims.lw * (legRadiusScale * 2.7f));
             DrawBodyPart(d, e, p, bootPos, bootScale, footColor, r);
         }
