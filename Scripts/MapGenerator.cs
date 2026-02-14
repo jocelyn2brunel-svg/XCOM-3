@@ -72,6 +72,7 @@ namespace XCOM_3
             // Générer les zones de spawn
             map.GenerateDefaultSpawnZones();
             map.StairConnections = GenerateDefaultStairs(map.GridWidth, map.GridHeight, map.FloorCount, map.Buildings);
+            map.RampTiles = GenerateDefaultRamps(map.StairConnections);
 
             Console.WriteLine($"[MAP GEN] Generated {map.Name}: {map.GridWidth}x{map.GridHeight}, floors={map.FloorCount}, {map.Walls.Count} walls");
 
@@ -99,6 +100,7 @@ namespace XCOM_3
             map.GenerateDefaultSpawnZones();
             map.FloorCount = 3;
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
+            map.RampTiles = GenerateDefaultRamps(map.StairConnections);
 
             Console.WriteLine($"[MAP GEN] Created empty map: {width}x{height}, floors={map.FloorCount}");
 
@@ -144,6 +146,7 @@ namespace XCOM_3
                 });
             map.GenerateDefaultSpawnZones();
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
+            map.RampTiles = GenerateDefaultRamps(map.StairConnections);
 
             Console.WriteLine($"[MAP GEN] Generated {pattern} map: {width}x{height}, floors={map.FloorCount}");
 
@@ -163,10 +166,10 @@ namespace XCOM_3
                 stairs.Add(new StairConnectionData
                 {
                     FromX = Math.Max(1, width / 4),
-                    FromY = Math.Max(1, height / 4),
+                    FromY = Math.Max(2, height / 4),
                     FromFloor = floor,
-                    ToX = Math.Max(2, width / 4 + 1),
-                    ToY = Math.Max(2, height / 4 + 1),
+                    ToX = Math.Max(1, width / 4),
+                    ToY = Math.Max(1, height / 4 - 1),
                     ToFloor = floor + 1,
                     Bidirectional = true
                 });
@@ -174,10 +177,10 @@ namespace XCOM_3
                 stairs.Add(new StairConnectionData
                 {
                     FromX = Math.Max(1, (width * 3) / 4),
-                    FromY = Math.Max(1, (height * 3) / 4),
+                    FromY = Math.Max(2, (height * 3) / 4),
                     FromFloor = floor,
-                    ToX = Math.Max(2, (width * 3) / 4 - 1),
-                    ToY = Math.Max(2, (height * 3) / 4 - 1),
+                    ToX = Math.Max(1, (width * 3) / 4),
+                    ToY = Math.Max(1, (height * 3) / 4 - 1),
                     ToFloor = floor + 1,
                     Bidirectional = true
                 });
@@ -216,6 +219,32 @@ namespace XCOM_3
             }
 
             return stairs;
+        }
+
+        private static List<RampTileData> GenerateDefaultRamps(IEnumerable<StairConnectionData> stairs)
+        {
+            var ramps = new List<RampTileData>();
+            if (stairs == null)
+                return ramps;
+
+            foreach (var stair in stairs)
+            {
+                bool climbsToUpperFloor = stair.ToFloor == stair.FromFloor + 1;
+                bool climbsNorth = stair.ToY == stair.FromY - 1 && stair.ToX == stair.FromX;
+
+                if (!climbsToUpperFloor || !climbsNorth)
+                    continue;
+
+                ramps.Add(new RampTileData
+                {
+                    X = stair.FromX,
+                    Y = stair.FromY,
+                    Floor = stair.FromFloor,
+                    Bidirectional = stair.Bidirectional
+                });
+            }
+
+            return ramps;
         }
 
         /// <summary>

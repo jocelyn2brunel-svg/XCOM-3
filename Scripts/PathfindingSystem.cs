@@ -37,6 +37,7 @@ namespace XCOM_3
         private readonly Func<Point, int, Unit> getUnitByFloor;
         private readonly Func<Point, int, bool> isCellAvailableOnFloor;
         private readonly List<StairConnectionData> stairs;
+        private readonly List<RampTileData> ramps;
 
         public PathfindingSystem(int w, int h, HashSet<WallSegment> walls, Func<Point, Unit> getUnit)
             : this(
@@ -45,6 +46,7 @@ namespace XCOM_3
                 1,
                 walls,
                 new List<StairConnectionData>(),
+                new List<RampTileData>(),
                 getUnit,
                 (cell, floor) => floor == 0 ? getUnit(cell) : null,
                 (cell, floor) => floor == 0)
@@ -52,6 +54,7 @@ namespace XCOM_3
 
         public PathfindingSystem(int w, int h, int floors, HashSet<WallSegment> walls,
             List<StairConnectionData> stairs,
+            List<RampTileData> ramps,
             Func<Point, Unit> getUnit,
             Func<Point, int, Unit> getUnitByFloor,
             Func<Point, int, bool> isCellAvailableOnFloor = null)
@@ -61,6 +64,7 @@ namespace XCOM_3
             floorCount = Math.Max(1, floors);
             this.walls = walls;
             this.stairs = stairs ?? new List<StairConnectionData>();
+            this.ramps = ramps ?? new List<RampTileData>();
             this.getUnit = getUnit;
             this.getUnitByFloor = getUnitByFloor;
             this.isCellAvailableOnFloor = isCellAvailableOnFloor;
@@ -166,6 +170,19 @@ namespace XCOM_3
 
                 if (stair.Bidirectional && stair.ToFloor == node.Floor && stair.ToX == node.Cell.X && stair.ToY == node.Cell.Y)
                     yield return new GridNode(new Point(stair.FromX, stair.FromY), stair.FromFloor);
+            }
+
+            foreach (var ramp in ramps)
+            {
+                if (ramp.Floor == node.Floor && ramp.X == node.Cell.X && ramp.Y == node.Cell.Y)
+                {
+                    yield return new GridNode(new Point(ramp.X, ramp.Y - 1), node.Floor + 1);
+                }
+
+                if (ramp.Bidirectional && ramp.Floor + 1 == node.Floor && ramp.X == node.Cell.X && ramp.Y - 1 == node.Cell.Y)
+                {
+                    yield return new GridNode(new Point(ramp.X, ramp.Y), node.Floor - 1);
+                }
             }
         }
 

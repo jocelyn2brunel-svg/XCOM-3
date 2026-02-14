@@ -218,7 +218,7 @@ namespace XCOM_3
             inventorySystem = new InventorySystem(GraphicsDevice, _spriteBatch, font, pixel);
             unitManager = new OptimizedUnitManager();
 
-            pathfinding = new PathfindingSystem(gridWidth, gridHeight, 1, new HashSet<WallSegment>(), new List<StairConnectionData>(), GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, 1, new HashSet<WallSegment>(), new List<StairConnectionData>(), new List<RampTileData>(), GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
             statsPanel = new StatsPanel(
                 Content.Load<SpriteFont>("Arial"),
                 GraphicsDevice);
@@ -1114,6 +1114,7 @@ namespace XCOM_3
                 }
             }
 
+            renderer3D.DrawRampTiles(currentMap?.RampTiles, floorToRender, cellSize);
             renderer3D.DrawStairConnections(currentMap?.StairConnections, floorToRender, cellSize);
 
             foreach (var unit in unitsOnFloor)
@@ -1511,6 +1512,24 @@ namespace XCOM_3
 
             // Appliquer les données de la carte
             currentMap = map;
+            currentMap.RampTiles ??= new List<RampTileData>();
+
+            if (currentMap.RampTiles.Count == 0 && currentMap.StairConnections != null)
+            {
+                foreach (var stair in currentMap.StairConnections)
+                {
+                    if (stair.ToFloor == stair.FromFloor + 1 && stair.ToX == stair.FromX && stair.ToY == stair.FromY - 1)
+                    {
+                        currentMap.RampTiles.Add(new RampTileData
+                        {
+                            X = stair.FromX,
+                            Y = stair.FromY,
+                            Floor = stair.FromFloor,
+                            Bidirectional = stair.Bidirectional
+                        });
+                    }
+                }
+            }
             viewedFloor = 0;
             gridWidth = map.GridWidth;
             gridHeight = map.GridHeight;
@@ -2282,7 +2301,22 @@ namespace XCOM_3
             if (floor == 0)
                 return true;
 
-            return GetCellsForFloor(floor).Contains(cell);
+            if (GetCellsForFloor(floor).Contains(cell))
+                return true;
+
+            if (currentMap?.RampTiles != null)
+            {
+                foreach (var ramp in currentMap.RampTiles)
+                {
+                    if (ramp.Floor == floor && ramp.X == cell.X && ramp.Y == cell.Y)
+                        return true;
+
+                    if (ramp.Floor + 1 == floor && ramp.X == cell.X && ramp.Y - 1 == cell.Y)
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         private bool IsCellHoverableOnViewedFloor(Point cell, int floor)
@@ -2361,7 +2395,7 @@ namespace XCOM_3
 
             CreateUnits(missionType);
             wallSegments = currentMap.GetWalls();
-            pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallSegments, currentMap.StairConnections, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallSegments, currentMap.StairConnections, currentMap.RampTiles, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
             combatSystem.SetPathfinding(pathfinding);
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
             unitManager.InitializeForMission(playerUnits, enemyUnits);
@@ -2398,7 +2432,15 @@ namespace XCOM_3
                 // 3. ONLY recalculate the path if the mouse moved to a new cell
                 if (hoveredCell != lastHoveredCell)
                 {
-                    currentPath = pathfinding.FindPathDetailed(selectedUnit.Cell, selectedUnit.Floor, hoveredCell, selectedUnit.Floor, maxRange, selectedUnit).Cells;
+                    Point previewGoal = hoveredCell;
+                    int previewFloor = selectedUnit.Floor;
+                    if (TryResolveVerticalTransition(selectedUnit.Floor, hoveredCell, out Point transitionGoal, out int transitionFloor))
+                    {
+                        previewGoal = transitionGoal;
+                        previewFloor = transitionFloor;
+                    }
+
+                    currentPath = pathfinding.FindPathDetailed(selectedUnit.Cell, selectedUnit.Floor, previewGoal, previewFloor, maxRange, selectedUnit).Cells;
                     lastHoveredCell = hoveredCell;
 
                     pathCosts.Clear();
@@ -2445,6 +2487,52 @@ namespace XCOM_3
 
             if (combatUI.EndTurnButton.Contains(mouse.Position) && leftClick && !combatSystem.IsActionInProgress)
                 combatSystem.StartEnemyTurn();
+        }
+
+        private bool TryResolveVerticalTransition(int fromFloor, Point clickedCell, out Point movementGoal, out int goalFloor)
+        {
+            movementGoal = clickedCell;
+            goalFloor = fromFloor;
+
+            if (currentMap?.RampTiles != null)
+            {
+                foreach (var ramp in currentMap.RampTiles)
+                {
+                    if (ramp.Floor == fromFloor && ramp.X == clickedCell.X && ramp.Y == clickedCell.Y)
+                    {
+                        movementGoal = new Point(ramp.X, ramp.Y - 1);
+                        goalFloor = fromFloor + 1;
+                        return true;
+                    }
+
+                    if (ramp.Bidirectional && ramp.Floor + 1 == fromFloor && ramp.X == clickedCell.X && ramp.Y - 1 == clickedCell.Y)
+                    {
+                        movementGoal = new Point(ramp.X, ramp.Y);
+                        goalFloor = fromFloor - 1;
+                        return true;
+                    }
+                }
+            }
+
+            var stair = currentMap?.StairConnections?.FirstOrDefault(st =>
+                (st.FromFloor == fromFloor && st.FromX == clickedCell.X && st.FromY == clickedCell.Y) ||
+                (st.Bidirectional && st.ToFloor == fromFloor && st.ToX == clickedCell.X && st.ToY == clickedCell.Y));
+
+            if (stair == null)
+                return false;
+
+            if (stair.FromFloor == fromFloor)
+            {
+                movementGoal = new Point(stair.ToX, stair.ToY);
+                goalFloor = stair.ToFloor;
+            }
+            else
+            {
+                movementGoal = new Point(stair.FromX, stair.FromY);
+                goalFloor = stair.FromFloor;
+            }
+
+            return true;
         }
 
         private void HandleGridClick(Point clickedCell)
@@ -2495,22 +2583,10 @@ namespace XCOM_3
                 Point movementGoal = clickedCell;
                 int goalFloor = selectedUnit.Floor;
 
-                var stair = currentMap?.StairConnections?.FirstOrDefault(st =>
-                    (st.FromFloor == selectedUnit.Floor && st.FromX == clickedCell.X && st.FromY == clickedCell.Y) ||
-                    (st.Bidirectional && st.ToFloor == selectedUnit.Floor && st.ToX == clickedCell.X && st.ToY == clickedCell.Y));
-
-                if (stair != null)
+                if (TryResolveVerticalTransition(selectedUnit.Floor, clickedCell, out Point transitionGoal, out int transitionFloor))
                 {
-                    if (stair.FromFloor == selectedUnit.Floor)
-                    {
-                        movementGoal = new Point(stair.ToX, stair.ToY);
-                        goalFloor = stair.ToFloor;
-                    }
-                    else
-                    {
-                        movementGoal = new Point(stair.FromX, stair.FromY);
-                        goalFloor = stair.FromFloor;
-                    }
+                    movementGoal = transitionGoal;
+                    goalFloor = transitionFloor;
                 }
 
                 if (!IsCellAvailableOnFloor(movementGoal, goalFloor))
