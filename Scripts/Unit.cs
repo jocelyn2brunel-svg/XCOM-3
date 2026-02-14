@@ -21,6 +21,8 @@ namespace XCOM_3
         public int MaxStamina = 100;
         public int MovementRange = 4; // Portée max en cases
         public int Health = 100, MaxHealth = 100;
+        public int PerceptionRangeCells { get; set; } = 18;
+        public bool IsSpottedByPlayerTeam { get; set; } = false;
 
         /// <summary>
         /// Coût en stamina pour sprinter
@@ -150,6 +152,8 @@ namespace XCOM_3
             sprintRangeCells = other.sprintRangeCells;
             Health = other.Health;
             MaxHealth = other.MaxHealth;
+            PerceptionRangeCells = other.PerceptionRangeCells;
+            IsSpottedByPlayerTeam = other.IsSpottedByPlayerTeam;
 
             EquippedWeapon = other.EquippedWeapon;
             EquippedHelmet = other.EquippedHelmet;
