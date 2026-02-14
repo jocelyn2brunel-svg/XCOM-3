@@ -212,7 +212,7 @@ namespace XCOM_3
             DrawUnitBody(device, effect, animatedPos, teamColor, scale, type, rot, legSwing, armSwing, dims, hasWeapon, isAiming, unit.BodyType);
 
             // Afficher l'équipement porté (armes, armures, vêtements, poches)
-            DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, isAiming);
+            DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, legSwing, isAiming);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -220,7 +220,7 @@ namespace XCOM_3
         // ═══════════════════════════════════════════════════════════════════════
 
         private void DrawEquipment(GraphicsDevice device, BasicEffect effect, Vector3 pos, Unit unit,
-                                   float scale, Matrix rot, UnitDimensions dims, bool isAiming)
+                                   float scale, Matrix rot, UnitDimensions dims, float legSwing, bool isAiming)
         {
             Item weaponToDraw = GetDisplayedWeapon(unit);
 
@@ -257,7 +257,7 @@ namespace XCOM_3
             // PANTALON + POCHES CARGO
             if (unit.EquippedPants != null)
             {
-                DrawPants(device, effect, pos, unit.EquippedPants, unit.PantsInventory, scale, rot, dims);
+                DrawPants(device, effect, pos, unit.EquippedPants, unit.PantsInventory, scale, rot, dims, legSwing);
             }
 
             // ✅ NOUVEAU : GRENADES ÉQUIPÉES
@@ -473,7 +473,7 @@ namespace XCOM_3
 
 
         private void DrawPants(GraphicsDevice device, BasicEffect effect, Vector3 pos, Item pants,
-                               List<Item> pocketItems, float scale, Matrix rot, UnitDimensions dims)
+                               List<Item> pocketItems, float scale, Matrix rot, UnitDimensions dims, float legSwing)
         {
             Color denimColor = new Color(45, 75, 130);
 
@@ -481,12 +481,10 @@ namespace XCOM_3
             Vector3 hipScale = new Vector3(dims.tw * 0.95f, dims.ll * 0.55f, dims.td * 0.92f);
             DrawBodyPart(device, effect, pos, hipPos, hipScale, denimColor, rot);
 
-            Vector3 leftLegPos = new Vector3(-dims.tw * 0.24f, dims.ll * 0.45f, 0);
-            Vector3 rightLegPos = new Vector3(dims.tw * 0.24f, dims.ll * 0.45f, 0);
-            Vector3 legScale = new Vector3(dims.lw * 0.92f, dims.ll * 0.92f, dims.lw * 0.9f);
+            UnitDimensions pantsDims = dims;
+            pantsDims.lw *= 0.68f;
 
-            DrawBodyPart(device, effect, pos, leftLegPos, legScale, denimColor * 0.94f, rot);
-            DrawBodyPart(device, effect, pos, rightLegPos, legScale, denimColor * 0.94f, rot);
+            DrawRunningLegPair(device, effect, pos, rot, pantsDims, legSwing, 0.3f, 0.88f, denimColor * 0.94f, denimColor * 0.8f);
 
             int visiblePockets = Math.Min(Math.Max(pocketItems?.Count ?? 0, 0), 4);
             float pocketSize = dims.lw * 0.45f;
