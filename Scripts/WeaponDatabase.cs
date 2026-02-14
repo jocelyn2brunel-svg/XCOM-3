@@ -51,6 +51,11 @@ namespace XCOM_3
                 weaponType: WeaponType.Pistol, caliber: "9x19mm", 
                 reference: "Parasite Eve II");
 
+            weapons["Glock 17"] = new WeaponData("Glock 17", 
+                damage: 26, accuracy: 81, range: 6, 
+                weaponType: WeaponType.Pistol, caliber: "9x19mm", 
+                reference: "Usage moderne");
+
             weapons["Calico M950"] = new WeaponData("Calico M950", 
                 damage: 22, accuracy: 70, range: 7, 
                 weaponType: WeaponType.Pistol, caliber: "9x19mm", 
@@ -63,7 +68,7 @@ namespace XCOM_3
 
             weapons["Colt 1911"] = new WeaponData("Colt 1911", 
                 damage: 30, accuracy: 78, range: 6, 
-                weaponType: WeaponType.Pistol, caliber: "9x19mm", 
+                weaponType: WeaponType.Pistol, caliber: ".45 ACP", 
                 reference: "Terminator II");
 
             weapons["Detonics SpeedMaster"] = new WeaponData("Detonics SpeedMaster", 
@@ -75,6 +80,11 @@ namespace XCOM_3
                 damage: 26, accuracy: 79, range: 6, 
                 weaponType: WeaponType.Pistol, caliber: "9x19mm", 
                 reference: "Terminator II");
+
+            weapons["FN Five-seveN"] = new WeaponData("FN Five-seveN", 
+                damage: 24, accuracy: 84, range: 7, 
+                weaponType: WeaponType.Pistol, caliber: "5.7x28mm", 
+                reference: "Usage moderne");
 
             // ═══════════════════════════════════════════════════════════════════
             // REVOLVERS
@@ -98,6 +108,11 @@ namespace XCOM_3
                 damage: 20, accuracy: 70, range: 6, 
                 weaponType: WeaponType.SMG, caliber: "9x19mm", 
                 reference: "Parasite Eve II");
+
+            weapons["H&K UMP45"] = new WeaponData("H&K UMP45", 
+                damage: 27, accuracy: 72, range: 7, 
+                weaponType: WeaponType.SMG, caliber: ".45 ACP", 
+                reference: "Usage moderne");
 
             // ═══════════════════════════════════════════════════════════════════
             // FUSILS D'ASSAUT
@@ -125,6 +140,11 @@ namespace XCOM_3
                 weaponType: WeaponType.Carbine, caliber: "5.56x45mm NATO", 
                 reference: "Parasite Eve II");
 
+            weapons["HK416"] = new WeaponData("HK416", 
+                damage: 34, accuracy: 84, range: 11, 
+                weaponType: WeaponType.Carbine, caliber: "5.56x45mm NATO", 
+                reference: "Usage moderne");
+
             // ═══════════════════════════════════════════════════════════════════
             // FUSILS DE COMBAT (BATTLE RIFLE)
             // ═══════════════════════════════════════════════════════════════════
@@ -132,6 +152,11 @@ namespace XCOM_3
             weapons["M14"] = new WeaponData("M14", 
                 damage: 45, accuracy: 80, range: 14, 
                 weaponType: WeaponType.BattleRifle, caliber: "7.62x51mm NATO");
+
+            weapons["FN SCAR-H"] = new WeaponData("FN SCAR-H", 
+                damage: 50, accuracy: 82, range: 15, 
+                weaponType: WeaponType.BattleRifle, caliber: "7.62x51mm NATO", 
+                reference: "Usage moderne");
 
             // ═══════════════════════════════════════════════════════════════════
             // FUSILS À POMPE (SHOTGUN)
@@ -177,6 +202,11 @@ namespace XCOM_3
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
                 reference: "Terminator II");
 
+            weapons["Benelli M4"] = new WeaponData("Benelli M4", 
+                damage: 69, accuracy: 74, range: 5, 
+                weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
+                reference: "Usage moderne");
+
             weapons["Ithaca 37"] = new WeaponData("Ithaca 37", 
                 damage: 66, accuracy: 74, range: 4, 
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
@@ -191,6 +221,11 @@ namespace XCOM_3
                 weaponType: WeaponType.MachineGun, caliber: "5.56x45mm", 
                 reference: "Parasite Eve II");
 
+            weapons["PKM"] = new WeaponData("PKM", 
+                damage: 36, accuracy: 62, range: 16, 
+                weaponType: WeaponType.MachineGun, caliber: "7.62x54mmR", 
+                reference: "Usage moderne");
+
             // ═══════════════════════════════════════════════════════════════════
             // FUSILS DE TIREUR D'ÉLITE (DMR)
             // ═══════════════════════════════════════════════════════════════════
@@ -202,6 +237,11 @@ namespace XCOM_3
             weapons["Marine Scout Rifle"] = new WeaponData("Marine Scout Rifle", 
                 damage: 58, accuracy: 90, range: 18, 
                 weaponType: WeaponType.DMR, caliber: "7.62x51mm NATO");
+
+            weapons["Dragunov SVD"] = new WeaponData("Dragunov SVD", 
+                damage: 60, accuracy: 89, range: 19, 
+                weaponType: WeaponType.DMR, caliber: "7.62x54mmR", 
+                reference: "Usage moderne");
 
             // ═══════════════════════════════════════════════════════════════════
             // FUSILS DE PRÉCISION (SNIPER RIFLE)
