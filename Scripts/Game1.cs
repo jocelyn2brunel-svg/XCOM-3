@@ -504,11 +504,12 @@ namespace XCOM_3
                     {
                         moveDirection.Normalize();
                         Vector3 right = Vector3.Normalize(Vector3.Cross(Vector3.Up, moveDirection));
+                        float shoulderSide = movementCinematicUnit.DominantHand == Unit.Handedness.Right ? 1f : -1f;
                         Vector3 shoulderOrigin = movementCinematicUnit.VisualPosition + new Vector3(0f, cellSize * 0.75f, 0f);
 
                         Vector3 cameraPos = shoulderOrigin
                             - moveDirection * (cellSize * 1.15f)
-                            + right * (cellSize * 0.4f)
+                            + right * (cellSize * 0.4f * shoulderSide)
                             + Vector3.Up * (cellSize * 0.28f);
 
                         Vector3 lookTarget = shoulderOrigin
@@ -564,10 +565,11 @@ namespace XCOM_3
                 {
                     toTarget.Normalize();
                     Vector3 right = Vector3.Normalize(Vector3.Cross(Vector3.Up, toTarget));
+                    float shoulderSide = aimingUnit.DominantHand == Unit.Handedness.Right ? 1f : -1f;
 
                     Vector3 cameraPos = shooterPos
                         - toTarget * (cellSize * 1.2f)
-                        + right * (cellSize * 0.42f)
+                        + right * (cellSize * 0.42f * shoulderSide)
                         + Vector3.Up * (cellSize * 0.3f);
 
                     Vector3 lookTarget = targetUnit.VisualPosition + new Vector3(0f, cellSize * 0.65f, 0f);

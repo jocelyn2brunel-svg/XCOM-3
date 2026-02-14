@@ -10,6 +10,7 @@ namespace XCOM_3
     public partial class Unit
     {
         public enum HumanBodyType { Masculine, Feminine }
+        public enum Handedness { Right, Left }
 
         public Point Cell;
         public int Floor { get; set; } = 0;
@@ -41,6 +42,7 @@ namespace XCOM_3
         public bool IsChargingForward = true;
         public string Class { get; set; }
         public HumanBodyType BodyType { get; set; } = HumanBodyType.Masculine;
+        public Handedness DominantHand { get; set; } = Handedness.Right;
 
 
         // Système d'inventaire
@@ -102,6 +104,7 @@ namespace XCOM_3
             WeaponData = weaponData;
 
             BodyType = DetermineBodyType(team, unitClass, name);
+            DominantHand = DetermineHandedness(team, unitClass, name, BodyType);
 
             ActionPoints = 2;
             MaxActionPoints = 2;
@@ -140,6 +143,7 @@ namespace XCOM_3
             Name = other.Name;
             Class = other.Class;
             BodyType = other.BodyType;
+            DominantHand = other.DominantHand;
             Weapon = other.Weapon;
             WeaponData = other.WeaponData;
             ActionPoints = other.ActionPoints;
@@ -203,6 +207,25 @@ namespace XCOM_3
 
             int hash = string.IsNullOrWhiteSpace(name) ? 0 : name.GetHashCode() & int.MaxValue;
             return hash % 2 == 0 ? HumanBodyType.Feminine : HumanBodyType.Masculine;
+        }
+
+        private static Handedness DetermineHandedness(Team team, string unitClass, string name, HumanBodyType bodyType)
+        {
+            bool isHuman = team == Team.Player ||
+                           string.Equals(unitClass, "Assault", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(unitClass, "Heavy", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(unitClass, "Scout", StringComparison.OrdinalIgnoreCase);
+
+            if (!isHuman)
+                return Handedness.Right;
+
+            int hash = string.IsNullOrWhiteSpace(name)
+                ? 0
+                : HashCode.Combine(name, unitClass, (int)bodyType) & int.MaxValue;
+
+            // Méta-analyses : hommes ~11-13% gauchers, femmes ~9-11% gauchères.
+            int leftHandedChancePercent = bodyType == HumanBodyType.Masculine ? 12 : 10;
+            return (hash % 100) < leftHandedChancePercent ? Handedness.Left : Handedness.Right;
         }
 
         public int GetMobilityPenalty()
