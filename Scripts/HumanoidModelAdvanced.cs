@@ -628,6 +628,22 @@ namespace XCOM_3
             Vector3 hipScale = new Vector3(dims.tw * 0.95f, dims.ll * 0.55f, dims.td * hipDepthFactor);
             DrawBodyPart(device, effect, pos, hipPos, hipScale, baseColor, rot);
 
+            // Volume arrière du pantalon : deux formes arrondies pour mieux marquer les fessiers.
+            float gluteRadius = dims.tw * (pantsName.Contains("Cargo", StringComparison.OrdinalIgnoreCase) ? 0.26f : 0.24f);
+            float gluteDepth = dims.td * (pantsName.Contains("Cargo", StringComparison.OrdinalIgnoreCase) ? 0.34f : 0.32f);
+            float gluteHeight = dims.ll * 0.42f;
+
+            DrawRoundedHead(device, effect, pos,
+                new Vector3(-dims.tw * 0.24f, gluteHeight, -gluteDepth),
+                gluteRadius,
+                baseColor * 0.9f,
+                rot);
+            DrawRoundedHead(device, effect, pos,
+                new Vector3(dims.tw * 0.24f, gluteHeight, -gluteDepth),
+                gluteRadius,
+                baseColor * 0.9f,
+                rot);
+
             UnitDimensions pantsDims = dims;
             pantsDims.lw *= legWidthFactor;
 
