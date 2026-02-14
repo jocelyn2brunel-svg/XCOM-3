@@ -327,7 +327,7 @@ namespace XCOM_3
 
         private void DrawUnitFacingArrow(Unit unit, int cellSize)
         {
-            Vector3 forward = new Vector3((float)Math.Sin(unit.Orientation), 0f, -(float)Math.Cos(unit.Orientation));
+            Vector3 forward = new Vector3((float)Math.Sin(unit.Orientation), 0f, (float)Math.Cos(unit.Orientation));
             if (forward.LengthSquared() < 0.0001f)
                 return;
 
