@@ -2924,6 +2924,19 @@ namespace XCOM_3
             VisualEffects.PlayExplosion(explosionPos, grenadeData.Radius, renderer3D);
 
             int enemiesHit = 0, totalDamage = 0;
+
+            if (grenadeData.Name == "MK 2")
+            {
+                ApplyMk2Explosion(center, thrower, ref enemiesHit, ref totalDamage);
+
+                if (thrower != null && thrower.Team == Team.Player && enemiesHit > 0)
+                {
+                    thrower.Skills.GainGrenadeXP(enemiesHit, totalDamage);
+                }
+
+                return;
+            }
+
             List<Point> affectedCells = explosionManager.GetExplosionCells(center, grenadeData.Radius);
 
             foreach (var cell in affectedCells)
@@ -2970,6 +2983,65 @@ namespace XCOM_3
                 craters.AddRange(newCraters);
                 Console.WriteLine($"Created {newCraters.Count} craters");
             }
+        }
+
+        private void ApplyMk2Explosion(Point center, Unit thrower, ref int enemiesHit, ref int totalDamage)
+        {
+            const float lethalRadius = 2f;
+            const float fragmentationStart = 3f;
+            const float fragmentationEnd = 9f;
+
+            List<Unit> unitsToEvaluate = new List<Unit>(playerUnits.Count + enemyUnits.Count);
+            unitsToEvaluate.AddRange(playerUnits);
+            unitsToEvaluate.AddRange(enemyUnits);
+
+            foreach (var unit in unitsToEvaluate)
+            {
+                float distance = Vector2.Distance(new Vector2(center.X, center.Y), new Vector2(unit.Cell.X, unit.Cell.Y));
+
+                if (distance <= lethalRadius)
+                {
+                    KillUnitFromMk2(unit, "blast radius", thrower, ref enemiesHit, ref totalDamage);
+                    continue;
+                }
+
+                if (distance < fragmentationStart || distance > fragmentationEnd)
+                    continue;
+
+                if (HasMk2FragmentationProtection(unit))
+                    continue;
+
+                float hitChance = 0.8f * (fragmentationEnd - distance) / (fragmentationEnd - fragmentationStart);
+                hitChance = MathHelper.Clamp(hitChance, 0f, 0.8f);
+
+                if (random.NextDouble() <= hitChance)
+                {
+                    KillUnitFromMk2(unit, $"fragmentation ({hitChance * 100f:0}% chance)", thrower, ref enemiesHit, ref totalDamage);
+                }
+            }
+        }
+
+        private bool HasMk2FragmentationProtection(Unit unit)
+        {
+            bool hasFragmentationHelmet = unit.EquippedHelmet?.Data?.ProtectionLevel >= ProtectionLevel.Fragmentation;
+            bool hasFragmentationSuit = unit.EquippedArmor?.Data?.ProtectionLevel >= ProtectionLevel.Fragmentation;
+            return hasFragmentationHelmet && hasFragmentationSuit;
+        }
+
+        private void KillUnitFromMk2(Unit unit, string reason, Unit thrower, ref int enemiesHit, ref int totalDamage)
+        {
+            int hpBefore = unit.Health;
+            unit.Health = 0;
+            Console.WriteLine($"{unit.Name} killed by MK 2 {reason}.");
+
+            if (unit.Team == Team.Enemy && thrower != null && thrower.Team == Team.Player)
+            {
+                enemiesHit++;
+                totalDamage += hpBefore;
+            }
+
+            (unit.Team == Team.Player ? playerUnits : enemyUnits).Remove(unit);
+            unitManager.OnUnitDied(unit);
         }
 
         private void DrawThrowMode3D(GameTime gameTime)
