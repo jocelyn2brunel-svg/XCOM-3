@@ -841,7 +841,6 @@ namespace XCOM_3
 
             if (selectedUnit != null && selectedUnit.Team == Team.Player && selectedUnit.Floor == viewedFloor)
             {
-                combatUI.DrawMovementInfo(selectedUnit, hoveredCell, currentPath);
                 DrawMovementDestinationInfoBillboard();
             }
 
