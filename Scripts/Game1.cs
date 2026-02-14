@@ -133,6 +133,7 @@ namespace XCOM_3
         private int viewedFloor = 0;
         private HashSet<Point> upperFloorCells = new();
         private Unit movementCinematicUnit = null;
+        private HashSet<Unit> currentlySpottedEnemies = new HashSet<Unit>();
 
 
         public Game1()
@@ -427,7 +428,7 @@ namespace XCOM_3
         private void HandleFireCompleted()
         {
             if (selectedUnit != null && selectedUnit.Team == Team.Player && selectedUnit.Floor == viewedFloor)
-                combatUI.UpdateFireTargets(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit));
+                combatUI.UpdateFireTargets(selectedUnit, FilterTargetsByPerception(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit)));
         }
 
         private void UpdateFPS(GameTime gameTime)
@@ -466,6 +467,8 @@ namespace XCOM_3
             UpdateUnitAnimations(gameTime);
             if (combatSystem.CurrentTurn == TurnState.PlayerTurn) HandlePlayerTurn(mouse, leftClick, keyboard);
             else if (combatSystem.CurrentTurn == TurnState.EnemyTurn) combatSystem.UpdateEnemyTurn(cellSize);
+
+            UpdateEnemyPerceptionVisibility();
 
             combatSystem.UpdateFiringAnimations(gameTime);
             UpdateAimCameraAndPose();
@@ -618,7 +621,7 @@ namespace XCOM_3
             if (pathfinding != null)
             {
                 cachedMovableCells = pathfinding.GetMovableCells(selectedUnit);
-                combatUI.UpdateFireTargets(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit));
+                combatUI.UpdateFireTargets(selectedUnit, FilterTargetsByPerception(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit)));
             }
 
             CenterCameraOnUnit(selectedUnit);
@@ -737,12 +740,12 @@ namespace XCOM_3
             renderer3D.DrawStairConnections(currentMap?.StairConnections, floorToRender, cellSize);
 
             foreach (var unit in playerUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
-            foreach (var unit in enemyUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
+            foreach (var unit in enemyUnits.Where(u => u.Floor == viewedFloor && IsEnemyVisibleToPlayers(u))) renderer3D.DrawUnit(unit, cellSize);
 
             if (selectedUnit != null && selectedUnit.Floor == viewedFloor) renderer3D.DrawSelectionIndicator(selectedUnit, cellSize, new Color(0, 255, 255, 128));
 
             Unit target = combatUI.SelectedFireTarget ?? combatUI.HoveredFireTarget;
-            if (target != null && target.Floor == viewedFloor) renderer3D.DrawSelectionIndicator(target, cellSize, new Color(255, 0, 0, 128), 1.2f);
+            if (target != null && target.Floor == viewedFloor && (target.Team != Team.Enemy || IsEnemyVisibleToPlayers(target))) renderer3D.DrawSelectionIndicator(target, cellSize, new Color(255, 0, 0, 128), 1.2f);
 
             renderer3D.DrawCraters(craters, cellSize);
             renderer3D.DrawGrenades(activeGrenades, cellSize);
@@ -763,7 +766,16 @@ namespace XCOM_3
             }
 
             // Dessiner l'icône de couverture sur les unités
-            foreach (var unit in playerUnits.Concat(enemyUnits).Where(u => u.Floor == viewedFloor))
+            foreach (var unit in playerUnits.Where(u => u.Floor == viewedFloor))
+            {
+                if (unit.CoverType != CoverType.None)
+                {
+                    renderer3D.DrawUnitCoverIcon(unit, cellSize,
+                        (float)gameTime.TotalGameTime.TotalSeconds);
+                }
+            }
+
+            foreach (var unit in enemyUnits.Where(u => u.Floor == viewedFloor && IsEnemyVisibleToPlayers(u)))
             {
                 if (unit.CoverType != CoverType.None)
                 {
@@ -1398,7 +1410,8 @@ namespace XCOM_3
                 selectedUnit != null && combatUI.SelectedFireTarget != null && selectedUnit.ActionPoints > 0)
             {
                 combatSystem.InitiateFire(selectedUnit, combatUI.SelectedFireTarget);
-                var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
+                UpdateEnemyPerceptionVisibility();
+                var validTargets = FilterTargetsByPerception(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit));
                 combatUI.UpdateFireTargets(selectedUnit, validTargets);
             }
 
@@ -1413,6 +1426,11 @@ namespace XCOM_3
         {
             Unit clickedUnit = GetUnitAtCellAnyFloor(clickedCell);
 
+            if (clickedUnit != null && clickedUnit.Team == Team.Enemy && !IsEnemyVisibleToPlayers(clickedUnit))
+            {
+                clickedUnit = null;
+            }
+
             if (clickedUnit != null)
             {
                 selectedUnit = clickedUnit;
@@ -1421,7 +1439,8 @@ namespace XCOM_3
                     if (pathfinding != null)
                     {
                         cachedMovableCells = pathfinding.GetMovableCells(selectedUnit);
-                        var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
+                        UpdateEnemyPerceptionVisibility();
+                        var validTargets = FilterTargetsByPerception(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit));
                         combatUI.UpdateFireTargets(selectedUnit, validTargets);
                     }
                     else
@@ -1530,7 +1549,8 @@ namespace XCOM_3
                 }
 
                 // Mettre à jour l'UI
-                var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
+                UpdateEnemyPerceptionVisibility();
+                var validTargets = FilterTargetsByPerception(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit));
                 combatUI.UpdateFireTargets(selectedUnit, validTargets);
                 cachedMovableCells = selectedUnit.ActionPoints > 0 ?
                     pathfinding.GetMovableCells(selectedUnit) : new List<Point>();
@@ -1554,7 +1574,8 @@ namespace XCOM_3
                     case "TIRER":
                         if (selectedUnit != null && selectedUnit.ActionPoints > 0)
                         {
-                            var validTargets = combatSystem.GetValidFireTargets(selectedUnit);
+                            UpdateEnemyPerceptionVisibility();
+                            var validTargets = FilterTargetsByPerception(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit));
                             combatUI.UpdateFireTargets(selectedUnit, validTargets);
                             Console.WriteLine(validTargets.Count > 0 ? $"Mode tir activé - {validTargets.Count} cibles disponibles" : "Aucune cible à portée");
                         }
@@ -1612,6 +1633,67 @@ namespace XCOM_3
             throwableCells.Clear();
             explosionPreview.Clear();
             trajectoryPreview.Clear();
+        }
+
+        private void UpdateEnemyPerceptionVisibility()
+        {
+            currentlySpottedEnemies.Clear();
+
+            foreach (var enemy in enemyUnits)
+            {
+                bool spotted = playerUnits.Any(player => CanUnitPerceiveTarget(player, enemy));
+                enemy.IsSpottedByPlayerTeam = spotted;
+
+                if (spotted)
+                    currentlySpottedEnemies.Add(enemy);
+            }
+
+            if (combatUI.SelectedFireTarget?.Team == Team.Enemy && !IsEnemyVisibleToPlayers(combatUI.SelectedFireTarget))
+            {
+                combatUI.SelectedFireTarget = null;
+            }
+        }
+
+        private bool CanUnitPerceiveTarget(Unit observer, Unit target)
+        {
+            if (observer == null || target == null || pathfinding == null)
+                return false;
+
+            if (observer.Health <= 0 || target.Health <= 0)
+                return false;
+
+            if (observer.Floor != target.Floor)
+                return false;
+
+            float distanceCells = Vector2.Distance(new Vector2(observer.Cell.X, observer.Cell.Y), new Vector2(target.Cell.X, target.Cell.Y));
+            if (distanceCells > GetEffectivePerceptionRange(observer))
+                return false;
+
+            return pathfinding.HasLineOfSight(observer.Cell, target.Cell);
+        }
+
+        private int GetEffectivePerceptionRange(Unit observer)
+        {
+            float basePerception = observer?.PerceptionRangeCells ?? 0;
+            float lightMultiplier = MathHelper.Lerp(0.35f, 1.0f, CalculateSunIntensity(timeOfDay));
+            float fatigueMultiplier = observer != null && observer.Stamina < observer.MaxStamina * 0.25f ? 0.8f : 1f;
+            return Math.Max(4, (int)Math.Round(basePerception * lightMultiplier * fatigueMultiplier));
+        }
+
+        private List<Unit> FilterTargetsByPerception(Unit shooter, List<Unit> targets)
+        {
+            if (targets == null)
+                return new List<Unit>();
+
+            if (shooter == null || shooter.Team != Team.Player)
+                return targets;
+
+            return targets.Where(t => t.Team != Team.Enemy || IsEnemyVisibleToPlayers(t) || CanUnitPerceiveTarget(shooter, t)).ToList();
+        }
+
+        private bool IsEnemyVisibleToPlayers(Unit enemy)
+        {
+            return enemy != null && enemy.IsSpottedByPlayerTeam && currentlySpottedEnemies.Contains(enemy);
         }
 
         private void InitializeGrenades()
