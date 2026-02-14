@@ -804,16 +804,6 @@ namespace XCOM_3
         private void DrawAerisInspiredFeatures(GraphicsDevice d, BasicEffect e, Vector3 p, Color c,
                                                Matrix r, UnitDimensions dims)
         {
-            float headY = dims.ll + dims.th + dims.head * 0.6f;
-            Color hair = new(128, 84, 56);
-
-            DrawBodyPart(d, e, p, new Vector3(0, headY + dims.head * 0.75f, 0),
-                        new Vector3(dims.head * 0.95f, dims.head * 0.2f, dims.head * 0.95f), hair * 0.95f, r);
-            DrawBodyPart(d, e, p, new Vector3(0, headY + dims.head * 0.2f, -dims.head * 0.5f),
-                        new Vector3(dims.head * 0.55f, dims.head * 0.65f, dims.head * 0.28f), hair * 0.9f, r);
-            DrawBodyPart(d, e, p, new Vector3(-dims.head * 0.52f, headY + dims.head * 0.3f, dims.head * 0.38f),
-                        new Vector3(dims.head * 0.23f, dims.head * 0.35f, dims.head * 0.2f), hair, r);
-
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.22f, dims.td * 0.05f),
                         new Vector3(dims.tw * 0.9f, dims.th * 0.11f, dims.td), new Color(88, 60, 64), r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.45f, dims.td * 0.58f),
@@ -823,19 +813,6 @@ namespace XCOM_3
         private void DrawCloudInspiredFeatures(GraphicsDevice d, BasicEffect e, Vector3 p, Color c,
                                                Matrix r, UnitDimensions dims)
         {
-            float headY = dims.ll + dims.th + dims.head * 0.6f;
-
-            // Picots de cheveux façon Cloud (version low-poly inspirée)
-            Color hair = new(236, 205, 96);
-            DrawBodyPart(d, e, p, new Vector3(0, headY + dims.head * 0.82f, 0),
-                        new Vector3(dims.head * 1.05f, dims.head * 0.24f, dims.head * 1.05f), hair * 0.95f, r);
-            DrawBodyPart(d, e, p, new Vector3(-dims.head * 0.86f, headY + dims.head * 0.62f, dims.head * 0.06f),
-                        new Vector3(dims.head * 0.42f, dims.head * 0.26f, dims.head * 0.34f), hair * 0.88f, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.head * 0.88f, headY + dims.head * 0.54f, 0),
-                        new Vector3(dims.head * 0.55f, dims.head * 0.3f, dims.head * 0.4f), hair, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.head * 0.48f, headY + dims.head * 0.76f, dims.head * 0.66f),
-                        new Vector3(dims.head * 0.34f, dims.head * 0.22f, dims.head * 0.34f), hair * 0.92f, r);
-
             // Épaulette unique sur l'épaule gauche pour une silhouette marquante
             DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.86f, dims.ll + dims.th * 0.84f, 0),
                         new Vector3(dims.tw * 0.42f, dims.al * 0.35f, dims.td * 0.95f), new Color(85, 92, 112), r);
