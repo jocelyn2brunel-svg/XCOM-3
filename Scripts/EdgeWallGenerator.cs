@@ -400,7 +400,11 @@ namespace XCOM_3
 
                     BuildingType type = (BuildingType)random.Next(0, 4);
                     int buildingFloors = random.Next(2, 6);
-                    int basementCount = random.Next(100) < 35 ? random.Next(1, 3) : 0;
+
+                    // Sous-sol plus fréquent sur les grands immeubles urbains, avec un biais pour du parking.
+                    int footprint = buildingWidth * buildingHeight;
+                    int basementChance = footprint >= 96 ? 65 : footprint >= 72 ? 45 : 20;
+                    int basementCount = random.Next(100) < basementChance ? random.Next(1, 3) : 0;
                     LastGeneratedBuildings.Add(new GeneratedBuilding(x, y, buildingWidth, buildingHeight, buildingFloors, basementCount));
 
                     // Murs extérieurs

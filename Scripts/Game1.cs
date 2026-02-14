@@ -1177,18 +1177,74 @@ namespace XCOM_3
                 int maxX = building.X + building.Width;
                 int maxY = building.Y + building.Height;
 
+                int setback = GetFloorSetback(building, floor);
+                minX += setback;
+                minY += setback;
+                maxX -= setback;
+                maxY -= setback;
+
+                if (maxX - minX < 3 || maxY - minY < 3)
+                    continue;
+
                 foreach (var wall in wallSegments)
                 {
                     bool inBounds = wall.IsHorizontal
                         ? wall.Start.X >= minX && wall.End.X <= maxX && wall.Start.Y >= minY && wall.Start.Y <= maxY
                         : wall.Start.X >= minX && wall.Start.X <= maxX && wall.Start.Y >= minY && wall.End.Y <= maxY;
 
-                    if (inBounds)
-                        filteredWalls.Add(wall);
+                    if (!inBounds)
+                        continue;
+
+                    if (ShouldSkipWallForFloor(building, wall, floor))
+                        continue;
+
+                    filteredWalls.Add(wall);
                 }
             }
 
             return filteredWalls;
+        }
+
+        private int GetFloorSetback(BuildingFootprintData building, int floor)
+        {
+            if (floor <= 1)
+                return 0;
+
+            int seed = building.X * 73856093 ^ building.Y * 19349663 ^ floor * 83492791;
+            int roll = Math.Abs(seed % 100);
+
+            // Quelques étages prennent du retrait pour créer terrasses et toits variés.
+            return roll < 40 ? 1 : 0;
+        }
+
+        private bool ShouldSkipWallForFloor(BuildingFootprintData building, WallSegment wall, int floor)
+        {
+            if (floor <= 0)
+                return false;
+
+            int seed =
+                building.X * 92821 +
+                building.Y * 68917 +
+                floor * 15401 +
+                wall.Start.X * 733 +
+                wall.Start.Y * 547 +
+                wall.End.X * 389 +
+                wall.End.Y * 277;
+
+            int roll = Math.Abs(seed % 100);
+
+            // Retirer ponctuellement des cloisons intérieures sur les étages.
+            bool interiorHorizontal = wall.IsHorizontal && wall.Start.Y > building.Y && wall.Start.Y < building.Y + building.Height;
+            bool interiorVertical = !wall.IsHorizontal && wall.Start.X > building.X && wall.Start.X < building.X + building.Width;
+
+            if ((interiorHorizontal || interiorVertical) && roll < 18 + floor * 2)
+                return true;
+
+            // Créer quelques ouvertures en façade à partir du 2e étage.
+            bool facade = wall.Start.X == building.X || wall.Start.X == building.X + building.Width ||
+                          wall.Start.Y == building.Y || wall.Start.Y == building.Y + building.Height;
+
+            return floor >= 2 && facade && roll < 8;
         }
 
         private void ComputeOcclusionFromWalls(
@@ -1291,10 +1347,11 @@ namespace XCOM_3
                     if (building.FloorCount <= floor)
                         continue;
 
-                    int minX = Math.Max(0, building.X);
-                    int minY = Math.Max(0, building.Y);
-                    int maxX = Math.Min(gridWidth, building.X + building.Width);
-                    int maxY = Math.Min(gridHeight, building.Y + building.Height);
+                    int setback = GetFloorSetback(building, floor);
+                    int minX = Math.Max(0, building.X + setback);
+                    int minY = Math.Max(0, building.Y + setback);
+                    int maxX = Math.Min(gridWidth, building.X + building.Width - setback);
+                    int maxY = Math.Min(gridHeight, building.Y + building.Height - setback);
 
                     for (int x = minX; x < maxX; x++)
                     {
