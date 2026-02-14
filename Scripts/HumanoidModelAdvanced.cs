@@ -56,6 +56,39 @@ namespace XCOM_3
             }
         }
 
+        private void DrawTorsoPolygon(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
+                                      float height, float topWidth, float bottomWidth, float depth,
+                                      Color color, Matrix modelRot)
+        {
+            float halfHeight = height * 0.5f;
+            float halfTop = topWidth * 0.5f;
+            float halfBottom = bottomWidth * 0.5f;
+            float halfDepth = depth * 0.5f;
+
+            var verts = new VertexPositionColor[8]
+            {
+                // Bas
+                new VertexPositionColor(new Vector3(-halfBottom, -halfHeight, -halfDepth), color),
+                new VertexPositionColor(new Vector3(-halfBottom, -halfHeight,  halfDepth), color),
+                new VertexPositionColor(new Vector3( halfBottom, -halfHeight,  halfDepth), color),
+                new VertexPositionColor(new Vector3( halfBottom, -halfHeight, -halfDepth), color),
+                // Haut
+                new VertexPositionColor(new Vector3(-halfTop, halfHeight, -halfDepth), color),
+                new VertexPositionColor(new Vector3(-halfTop, halfHeight,  halfDepth), color),
+                new VertexPositionColor(new Vector3( halfTop, halfHeight,  halfDepth), color),
+                new VertexPositionColor(new Vector3( halfTop, halfHeight, -halfDepth), color)
+            };
+
+            Vector3 finalPos = center + Vector3.Transform(relative, modelRot);
+            effect.World = modelRot * Matrix.CreateTranslation(finalPos);
+
+            foreach (var pass in effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                device.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, 8, cubeIndices, 0, 12);
+            }
+        }
+
         private static Matrix CreateRotationFromUpTo(Vector3 direction)
         {
             const float epsilon = 1e-5f;
@@ -778,9 +811,12 @@ namespace XCOM_3
 
             DrawRunningLegPair(d, e, p, r, dims, l, 0.3f, 0.55f, dark, dark * 0.8f);
 
-            // Torse
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0),
-                        new Vector3(dims.tw * 0.95f, dims.th, dims.td), body, r);
+            // Torse en polygones (silhouette triangulaire selon le type de corps)
+            bool feminine = bodyType == Unit.HumanBodyType.Feminine;
+            float topWidth = dims.tw * (feminine ? 0.82f : 1.05f);
+            float bottomWidth = dims.tw * (feminine ? 1.04f : 0.7f);
+            DrawTorsoPolygon(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0),
+                            dims.th, topWidth, bottomWidth, dims.td, body, r);
 
             // Poitrine plus triangulaire
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.8f, dims.td * 0.15f),
