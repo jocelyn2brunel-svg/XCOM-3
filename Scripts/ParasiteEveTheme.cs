@@ -11,23 +11,38 @@ namespace XCOM_3.Scripts
     /// </summary>
     public static class ParasiteEveTheme
     {
+        private static Color WithAlpha(Color color, byte alpha)
+        {
+            return new Color(color.R, color.G, color.B, alpha);
+        }
+
+        private static Color ScaleRgb(Color source, float factor, byte alpha)
+        {
+            return new Color(
+                (byte)MathHelper.Clamp((int)(source.R * factor), 0, 255),
+                (byte)MathHelper.Clamp((int)(source.G * factor), 0, 255),
+                (byte)MathHelper.Clamp((int)(source.B * factor), 0, 255),
+                alpha
+            );
+        }
+
         // ═══════════════════════════════════════════════════════════════════
         // COULEURS PRINCIPALES (Parasite Eve 2)
         // ═══════════════════════════════════════════════════════════════════
 
         // Fond principal (dégradé optimisé)
-        public static readonly Color BackgroundDark = new Color(8, 22, 16, 235);
-        public static readonly Color BackgroundMedium = new Color(12, 32, 20, 220);
+        public static Color BackgroundDark => ScaleRgb(UIThemeManager.PrimaryColor, 0.10f, 235);
+        public static Color BackgroundMedium => ScaleRgb(UIThemeManager.PrimaryColor, 0.14f, 220);
         
         // Bordures et panels (vert moyen)
-        public static readonly Color BorderColor = new Color(40, 220, 140, 255);
-        public static readonly Color BorderDark = new Color(20, 100, 65, 255);
-        public static readonly Color BorderMain = new Color(40, 220, 140, 255);
-        public static readonly Color BorderHighlight = new Color(80, 255, 180, 255);
-        public static readonly Color PanelBackground = new Color(12, 32, 20, 220);
-        public static readonly Color PanelBackgroundDark = new Color(8, 22, 16, 235);
-        public static readonly Color PanelBackgroundMid = new Color(12, 32, 20, 220);
-        public static readonly Color PanelBackgroundLight = new Color(18, 42, 26, 210);
+        public static Color BorderColor => WithAlpha(UIThemeManager.PrimaryColor, 255);
+        public static Color BorderDark => ScaleRgb(UIThemeManager.PrimaryColor, 0.45f, 255);
+        public static Color BorderMain => BorderColor;
+        public static Color BorderHighlight => UIThemeManager.HoverColor;
+        public static Color PanelBackground => ScaleRgb(UIThemeManager.PrimaryColor, 0.14f, 220);
+        public static Color PanelBackgroundDark => ScaleRgb(UIThemeManager.PrimaryColor, 0.10f, 235);
+        public static Color PanelBackgroundMid => ScaleRgb(UIThemeManager.PrimaryColor, 0.14f, 220);
+        public static Color PanelBackgroundLight => ScaleRgb(UIThemeManager.PrimaryColor, 0.18f, 210);
         
         // Texte
         public static readonly Color TextNormal = new Color(180, 255, 180, 255);  // Vert clair standard
