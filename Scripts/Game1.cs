@@ -993,6 +993,7 @@ namespace XCOM_3
             HashSet<WallSegment> hoverRevealWalls = new HashSet<WallSegment>();
             HashSet<Unit> occludedUnits = new HashSet<Unit>();
             ComputeOcclusionFromWalls(wallsForFloor, unitsOnFloor, yOffset, fadedWalls, occludedUnits);
+            ComputeOcclusionFromVisibleUnitsArea(wallsForFloor, unitsOnFloor, yOffset, fadedWalls);
             ComputeOcclusionFromHoveredArea(wallsForFloor, yOffset, hoverRevealWalls);
             ComputeOcclusionFromPathArea(wallsForFloor, yOffset, hoverRevealWalls);
             fadedWalls.UnionWith(hoverRevealWalls);
@@ -1048,7 +1049,10 @@ namespace XCOM_3
                     var fadedUpperWalls = new HashSet<WallSegment>();
 
                     if (unitsOnFloor.Count > 0)
+                    {
+                        ComputeOcclusionFromVisibleUnitsArea(wallsForUpperFloor, unitsOnFloor, upperFloorOffset, fadedUpperWalls);
                         ComputeOcclusionFromWalls(wallsForUpperFloor, unitsOnFloor, upperFloorOffset, fadedUpperWalls, new HashSet<Unit>());
+                    }
                     ComputeOcclusionFromHoveredArea(wallsForUpperFloor, upperFloorOffset, fadedUpperWalls);
                     ComputeOcclusionFromPathArea(wallsForUpperFloor, upperFloorOffset, fadedUpperWalls);
 
@@ -1080,7 +1084,10 @@ namespace XCOM_3
                     var fadedLowerWalls = new HashSet<WallSegment>();
 
                     if (lowerFloorUnits.Count > 0)
+                    {
+                        ComputeOcclusionFromVisibleUnitsArea(wallsForLowerFloor, lowerFloorUnits, lowerFloorOffset, fadedLowerWalls);
                         ComputeOcclusionFromWalls(wallsForLowerFloor, lowerFloorUnits, lowerFloorOffset, fadedLowerWalls, new HashSet<Unit>());
+                    }
                     ComputeOcclusionFromHoveredArea(wallsForLowerFloor, lowerFloorOffset, fadedLowerWalls);
                     ComputeOcclusionFromPathArea(wallsForLowerFloor, lowerFloorOffset, fadedLowerWalls);
 
@@ -1417,6 +1424,38 @@ namespace XCOM_3
             }
 
             return cells;
+        }
+
+        private void ComputeOcclusionFromVisibleUnitsArea(
+            IEnumerable<WallSegment> walls,
+            IEnumerable<Unit> units,
+            float floorHeightOffset,
+            HashSet<WallSegment> fadedWalls)
+        {
+            if (units == null)
+                return;
+
+            Vector3 cameraPos = camera.Position;
+
+            foreach (var unit in units)
+            {
+                if (unit == null || unit.Health <= 0)
+                    continue;
+
+                Vector3 revealPoint = new Vector3(
+                    unit.Cell.X * cellSize + cellSize / 2f,
+                    floorHeightOffset + cellSize * 0.15f,
+                    unit.Cell.Y * cellSize + cellSize / 2f);
+
+                foreach (var wall in walls)
+                {
+                    if (wall.Type == WallType.Door)
+                        continue;
+
+                    if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, revealPoint))
+                        fadedWalls.Add(wall);
+                }
+            }
         }
 
         private void LoadMap(MapData map = null)
