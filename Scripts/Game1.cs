@@ -944,18 +944,7 @@ namespace XCOM_3
 
                     if (fadedUpperWalls.Count > 0)
                     {
-                        GraphicsDevice.BlendState = BlendState.AlphaBlend;
-                        GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-
-                        renderer3D.DrawWalls(
-                            fadedUpperWalls,
-                            cellSize,
-                            editorMode: false,
-                            floorHeightOffset: upperFloorOffset,
-                            wallOverrideColor: new Color(165, 150, 130, 105));
-
-                        GraphicsDevice.BlendState = BlendState.Opaque;
-                        GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+                        DrawWireframeWalls(fadedUpperWalls, upperFloorOffset, new Color(205, 190, 170, 115));
                     }
                 }
             }
@@ -986,18 +975,10 @@ namespace XCOM_3
 
                     if (fadedLowerWalls.Count > 0)
                     {
-                        GraphicsDevice.BlendState = BlendState.AlphaBlend;
-                        GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-
-                        renderer3D.DrawWalls(
-                            fadedLowerWalls,
-                            cellSize,
-                            editorMode: false,
-                            floorHeightOffset: lowerFloorOffset,
-                            wallOverrideColor: lowerFloor < 0 ? new Color(85, 105, 130, 85) : new Color(95, 140, 170, 85));
-
-                        GraphicsDevice.BlendState = BlendState.Opaque;
-                        GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+                        Color lowerWireColor = lowerFloor < 0
+                            ? new Color(105, 140, 180, 115)
+                            : new Color(120, 180, 215, 115);
+                        DrawWireframeWalls(fadedLowerWalls, lowerFloorOffset, lowerWireColor);
                     }
                 }
             }
@@ -1053,6 +1034,13 @@ namespace XCOM_3
                 GraphicsDevice.DepthStencilState = DepthStencilState.Default;
             }
 
+            var occlusionWireWalls = new HashSet<WallSegment>(fadedWalls);
+            occlusionWireWalls.ExceptWith(hoverRevealWalls);
+            if (occlusionWireWalls.Count > 0)
+            {
+                DrawWireframeWalls(occlusionWireWalls, yOffset, new Color(120, 190, 240, 120));
+            }
+
             if (occludedUnits.Count > 0)
             {
                 GraphicsDevice.BlendState = BlendState.AlphaBlend;
@@ -1062,10 +1050,6 @@ namespace XCOM_3
                 {
                     renderer3D.DrawUnitSilhouette(unit, cellSize, new Color(70, 220, 255, 150));
                 }
-
-                GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-                renderer3D.DrawWalls(fadedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset,
-                    wallOverrideColor: new Color(100, 85, 70, 64));
 
                 GraphicsDevice.BlendState = BlendState.Opaque;
                 GraphicsDevice.DepthStencilState = DepthStencilState.Default;
