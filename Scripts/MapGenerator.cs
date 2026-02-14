@@ -65,7 +65,8 @@ namespace XCOM_3
                     Y = b.Y,
                     Width = b.Width,
                     Height = b.Height,
-                    FloorCount = Math.Clamp(b.FloorCount, 1, map.FloorCount)
+                    FloorCount = Math.Clamp(b.FloorCount, 1, map.FloorCount),
+                    BasementCount = Math.Max(0, b.BasementCount)
                 });
 
             // Générer les zones de spawn
@@ -138,7 +139,8 @@ namespace XCOM_3
                     Y = b.Y,
                     Width = b.Width,
                     Height = b.Height,
-                    FloorCount = Math.Clamp(b.FloorCount, 1, map.FloorCount)
+                    FloorCount = Math.Clamp(b.FloorCount, 1, map.FloorCount),
+                    BasementCount = Math.Max(0, b.BasementCount)
                 });
             map.GenerateDefaultSpawnZones();
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount);
