@@ -840,15 +840,15 @@ namespace XCOM_3
                                   bool hasPants = false,
                                   Unit.Handedness dominantHand = Unit.Handedness.Right)
         {
-            bool useKungFuPose = !hasWeapon;
+            bool useTPose = !hasWeapon;
 
             switch (type)
             {
-                case UnitType.Soldier: DrawSoldierBody(d, e, p, c, s, r, l, a, dims, bodyType, hasPants, useKungFuPose); break;
-                case UnitType.Alien: DrawAlienBody(d, e, p, c, s, r, l, a, dims, useKungFuPose); break;
-                case UnitType.Zombie: DrawZombieBody(d, e, p, c, s, r, l, a, dims, useKungFuPose); break;
-                case UnitType.Heavy: DrawHeavyBody(d, e, p, c, s, r, l, a, dims, useKungFuPose); break;
-                case UnitType.Scout: DrawScoutBody(d, e, p, c, s, r, l, a, dims, useKungFuPose); break;
+                case UnitType.Soldier: DrawSoldierBody(d, e, p, c, s, r, l, a, dims, bodyType, hasPants, useTPose); break;
+                case UnitType.Alien: DrawAlienBody(d, e, p, c, s, r, l, a, dims, useTPose); break;
+                case UnitType.Zombie: DrawZombieBody(d, e, p, c, s, r, l, a, dims, useTPose); break;
+                case UnitType.Heavy: DrawHeavyBody(d, e, p, c, s, r, l, a, dims, useTPose); break;
+                case UnitType.Scout: DrawScoutBody(d, e, p, c, s, r, l, a, dims, useTPose); break;
             }
 
             DrawSkeletonJoints(d, e, p, dims, r, c, l, a);
@@ -1061,7 +1061,7 @@ namespace XCOM_3
 
             // Bras: épaules sphériques, segments en cônes tronqués, mains en prismes rectangulaires
             if (useKungFuPose)
-                DrawKungFuGuardPose(d, e, p, r, dims, body * 0.9f);
+                DrawTPose(d, e, p, r, dims, body * 0.9f);
             else
                 DrawSwingingArmPair(d, e, p, r, dims, a, 0.6f, 0.9f, 0f, 0.52f, body * 0.9f);
 
@@ -1217,7 +1217,7 @@ namespace XCOM_3
             DrawRunningLegPair(d, e, p, r, dims, l * 1.1f, 0.3f, 1f, dark, dark * 0.9f);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0), new Vector3(dims.tw, dims.th, dims.td), c, r);
             if (useKungFuPose)
-                DrawKungFuGuardPose(d, e, p, r, dims, c * 0.85f);
+                DrawTPose(d, e, p, r, dims, c * 0.85f);
             else
                 DrawSwingingArmPair(d, e, p, r, dims, a * 1.1f, 0.6f, 0.82f, 0.15f, 0.95f, c * 0.85f);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, 0), new Vector3(dims.head, dims.head * 1.3f, dims.head * 0.9f), skin, r);
@@ -1239,7 +1239,7 @@ namespace XCOM_3
             DrawRunningLegPair(d, e, p, r, dims, l * 1.15f, 0.35f, 1f, dark, dark * 0.85f);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, -0.1f * s), new Vector3(dims.tw, dims.th, dims.td), c * 0.7f, r);
             if (useKungFuPose)
-                DrawKungFuGuardPose(d, e, p, r, dims, c * 0.6f);
+                DrawTPose(d, e, p, r, dims, c * 0.6f);
             else
                 DrawSwingingArmPair(d, e, p, r, dims, a * 0.8f, 0.6f, 0.72f, 0.45f, 1f, c * 0.6f);
             DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, -0.05f * s), dims.head * 0.5f, skin, r);
@@ -1260,7 +1260,7 @@ namespace XCOM_3
             DrawRunningLegPair(d, e, p, r, dims, l * 0.9f, 0.3f, 1.2f, dark, dark * 0.8f);
             DrawStructuredTorso(d, e, p, r, dims, c, dark, Unit.HumanBodyType.Masculine);
             if (useKungFuPose)
-                DrawKungFuGuardPose(d, e, p, r, dims, c * 0.85f);
+                DrawTPose(d, e, p, r, dims, c * 0.85f);
             else
                 DrawSwingingArmPair(d, e, p, r, dims, a * 0.75f, 0.65f, 0.88f, -0.1f, 1.25f, c * 0.85f);
             DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, 0), dims.head * 0.56f, skin, r);
@@ -1283,7 +1283,7 @@ namespace XCOM_3
             DrawRunningLegPair(d, e, p, r, dims, l * 1.2f, 0.25f, 1f, dark, dark * 0.85f);
             DrawStructuredTorso(d, e, p, r, dims, c, dark, Unit.HumanBodyType.Masculine);
             if (useKungFuPose)
-                DrawKungFuGuardPose(d, e, p, r, dims, c * 0.85f);
+                DrawTPose(d, e, p, r, dims, c * 0.85f);
             else
                 DrawSwingingArmPair(d, e, p, r, dims, a * 1.2f, 0.55f, 0.9f, 0f, 0.95f, c * 0.85f);
             DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0), dims.head * 0.5f, skin, r);
@@ -1293,32 +1293,34 @@ namespace XCOM_3
             DrawCloudInspiredFeatures(d, e, p, c, r, dims);
         }
 
-        private void DrawKungFuGuardPose(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
-                                         UnitDimensions dims, Color armColor)
+        private void DrawTPose(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
+                               UnitDimensions dims, Color armColor)
         {
             Color forearmColor = armColor * 0.95f;
 
-            // Bras gauche : garde haute près du visage.
-            Vector3 leftShoulder = new Vector3(-dims.tw * 0.62f, dims.ll + dims.th * 0.88f, -dims.al * 0.08f);
-            Vector3 leftElbow = new Vector3(-dims.tw * 0.45f, dims.ll + dims.th * 0.83f, dims.al * 0.2f);
-            Vector3 leftWrist = new Vector3(-dims.tw * 0.18f, dims.ll + dims.th * 0.97f, dims.al * 0.12f);
+            float shoulderY = dims.ll + dims.th * 0.9f;
+            float armReach = dims.tw * 1.55f;
+            float elbowDrop = dims.lw * 0.06f;
 
-            // Bras droit : garde médiane avancée pour posture de combat.
-            Vector3 rightShoulder = new Vector3(dims.tw * 0.62f, dims.ll + dims.th * 0.88f, -dims.al * 0.08f);
-            Vector3 rightElbow = new Vector3(dims.tw * 0.38f, dims.ll + dims.th * 0.72f, dims.al * 0.26f);
-            Vector3 rightWrist = new Vector3(dims.tw * 0.06f, dims.ll + dims.th * 0.76f, dims.al * 0.36f);
+            Vector3 leftShoulder = new Vector3(-dims.tw * 0.62f, shoulderY, 0f);
+            Vector3 leftElbow = new Vector3(-armReach, shoulderY - elbowDrop, 0f);
+            Vector3 leftWrist = new Vector3(-armReach - dims.al * 0.55f, shoulderY - elbowDrop, 0f);
+
+            Vector3 rightShoulder = new Vector3(dims.tw * 0.62f, shoulderY, 0f);
+            Vector3 rightElbow = new Vector3(armReach, shoulderY - elbowDrop, 0f);
+            Vector3 rightWrist = new Vector3(armReach + dims.al * 0.55f, shoulderY - elbowDrop, 0f);
 
             DrawRoundedHead(d, e, p, leftShoulder, dims.lw * 0.3f, armColor * 0.88f, r);
-            DrawFrustumBetween(d, e, p, leftShoulder, leftElbow, dims.lw * 0.55f, dims.lw * 0.44f, armColor, r, 6);
-            DrawForearmBetween(d, e, p, leftElbow, leftWrist, dims.lw * 0.46f, dims.lw * 0.36f, forearmColor, r, 6);
-            DrawBodyPart(d, e, p, leftWrist + new Vector3(-dims.lw * 0.1f, 0f, dims.lw * 0.08f),
-                new Vector3(dims.lw * 0.42f, dims.lw * 0.34f, dims.lw * 0.62f), forearmColor * 0.95f, r);
+            DrawFrustumBetween(d, e, p, leftShoulder, leftElbow, dims.lw * 0.54f, dims.lw * 0.42f, armColor, r, 6);
+            DrawForearmBetween(d, e, p, leftElbow, leftWrist, dims.lw * 0.43f, dims.lw * 0.34f, forearmColor, r, 6);
+            DrawBodyPart(d, e, p, leftWrist + new Vector3(-dims.lw * 0.24f, -dims.lw * 0.05f, 0f),
+                new Vector3(dims.lw * 0.52f, dims.lw * 0.30f, dims.lw * 0.48f), forearmColor * 0.95f, r);
 
             DrawRoundedHead(d, e, p, rightShoulder, dims.lw * 0.3f, armColor * 0.88f, r);
-            DrawFrustumBetween(d, e, p, rightShoulder, rightElbow, dims.lw * 0.55f, dims.lw * 0.44f, armColor, r, 6);
-            DrawForearmBetween(d, e, p, rightElbow, rightWrist, dims.lw * 0.46f, dims.lw * 0.36f, forearmColor, r, 6);
-            DrawBodyPart(d, e, p, rightWrist + new Vector3(dims.lw * 0.08f, -dims.lw * 0.04f, dims.lw * 0.12f),
-                new Vector3(dims.lw * 0.44f, dims.lw * 0.34f, dims.lw * 0.66f), forearmColor * 0.95f, r);
+            DrawFrustumBetween(d, e, p, rightShoulder, rightElbow, dims.lw * 0.54f, dims.lw * 0.42f, armColor, r, 6);
+            DrawForearmBetween(d, e, p, rightElbow, rightWrist, dims.lw * 0.43f, dims.lw * 0.34f, forearmColor, r, 6);
+            DrawBodyPart(d, e, p, rightWrist + new Vector3(dims.lw * 0.24f, -dims.lw * 0.05f, 0f),
+                new Vector3(dims.lw * 0.52f, dims.lw * 0.30f, dims.lw * 0.48f), forearmColor * 0.95f, r);
         }
     }
 }

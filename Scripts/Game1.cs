@@ -398,6 +398,10 @@ namespace XCOM_3
                 mapEditor.Draw3D(gameTime);
             if (currentState == GameState.Playing)
                 DrawWorld3D(gameTime); // monde + unités + murs
+
+            if (currentState == GameState.Playing && characterInfoPanel.IsVisible && selectedUnit?.Team == Team.Player)
+                characterInfoPanel.DrawPreview3D(selectedUnit);
+
             // --- EFFETS VISUELS 3D ---
             VisualEffects.Draw(); // explosions et particules
 
@@ -495,6 +499,7 @@ namespace XCOM_3
 
             if (characterInfoPanel.IsVisible)
             {
+                characterInfoPanel.Update(gameTime, keyboard);
                 if (escapePressed) characterInfoPanel.Hide();
                 return;
             }
