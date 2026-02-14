@@ -127,6 +127,7 @@ namespace XCOM_3
     {
         public static ItemSize GetItemSize(string name)
         {
+            if (name.Contains("T-Shirt")) return new ItemSize(1, 1);
             if (name.Contains("Rifle") || name.Contains("Shotgun")) return new ItemSize(1, 4);
             if (name.Contains("SMG") || name.Contains("Pistol")) return new ItemSize(1, 2);
             if (name.Contains("Sniper")) return new ItemSize(1, 5);

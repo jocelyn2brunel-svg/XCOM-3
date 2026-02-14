@@ -121,6 +121,14 @@ namespace XCOM_3
                 0,
                 "Protection feu / confort thermique."
             ));
+
+            list.AddRange(new[]
+            {
+                Tshirt("T-Shirt Noir"),
+                Tshirt("T-Shirt Blanc"),
+                Tshirt("T-Shirt Bleu"),
+                Tshirt("T-Shirt Vert"),
+            });
         }
 
         private static void AddPants(List<ItemData> list)
@@ -228,5 +236,18 @@ namespace XCOM_3
                 "Plaques ESAPI. -1 PM."
             ));
         }
+
+        private static ItemData Tshirt(string name)
+            => new ItemData(
+                name,
+                ItemType.Armor,
+                0,
+                ArmorSlot.Shirt,
+                ProtectionLevel.None,
+                0,
+                0.33f,
+                0,
+                "T-shirt casual (150 g), volume 1x1. Plusieurs couleurs disponibles."
+            );
     }
 }
