@@ -238,6 +238,38 @@ namespace XCOM_3
             }
         }
 
+        public void DrawStairConnections(IEnumerable<StairConnectionData> stairs, int floorToRender, int cellSize)
+        {
+            if (stairs == null) return;
+
+            float floorYOffset = floorToRender * cellSize;
+            float pulse = 0.8f + 0.2f * (float)Math.Sin(globalAnimationTime * 4f);
+
+            foreach (var stair in stairs)
+            {
+                if (stair.FromFloor == floorToRender)
+                {
+                    DrawStairMarker(stair.FromX, stair.FromY, floorYOffset, cellSize, new Color(255, 170, 40) * pulse);
+                }
+
+                if (stair.Bidirectional && stair.ToFloor == floorToRender)
+                {
+                    DrawStairMarker(stair.ToX, stair.ToY, floorYOffset, cellSize, new Color(60, 210, 255) * pulse);
+                }
+            }
+        }
+
+        private void DrawStairMarker(int cellX, int cellY, float floorYOffset, int cellSize, Color color)
+        {
+            Vector3 center = new Vector3(
+                cellX * cellSize + cellSize / 2f,
+                floorYOffset + 0.03f,
+                cellY * cellSize + cellSize / 2f);
+
+            DrawCube(center, new Vector3(cellSize * 0.45f, 0.06f, cellSize * 0.45f), color);
+            DrawCube(center + new Vector3(0f, 0.35f, 0f), new Vector3(cellSize * 0.12f, 0.7f, cellSize * 0.12f), color * 0.85f);
+        }
+
         
 
 
