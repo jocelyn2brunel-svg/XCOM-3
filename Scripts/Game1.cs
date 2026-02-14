@@ -210,7 +210,7 @@ namespace XCOM_3
             inventorySystem = new InventorySystem(GraphicsDevice, _spriteBatch, font, pixel);
             unitManager = new OptimizedUnitManager();
 
-            pathfinding = new PathfindingSystem(gridWidth, gridHeight, 1, new HashSet<WallSegment>(), new List<StairConnectionData>(), GetUnitAtCell, GetUnitAtCellOnFloor);
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, 1, new HashSet<WallSegment>(), new List<StairConnectionData>(), GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
             statsPanel = new StatsPanel(
                 Content.Load<SpriteFont>("Arial"),
                 GraphicsDevice);
@@ -1810,6 +1810,14 @@ namespace XCOM_3
             foreach (var u in enemyUnits) yield return u;
         }
 
+        private bool IsCellAvailableOnFloor(Point cell, int floor)
+        {
+            if (floor == 0)
+                return true;
+
+            return GetCellsForFloor(floor).Contains(cell);
+        }
+
         Unit GetUnitAtCell(Point cell)
         {
             return unitManager.SpatialHash.GetUnitAt(cell, 0);
@@ -1861,7 +1869,7 @@ namespace XCOM_3
 
             CreateUnits(missionType);
             wallSegments = currentMap.GetWalls();
-            pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallSegments, currentMap.StairConnections, GetUnitAtCell, GetUnitAtCellOnFloor);
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallSegments, currentMap.StairConnections, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
             combatSystem.SetPathfinding(pathfinding);
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
             unitManager.InitializeForMission(playerUnits, enemyUnits);

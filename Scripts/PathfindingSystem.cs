@@ -35,16 +35,26 @@ namespace XCOM_3
         private Dictionary<(Point A, Point B), WallSegment> wallLookup = new();
         private readonly Func<Point, Unit> getUnit;
         private readonly Func<Point, int, Unit> getUnitByFloor;
+        private readonly Func<Point, int, bool> isCellAvailableOnFloor;
         private readonly List<StairConnectionData> stairs;
 
         public PathfindingSystem(int w, int h, HashSet<WallSegment> walls, Func<Point, Unit> getUnit)
-            : this(w, h, 1, walls, new List<StairConnectionData>(), getUnit, (cell, floor) => floor == 0 ? getUnit(cell) : null)
+            : this(
+                w,
+                h,
+                1,
+                walls,
+                new List<StairConnectionData>(),
+                getUnit,
+                (cell, floor) => floor == 0 ? getUnit(cell) : null,
+                (cell, floor) => floor == 0)
         { }
 
         public PathfindingSystem(int w, int h, int floors, HashSet<WallSegment> walls,
             List<StairConnectionData> stairs,
             Func<Point, Unit> getUnit,
-            Func<Point, int, Unit> getUnitByFloor)
+            Func<Point, int, Unit> getUnitByFloor,
+            Func<Point, int, bool> isCellAvailableOnFloor = null)
         {
             gridW = w;
             gridH = h;
@@ -53,6 +63,7 @@ namespace XCOM_3
             this.stairs = stairs ?? new List<StairConnectionData>();
             this.getUnit = getUnit;
             this.getUnitByFloor = getUnitByFloor;
+            this.isCellAvailableOnFloor = isCellAvailableOnFloor;
             BuildWallLookup();
         }
 
@@ -294,6 +305,10 @@ namespace XCOM_3
         public bool IsWalkable(Point c, int floor, Unit movingUnit = null)
         {
             if (c.X < 0 || c.Y < 0 || c.X >= gridW || c.Y >= gridH || floor < 0 || floor >= floorCount) return false;
+
+            if (isCellAvailableOnFloor != null && !isCellAvailableOnFloor(c, floor))
+                return false;
+
             var u = getUnitByFloor(c, floor);
             return u == null || u == movingUnit;
         }
