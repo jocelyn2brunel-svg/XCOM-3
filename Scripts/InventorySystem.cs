@@ -776,7 +776,7 @@ namespace XCOM_3
                 isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Torso);
 
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "CARGO",
-                new Vector2(equipX + 100, equipY + 335), ParasiteEveTheme.TextHighlight, 0.65f);
+                new Vector2(equipX + 96, equipY + 335), ParasiteEveTheme.TextHighlight, 0.65f);
 
             int pantsCapacity = unit.GetPantsInventoryCapacity();
             for (int i = 0; i < 4; i++)
@@ -950,18 +950,18 @@ namespace XCOM_3
 
         private Rectangle GetPantsPocketSlotByIndex(int index)
         {
-            int equipX = GetEquipX();
-            int equipY = GetEquipY();
-
             int slotSize = 35;
-            int spacing = 8;
-            int startX = equipX + 100;
-            int y = equipY + 350;
+            int offset = 4;
+            Rectangle pantsSlot = GetPantsSlotBounds();
 
-            int column = index % 2;
-            int row = index / 2;
-
-            return new Rectangle(startX + column * (slotSize + spacing), y + row * (slotSize + spacing), slotSize, slotSize);
+            return index switch
+            {
+                0 => new Rectangle(pantsSlot.Center.X - slotSize / 2, pantsSlot.Y - slotSize - offset, slotSize, slotSize), // Haut
+                1 => new Rectangle(pantsSlot.Right + offset, pantsSlot.Center.Y - slotSize / 2, slotSize, slotSize),        // Droite
+                2 => new Rectangle(pantsSlot.Center.X - slotSize / 2, pantsSlot.Bottom + offset, slotSize, slotSize),       // Bas
+                3 => new Rectangle(pantsSlot.X - slotSize - offset, pantsSlot.Center.Y - slotSize / 2, slotSize, slotSize), // Gauche
+                _ => new Rectangle(pantsSlot.X, pantsSlot.Bottom + offset, slotSize, slotSize)
+            };
         }
 
         // ✅ SLOTS GRENADES
