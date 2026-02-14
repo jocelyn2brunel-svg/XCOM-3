@@ -499,7 +499,7 @@ namespace XCOM_3
 
             if (characterInfoPanel.IsVisible)
             {
-                characterInfoPanel.Update(gameTime, keyboard);
+                characterInfoPanel.Update(gameTime, keyboard, mouse, previousMouseState);
                 if (escapePressed) characterInfoPanel.Hide();
                 return;
             }
