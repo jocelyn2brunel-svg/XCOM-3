@@ -1233,7 +1233,7 @@ namespace XCOM_3
 
                 foreach (var wall in walls)
                 {
-                    if (wall.Type == WallType.Window || wall.Type == WallType.Door)
+                    if (wall.Type == WallType.Door)
                         continue;
 
                     if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, revealPoint))
@@ -1508,7 +1508,7 @@ namespace XCOM_3
 
                 foreach (var wall in walls)
                 {
-                    if (wall.Type == WallType.Window || wall.Type == WallType.Door)
+                    if (wall.Type == WallType.Door)
                         continue;
 
                     if (!IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, unitPosition))
