@@ -326,9 +326,9 @@ namespace XCOM_3
         {
             // L'orientation est utilisée à la fois pour la rotation du modèle et pour la flèche
             // de direction; elle doit donc pointer directement vers le vecteur de déplacement.
-            // Le "forward" visuel est calculé comme (sin(orientation), -cos(orientation)).
-            // On inverse donc l'axe Z dans l'atan2 pour éviter les déplacements en reculons.
-            return MathHelper.WrapAngle((float)Math.Atan2(deltaX, -deltaZ));
+            // Convention retenue: un yaw de 0 regarde vers +Z, donc le vecteur forward est
+            // (sin(orientation), cos(orientation)).
+            return MathHelper.WrapAngle((float)Math.Atan2(deltaX, deltaZ));
         }
 
         public void UpdateVisualPosition(int cellSize = 2)
