@@ -25,10 +25,8 @@ namespace XCOM_3
         public int PerceptionRangeCells { get; set; } = 18;
         public bool IsSpottedByPlayerTeam { get; set; } = false;
 
-        /// <summary>
-        /// Régénération de phosphocréatine (en % du maximum) par tour
-        /// </summary>
-        public const int PHOSPHOCREATINE_REGEN_PERCENT = 5;
+        private static readonly int[] phosphocreatineRegenByRound = { 18, 15, 12, 10, 8, 7, 6, 5, 4, 3 };
+        private int phosphocreatineRegenRound = 0;
 
         public WeaponData WeaponData;
         public bool IsFiring = false, WillHit = false;
@@ -162,6 +160,7 @@ namespace XCOM_3
             jogRangeCells = other.jogRangeCells;
             runRangeCells = other.runRangeCells;
             sprintRangeCells = other.sprintRangeCells;
+            phosphocreatineRegenRound = other.phosphocreatineRegenRound;
             Health = other.Health;
             MaxHealth = other.MaxHealth;
             PerceptionRangeCells = other.PerceptionRangeCells;
@@ -716,22 +715,37 @@ namespace XCOM_3
 
         public bool CanSprint(int distance)
         {
-            return ActionPoints >= 2 && Phosphocreatine >= GetSprintPhosphocreatineCost(distance);
+            return ActionPoints >= 2 && Phosphocreatine >= GetMovementPhosphocreatineCost(distance);
+        }
+
+        public int GetMovementPhosphocreatineCost(int distance)
+        {
+            if (distance <= 0)
+                return 0;
+
+            int shortRange = Math.Max(1, GetShortMoveRange());
+            int maxRange = Math.Max(shortRange, GetMaxMoveRange());
+            int sprintRange = Math.Max(maxRange, GetSprintRange());
+
+            if (distance <= shortRange)
+            {
+                float ratio = MathHelper.Clamp(distance / (float)shortRange, 0f, 1f);
+                return (int)MathF.Ceiling(MaxPhosphocreatine * 0.15f * ratio);
+            }
+
+            if (distance <= maxRange)
+            {
+                float ratio = MathHelper.Clamp(distance / (float)maxRange, 0f, 1f);
+                return (int)MathF.Ceiling(MaxPhosphocreatine * 0.30f * ratio);
+            }
+
+            float sprintRatio = MathHelper.Clamp(distance / (float)sprintRange, 0f, 1f);
+            return (int)MathF.Ceiling(MaxPhosphocreatine * 0.60f * sprintRatio);
         }
 
         public int GetSprintPhosphocreatineCost(int distance)
         {
-            int maxRange = GetMaxMoveRange();
-            int sprintRange = GetSprintRange();
-
-            if (distance <= maxRange)
-                return 0;
-
-            int sprintBand = Math.Max(1, sprintRange - maxRange);
-            int overRunDistance = Math.Min(sprintBand, Math.Max(0, distance - maxRange));
-            float sprintUsageRatio = overRunDistance / (float)sprintBand;
-
-            return (int)MathF.Ceiling(MaxPhosphocreatine * sprintUsageRatio);
+            return GetMovementPhosphocreatineCost(distance);
         }
 
         /// <summary>
@@ -739,8 +753,9 @@ namespace XCOM_3
         /// </summary>
         public void ConsumeSprint(int distance)
         {
-            int cost = GetSprintPhosphocreatineCost(distance);
+            int cost = GetMovementPhosphocreatineCost(distance);
             Phosphocreatine = Math.Max(0, Phosphocreatine - cost);
+            phosphocreatineRegenRound = 0;
             Console.WriteLine($"[UNIT] {Name} sprints! Phosphocreatine: {Phosphocreatine}/{MaxPhosphocreatine} (cost {cost})");
         }
 
@@ -749,8 +764,11 @@ namespace XCOM_3
         /// </summary>
         public void RegeneratePhosphocreatine()
         {
-            int regenAmount = (int)MathF.Ceiling(MaxPhosphocreatine * (PHOSPHOCREATINE_REGEN_PERCENT / 100f));
+            int tableIndex = Math.Min(phosphocreatineRegenRound, phosphocreatineRegenByRound.Length - 1);
+            int regenPercent = phosphocreatineRegenByRound[tableIndex];
+            int regenAmount = (int)MathF.Ceiling(MaxPhosphocreatine * (regenPercent / 100f));
             Phosphocreatine = Math.Min(MaxPhosphocreatine, Phosphocreatine + regenAmount);
+            phosphocreatineRegenRound++;
         }
 
         /// <summary>
