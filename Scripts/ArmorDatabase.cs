@@ -147,6 +147,18 @@ namespace XCOM_3
                 4,
                 "Jeans de travail (2 lb). Ajoute 4 poches 1x1."
             ));
+
+            list.Add(new ItemData(
+                "Pantalon Cargo",
+                ItemType.Armor,
+                0,
+                ArmorSlot.Pants,
+                ProtectionLevel.None,
+                0,
+                2f,
+                6,
+                "Pantalon cargo (2 lb). Ajoute 6 poches 1x1."
+            ));
         }
 
         // ─────────────────────────────────────────────
