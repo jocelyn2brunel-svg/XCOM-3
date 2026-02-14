@@ -468,8 +468,16 @@ namespace XCOM_3
         /// </summary>
         public int GetShortMoveRange()
         {
+            return GetShortMoveRange(0f);
+        }
+
+        /// <summary>
+        /// Obtient la portée de mouvement court (1 AP), ajustée selon la charge portée.
+        /// </summary>
+        public int GetShortMoveRange(float carriedWeightLbs)
+        {
             int baseRange = jogRangeCells + Skills.GetMovementBonus();
-            int penalty = GetMobilityPenalty();
+            int penalty = GetMobilityPenalty() + GetCarriedWeightMobilityPenaltyCells(carriedWeightLbs, baseRange);
             return Math.Max(1, baseRange - penalty);
         }
 
@@ -478,8 +486,16 @@ namespace XCOM_3
         /// </summary>
         public int GetMaxMoveRange()
         {
+            return GetMaxMoveRange(0f);
+        }
+
+        /// <summary>
+        /// Obtient la portée de mouvement maximale (2 AP), ajustée selon la charge portée.
+        /// </summary>
+        public int GetMaxMoveRange(float carriedWeightLbs)
+        {
             int baseRange = runRangeCells + Skills.GetMovementBonus();
-            int penalty = GetMobilityPenalty();
+            int penalty = GetMobilityPenalty() + GetCarriedWeightMobilityPenaltyCells(carriedWeightLbs, baseRange);
             return Math.Max(1, baseRange - penalty);
         }
 
@@ -488,9 +504,49 @@ namespace XCOM_3
         /// </summary>
         public int GetSprintRange()
         {
+            return GetSprintRange(0f);
+        }
+
+        /// <summary>
+        /// Obtient la portée de sprint (2 AP + stamina), ajustée selon la charge portée.
+        /// </summary>
+        public int GetSprintRange(float carriedWeightLbs)
+        {
             int baseRange = sprintRangeCells + Skills.GetMovementBonus();
-            int penalty = GetMobilityPenalty();
-            return Math.Max(GetMaxMoveRange(), baseRange - penalty);
+            int penalty = GetMobilityPenalty() + GetCarriedWeightMobilityPenaltyCells(carriedWeightLbs, baseRange);
+            return Math.Max(GetMaxMoveRange(carriedWeightLbs), baseRange - penalty);
+        }
+
+        /// <summary>
+        /// Convertit le poids porté en pénalité de mobilité (en cases) via une règle empirique.
+        ///
+        /// Règle utilisée (effort court ~6s) :
+        /// - 0.75% de perte de vitesse par 1% de poids corporel ajouté.
+        /// - Cap à 42% de perte max pour éviter un effondrement irréaliste sur un sprint court.
+        /// </summary>
+        public int GetCarriedWeightMobilityPenaltyCells(float carriedWeightLbs, int baseRangeCells)
+        {
+            if (carriedWeightLbs <= 0f || baseRangeCells <= 1)
+                return 0;
+
+            const float speedPenaltyPerBodyWeightPercent = 0.75f;
+            const float maxSpeedPenaltyPercent = 42f;
+            const float feetPerCell = 5f;
+
+            float referenceBodyWeight = GetReferenceBodyWeightLbs();
+            float carriedPercent = (carriedWeightLbs / referenceBodyWeight) * 100f;
+            float speedPenaltyPercent = MathF.Min(maxSpeedPenaltyPercent, carriedPercent * speedPenaltyPerBodyWeightPercent);
+
+            float baseDistanceFeet = baseRangeCells * feetPerCell;
+            float adjustedDistanceFeet = baseDistanceFeet * (1f - speedPenaltyPercent / 100f);
+
+            int adjustedRangeCells = Math.Max(1, (int)MathF.Round(adjustedDistanceFeet / feetPerCell));
+            return Math.Max(0, baseRangeCells - adjustedRangeCells);
+        }
+
+        private float GetReferenceBodyWeightLbs()
+        {
+            return BodyType == HumanBodyType.Feminine ? 150f : 180f;
         }
 
         private void InitializeMovementProfile()
