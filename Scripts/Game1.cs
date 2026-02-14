@@ -840,6 +840,7 @@ namespace XCOM_3
             if (selectedUnit != null && selectedUnit.Team == Team.Player && selectedUnit.Floor == viewedFloor)
             {
                 combatUI.DrawMovementInfo(selectedUnit, hoveredCell, currentPath);
+                DrawMovementDestinationInfoBillboard();
             }
 
             _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | PgUp/PgDn: Etage | I: Inventaire | C: Fiche perso", new Vector2(10, 10), Color.White);
@@ -850,6 +851,122 @@ namespace XCOM_3
             string floorLabel = viewedFloor == 0 ? "RDC" : viewedFloor > 0 ? $"+{viewedFloor}" : viewedFloor.ToString();
             int maxBasements = Math.Abs(GetMinimumViewFloor());
             _spriteBatch.DrawString(font, $"Etage affiche: {floorLabel} (Sous-sols: {maxBasements} | Etages: {Math.Max(1, currentMap?.FloorCount ?? 1)})", new Vector2(10, 50), Color.LightGreen);
+        }
+
+        private void DrawMovementDestinationInfoBillboard()
+        {
+            if (currentPath == null || currentPath.Count == 0 || selectedUnit == null)
+                return;
+
+            Point destinationCell = currentPath[currentPath.Count - 1];
+            int distance = currentPath.Count;
+
+            if (!TryGetMovementPreviewCosts(selectedUnit, distance, out int actionPointCost, out int phosphocreatineCost))
+                return;
+
+            Vector3 destinationCenter = new Vector3(
+                destinationCell.X * cellSize + cellSize / 2f,
+                viewedFloor * cellSize,
+                destinationCell.Y * cellSize + cellSize / 2f
+            );
+
+            float baseHeight = destinationCenter.Y + 0.15f;
+            float lineHeight = cellSize * 2f;
+            Vector3 lineTop = new Vector3(destinationCenter.X, baseHeight + lineHeight, destinationCenter.Z);
+
+            DrawWorldSpaceMovementMarker(baseHeight, lineHeight, destinationCenter, lineTop);
+            DrawMovementInfoPanel(lineTop, distance, actionPointCost, phosphocreatineCost);
+        }
+
+        private void DrawWorldSpaceMovementMarker(float baseHeight, float lineHeight, Vector3 destinationCenter, Vector3 lineTop)
+        {
+            float connectorLength = cellSize * 0.45f;
+            Vector3 cameraForward = Vector3.Normalize(camera.Target - camera.Position);
+            Vector3 cameraRight = Vector3.Normalize(Vector3.Cross(cameraForward, Vector3.Up));
+
+            Color markerColor = new Color(255, 230, 120, 215);
+
+            Vector3 verticalLineCenter = new Vector3(destinationCenter.X, baseHeight + lineHeight * 0.5f, destinationCenter.Z);
+            renderer3D.DrawCube(verticalLineCenter, new Vector3(cellSize * 0.035f, lineHeight * 0.5f, cellSize * 0.035f), markerColor);
+
+            Vector3 connectorCenter = lineTop + cameraRight * (connectorLength * 0.5f);
+            renderer3D.DrawCube(connectorCenter, new Vector3(connectorLength * 0.5f, cellSize * 0.03f, cellSize * 0.03f), markerColor);
+        }
+
+        private void DrawMovementInfoPanel(Vector3 lineTop, int distance, int actionPointCost, int phosphocreatineCost)
+        {
+            Vector3 projectedTop = GraphicsDevice.Viewport.Project(
+                lineTop,
+                camera.ProjectionMatrix,
+                camera.ViewMatrix,
+                Matrix.Identity);
+
+            if (projectedTop.Z <= 0f || projectedTop.Z >= 1f)
+                return;
+
+            string infoText = $"Cases: {distance}  |  PA: -{actionPointCost}  |  PCr: -{phosphocreatineCost}%";
+            Vector2 textSize = font.MeasureString(infoText);
+            Vector2 panelPadding = new Vector2(14f, 8f);
+            Vector2 panelSize = textSize + panelPadding * 2f;
+
+            Vector2 panelPos = new Vector2(
+                projectedTop.X + 24f,
+                projectedTop.Y - panelSize.Y * 0.5f);
+
+            Rectangle panelRect = new Rectangle(
+                (int)panelPos.X,
+                (int)panelPos.Y,
+                (int)panelSize.X,
+                (int)panelSize.Y);
+
+            _spriteBatch.Draw(pixel, panelRect, new Color(12, 25, 18, 230));
+            DrawPanelBorder(panelRect, new Color(110, 220, 170));
+
+            Vector2 textPos = panelPos + panelPadding;
+            _spriteBatch.DrawString(font, infoText, textPos, new Color(220, 255, 235));
+        }
+
+        private void DrawPanelBorder(Rectangle rect, Color color)
+        {
+            int thickness = 2;
+            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Y, rect.Width, thickness), color);
+            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Bottom - thickness, rect.Width, thickness), color);
+            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Y, thickness, rect.Height), color);
+            _spriteBatch.Draw(pixel, new Rectangle(rect.Right - thickness, rect.Y, thickness, rect.Height), color);
+        }
+
+        private bool TryGetMovementPreviewCosts(Unit unit, int distance, out int actionPointCost, out int phosphocreatineCost)
+        {
+            actionPointCost = 0;
+            phosphocreatineCost = 0;
+
+            if (unit == null || distance <= 0)
+                return false;
+
+            int shortRange = unit.GetShortMoveRange();
+            int maxRange = unit.GetMaxMoveRange();
+            int sprintRange = unit.GetSprintRange();
+
+            if (distance <= shortRange && unit.ActionPoints >= 1)
+            {
+                actionPointCost = 1;
+                return true;
+            }
+
+            if (distance <= maxRange && unit.ActionPoints >= 2)
+            {
+                actionPointCost = 2;
+                return true;
+            }
+
+            if (distance <= sprintRange && unit.CanSprint(distance))
+            {
+                actionPointCost = 2;
+                phosphocreatineCost = unit.GetSprintPhosphocreatineCost(distance);
+                return true;
+            }
+
+            return false;
         }
 
         private void DrawWorld3D(GameTime gameTime)
