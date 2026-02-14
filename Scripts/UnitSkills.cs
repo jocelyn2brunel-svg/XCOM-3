@@ -184,6 +184,8 @@ namespace XCOM_3
             _skills[SkillType.Medical].Level * 4;
         public int GetExplosionRadiusBonus() =>
             _skills[SkillType.Demolitions].Level / 3;
+        public int GetGrenadeThrowRangeBonus() =>
+            _skills[SkillType.Strength].Level / 2;
         public int GetCarryBonus() =>
             _skills[SkillType.Strength].Level * 2;
         public int GetMeleeHitBonus() =>
