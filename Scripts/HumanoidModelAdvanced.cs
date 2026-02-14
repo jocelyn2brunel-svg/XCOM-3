@@ -1035,30 +1035,45 @@ namespace XCOM_3
         {
             bool feminine = bodyType == Unit.HumanBodyType.Feminine;
 
-            // Contrainte posturale: sternum et pubis restent quasiment alignés sur le même axe Z
-            // pour éviter la "posture en banane" (cambrure trop marquée).
-            float trunkCenterZ = dims.td * 0.005f;
+            // Structure de tronc en 3 blocs (1 : 0.8 : 1), avec axe vertical stabilisé.
+            // On évite ainsi les ventres projetés et la "posture en banane".
+            float ribRatio = 1f;
+            float abdomenRatio = 0.8f;
+            float pelvisRatio = 1f;
+            float ratioSum = ribRatio + abdomenRatio + pelvisRatio;
 
-            // 1) Cage thoracique : bloc principal en tronc de cône inversé, quasi vertical
-            // (léger basculement seulement pour garder une silhouette organique).
+            float ribHeight = dims.th * (ribRatio / ratioSum);
+            float abdomenHeight = dims.th * (abdomenRatio / ratioSum);
+            float pelvisHeight = dims.th * (pelvisRatio / ratioSum);
+
+            float pelvisCenterY = dims.ll + pelvisHeight * 0.5f;
+            float abdomenCenterY = pelvisCenterY + pelvisHeight * 0.5f + abdomenHeight * 0.5f;
+            float ribCenterY = abdomenCenterY + abdomenHeight * 0.5f + ribHeight * 0.5f;
+
+            // Sternum / bassin alignés en Z pour préserver la verticalité.
+            float trunkCenterZ = 0f;
+
+            // 1) Cage thoracique
             float ribTopWidth = dims.tw * (feminine ? 1.0f : 1.08f);
-            float ribBottomWidth = dims.tw * (feminine ? 0.84f : 0.76f);
-            float ribHeight = dims.th * 0.62f;
-            Vector3 ribPos = new Vector3(0, dims.ll + dims.th * 0.58f, trunkCenterZ);
+            float ribBottomWidth = dims.tw * (feminine ? 0.88f : 0.8f);
+            float chestDepth = dims.td;
             Matrix ribRot = Matrix.CreateRotationX(MathHelper.ToRadians(-2f)) * r;
-            DrawTorsoPolygon(d, e, p, ribPos, ribHeight, ribTopWidth, ribBottomWidth, dims.td, chestColor, ribRot);
+            DrawTorsoPolygon(d, e, p, new Vector3(0, ribCenterY, trunkCenterZ),
+                ribHeight, ribTopWidth, ribBottomWidth, chestDepth, chestColor, ribRot);
 
-            // 2) Zone de transition abdominale : volume recentré pour un "core" engagé.
-            DrawRoundedCapsuleY(d, e, p, new Vector3(0, dims.ll + dims.th * 0.3f, trunkCenterZ),
-                dims.th * 0.29f, dims.tw * 0.31f, chestColor * 0.86f, r, 5);
+            // 2) Abdomen (profondeur réduite de 20% vs cage thoracique)
+            float abdomenDepth = chestDepth * 0.8f;
+            DrawRoundedCapsuleY(d, e, p, new Vector3(0, abdomenCenterY, trunkCenterZ),
+                abdomenHeight, dims.tw * 0.31f, chestColor * 0.86f, r, 5);
+            DrawBodyPart(d, e, p, new Vector3(0, abdomenCenterY, trunkCenterZ),
+                new Vector3(dims.tw * 0.5f, abdomenHeight * 0.58f, abdomenDepth), chestColor * 0.83f, r);
 
-            // 3) Bassin : boîte trapézoïdale avec légère rétroversion (tucked pelvis).
+            // 3) Bassin : inclinaison antérieure modérée (< 15°)
             float pelvisTopWidth = dims.tw * (feminine ? 0.94f : 0.88f);
             float pelvisBottomWidth = dims.tw * (feminine ? 1.02f : 0.92f);
-            float pelvisHeight = dims.th * 0.27f;
-            Vector3 pelvisPos = new Vector3(0, dims.ll - dims.th * 0.04f, trunkCenterZ);
-            Matrix pelvisRot = Matrix.CreateRotationX(MathHelper.ToRadians(-4f)) * r;
-            DrawTorsoPolygon(d, e, p, pelvisPos, pelvisHeight, pelvisTopWidth, pelvisBottomWidth, dims.td * 0.92f, pelvisColor * 0.94f, pelvisRot);
+            Matrix pelvisRot = Matrix.CreateRotationX(MathHelper.ToRadians(-6f)) * r;
+            DrawTorsoPolygon(d, e, p, new Vector3(0, pelvisCenterY, trunkCenterZ),
+                pelvisHeight, pelvisTopWidth, pelvisBottomWidth, chestDepth * 0.88f, pelvisColor * 0.94f, pelvisRot);
 
             // Points de repère : épaules, plexus (V inversé), axe central.
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.88f, -dims.td * 0.02f),
@@ -1157,7 +1172,7 @@ namespace XCOM_3
         {
             Color skin = new(220, 180, 140), dark = new(50, 50, 70);
             DrawRunningLegPair(d, e, p, r, dims, l * 0.9f, 0.3f, 1.2f, dark, dark * 0.8f);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0), new Vector3(dims.tw, dims.th, dims.td), c, r);
+            DrawStructuredTorso(d, e, p, r, dims, c, dark, Unit.HumanBodyType.Masculine);
             DrawSwingingArmPair(d, e, p, r, dims, a * 0.75f, 0.65f, 0.88f, -0.1f, 1.25f, c * 0.85f);
             DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, 0), dims.head * 0.56f, skin, r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, dims.head * 0.6f), new Vector3(dims.head * 0.8f, dims.head * 0.4f, dims.head * 0.15f), new Color(30, 30, 30), r);
@@ -1177,7 +1192,7 @@ namespace XCOM_3
         {
             Color skin = new(220, 180, 140), dark = new(70, 70, 90);
             DrawRunningLegPair(d, e, p, r, dims, l * 1.2f, 0.25f, 1f, dark, dark * 0.85f);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0), new Vector3(dims.tw, dims.th, dims.td), c, r);
+            DrawStructuredTorso(d, e, p, r, dims, c, dark, Unit.HumanBodyType.Masculine);
             DrawSwingingArmPair(d, e, p, r, dims, a * 1.2f, 0.55f, 0.9f, 0f, 0.95f, c * 0.85f);
             DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0), dims.head * 0.5f, skin, r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f + 0.05f * s, dims.head * 0.6f), new Vector3(dims.head * 0.7f, dims.head * 0.25f, dims.head * 0.08f), new Color(50, 100, 150), r);
