@@ -66,7 +66,7 @@ namespace XCOM_3
             foreach (var u in playerUnits)
             {
                 u.ActionPoints = u.MaxActionPoints; // ← Utiliser MaxActionPoints au lieu de 3
-                u.RegenerateStamina(); // ← NOUVEAU : Régénérer la stamina
+                u.RegeneratePhosphocreatine();
             }
 
             CurrentTurn = TurnState.PlayerTurn;

@@ -192,22 +192,22 @@ namespace XCOM_3
                 new Vector2(apBar.Right - font.MeasureString(apText).X, p.Y),
                 ParasiteEveTheme.TextNormal, 0.8f);
 
-            // Barre de Stamina
+            // Barre de phosphocréatine
             p.Y += 25;
-            spriteBatch.DrawString(font, "STM", p, new Color(255, 200, 50));
-            Rectangle staminaBar = new Rectangle(x + 60, (int)p.Y, w - 70, 16);
-            ParasiteEveTheme.DrawProgressBar(spriteBatch, pixel, staminaBar,
-                selectedUnit.Stamina, selectedUnit.MaxStamina, new Color(255, 200, 50));
+            spriteBatch.DrawString(font, "PCr", p, new Color(255, 200, 50));
+            Rectangle phosphocreatineBar = new Rectangle(x + 60, (int)p.Y, w - 70, 16);
+            ParasiteEveTheme.DrawProgressBar(spriteBatch, pixel, phosphocreatineBar,
+                selectedUnit.Phosphocreatine, selectedUnit.MaxPhosphocreatine, new Color(255, 200, 50));
 
-            string staminaText = $"{selectedUnit.Stamina}";
-            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, staminaText,
-                new Vector2(staminaBar.X + staminaBar.Width + 5, p.Y), ParasiteEveTheme.TextNormal, 0.8f);
+            string phosphocreatineText = $"{selectedUnit.Phosphocreatine}%";
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, phosphocreatineText,
+                new Vector2(phosphocreatineBar.X + phosphocreatineBar.Width + 5, p.Y), ParasiteEveTheme.TextNormal, 0.8f);
 
-            // Indicateur si stamina basse
-            if (selectedUnit.Stamina < Unit.SPRINT_STAMINA_COST)
+            // Indicateur si phosphocréatine basse
+            if (!selectedUnit.CanSprint())
             {
                 p.Y += 20;
-                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "⚠ LOW STAMINA",
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "⚠ PCR LOW",
                     p, ParasiteEveTheme.TextWarning, 0.7f);
             }
 
@@ -518,8 +518,8 @@ namespace XCOM_3
                 pos, maxColor, 0.8f);
             pos.Y += 20;
 
-            // Sprint (2 AP + stamina)
-            string sprintText = $"Sprint: {sprintRange} cells (2 AP + {Unit.SPRINT_STAMINA_COST} STM)";
+            // Sprint (2 AP + phosphocréatine variable)
+            string sprintText = $"Sprint: {sprintRange} cells (2 AP + PCr variable)";
             Color sprintColor = selectedUnit.CanSprint() ?
                 new Color(255, 200, 50) : ParasiteEveTheme.TextDim;
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, sprintText,
@@ -554,7 +554,7 @@ namespace XCOM_3
                 }
 
                 string costText = isSprint ?
-                    $"{distance} cells: {apCost} AP + {Unit.SPRINT_STAMINA_COST} STM" :
+                    $"{distance} cells: {apCost} AP + {selectedUnit.GetSprintPhosphocreatineCost(distance)}% PCr" :
                     $"{distance} cells: {apCost} AP";
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, moveType,

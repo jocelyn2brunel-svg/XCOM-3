@@ -18,17 +18,17 @@ namespace XCOM_3
         public string Name, Weapon;
         public int ActionPoints = 2;
         public int MaxActionPoints = 2;
-        public int Stamina = 100;
-        public int MaxStamina = 100;
+        public int Phosphocreatine = 100;
+        public int MaxPhosphocreatine = 100;
         public int MovementRange = 4; // Portée max en cases
         public int Health = 100, MaxHealth = 100;
         public int PerceptionRangeCells { get; set; } = 18;
         public bool IsSpottedByPlayerTeam { get; set; } = false;
 
         /// <summary>
-        /// Coût en stamina pour sprinter
+        /// Régénération de phosphocréatine (en % du maximum) par tour
         /// </summary>
-        public const int SPRINT_STAMINA_COST = 20;
+        public const int PHOSPHOCREATINE_REGEN_PERCENT = 5;
 
         public WeaponData WeaponData;
         public bool IsFiring = false, WillHit = false;
@@ -112,8 +112,8 @@ namespace XCOM_3
 
             ActionPoints = 2;
             MaxActionPoints = 2;
-            Stamina = 100;
-            MaxStamina = 100;
+            Phosphocreatine = 100;
+            MaxPhosphocreatine = 100;
             MovementRange = 4;
 
             InitializeMovementProfile();
@@ -156,8 +156,8 @@ namespace XCOM_3
             WeaponData = other.WeaponData;
             ActionPoints = other.ActionPoints;
             MaxActionPoints = other.MaxActionPoints;
-            Stamina = other.Stamina;
-            MaxStamina = other.MaxStamina;
+            Phosphocreatine = other.Phosphocreatine;
+            MaxPhosphocreatine = other.MaxPhosphocreatine;
             MovementRange = other.MovementRange;
             jogRangeCells = other.jogRangeCells;
             runRangeCells = other.runRangeCells;
@@ -611,7 +611,7 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Obtient la portée de sprint (2 AP + stamina)
+        /// Obtient la portée de sprint (2 AP + phosphocréatine)
         /// </summary>
         public int GetSprintRange()
         {
@@ -619,7 +619,7 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Obtient la portée de sprint (2 AP + stamina), ajustée selon la charge portée.
+        /// Obtient la portée de sprint (2 AP + phosphocréatine), ajustée selon la charge portée.
         /// </summary>
         public int GetSprintRange(float carriedWeightLbs)
         {
@@ -711,25 +711,46 @@ namespace XCOM_3
         /// </summary>
         public bool CanSprint()
         {
-            return Stamina >= SPRINT_STAMINA_COST && ActionPoints >= 2;
+            return CanSprint(GetMaxMoveRange() + 1);
+        }
+
+        public bool CanSprint(int distance)
+        {
+            return ActionPoints >= 2 && Phosphocreatine >= GetSprintPhosphocreatineCost(distance);
+        }
+
+        public int GetSprintPhosphocreatineCost(int distance)
+        {
+            int maxRange = GetMaxMoveRange();
+            int sprintRange = GetSprintRange();
+
+            if (distance <= maxRange)
+                return 0;
+
+            int sprintBand = Math.Max(1, sprintRange - maxRange);
+            int overRunDistance = Math.Min(sprintBand, Math.Max(0, distance - maxRange));
+            float sprintUsageRatio = overRunDistance / (float)sprintBand;
+
+            return (int)MathF.Ceiling(MaxPhosphocreatine * sprintUsageRatio);
         }
 
         /// <summary>
-        /// Consomme la stamina pour un sprint
+        /// Consomme la phosphocréatine pour un sprint
         /// </summary>
-        public void ConsumeSprint()
+        public void ConsumeSprint(int distance)
         {
-            Stamina = Math.Max(0, Stamina - SPRINT_STAMINA_COST);
-            Console.WriteLine($"[UNIT] {Name} sprints! Stamina: {Stamina}/{MaxStamina}");
+            int cost = GetSprintPhosphocreatineCost(distance);
+            Phosphocreatine = Math.Max(0, Phosphocreatine - cost);
+            Console.WriteLine($"[UNIT] {Name} sprints! Phosphocreatine: {Phosphocreatine}/{MaxPhosphocreatine} (cost {cost})");
         }
 
         /// <summary>
-        /// Régénère la stamina (appelé chaque tour)
+        /// Régénère la phosphocréatine (appelé chaque tour)
         /// </summary>
-        public void RegenerateStamina()
+        public void RegeneratePhosphocreatine()
         {
-            int regenAmount = 10; // Régénère 10 stamina par tour
-            Stamina = Math.Min(MaxStamina, Stamina + regenAmount);
+            int regenAmount = (int)MathF.Ceiling(MaxPhosphocreatine * (PHOSPHOCREATINE_REGEN_PERCENT / 100f));
+            Phosphocreatine = Math.Min(MaxPhosphocreatine, Phosphocreatine + regenAmount);
         }
 
         /// <summary>
@@ -745,7 +766,7 @@ namespace XCOM_3
             else if (distance <= maxRange)
                 return 2; // Mouvement complet
             else
-                return 2; // Sprint (+ stamina)
+                return 2; // Sprint (+ phosphocréatine)
         }
 
         /// <summary>

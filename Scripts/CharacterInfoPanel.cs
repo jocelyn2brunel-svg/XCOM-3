@@ -180,7 +180,7 @@ namespace XCOM_3
             DrawPair(spriteBatch, ref cursor, "Perception", $"{unit.PerceptionRangeCells} cases");
             DrawPair(spriteBatch, ref cursor, "Points d'action", $"{unit.ActionPoints}/{unit.MaxActionPoints}");
             DrawPair(spriteBatch, ref cursor, "Sante", $"{unit.Health}/{unit.GetMaxHealth()}");
-            DrawPair(spriteBatch, ref cursor, "Endurance", $"{unit.Stamina}/{unit.MaxStamina}");
+            DrawPair(spriteBatch, ref cursor, "Phosphocreatine", $"{unit.Phosphocreatine}/{unit.MaxPhosphocreatine}");
 
             // Ne pas recouvrir l'aperçu 3D avec un fond opaque : on dessine seulement un cadre
             // et des bandeaux d'UI pour conserver la lisibilité du texte.

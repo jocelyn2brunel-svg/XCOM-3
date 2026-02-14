@@ -582,7 +582,7 @@ namespace XCOM_3
             // Zone 2 : contour externe du mouvement max (2 AP) - BLEU
             DrawZonePerimeter(maxZone, cellSize, 0.03f, new Color(0, 150, 255, 210) * pulse);
 
-            // Zone 3 : contour externe du sprint (2 AP + stamina) - JAUNE
+            // Zone 3 : contour externe du sprint (2 AP + phosphocréatine) - JAUNE
             float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
             DrawZonePerimeter(sprintZone, cellSize, 0.04f, new Color(255, 200, 0, 215) * sprintPulse);
 
