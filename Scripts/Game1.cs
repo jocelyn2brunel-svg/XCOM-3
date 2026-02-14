@@ -539,7 +539,9 @@ namespace XCOM_3
                     {
                         moveDirection.Normalize();
                         Vector3 right = Vector3.Normalize(Vector3.Cross(Vector3.Up, moveDirection));
-                        float shoulderSide = movementCinematicUnit.DominantHand == Unit.Handedness.Right ? 1f : -1f;
+                        // Le système de coordonnées caméra inverse latéralement la perception écran.
+                        // On inverse donc le côté d'épaule pour que droitier/gaucher corresponde visuellement.
+                        float shoulderSide = movementCinematicUnit.DominantHand == Unit.Handedness.Right ? -1f : 1f;
                         Vector3 shoulderOrigin = movementCinematicUnit.VisualPosition + new Vector3(0f, cellSize * 0.75f, 0f);
 
                         Vector3 cameraPos = shoulderOrigin
@@ -600,7 +602,8 @@ namespace XCOM_3
                 {
                     toTarget.Normalize();
                     Vector3 right = Vector3.Normalize(Vector3.Cross(Vector3.Up, toTarget));
-                    float shoulderSide = aimingUnit.DominantHand == Unit.Handedness.Right ? 1f : -1f;
+                    // Même correction de latéralité pour la caméra d'épaule pendant la visée/tir.
+                    float shoulderSide = aimingUnit.DominantHand == Unit.Handedness.Right ? -1f : 1f;
 
                     Vector3 cameraPos = shooterPos
                         - toTarget * (cellSize * 1.2f)

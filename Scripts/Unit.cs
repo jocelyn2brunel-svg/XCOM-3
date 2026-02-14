@@ -205,6 +205,19 @@ namespace XCOM_3
             if (!isHuman)
                 return HumanBodyType.Masculine;
 
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                string trimmedName = name.Trim();
+
+                string[] feminineNames = { "Nadia", "Maya", "Elena", "Sofia", "Leila", "Iris" };
+                if (Array.Exists(feminineNames, n => string.Equals(n, trimmedName, StringComparison.OrdinalIgnoreCase)))
+                    return HumanBodyType.Feminine;
+
+                string[] masculineNames = { "Alex", "Victor", "Jonas", "Marco", "Ethan", "Hugo" };
+                if (Array.Exists(masculineNames, n => string.Equals(n, trimmedName, StringComparison.OrdinalIgnoreCase)))
+                    return HumanBodyType.Masculine;
+            }
+
             int hash = string.IsNullOrWhiteSpace(name) ? 0 : name.GetHashCode() & int.MaxValue;
             return hash % 2 == 0 ? HumanBodyType.Feminine : HumanBodyType.Masculine;
         }

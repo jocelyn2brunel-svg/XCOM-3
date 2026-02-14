@@ -298,7 +298,7 @@ namespace XCOM_3
 
             if (unit.IsAiming || unit.IsFiring)
             {
-                armSwing = -0.28f;
+                armSwing = unit.DominantHand == Unit.Handedness.Right ? -0.28f : 0.28f;
             }
 
             // ✅ NOUVEAU : Utiliser DrawWithEquipment au lieu de Draw
