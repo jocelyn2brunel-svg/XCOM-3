@@ -113,9 +113,17 @@ namespace XCOM_3
         }
 
         public void DrawPlane(Vector3 pos, Vector3 scale, Color color)
+            => DrawPlane(pos, scale, color, 0f, 0f, 0f);
+
+        public void DrawPlane(Vector3 pos, Vector3 scale, Color color, float rotationX, float rotationY, float rotationZ)
         {
             var verts = planeVerts.Select(v => new VertexPositionColor(v.Position, color)).ToArray();
-            DrawVertices(verts, planeIdx, Matrix.CreateScale(scale) * Matrix.CreateTranslation(pos));
+            Matrix world = Matrix.CreateScale(scale)
+                * Matrix.CreateRotationX(rotationX)
+                * Matrix.CreateRotationY(rotationY)
+                * Matrix.CreateRotationZ(rotationZ)
+                * Matrix.CreateTranslation(pos);
+            DrawVertices(verts, planeIdx, world);
         }
 
         public void DrawTexturedPlane(Vector3 pos, Vector3 scale, Texture2D tex)
