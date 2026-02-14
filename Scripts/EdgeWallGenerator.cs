@@ -19,14 +19,16 @@ namespace XCOM_3
         public int Width;
         public int Height;
         public int FloorCount;
+        public int BasementCount;
 
-        public GeneratedBuilding(int x, int y, int width, int height, int floorCount)
+        public GeneratedBuilding(int x, int y, int width, int height, int floorCount, int basementCount = 0)
         {
             X = x;
             Y = y;
             Width = width;
             Height = height;
             FloorCount = floorCount;
+            BasementCount = basementCount;
         }
     }
 
@@ -398,7 +400,8 @@ namespace XCOM_3
 
                     BuildingType type = (BuildingType)random.Next(0, 4);
                     int buildingFloors = random.Next(2, 6);
-                    LastGeneratedBuildings.Add(new GeneratedBuilding(x, y, buildingWidth, buildingHeight, buildingFloors));
+                    int basementCount = random.Next(100) < 35 ? random.Next(1, 3) : 0;
+                    LastGeneratedBuildings.Add(new GeneratedBuilding(x, y, buildingWidth, buildingHeight, buildingFloors, basementCount));
 
                     // Murs extérieurs
                     for (int i = x; i < x + buildingWidth; i++)

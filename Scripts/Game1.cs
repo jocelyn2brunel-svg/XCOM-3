@@ -629,7 +629,8 @@ namespace XCOM_3
                     renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, yOffset);
             }
 
-            renderer3D.DrawWalls(wallSegments, cellSize, editorMode: false, floorHeightOffset: yOffset);
+            var wallsForFloor = GetWallsForFloor(floorToRender);
+            renderer3D.DrawWalls(wallsForFloor, cellSize, editorMode: false, floorHeightOffset: yOffset);
 
             foreach (var unit in playerUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
             foreach (var unit in enemyUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
@@ -823,6 +824,37 @@ namespace XCOM_3
             // Réinitialiser spatial hash
             if (unitManager != null)
                 unitManager.InitializeForMission(playerUnits, enemyUnits);
+        }
+
+        private HashSet<WallSegment> GetWallsForFloor(int floor)
+        {
+            if (floor <= 0 || currentMap?.Buildings == null || currentMap.Buildings.Count == 0)
+                return wallSegments;
+
+            var filteredWalls = new HashSet<WallSegment>();
+
+            foreach (var building in currentMap.Buildings)
+            {
+                if (building.FloorCount <= floor)
+                    continue;
+
+                int minX = building.X;
+                int minY = building.Y;
+                int maxX = building.X + building.Width;
+                int maxY = building.Y + building.Height;
+
+                foreach (var wall in wallSegments)
+                {
+                    bool inBounds = wall.IsHorizontal
+                        ? wall.Start.X >= minX && wall.End.X <= maxX && wall.Start.Y >= minY && wall.Start.Y <= maxY
+                        : wall.Start.X >= minX && wall.Start.X <= maxX && wall.Start.Y >= minY && wall.End.Y <= maxY;
+
+                    if (inBounds)
+                        filteredWalls.Add(wall);
+                }
+            }
+
+            return filteredWalls.Count > 0 ? filteredWalls : wallSegments;
         }
 
         private HashSet<Point> GetCellsForFloor(int floor)

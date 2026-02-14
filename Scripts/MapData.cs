@@ -226,6 +226,7 @@ namespace XCOM_3
         public int Width { get; set; }
         public int Height { get; set; }
         public int FloorCount { get; set; } = 1;
+        public int BasementCount { get; set; } = 0;
     }
 
     /// <summary>
