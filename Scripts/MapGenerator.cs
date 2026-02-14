@@ -38,7 +38,7 @@ namespace XCOM_3
                 GridWidth = random.Next(minWidth, maxWidth),
                 GridHeight = random.Next(minHeight, maxHeight),
                 CellSize = 2,
-                FloorCount = random.Next(2, 4),
+                FloorCount = GetFloorCountForMission(missionType),
                 TimeOfDay = (float)random.NextDouble()
             };
 
@@ -173,7 +173,17 @@ namespace XCOM_3
                 "Survival" => EdgeWallGenerator.WallPattern.Bunker,
                 "Assault" => EdgeWallGenerator.WallPattern.Urban,
                 "Defense" => EdgeWallGenerator.WallPattern.Trenches,
+                "Centre-Ville" => EdgeWallGenerator.WallPattern.Urban,
                 _ => (EdgeWallGenerator.WallPattern)random.Next(0, 6)
+            };
+        }
+
+        private int GetFloorCountForMission(string missionType)
+        {
+            return missionType switch
+            {
+                "Centre-Ville" => random.Next(5, 11),
+                _ => random.Next(2, 4)
             };
         }
 
