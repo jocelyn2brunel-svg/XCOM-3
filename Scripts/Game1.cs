@@ -886,44 +886,84 @@ namespace XCOM_3
 
             if (floorToRender < floorCount - 1)
             {
-                GraphicsDevice.BlendState = BlendState.AlphaBlend;
-                GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-
                 for (int upperFloor = floorToRender + 1; upperFloor < floorCount; upperFloor++)
                 {
                     float upperFloorOffset = upperFloor * cellSize;
                     var wallsForUpperFloor = GetWallsForFloor(upperFloor);
-                    renderer3D.DrawWalls(
-                        wallsForUpperFloor,
-                        cellSize,
-                        editorMode: false,
-                        floorHeightOffset: upperFloorOffset,
-                        wallOverrideColor: new Color(165, 150, 130, 105));
-                }
+                    var upperFloorUnits = GetVisibleUnitsForFloor(upperFloor);
+                    var fadedUpperWalls = new HashSet<WallSegment>();
 
-                GraphicsDevice.BlendState = BlendState.Opaque;
-                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+                    if (upperFloorUnits.Count > 0)
+                        ComputeOcclusionFromWalls(wallsForUpperFloor, upperFloorUnits, upperFloorOffset, fadedUpperWalls, new HashSet<Unit>());
+
+                    var opaqueUpperWalls = new HashSet<WallSegment>(wallsForUpperFloor.Where(w => !fadedUpperWalls.Contains(w)));
+                    if (opaqueUpperWalls.Count > 0)
+                    {
+                        renderer3D.DrawWalls(
+                            opaqueUpperWalls,
+                            cellSize,
+                            editorMode: false,
+                            floorHeightOffset: upperFloorOffset,
+                            wallOverrideColor: new Color(165, 150, 130));
+                    }
+
+                    if (fadedUpperWalls.Count > 0)
+                    {
+                        GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                        GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+
+                        renderer3D.DrawWalls(
+                            fadedUpperWalls,
+                            cellSize,
+                            editorMode: false,
+                            floorHeightOffset: upperFloorOffset,
+                            wallOverrideColor: new Color(165, 150, 130, 105));
+
+                        GraphicsDevice.BlendState = BlendState.Opaque;
+                        GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+                    }
+                }
             }
 
             if (floorToRender > 0)
             {
-                GraphicsDevice.BlendState = BlendState.AlphaBlend;
-                GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-
                 for (int lowerFloor = 0; lowerFloor < floorToRender; lowerFloor++)
                 {
                     float lowerFloorOffset = lowerFloor * cellSize;
                     var wallsForLowerFloor = GetWallsForFloor(lowerFloor);
-                    renderer3D.DrawWalls(
-                        wallsForLowerFloor,
-                        cellSize,
-                        editorMode: false,
-                        floorHeightOffset: lowerFloorOffset,
-                        wallOverrideColor: new Color(95, 140, 170, 85));
-                }
+                    var lowerFloorUnits = GetVisibleUnitsForFloor(lowerFloor);
+                    var fadedLowerWalls = new HashSet<WallSegment>();
 
-                GraphicsDevice.BlendState = BlendState.Opaque;
-                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+                    if (lowerFloorUnits.Count > 0)
+                        ComputeOcclusionFromWalls(wallsForLowerFloor, lowerFloorUnits, lowerFloorOffset, fadedLowerWalls, new HashSet<Unit>());
+
+                    var opaqueLowerWalls = new HashSet<WallSegment>(wallsForLowerFloor.Where(w => !fadedLowerWalls.Contains(w)));
+                    if (opaqueLowerWalls.Count > 0)
+                    {
+                        renderer3D.DrawWalls(
+                            opaqueLowerWalls,
+                            cellSize,
+                            editorMode: false,
+                            floorHeightOffset: lowerFloorOffset,
+                            wallOverrideColor: new Color(95, 140, 170));
+                    }
+
+                    if (fadedLowerWalls.Count > 0)
+                    {
+                        GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                        GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+
+                        renderer3D.DrawWalls(
+                            fadedLowerWalls,
+                            cellSize,
+                            editorMode: false,
+                            floorHeightOffset: lowerFloorOffset,
+                            wallOverrideColor: new Color(95, 140, 170, 85));
+
+                        GraphicsDevice.BlendState = BlendState.Opaque;
+                        GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+                    }
+                }
             }
 
             renderer3D.DrawStairConnections(currentMap?.StairConnections, floorToRender, cellSize);
@@ -1285,6 +1325,13 @@ namespace XCOM_3
                 if (blocked)
                     occludedUnits.Add(unit);
             }
+        }
+
+        private List<Unit> GetVisibleUnitsForFloor(int floor)
+        {
+            return playerUnits.Where(u => u.Floor == floor && u.Health > 0)
+                .Concat(enemyUnits.Where(u => u.Floor == floor && u.Health > 0 && IsEnemyVisibleToPlayers(u)))
+                .ToList();
         }
 
         private bool IsWallBetweenCameraAndUnit(WallSegment wall, float floorHeightOffset, Vector3 cameraPos, Vector3 unitPos)
