@@ -1395,8 +1395,8 @@ namespace XCOM_3
                 if (wall.IsHorizontal)
                 {
                     float litFaceZ = toWallDir.Y >= 0f
-                        ? wall.Start.Y + surfaceInset
-                        : wall.Start.Y - surfaceInset;
+                        ? wall.Start.Y - surfaceInset
+                        : wall.Start.Y + surfaceInset;
 
                     renderer3D.DrawPlane(
                         new Vector3(wallCenter.X * cellSize, surfaceYOffset, litFaceZ * cellSize),
@@ -1409,8 +1409,8 @@ namespace XCOM_3
                 else
                 {
                     float litFaceX = toWallDir.X >= 0f
-                        ? wall.Start.X + surfaceInset
-                        : wall.Start.X - surfaceInset;
+                        ? wall.Start.X - surfaceInset
+                        : wall.Start.X + surfaceInset;
 
                     renderer3D.DrawPlane(
                         new Vector3(litFaceX * cellSize, surfaceYOffset, wallCenter.Y * cellSize),
