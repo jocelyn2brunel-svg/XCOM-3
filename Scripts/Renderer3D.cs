@@ -8,6 +8,7 @@ namespace XCOM_3
 {
     public class Renderer3D
     {
+        private const float WallHeightRatio = 0.92f;
         private GraphicsDevice gd;
         private BasicEffect basic, textured;
         private VertexPositionColor[] cubeVerts, planeVerts;
@@ -150,7 +151,9 @@ namespace XCOM_3
                 Vector3 center = (start + end) / 2f;
 
                 // ? Hauteur du mur augmentée
-                float wallHeight = size * 1.8f;
+                // Conserver une hauteur de mur légèrement inférieure à l'écart entre étages
+                // pour éviter les recouvrements visuels (z-fighting) entre niveaux.
+                float wallHeight = size * WallHeightRatio;
                 center.Y = floorHeightOffset + wallHeight / 2f;
 
                 // ? Épaisseur du mur
