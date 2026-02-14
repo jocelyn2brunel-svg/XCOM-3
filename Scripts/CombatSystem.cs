@@ -30,6 +30,7 @@ namespace XCOM_3
         private List<Unit> enemyUnits;
 
         private CoverSystem coverSystem;
+        private readonly Dictionary<Unit, int> targetPressureCache = new Dictionary<Unit, int>();
 
         public CombatSystem(Random random, PathfindingSystem pathfinding,
             Func<Point, Unit> getUnitAtCell, OptimizedUnitManager unitManager)
@@ -112,6 +113,7 @@ namespace XCOM_3
             }
 
             // Sélectionner une cible
+            BuildTargetPressureCache(enemy);
             Unit target = SelectBestTarget(enemy);
 
             if (target == null)
@@ -165,7 +167,7 @@ namespace XCOM_3
                     if (targetIndex >= 0)
                     {
                         enemy.SetMovementStyle(1);
-                        enemy.StartMoveAlongPath(path.Take(targetIndex + 1).ToList(), cellSize);
+                        enemy.StartMoveAlongPath(path.GetRange(0, targetIndex + 1), cellSize);
                     }
                     else
                     {
@@ -208,14 +210,15 @@ namespace XCOM_3
                 float score = 0f;
                 int distance = Math.Abs(player.Cell.X - enemy.Cell.X) +
                                Math.Abs(player.Cell.Y - enemy.Cell.Y);
+                bool hasLineOfSight = pathfinding.HasLineOfSight(enemy.Cell, player.Cell);
 
                 // 1. Distance (plus proche = plus prioritaire)
                 score += Math.Max(0, 100 - distance * 5);
 
                 // 2. Ligne de vue et portée
-                if (pathfinding.HasLineOfSight(enemy.Cell, player.Cell))
+                if (hasLineOfSight)
                     score += 50;
-                if (distance <= enemy.WeaponData.Range && pathfinding.HasLineOfSight(enemy.Cell, player.Cell))
+                if (distance <= enemy.WeaponData.Range && hasLineOfSight)
                     score += 75;
 
                 // 3. Santé de la cible (plus faible = plus prioritaire)
@@ -224,31 +227,24 @@ namespace XCOM_3
                     score += (1.0f - healthPercent) * 30;
 
                 // 4. Cible déjà visée par d’autres ennemis (moins prioritaire)
-                int alreadyTargeting = enemyUnits.Count(e => e.PendingTarget == player);
+                int alreadyTargeting = targetPressureCache.TryGetValue(player, out int pressure) ? pressure : 0;
                 score -= alreadyTargeting * 20;
-
-                // 5. Couverture
-                //switch (player.Cover)
-                //{
-                    //case CoverType.Full: score -= 30; break;
-                    //case CoverType.Half: score -= 10; break;
-                //}
-
-                // 6. Rôle / classe de l’unité
-                //switch (player.Class)
-                //{
-                    //case UnitClass.Sniper: score += 40; break;
-                    //case UnitClass.Medic: score += 30; break;
-                    //case UnitClass.Heavy: score += 20; break;
-                //}
 
                 // 7. Menace (AP + dégâts potentiels)
                 score += player.ActionPoints * 5;
                 score += player.WeaponData.Damage * 2;
 
                 // 8. Nombre d’alliés proches (cible protégée = moins prioritaire)
-                int alliesNearby = playerUnits.Count(p => p != player &&
-                             Math.Abs(p.Cell.X - player.Cell.X) + Math.Abs(p.Cell.Y - player.Cell.Y) <= 2);
+                int alliesNearby = 0;
+                foreach (var ally in playerUnits)
+                {
+                    if (ally == player)
+                        continue;
+
+                    int allyDistance = Math.Abs(ally.Cell.X - player.Cell.X) + Math.Abs(ally.Cell.Y - player.Cell.Y);
+                    if (allyDistance <= 2)
+                        alliesNearby++;
+                }
                 score -= alliesNearby * 15;
 
                 // 9. Comportement adaptatif selon la santé de l’ennemi
@@ -268,6 +264,21 @@ namespace XCOM_3
             }
 
             return bestTarget;
+        }
+
+        private void BuildTargetPressureCache(Unit currentEnemy)
+        {
+            targetPressureCache.Clear();
+
+            foreach (var enemy in enemyUnits)
+            {
+                Unit pendingTarget = enemy.PendingTarget;
+                if (enemy == currentEnemy || pendingTarget == null)
+                    continue;
+
+                targetPressureCache.TryGetValue(pendingTarget, out int count);
+                targetPressureCache[pendingTarget] = count + 1;
+            }
         }
 
 
