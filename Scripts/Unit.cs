@@ -9,6 +9,8 @@ namespace XCOM_3
     // ═══════════════════════════════════════════════════════════════════════
     public partial class Unit
     {
+        public enum HumanBodyType { Masculine, Feminine }
+
         public Point Cell;
         public int Floor { get; set; } = 0;
         public Team Team { get; set; }
@@ -36,6 +38,7 @@ namespace XCOM_3
         public Vector3 ChargeTarget;
         public bool IsChargingForward = true;
         public string Class { get; set; }
+        public HumanBodyType BodyType { get; set; } = HumanBodyType.Masculine;
 
 
         // Système d'inventaire
@@ -89,6 +92,8 @@ namespace XCOM_3
             Weapon = weapon;
             WeaponData = weaponData;
 
+            BodyType = DetermineBodyType(team, unitClass, name);
+
             ActionPoints = 2;
             MaxActionPoints = 2;
             Stamina = 100;
@@ -123,6 +128,7 @@ namespace XCOM_3
             Team = other.Team;
             Name = other.Name;
             Class = other.Class;
+            BodyType = other.BodyType;
             Weapon = other.Weapon;
             WeaponData = other.WeaponData;
             ActionPoints = other.ActionPoints;
@@ -167,6 +173,20 @@ namespace XCOM_3
             if (EquippedShirt != null) total += EquippedShirt.Data.ArmorValue;   // NOUVEAU
             total += Skills.GetDefenseBonus();
             return total;
+        }
+
+        private static HumanBodyType DetermineBodyType(Team team, string unitClass, string name)
+        {
+            bool isHuman = team == Team.Player ||
+                           string.Equals(unitClass, "Assault", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(unitClass, "Heavy", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(unitClass, "Scout", StringComparison.OrdinalIgnoreCase);
+
+            if (!isHuman)
+                return HumanBodyType.Masculine;
+
+            int hash = string.IsNullOrWhiteSpace(name) ? 0 : name.GetHashCode() & int.MaxValue;
+            return hash % 2 == 0 ? HumanBodyType.Feminine : HumanBodyType.Masculine;
         }
 
         public int GetMobilityPenalty()
