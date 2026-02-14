@@ -2108,10 +2108,6 @@ namespace XCOM_3
             if (hoveredCell.X != -1 && !IsCellHoverableOnViewedFloor(hoveredCell, viewedFloor))
                 hoveredCell = new Point(-1, -1);
 
-            // We moved the clears here to ensure a clean slate, but only populate if needed
-            currentPath.Clear();
-            pathCosts.Clear();
-
             // 1. Check if we have a valid unit and valid cell
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 &&
                 cachedMovableCells.Contains(hoveredCell) && selectedUnit.Team == Team.Player)
@@ -2126,6 +2122,8 @@ namespace XCOM_3
                     currentPath = pathfinding.FindPathDetailed(selectedUnit.Cell, selectedUnit.Floor, hoveredCell, selectedUnit.Floor, maxRange, selectedUnit).Cells;
                     lastHoveredCell = hoveredCell;
 
+                    pathCosts.Clear();
+
                     for (int i = 0; i < currentPath.Count; i++)
                     {
                         pathCosts[currentPath[i]] = i + 1;
@@ -2134,6 +2132,9 @@ namespace XCOM_3
             }
             else
             {
+                currentPath.Clear();
+                pathCosts.Clear();
+
                 // If the mouse isn't on a valid movement cell, update the last hovered cell anyway
                 // so it recalculates correctly when it re-enters a valid cell
                 lastHoveredCell = hoveredCell;
