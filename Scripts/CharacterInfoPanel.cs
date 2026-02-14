@@ -20,6 +20,7 @@ namespace XCOM_3
 
         private const int PanelWidth = 930;
         private const int PanelHeight = 500;
+        private const float PreviewModelScale = 1.85f;
 
         private const float PreviewRotationSpeed = 1.8f;
         private const float MouseRotationSensitivity = 0.015f;
@@ -126,15 +127,19 @@ namespace XCOM_3
                 VisualPosition = new Vector3(0f, 0f, 0f),
                 IsMoving = false,
                 IsAiming = false,
-                IsFiring = false,
-                Orientation = MathHelper.Pi + _previewRotation
+                IsFiring = false
             };
             previewUnit.LegSwing = 0f;
             previewUnit.ArmSwing = 0f;
             previewUnit.BodyBob = 0f;
             previewUnit.IdleBobOffset = 0f;
 
-            _previewModel.DrawWithEquipment(_graphicsDevice, _previewEffect, previewUnit, 2.35f);
+            _previewModel.DrawWithEquipment(
+                _graphicsDevice,
+                _previewEffect,
+                previewUnit,
+                PreviewModelScale,
+                MathHelper.Pi + _previewRotation);
 
             _graphicsDevice.SetRenderTargets(originalRenderTargets);
             _graphicsDevice.Viewport = originalViewport;
