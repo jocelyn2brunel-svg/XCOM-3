@@ -804,8 +804,14 @@ namespace XCOM_3
         {
             playerUnits.Clear(); enemyUnits.Clear();
 
-            for (int i = 0; i < 6; i++)
-                playerUnits.Add(new Unit(new Point(2 + i, gridHeight - 2), Team.Player, "Soldier " + (i + 1), "Assault", "Rifle", weaponDatabase["M16A1"]));
+            List<Point> playerSpawnCells = missionType == "Centre-Ville"
+                ? GetCityCenterSpawnCells(6)
+                : Enumerable.Range(0, 6).Select(i => new Point(2 + i, gridHeight - 2)).ToList();
+
+            for (int i = 0; i < playerSpawnCells.Count; i++)
+            {
+                playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, "Soldier " + (i + 1), "Assault", "Rifle", weaponDatabase["M16A1"]));
+            }
 
             foreach (var unit in playerUnits)
             {
@@ -874,12 +880,95 @@ namespace XCOM_3
                         break;
                     }
 
+                case "Centre-Ville":
+                    {
+                        var zombie = enemyPool.First(e => e.Name == "Zombie");
+                        var edgeSpawns = GetPerimeterSpawnCells(40);
+
+                        foreach (var spawn in edgeSpawns)
+                        {
+                            enemyUnits.Add(new Unit(
+                                spawn,
+                                Team.Enemy,
+                                zombie.Name,
+                                zombie.Class,
+                                zombie.Weapon,
+                                weaponDatabase[zombie.Weapon])
+                            { ActionPoints = zombie.ActionPoints });
+                        }
+
+                        break;
+                    }
             }
 
             foreach (var unit in playerUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
             foreach (var unit in enemyUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
 
             Console.WriteLine($"Units created for {missionType}: 6 player, {enemyUnits.Count} enemy");
+        }
+
+        private List<Point> GetCityCenterSpawnCells(int count)
+        {
+            int centerX = gridWidth / 2;
+            int centerY = gridHeight / 2;
+            var offsets = new[]
+            {
+                new Point(0, 0),
+                new Point(1, 0),
+                new Point(-1, 0),
+                new Point(0, 1),
+                new Point(0, -1),
+                new Point(1, 1),
+                new Point(-1, -1),
+                new Point(1, -1),
+                new Point(-1, 1)
+            };
+
+            var cells = new List<Point>();
+            foreach (var offset in offsets)
+            {
+                if (cells.Count >= count)
+                    break;
+
+                int x = Math.Clamp(centerX + offset.X, 0, gridWidth - 1);
+                int y = Math.Clamp(centerY + offset.Y, 0, gridHeight - 1);
+                var point = new Point(x, y);
+
+                if (!cells.Contains(point))
+                    cells.Add(point);
+            }
+
+            return cells;
+        }
+
+        private List<Point> GetPerimeterSpawnCells(int requestedCount)
+        {
+            var perimeter = new List<Point>();
+
+            for (int x = 0; x < gridWidth; x++)
+            {
+                perimeter.Add(new Point(x, 0));
+                if (gridHeight > 1)
+                    perimeter.Add(new Point(x, gridHeight - 1));
+            }
+
+            for (int y = 1; y < gridHeight - 1; y++)
+            {
+                perimeter.Add(new Point(0, y));
+                if (gridWidth > 1)
+                    perimeter.Add(new Point(gridWidth - 1, y));
+            }
+
+            perimeter = perimeter
+                .Distinct()
+                .Where(p => !playerUnits.Any(u => u.Cell == p))
+                .ToList();
+
+            int count = Math.Min(requestedCount, perimeter.Count);
+            return perimeter
+                .OrderBy(_ => random.Next())
+                .Take(count)
+                .ToList();
         }
 
         private IEnumerable<Unit> AllUnits()

@@ -96,6 +96,7 @@ namespace XCOM_3
             _missionPoints.Add(new MissionPoint("Survival", "New York", 40.7128f, -74.0060f, Color.Orange));
             _missionPoints.Add(new MissionPoint("Assault", "Tokyo", 35.6762f, 139.6503f, Color.Red));
             _missionPoints.Add(new MissionPoint("Defense", "Sydney", -33.8688f, 151.2093f, Color.DeepSkyBlue));
+            _missionPoints.Add(new MissionPoint("Centre-Ville", "Montreal", 45.5017f, -73.5673f, Color.MediumPurple));
         }
 
         private void CreateContinentMasks()
