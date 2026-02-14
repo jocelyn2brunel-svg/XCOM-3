@@ -872,8 +872,9 @@ namespace XCOM_3
                                         UnitDimensions dims, float legSwing, float legSpread,
                                         float legRadiusScale, Color legColor, Color footColor)
         {
-            DrawRunningLeg(d, e, p, r, dims, legSwing, -dims.tw * legSpread, legRadiusScale, legColor, footColor);
-            DrawRunningLeg(d, e, p, r, dims, -legSwing, dims.tw * legSpread, legRadiusScale, legColor, footColor);
+            float hipCornerOffset = dims.tw * 0.06f;
+            DrawRunningLeg(d, e, p, r, dims, legSwing, -dims.tw * legSpread - hipCornerOffset, legRadiusScale, legColor, footColor);
+            DrawRunningLeg(d, e, p, r, dims, -legSwing, dims.tw * legSpread + hipCornerOffset, legRadiusScale, legColor, footColor);
         }
 
         private void DrawSwingingArmPair(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
@@ -935,8 +936,8 @@ namespace XCOM_3
             // Cuisse : tronc de cône massif, légèrement orienté vers l'intérieur et courbé vers l'avant.
             Vector3 hip = new Vector3(
                 hipX,
-                dims.ll,
-                -forward * dims.ll * 0.06f + arcSign * dims.lw * 0.08f);
+                dims.ll + dims.th * 0.03f,
+                -forward * dims.ll * 0.06f + arcSign * dims.lw * 0.12f);
             Vector3 knee = new Vector3(
                 hipX * 0.88f,
                 dims.ll * (0.49f + forwardLift * 0.2f),
@@ -1068,12 +1069,33 @@ namespace XCOM_3
             DrawBodyPart(d, e, p, new Vector3(0, abdomenCenterY, trunkCenterZ),
                 new Vector3(dims.tw * 0.5f, abdomenHeight * 0.58f, abdomenDepth), chestColor * 0.83f, r);
 
-            // 3) Bassin : inclinaison antérieure modérée (< 15°)
-            float pelvisTopWidth = dims.tw * (feminine ? 0.94f : 0.88f);
-            float pelvisBottomWidth = dims.tw * (feminine ? 1.02f : 0.92f);
-            Matrix pelvisRot = Matrix.CreateRotationX(MathHelper.ToRadians(-6f)) * r;
+            // 3) Bassin : forme en coin/trapèze (plus large en haut), incliné vers l'avant.
+            float pelvisTopWidth = dims.tw * (feminine ? 1.04f : 0.98f);
+            float pelvisBottomWidth = dims.tw * (feminine ? 0.86f : 0.8f);
+            float pelvisDepth = chestDepth * 0.84f;
+            Matrix pelvisRot = Matrix.CreateRotationX(MathHelper.ToRadians(-12f)) * r;
             DrawTorsoPolygon(d, e, p, new Vector3(0, pelvisCenterY, trunkCenterZ),
-                pelvisHeight, pelvisTopWidth, pelvisBottomWidth, chestDepth * 0.88f, pelvisColor * 0.94f, pelvisRot);
+                pelvisHeight, pelvisTopWidth, pelvisBottomWidth, pelvisDepth, pelvisColor * 0.94f, pelvisRot);
+
+            // Face avant : triangle pubien inversé (plane plus nette).
+            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + pelvisHeight * 0.36f, dims.td * 0.33f),
+                new Vector3(dims.tw * 0.12f, pelvisHeight * 0.13f, dims.td * 0.06f), pelvisColor * 0.72f, pelvisRot);
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.08f, dims.ll + pelvisHeight * 0.31f, dims.td * 0.29f),
+                new Vector3(dims.tw * 0.09f, pelvisHeight * 0.07f, dims.td * 0.05f), pelvisColor * 0.7f, pelvisRot);
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.08f, dims.ll + pelvisHeight * 0.31f, dims.td * 0.29f),
+                new Vector3(dims.tw * 0.09f, pelvisHeight * 0.07f, dims.td * 0.05f), pelvisColor * 0.7f, pelvisRot);
+
+            // Faces latérales : plans inclinés vers les hanches / grand trochanter.
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.47f, pelvisCenterY, dims.td * 0.07f),
+                new Vector3(dims.tw * 0.11f, pelvisHeight * 0.4f, dims.td * 0.2f), pelvisColor * 0.82f, pelvisRot);
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.47f, pelvisCenterY, dims.td * 0.07f),
+                new Vector3(dims.tw * 0.11f, pelvisHeight * 0.4f, dims.td * 0.2f), pelvisColor * 0.82f, pelvisRot);
+
+            // Faces arrière : deux volumes "D" pour les fessiers.
+            DrawRoundedHead(d, e, p, new Vector3(-dims.tw * 0.27f, dims.ll + pelvisHeight * 0.42f, -dims.td * 0.22f),
+                dims.tw * 0.22f, pelvisColor * 0.87f, pelvisRot);
+            DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.27f, dims.ll + pelvisHeight * 0.42f, -dims.td * 0.22f),
+                dims.tw * 0.22f, pelvisColor * 0.87f, pelvisRot);
 
             // Points de repère : épaules, plexus (V inversé), axe central.
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.88f, -dims.td * 0.02f),
