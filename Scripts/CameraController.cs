@@ -36,7 +36,7 @@ namespace XCOM_3
         // Zoom
         private float zoomLevel = 1f;
         private float minZoom = 0.3f;
-        private float maxZoom = 3f;
+        private float maxZoom = 4f;
         private float previousScrollValue = 0f;
 
         // ✅ État de rotation pour lerp smooth
