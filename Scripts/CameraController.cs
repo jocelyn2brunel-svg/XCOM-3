@@ -323,14 +323,18 @@ namespace XCOM_3
         /// <summary>
         /// Raycast pour obtenir la case de grille sous la souris
         /// </summary>
-        public Point GetCellFromMouse(Point mousePosition, int viewportWidth, int viewportHeight)
+        public Point GetCellFromMouse(Point mousePosition, int viewportWidth, int viewportHeight, float planeY = 0f)
         {
             Ray ray = ScreenPointToRay(mousePosition, viewportWidth, viewportHeight);
 
-            // Intersection avec le plan Y=0 (sol)
+            // Intersection avec le plan horizontal du niveau affiché
             if (Math.Abs(ray.Direction.Y) > 0.001f)
             {
-                float t = -ray.Position.Y / ray.Direction.Y;
+                float t = (planeY - ray.Position.Y) / ray.Direction.Y;
+
+                if (t < 0)
+                    return new Point(-1, -1);
+
                 Vector3 intersection = ray.Position + ray.Direction * t;
 
                 int cellX = (int)(intersection.X / cellSize);
