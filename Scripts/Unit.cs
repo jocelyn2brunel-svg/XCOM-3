@@ -307,31 +307,42 @@ namespace XCOM_3
                 float legAmplitude;
                 float armAmplitude;
                 float bobAmplitude;
+                float armDriveBias;
+                float armPhaseOffset;
 
                 switch (CurrentMovementGait)
                 {
                     case MovementGait.Sprint:
-                        moveSpeedMultiplier = 3.9f;
-                        cycleSpeed = 11f;
-                        legAmplitude = 0.42f;
-                        armAmplitude = 0.30f;
-                        bobAmplitude = 0.14f;
+                        // Sprint: cadence et extension max, bras très dynamiques
+                        moveSpeedMultiplier = 4.15f;
+                        cycleSpeed = 10.8f;
+                        legAmplitude = 0.46f;
+                        armAmplitude = 0.38f;
+                        bobAmplitude = 0.135f;
+                        armDriveBias = 0.06f;
+                        armPhaseOffset = 0.22f;
                         break;
 
                     case MovementGait.Run:
-                        moveSpeedMultiplier = 3.3f;
-                        cycleSpeed = 8.5f;
-                        legAmplitude = 0.32f;
-                        armAmplitude = 0.22f;
-                        bobAmplitude = 0.10f;
+                        // Run: allure intermédiaire, énergie marquée mais contrôlée
+                        moveSpeedMultiplier = 3.45f;
+                        cycleSpeed = 8.25f;
+                        legAmplitude = 0.35f;
+                        armAmplitude = 0.27f;
+                        bobAmplitude = 0.095f;
+                        armDriveBias = 0.035f;
+                        armPhaseOffset = 0.14f;
                         break;
 
                     default:
-                        moveSpeedMultiplier = 2.7f;
-                        cycleSpeed = 6.2f;
-                        legAmplitude = 0.22f;
-                        armAmplitude = 0.16f;
-                        bobAmplitude = 0.07f;
+                        // Jog: foulée plus courte, cadence stable, rebond léger
+                        moveSpeedMultiplier = 2.8f;
+                        cycleSpeed = 6.4f;
+                        legAmplitude = 0.24f;
+                        armAmplitude = 0.19f;
+                        bobAmplitude = 0.072f;
+                        armDriveBias = 0.015f;
+                        armPhaseOffset = 0.08f;
                         break;
                 }
 
@@ -365,9 +376,13 @@ namespace XCOM_3
                 {
                     VisualPosition = Vector3.Lerp(moveSegmentStart, TargetPosition, MoveProgress);
                     WalkCycleTime += deltaTime * cycleSpeed;
-                    LegSwing = (float)Math.Sin(WalkCycleTime) * legAmplitude;
-                    ArmSwing = (float)Math.Sin(WalkCycleTime + MathHelper.Pi) * armAmplitude;
-                    BodyBob = Math.Abs((float)Math.Sin(WalkCycleTime * 2f)) * bobAmplitude;
+                    float gaitSin = (float)Math.Sin(WalkCycleTime);
+                    float gaitHarmonic = (float)Math.Sin(WalkCycleTime * 2f);
+
+                    LegSwing = gaitSin * legAmplitude;
+                    ArmSwing = (float)Math.Sin(WalkCycleTime + MathHelper.Pi + armPhaseOffset) * armAmplitude +
+                               gaitHarmonic * armDriveBias;
+                    BodyBob = Math.Abs(gaitHarmonic) * bobAmplitude;
                 }
             }
             else
