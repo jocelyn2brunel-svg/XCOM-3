@@ -281,6 +281,9 @@ namespace XCOM_3
                 "Assault" => EdgeWallGenerator.WallPattern.Urban,
                 "Defense" => EdgeWallGenerator.WallPattern.Trenches,
                 "Centre-Ville" => EdgeWallGenerator.WallPattern.Urban,
+                "Extraction" => EdgeWallGenerator.WallPattern.Scattered,
+                "Sabotage" => EdgeWallGenerator.WallPattern.Maze,
+                "Blackout" => EdgeWallGenerator.WallPattern.Bunker,
                 _ => (EdgeWallGenerator.WallPattern)random.Next(0, 6)
             };
         }
@@ -290,6 +293,7 @@ namespace XCOM_3
             return missionType switch
             {
                 "Centre-Ville" => random.Next(3, 6),
+                "Blackout" => random.Next(2, 4),
                 _ => random.Next(2, 4)
             };
         }

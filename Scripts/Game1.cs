@@ -1785,6 +1785,8 @@ namespace XCOM_3
             {
                 // Mission très dense (IA + bâtiments + étages) : limiter la taille évite les chutes de FPS.
                 "Centre-Ville" => (30, 60),
+                "Sabotage" => (32, 68),
+                "Blackout" => (24, 52),
                 _ => (20, 100)
             };
         }
@@ -2305,7 +2307,7 @@ namespace XCOM_3
         {
             playerUnits.Clear(); enemyUnits.Clear();
 
-            List<Point> playerSpawnCells = missionType == "Centre-Ville"
+            List<Point> playerSpawnCells = missionType == "Centre-Ville" || missionType == "Sabotage"
                 ? GetCityCenterSpawnCells(6)
                 : Enumerable.Range(0, 6).Select(i => new Point(2 + i, gridHeight - 2)).ToList();
 
@@ -2408,6 +2410,50 @@ namespace XCOM_3
                                 zombie.Class,
                                 string.Empty,
                                 null)
+                            { ActionPoints = zombie.ActionPoints });
+                        }
+
+                        break;
+                    }
+
+                case "Extraction":
+                    {
+                        var hostiles = enemyPool.Where(e => e.Name != "Zombie").ToList();
+                        var edgeSpawns = GetPerimeterSpawnCells(12);
+
+                        foreach (var spawn in edgeSpawns)
+                        {
+                            var t = hostiles[random.Next(hostiles.Count)];
+                            enemyUnits.Add(new Unit(spawn, Team.Enemy, t.Name, t.Class, string.Empty, null)
+                            { ActionPoints = t.ActionPoints });
+                        }
+
+                        break;
+                    }
+
+                case "Sabotage":
+                    {
+                        var hostiles = enemyPool.Where(e => e.Name != "Zombie").ToList();
+                        var centerSpawns = GetCityCenterSpawnCells(10);
+
+                        foreach (var spawn in centerSpawns)
+                        {
+                            var t = hostiles[random.Next(hostiles.Count)];
+                            enemyUnits.Add(new Unit(spawn, Team.Enemy, t.Name, t.Class, string.Empty, null)
+                            { ActionPoints = t.ActionPoints });
+                        }
+
+                        break;
+                    }
+
+                case "Blackout":
+                    {
+                        var zombie = enemyPool.First(e => e.Name == "Zombie");
+                        var edgeSpawns = GetPerimeterSpawnCells(18);
+
+                        foreach (var spawn in edgeSpawns)
+                        {
+                            enemyUnits.Add(new Unit(spawn, Team.Enemy, zombie.Name, zombie.Class, string.Empty, null)
                             { ActionPoints = zombie.ActionPoints });
                         }
 
