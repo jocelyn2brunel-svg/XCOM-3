@@ -285,7 +285,14 @@ namespace XCOM_3
                 new Color(100, 150, 255) :
                 new Color(255, 100, 100);
 
-            float scale = cellSize * 0.8f;
+            // Une cellule représente un volume de 5x5x5 pieds.
+            // On calibre la hauteur visuelle d'un humain (~6 pieds) à ~1.2 cellule.
+            // Le modèle humanoïde fait environ 2x "scale" en hauteur totale,
+            // donc on convertit via ce facteur pour conserver des proportions réalistes.
+            const float cellSizeFeet = 5f;
+            const float averageUnitHeightFeet = 6f;
+            const float humanoidModelHeightInScaleUnits = 2f;
+            float scale = cellSize * (averageUnitHeightFeet / cellSizeFeet) / humanoidModelHeightInScaleUnits;
 
             // Utiliser l'orientation pilotée par l'unité (déplacement, visée, tir)
             float orientation = unit.Orientation;
