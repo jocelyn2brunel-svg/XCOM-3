@@ -132,6 +132,7 @@ namespace XCOM_3
         private Point lastHoveredCell = new Point(-1, -1);
         private int viewedFloor = 0;
         private HashSet<Point> upperFloorCells = new();
+        private Unit movementCinematicUnit = null;
 
 
         public Game1()
@@ -477,6 +478,46 @@ namespace XCOM_3
 
         private void UpdateAimCameraAndPose()
         {
+            if (movementCinematicUnit != null)
+            {
+                if (!movementCinematicUnit.IsMoving || combatSystem.CurrentTurn != TurnState.PlayerTurn)
+                {
+                    movementCinematicUnit = null;
+                }
+                else
+                {
+                    Vector3 moveDirection = movementCinematicUnit.TargetPosition - movementCinematicUnit.VisualPosition;
+                    moveDirection.Y = 0f;
+
+                    if (moveDirection.LengthSquared() < 0.001f)
+                    {
+                        moveDirection = new Vector3(
+                            (float)Math.Sin(movementCinematicUnit.Orientation),
+                            0f,
+                            (float)Math.Cos(movementCinematicUnit.Orientation));
+                    }
+
+                    if (moveDirection.LengthSquared() > 0.001f)
+                    {
+                        moveDirection.Normalize();
+                        Vector3 right = Vector3.Normalize(Vector3.Cross(Vector3.Up, moveDirection));
+                        Vector3 shoulderOrigin = movementCinematicUnit.VisualPosition + new Vector3(0f, cellSize * 0.75f, 0f);
+
+                        Vector3 cameraPos = shoulderOrigin
+                            - moveDirection * (cellSize * 1.15f)
+                            + right * (cellSize * 0.4f)
+                            + Vector3.Up * (cellSize * 0.28f);
+
+                        Vector3 lookTarget = shoulderOrigin
+                            + moveDirection * (cellSize * 1.35f)
+                            + Vector3.Up * (cellSize * 0.12f);
+
+                        camera.SetShoulderCamera(cameraPos, lookTarget);
+                        return;
+                    }
+                }
+            }
+
             foreach (var unit in playerUnits)
             {
                 unit.IsAiming = false;
@@ -1439,6 +1480,7 @@ namespace XCOM_3
                 // Déterminer le coût
                 int apCost = 0;
                 bool isSprint = false;
+                int actionPointsBeforeMove = selectedUnit.ActionPoints;
 
                 if (distance <= shortRange && selectedUnit.ActionPoints >= 1)
                 {
@@ -1472,6 +1514,14 @@ namespace XCOM_3
                 selectedUnit.Floor = detailedPath.EndFloor;
                 unitManager.OnUnitMoved(selectedUnit, movementGoal, detailedPath.EndFloor);
                 selectedUnit.ActionPoints -= apCost;
+
+                bool isLastAlliedUnitWithActions = playerUnits.Count(u => u.ActionPoints > 0) == 0;
+                bool movementSpentAllActionPoints = actionPointsBeforeMove == apCost;
+                if (isLastAlliedUnitWithActions && movementSpentAllActionPoints)
+                {
+                    movementCinematicUnit = selectedUnit;
+                }
+
                 combatSystem.UpdateUnitCover(selectedUnit);
                 // Consommer stamina si sprint
                 if (isSprint)
