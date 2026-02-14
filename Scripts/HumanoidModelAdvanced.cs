@@ -636,7 +636,9 @@ namespace XCOM_3
 
             DrawSkeletonJoints(d, e, p, dims, r, c, l, a);
 
-            if (hasWeapon)
+            // Ne verrouille la pose "prise d'arme" que pendant la visée/tir,
+            // sinon on laisse l'animation de balancement des bras visible en déplacement.
+            if (hasWeapon && isAiming)
             {
                 DrawWeaponGripPose(d, e, p, dims, r, c, isAiming);
             }
