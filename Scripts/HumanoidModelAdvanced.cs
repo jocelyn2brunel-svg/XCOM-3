@@ -191,6 +191,44 @@ namespace XCOM_3
             }
         }
 
+        private void DrawForearmBetween(GraphicsDevice device, BasicEffect effect, Vector3 center,
+                                        Vector3 start, Vector3 end, float elbowRadius, float wristRadius,
+                                        Color color, Matrix modelRot, int segments = 6)
+        {
+            Vector3 segment = end - start;
+            float length = segment.Length();
+            if (length < 0.0001f)
+                return;
+
+            int safeSegments = Math.Max(3, segments);
+            float segmentHeight = length / safeSegments;
+            Vector3 dir = segment / length;
+            Matrix limbRot = CreateRotationFromUpTo(dir);
+            Matrix partRot = limbRot * modelRot;
+
+            for (int i = 0; i < safeSegments; i++)
+            {
+                float t = safeSegments == 1 ? 0f : i / (safeSegments - 1f);
+                float arch = 1f - MathF.Abs((t - 0.5f) * 2f);
+
+                // Avant-bras low-poly : tronc de cône avec léger renflement au milieu.
+                float baseRadius = MathHelper.Lerp(elbowRadius, wristRadius, t);
+                float muscleBulge = 1f + arch * 0.14f;
+
+                // Poignet plus aplati : plus large de profil (Z) que de face (X).
+                float wristFlatten = MathHelper.Lerp(1f, 0.82f, t);
+                float wristProfile = MathHelper.Lerp(1f, 1.08f, t);
+
+                Vector3 segPos = Vector3.Lerp(start, end, t);
+                Vector3 segScale = new Vector3(
+                    baseRadius * muscleBulge * wristFlatten,
+                    segmentHeight * 1.03f,
+                    baseRadius * muscleBulge * wristProfile);
+
+                DrawBodyPart(device, effect, center, segPos, segScale, color * (0.9f + arch * 0.1f), modelRot, partRot);
+            }
+        }
+
         private void DrawFootPyramid(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
                                      float width, float height, float backDepth, float frontDepth,
                                      Color color, Matrix modelRot)
@@ -873,7 +911,7 @@ namespace XCOM_3
             // Biceps + avant-bras = cônes tronqués
             DrawFrustumBetween(d, e, p, shoulder, elbow,
                 dims.lw * (radiusScale * 1.08f), dims.lw * (radiusScale * 0.88f), armColor, r, 6);
-            DrawFrustumBetween(d, e, p, elbow, wrist,
+            DrawForearmBetween(d, e, p, elbow, wrist,
                 dims.lw * (radiusScale * 0.9f), dims.lw * (radiusScale * 0.72f), armColor * 0.95f, r, 6);
 
             // Main = prisme rectangulaire
