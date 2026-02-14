@@ -488,7 +488,7 @@ namespace XCOM_3
         {
             if (showInventory)
             {
-                inventorySystem.Update(mouse, leftClick, keyboard, selectedUnit);
+                inventorySystem.Update(mouse, previousMouseState, leftClick, keyboard, selectedUnit);
                 if (escapePressed) showInventory = false;
                 return;
             }
