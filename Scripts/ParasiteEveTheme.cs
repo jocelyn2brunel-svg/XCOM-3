@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Text;
 
 namespace XCOM_3.Scripts
 {
@@ -99,6 +100,8 @@ namespace XCOM_3.Scripts
         public static void DrawButton(SpriteBatch sb, Texture2D pixel, SpriteFont font, 
                                       Rectangle bounds, string text, bool isHovered, bool isPressed, bool isEnabled = true)
         {
+            string safeText = SanitizeForSpriteFont(font, text);
+
             Color bgColor = !isEnabled ? ButtonDisabled :
                            isPressed ? ButtonPressed :
                            isHovered ? ButtonHover : ButtonNormal;
@@ -111,7 +114,7 @@ namespace XCOM_3.Scripts
             DrawBorder(sb, pixel, bounds, borderColor, isHovered ? 2 : 1);
             
             // Texte centré
-            Vector2 textSize = font.MeasureString(text);
+            Vector2 textSize = font.MeasureString(safeText);
             Vector2 textPos = new Vector2(
                 bounds.X + (bounds.Width - textSize.X) / 2,
                 bounds.Y + (bounds.Height - textSize.Y) / 2
@@ -120,7 +123,7 @@ namespace XCOM_3.Scripts
             Color textColor = !isEnabled ? TextDim :
                              isHovered ? TextHighlight : TextNormal;
             
-            sb.DrawString(font, text, textPos, textColor);
+            sb.DrawString(font, safeText, textPos, textColor);
         }
 
         /// <summary>
@@ -174,6 +177,8 @@ namespace XCOM_3.Scripts
         public static void DrawSectionHeader(SpriteBatch sb, Texture2D pixel, SpriteFont font, 
                                              Rectangle bounds, string title)
         {
+            string safeTitle = SanitizeForSpriteFont(font, title);
+
             // Fond du header (plus clair)
             sb.Draw(pixel, bounds, new Color(40, 90, 55, 240));
             
@@ -181,8 +186,8 @@ namespace XCOM_3.Scripts
             sb.Draw(pixel, new Rectangle(bounds.X, bounds.Y, bounds.Width, 2), SelectionOutline);
             
             // Titre
-            Vector2 titleSize = font.MeasureString(title);
-            sb.DrawString(font, title, 
+            Vector2 titleSize = font.MeasureString(safeTitle);
+            sb.DrawString(font, safeTitle, 
                 new Vector2(bounds.X + 10, bounds.Y + (bounds.Height - titleSize.Y) / 2),
                 TextHighlight);
             
@@ -266,13 +271,35 @@ namespace XCOM_3.Scripts
         public static void DrawTextWithShadow(SpriteBatch sb, SpriteFont font, string text, 
                                               Vector2 position, Color color, float scale = 1f)
         {
+            string safeText = SanitizeForSpriteFont(font, text);
+
             // Ombre
-            sb.DrawString(font, text, position + new Vector2(1, 1), Color.Black * 0.7f, 
+            sb.DrawString(font, safeText, position + new Vector2(1, 1), Color.Black * 0.7f, 
                          0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
             
             // Texte principal
-            sb.DrawString(font, text, position, color, 
+            sb.DrawString(font, safeText, position, color, 
                          0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+        }
+
+        /// <summary>
+        /// Filtre les caractères non supportés par le SpriteFont pour éviter les exceptions DrawString.
+        /// </summary>
+        private static string SanitizeForSpriteFont(SpriteFont font, string text)
+        {
+            if (string.IsNullOrEmpty(text) || font?.Characters == null)
+            {
+                return text ?? string.Empty;
+            }
+
+            StringBuilder sb = new StringBuilder(text.Length);
+
+            foreach (char c in text)
+            {
+                sb.Append(font.Characters.Contains(c) ? c : '?');
+            }
+
+            return sb.ToString();
         }
     }
 }
