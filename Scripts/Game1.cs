@@ -896,6 +896,27 @@ namespace XCOM_3
                     wallOverrideColor: new Color(165, 150, 130));
             }
 
+            if (floorToRender > 0)
+            {
+                GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+
+                for (int lowerFloor = 0; lowerFloor < floorToRender; lowerFloor++)
+                {
+                    float lowerFloorOffset = lowerFloor * cellSize;
+                    var wallsForLowerFloor = GetWallsForFloor(lowerFloor);
+                    renderer3D.DrawWalls(
+                        wallsForLowerFloor,
+                        cellSize,
+                        editorMode: false,
+                        floorHeightOffset: lowerFloorOffset,
+                        wallOverrideColor: new Color(95, 140, 170, 85));
+                }
+
+                GraphicsDevice.BlendState = BlendState.Opaque;
+                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            }
+
             renderer3D.DrawStairConnections(currentMap?.StairConnections, floorToRender, cellSize);
 
             foreach (var unit in unitsOnFloor)
