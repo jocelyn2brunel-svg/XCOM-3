@@ -197,20 +197,41 @@ namespace XCOM_3
                     if (maxBuildingFloor <= 1 || building.Width < 3 || building.Height < 3)
                         continue;
 
-                    int sx = Math.Clamp(building.X + (building.Width / 2), building.X + 1, building.X + building.Width - 2);
-                    int sy = Math.Clamp(building.Y + (building.Height / 2), building.Y + 1, building.Y + building.Height - 2);
-                    sx = Math.Clamp(sx, 1, width - 2);
-                    sy = Math.Clamp(sy, 1, height - 2);
+                    int minX = Math.Clamp(building.X + 1, 1, width - 2);
+                    int maxX = Math.Clamp(building.X + building.Width - 2, 1, width - 2);
+                    int minY = Math.Clamp(building.Y + 1, 1, height - 2);
+                    int maxY = Math.Clamp(building.Y + building.Height - 2, 1, height - 2);
+
+                    int centerX = Math.Clamp(building.X + (building.Width / 2), minX, maxX);
+                    int centerY = Math.Clamp(building.Y + (building.Height / 2), minY, maxY);
+
+                    int radiusX = Math.Min(1, Math.Min(centerX - minX, maxX - centerX));
+                    int radiusY = Math.Min(1, Math.Min(centerY - minY, maxY - centerY));
+
+                    var spiralPoints = new List<Point>
+                    {
+                        new Point(centerX, Math.Clamp(centerY - radiusY, minY, maxY)),
+                        new Point(Math.Clamp(centerX + radiusX, minX, maxX), centerY),
+                        new Point(centerX, Math.Clamp(centerY + radiusY, minY, maxY)),
+                        new Point(Math.Clamp(centerX - radiusX, minX, maxX), centerY)
+                    };
+
+                    spiralPoints = spiralPoints.Distinct().ToList();
+                    if (spiralPoints.Count == 0)
+                        continue;
 
                     for (int floor = 0; floor < maxBuildingFloor - 1; floor++)
                     {
+                        Point from = spiralPoints[floor % spiralPoints.Count];
+                        Point to = spiralPoints[(floor + 1) % spiralPoints.Count];
+
                         stairs.Add(new StairConnectionData
                         {
-                            FromX = sx,
-                            FromY = sy,
+                            FromX = from.X,
+                            FromY = from.Y,
                             FromFloor = floor,
-                            ToX = sx,
-                            ToY = sy,
+                            ToX = to.X,
+                            ToY = to.Y,
                             ToFloor = floor + 1,
                             Bidirectional = true
                         });
