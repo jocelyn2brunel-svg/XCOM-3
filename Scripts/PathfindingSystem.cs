@@ -100,12 +100,12 @@ namespace XCOM_3
                 {
                     if (n.Floor < 0 || n.Floor >= floorCount) continue;
 
+                    if (n.Floor == cur.Floor && BlocksMovement(cur.Cell, n.Cell))
+                        continue;
+
                     if (!n.Equals(goalNode))
                     {
                         if (!IsWalkable(n.Cell, n.Floor, movingUnit))
-                            continue;
-
-                        if (n.Floor == cur.Floor && BlocksMovement(cur.Cell, n.Cell))
                             continue;
                     }
 
