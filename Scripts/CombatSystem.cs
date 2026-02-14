@@ -33,6 +33,11 @@ namespace XCOM_3
         private readonly Dictionary<Unit, int> targetPressureCache = new Dictionary<Unit, int>();
         private readonly Dictionary<Unit, bool> lineOfSightCache = new Dictionary<Unit, bool>();
 
+        private static int GetWeaponRange(Unit unit) => unit?.WeaponData?.Range ?? 0;
+        private static int GetWeaponAccuracy(Unit unit) => unit?.WeaponData?.Accuracy ?? 0;
+        private static int GetWeaponDamage(Unit unit) => unit?.WeaponData?.Damage ?? 0;
+        private static bool HasUsableWeapon(Unit unit) => unit?.WeaponData != null;
+
         public CombatSystem(Random random, PathfindingSystem pathfinding,
             Func<Point, Unit> getUnitAtCell, OptimizedUnitManager unitManager)
         {
@@ -138,7 +143,7 @@ namespace XCOM_3
                 ? cachedLoS
                 : pathfinding.HasLineOfSight(enemy.Cell, target.Cell);
 
-            if (distance <= enemy.WeaponData.Range && canSeeTarget)
+            if (distance <= GetWeaponRange(enemy) && canSeeTarget)
             {
                 float deltaX = target.Cell.X - enemy.Cell.X;
                 float deltaZ = target.Cell.Y - enemy.Cell.Y;
@@ -222,7 +227,7 @@ namespace XCOM_3
                 // 2. Ligne de vue et portée
                 if (hasLineOfSight)
                     score += 50;
-                if (distance <= enemy.WeaponData.Range && hasLineOfSight)
+                if (distance <= GetWeaponRange(enemy) && hasLineOfSight)
                     score += 75;
 
                 // 3. Santé de la cible (plus faible = plus prioritaire)
@@ -236,7 +241,7 @@ namespace XCOM_3
 
                 // 7. Menace (AP + dégâts potentiels)
                 score += player.ActionPoints * 5;
-                score += player.WeaponData.Damage * 2;
+                score += GetWeaponDamage(player) * 2;
 
                 // 8. Nombre d’alliés proches (cible protégée = moins prioritaire)
                 int alliesNearby = 0;
@@ -294,7 +299,7 @@ namespace XCOM_3
             }
 
             // Optimisation IA : inutile de tester la ligne de vue des cibles très lointaines.
-            if (distance > enemy.WeaponData.Range + 6)
+            if (distance > GetWeaponRange(enemy) + 6)
             {
                 lineOfSightCache[target] = false;
                 return false;
@@ -348,13 +353,19 @@ namespace XCOM_3
         /// </summary>
         public void InitiateFire(Unit shooter, Unit target)
         {
+            if (shooter == null || target == null)
+                return;
+
             if (shooter.ActionPoints <= 0)
+                return;
+
+            if (!HasUsableWeapon(shooter))
                 return;
 
             int distance = Math.Abs(target.Cell.X - shooter.Cell.X) +
                           Math.Abs(target.Cell.Y - shooter.Cell.Y);
 
-            if (distance > shooter.WeaponData.Range)
+            if (distance > GetWeaponRange(shooter))
                 return;
 
             if (!pathfinding.HasLineOfSight(shooter.Cell, target.Cell))
@@ -370,7 +381,7 @@ namespace XCOM_3
             shooter.FireProgress = 0f;
 
             // ✅ CALCUL AVEC COUVERTURE
-            int baseAccuracy = shooter.WeaponData.Accuracy + shooter.Skills.GetAccuracyBonus();
+            int baseAccuracy = GetWeaponAccuracy(shooter) + shooter.Skills.GetAccuracyBonus();
             int effectiveAccuracy = baseAccuracy - distance * 5;
 
             // Appliquer le malus de couverture
@@ -446,7 +457,7 @@ namespace XCOM_3
         /// </summary>
         private void ApplyDamage(Unit shooter, Unit target)
         {
-            int baseDamage = shooter.WeaponData.Damage + shooter.Skills.GetDamageBonus();
+            int baseDamage = GetWeaponDamage(shooter) + shooter.Skills.GetDamageBonus();
             int damage = Math.Max(baseDamage - target.GetTotalArmor(), 1);
 
             target.Health = Math.Max(target.Health - damage, 0);
@@ -485,7 +496,7 @@ namespace XCOM_3
 
             if (shooter.WillHit)
             {
-                int damage = Math.Max(shooter.WeaponData.Damage - target.GetTotalArmor(), 1);
+                int damage = Math.Max(GetWeaponDamage(shooter) - target.GetTotalArmor(), 1);
                 shooter.Skills.GainShootingXP(true, distance, damage);
             }
             else
@@ -500,6 +511,10 @@ namespace XCOM_3
         public List<Unit> GetValidFireTargets(Unit shooter)
         {
             List<Unit> targets = new List<Unit>();
+
+            if (shooter == null || !HasUsableWeapon(shooter))
+                return targets;
+
             List<Unit> enemies = shooter.Team == Team.Player ? enemyUnits : playerUnits;
 
             foreach (var u in enemies)
@@ -507,7 +522,7 @@ namespace XCOM_3
                 int distance = Math.Abs(u.Cell.X - shooter.Cell.X) +
                               Math.Abs(u.Cell.Y - shooter.Cell.Y);
 
-                if (distance <= shooter.WeaponData.Range &&
+                if (distance <= GetWeaponRange(shooter) &&
                     pathfinding.HasLineOfSight(shooter.Cell, u.Cell))
                 {
                     targets.Add(u);
