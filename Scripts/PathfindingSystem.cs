@@ -32,6 +32,7 @@ namespace XCOM_3
         private int gridW, gridH;
         private int floorCount;
         private HashSet<WallSegment> walls;
+        private Dictionary<(Point A, Point B), WallSegment> wallLookup = new();
         private readonly Func<Point, Unit> getUnit;
         private readonly Func<Point, int, Unit> getUnitByFloor;
         private readonly List<StairConnectionData> stairs;
@@ -52,6 +53,7 @@ namespace XCOM_3
             this.stairs = stairs ?? new List<StairConnectionData>();
             this.getUnit = getUnit;
             this.getUnitByFloor = getUnitByFloor;
+            BuildWallLookup();
         }
 
         public void UpdateGrid(int w, int h) { gridW = w; gridH = h; }
@@ -176,23 +178,48 @@ namespace XCOM_3
 
         private List<Point> GetCellsInRange(Unit u, int range)
         {
-            var cells = new List<Point>();
+            var reachable = new List<Point>();
+            var start = new GridNode(u.Cell, u.Floor);
+            var queue = new Queue<GridNode>();
+            var costs = new Dictionary<GridNode, int> { { start, 0 } };
 
-            for (int x = u.Cell.X - range; x <= u.Cell.X + range; x++)
+            queue.Enqueue(start);
+
+            while (queue.Count > 0)
             {
-                for (int y = u.Cell.Y - range; y <= u.Cell.Y + range; y++)
+                var current = queue.Dequeue();
+                int currentCost = costs[current];
+
+                if (currentCost >= range)
+                    continue;
+
+                foreach (var neighbor in GetNeighbors(current))
                 {
-                    var t = new Point(x, y);
-                    if (t == u.Cell || x < 0 || y < 0 || x >= gridW || y >= gridH || !IsWalkable(t, u.Floor, u))
+                    if (neighbor.Floor < 0 || neighbor.Floor >= floorCount)
                         continue;
 
-                    var path = FindPathDetailed(u.Cell, u.Floor, t, u.Floor, range, u);
-                    if (path.Cells.Count > 0 && path.Cells.Count <= range)
-                        cells.Add(t);
+                    if (!IsWalkable(neighbor.Cell, neighbor.Floor, u))
+                        continue;
+
+                    if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell))
+                        continue;
+
+                    int nextCost = currentCost + 1;
+                    if (nextCost > range)
+                        continue;
+
+                    if (costs.TryGetValue(neighbor, out int bestKnownCost) && bestKnownCost <= nextCost)
+                        continue;
+
+                    costs[neighbor] = nextCost;
+                    queue.Enqueue(neighbor);
+
+                    if (neighbor.Floor == u.Floor && neighbor.Cell != u.Cell)
+                        reachable.Add(neighbor.Cell);
                 }
             }
 
-            return cells;
+            return reachable;
         }
 
         public List<Point> GetMovableCells(Unit u)
@@ -241,17 +268,7 @@ namespace XCOM_3
             int dx = b.X - a.X, dy = b.Y - a.Y;
             if (Math.Abs(dx) + Math.Abs(dy) != 1) return null;
 
-            foreach (var w in walls)
-            {
-                if ((dy == 1 && w.IsHorizontal && w.Start.Y == b.Y && a.X >= w.Start.X && a.X < w.End.X) ||
-                    (dy == -1 && w.IsHorizontal && w.Start.Y == a.Y && a.X >= w.Start.X && a.X < w.End.X) ||
-                    (dx == 1 && !w.IsHorizontal && w.Start.X == b.X && a.Y >= w.Start.Y && a.Y < w.End.Y) ||
-                    (dx == -1 && !w.IsHorizontal && w.Start.X == a.X && a.Y >= w.Start.Y && a.Y < w.End.Y))
-                {
-                    return w;
-                }
-            }
-            return null;
+            return wallLookup.TryGetValue((a, b), out var wall) ? wall : null;
         }
 
         public bool BlocksMovement(Point a, Point b)
@@ -286,6 +303,39 @@ namespace XCOM_3
             gridW = w;
             gridH = h;
             walls = newWalls;
+            BuildWallLookup();
+        }
+
+        private void BuildWallLookup()
+        {
+            wallLookup = new Dictionary<(Point A, Point B), WallSegment>();
+
+            if (walls == null)
+                return;
+
+            foreach (var wall in walls)
+            {
+                if (wall.IsHorizontal)
+                {
+                    for (int x = wall.Start.X; x < wall.End.X; x++)
+                    {
+                        var top = new Point(x, wall.Start.Y - 1);
+                        var bottom = new Point(x, wall.Start.Y);
+                        wallLookup[(top, bottom)] = wall;
+                        wallLookup[(bottom, top)] = wall;
+                    }
+                }
+                else
+                {
+                    for (int y = wall.Start.Y; y < wall.End.Y; y++)
+                    {
+                        var left = new Point(wall.Start.X - 1, y);
+                        var right = new Point(wall.Start.X, y);
+                        wallLookup[(left, right)] = wall;
+                        wallLookup[(right, left)] = wall;
+                    }
+                }
+            }
         }
 
         public int ManhattanDistance(Point a, Point b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
