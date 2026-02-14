@@ -65,7 +65,7 @@ namespace XCOM_3
         private MapEditor mapEditor;
 
         // --- États du jeu ---
-        enum GameState { MainMenu, MissionSelect, Playing, OptionsMenu, GameOver, Encyclopedia, MapEditor }
+        enum GameState { MainMenu, CharacterCreation, MissionSelect, Playing, OptionsMenu, GameOver, Encyclopedia, MapEditor }
         private GameState currentState = GameState.MainMenu;
 
         // --- Grille 3D ---
@@ -118,6 +118,7 @@ namespace XCOM_3
 
         // ✅ NOUVEAU CODE - Managers
         private MainMenuManager mainMenuManager;
+        private CharacterCreationManager characterCreationManager;
         private MissionSelectManager missionSelectManager;
         private OptionsMenuManager optionsMenuManager;
         private EncyclopediaManager encyclopediaManager;
@@ -126,6 +127,7 @@ namespace XCOM_3
         private MouseState previousMouseState;
         private Random random = new Random();
         private string selectedMission = ""; // Utilisé dans CreateUnits et StartMission
+        private List<CharacterCreationProfile> createdSquadProfiles = new List<CharacterCreationProfile>();
 
         private StatsPanel statsPanel;
         private CharacterInfoPanel characterInfoPanel;
@@ -183,7 +185,7 @@ namespace XCOM_3
             // 1. Main Menu Manager
             mainMenuManager = new MainMenuManager(_graphics.GraphicsDevice, _spriteBatch, font, random);
             mainMenuManager.LoadContent(Content);
-            mainMenuManager.OnNewGameRequested += () => currentState = GameState.MissionSelect;
+            mainMenuManager.OnNewGameRequested += () => currentState = GameState.CharacterCreation;
             mainMenuManager.OnContinueRequested += HandleContinue;
             mainMenuManager.OnMapEditorRequested += () =>
             {
@@ -196,6 +198,15 @@ namespace XCOM_3
             };
             mainMenuManager.OnOptionsRequested += () => currentState = GameState.OptionsMenu;
             mainMenuManager.OnQuitRequested += () => Exit();
+
+            characterCreationManager = new CharacterCreationManager(_spriteBatch, font, random);
+            characterCreationManager.LoadContent();
+            characterCreationManager.OnCharacterCreationCompleted += (profiles) =>
+            {
+                createdSquadProfiles = profiles;
+                currentState = GameState.MissionSelect;
+            };
+            characterCreationManager.OnBackToMainMenu += () => currentState = GameState.MainMenu;
 
             // 2. Mission Select Manager
             missionSelectManager = new MissionSelectManager(GraphicsDevice, _spriteBatch, font, pixel);
@@ -309,6 +320,11 @@ namespace XCOM_3
                     mainMenuManager.Update(mouse, previousMouseState);
                     break;
 
+                case GameState.CharacterCreation:
+                    characterCreationManager.Update(mouse, previousMouseState);
+                    if (escapePressed) currentState = GameState.MainMenu;
+                    break;
+
                 case GameState.MissionSelect:
                     missionSelectManager.Update(mouse, previousMouseState);
                     if (escapePressed) currentState = GameState.MainMenu;
@@ -386,6 +402,10 @@ namespace XCOM_3
             {
                 case GameState.MainMenu:
                     mainMenuManager.Draw();
+                    break;
+
+                case GameState.CharacterCreation:
+                    characterCreationManager.Draw();
                     break;
 
                 case GameState.MissionSelect:
@@ -2309,21 +2329,39 @@ namespace XCOM_3
                 ? GetCityCenterSpawnCells(6)
                 : Enumerable.Range(0, 6).Select(i => new Point(2 + i, gridHeight - 2)).ToList();
 
-            string[] femaleNames = { "Nadia", "Maya", "Elena", "Sofia", "Leila", "Iris" };
-            string[] maleNames = { "Alex", "Victor", "Jonas", "Marco", "Ethan", "Hugo" };
-
             for (int i = 0; i < playerSpawnCells.Count; i++)
             {
-                bool useFemale = i % 2 == 0;
-                int nameIndex = (i / 2) % femaleNames.Length;
-                string callSign = useFemale ? femaleNames[nameIndex] : maleNames[nameIndex];
-                playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, callSign, "Assault", string.Empty, null));
+                CharacterCreationProfile profile = i < createdSquadProfiles.Count
+                    ? createdSquadProfiles[i]
+                    : null;
+
+                if (profile != null)
+                {
+                    WeaponData weaponData = weaponDatabase.TryGetValue(profile.Weapon, out var data) ? data : null;
+                    playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, profile.Name, profile.Job, profile.Weapon, weaponData));
+                }
+                else
+                {
+                    string[] fallbackNames = { "Nadia", "Alex", "Maya", "Victor", "Elena", "Jonas" };
+                    string callSign = fallbackNames[i % fallbackNames.Length];
+                    playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, callSign, "Assault", string.Empty, null));
+                }
             }
 
-            foreach (var unit in playerUnits)
+            for (int i = 0; i < playerUnits.Count; i++)
             {
-                unit.AddGrenade(grenadeDatabase["Frag Grenade"]);
-                if (random.Next(100) < 50) unit.AddGrenade(grenadeDatabase["Smoke Grenade"]);
+                CharacterCreationProfile profile = i < createdSquadProfiles.Count
+                    ? createdSquadProfiles[i]
+                    : null;
+
+                if (profile != null)
+                {
+                    ApplyStartingEquipment(playerUnits[i], profile);
+                    continue;
+                }
+
+                playerUnits[i].AddGrenade(grenadeDatabase["Frag Grenade"]);
+                if (random.Next(100) < 50) playerUnits[i].AddGrenade(grenadeDatabase["Smoke Grenade"]);
             }
 
             AssignRandomPants(playerUnits);
@@ -2467,6 +2505,23 @@ namespace XCOM_3
             foreach (var unit in enemyUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
 
             Console.WriteLine($"Units created for {missionType}: 6 player, {enemyUnits.Count} enemy");
+        }
+
+        private void ApplyStartingEquipment(Unit unit, CharacterCreationProfile profile)
+        {
+            if (unit == null || profile == null)
+                return;
+
+            unit.Grenades.Clear();
+
+            foreach (string itemName in profile.StartingEquipment)
+            {
+                if (grenadeDatabase.TryGetValue(itemName, out GrenadeData grenade))
+                    unit.AddGrenade(grenade);
+            }
+
+            if (unit.Grenades.Count == 0)
+                unit.AddGrenade(grenadeDatabase["Frag Grenade"]);
         }
 
         private void DistributeEnemiesAcrossUpperFloors()
