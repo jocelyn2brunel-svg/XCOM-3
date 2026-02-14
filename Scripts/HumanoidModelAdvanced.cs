@@ -928,36 +928,70 @@ namespace XCOM_3
             float forward = normalizedPhase;
             float backward = -normalizedPhase;
 
-            Vector3 hip = new Vector3(hipX, dims.ll, -forward * dims.ll * 0.04f);
-            Vector3 knee = new Vector3(
+            float arcSign = hipX < 0f ? -1f : 1f;
+            float forwardLift = Math.Max(0f, forward);
+            float trailingCompression = Math.Max(0f, backward);
+
+            // Cuisse : tronc de cône massif, légèrement orienté vers l'intérieur et courbé vers l'avant.
+            Vector3 hip = new Vector3(
                 hipX,
-                dims.ll * (0.5f + Math.Max(0f, forward) * 0.18f),
-                forward * dims.ll * 0.34f);
+                dims.ll,
+                -forward * dims.ll * 0.06f + arcSign * dims.lw * 0.08f);
+            Vector3 knee = new Vector3(
+                hipX * 0.88f,
+                dims.ll * (0.49f + forwardLift * 0.2f),
+                forward * dims.ll * 0.33f + dims.lw * 0.08f);
+
+            // Jambe : volume affiné et asymétrique, arc léger vers l'arrière.
             Vector3 ankle = knee + new Vector3(
-                0f,
-                -dims.ll * (0.44f + Math.Max(0f, backward) * 0.12f),
-                forward * dims.ll * 0.18f + Math.Max(0f, backward) * dims.ll * 0.24f);
+                arcSign * dims.lw * 0.05f,
+                -dims.ll * (0.42f + trailingCompression * 0.14f),
+                -dims.ll * 0.05f + forward * dims.ll * 0.16f + trailingCompression * dims.ll * 0.26f);
 
-            // Cuisses = gros cône tronqué
+            Vector3 calf = Vector3.Lerp(knee, ankle, 0.38f) + new Vector3(
+                -arcSign * dims.lw * 0.06f,
+                dims.ll * 0.08f,
+                -dims.ll * 0.05f);
+
+            // Cuisse = gros tronc de cône.
             DrawFrustumBetween(d, e, p, hip, knee,
-                dims.lw * (legRadiusScale * 1.35f), dims.lw * (legRadiusScale * 1.02f), legColor, r, 7);
+                dims.lw * (legRadiusScale * 1.36f), dims.lw * (legRadiusScale * 1.0f), legColor, r, 7);
 
-            // Genou = sphère
-            DrawRoundedHead(d, e, p, knee, dims.lw * (legRadiusScale * 0.44f), legColor * 0.85f, r);
+            // Genou = bloc de transition avec rotule frontale plate.
+            DrawBodyPart(d, e, p, knee,
+                new Vector3(dims.lw * (legRadiusScale * 0.86f), dims.lw * (legRadiusScale * 0.62f), dims.lw * (legRadiusScale * 0.72f)),
+                legColor * 0.86f, r);
+            DrawBodyPart(d, e, p, knee + new Vector3(0f, 0f, dims.lw * 0.26f),
+                new Vector3(dims.lw * (legRadiusScale * 0.34f), dims.lw * (legRadiusScale * 0.22f), dims.lw * (legRadiusScale * 0.14f)),
+                legColor * 0.72f, r);
 
-            // Tibia = cône tronqué
-            DrawFrustumBetween(d, e, p, knee, ankle,
-                dims.lw * (legRadiusScale * 1.0f), dims.lw * (legRadiusScale * 0.8f), legColor * 0.96f, r, 7);
+            // Mollet asymétrique (renflé en haut/arrière), puis tibia affiné.
+            DrawFrustumBetween(d, e, p, knee, calf,
+                dims.lw * (legRadiusScale * 0.98f), dims.lw * (legRadiusScale * 1.05f), legColor * 0.95f, r, 7);
+            DrawFrustumBetween(d, e, p, calf, ankle,
+                dims.lw * (legRadiusScale * 1.05f), dims.lw * (legRadiusScale * 0.62f), legColor * 0.93f, r, 7);
 
-            // Cheville = sphère
-            DrawRoundedHead(d, e, p, ankle, dims.lw * (legRadiusScale * 0.34f), legColor * 0.82f, r);
+            // Tibia mis en avant par une face dure.
+            Vector3 shinPlatePos = Vector3.Lerp(knee, ankle, 0.56f) + new Vector3(0f, -dims.ll * 0.02f, dims.lw * 0.18f);
+            DrawBodyPart(d, e, p, shinPlatePos,
+                new Vector3(dims.lw * (legRadiusScale * 0.32f), dims.ll * 0.16f, dims.lw * (legRadiusScale * 0.08f)),
+                legColor * 0.7f, r);
 
-            // Pied = pyramide à base carrée allongée vers l'avant
-            Vector3 bootPos = ankle + new Vector3(0f, dims.ll * 0.06f, dims.lw * (0.42f + Math.Max(0f, forward) * 0.35f));
-            DrawFootPyramid(d, e, p, bootPos,
-                dims.lw * (legRadiusScale * 2.1f), dims.ll * 0.18f,
-                dims.lw * (legRadiusScale * 0.8f), dims.lw * (legRadiusScale * 2.25f),
+            // Cheville = bloc rectangulaire avec malléoles décalées.
+            DrawBodyPart(d, e, p, ankle,
+                new Vector3(dims.lw * (legRadiusScale * 0.56f), dims.lw * (legRadiusScale * 0.42f), dims.lw * (legRadiusScale * 0.44f)),
+                legColor * 0.84f, r);
+            DrawRoundedHead(d, e, p, ankle + new Vector3(-dims.lw * 0.2f, dims.lw * 0.09f, 0f), dims.lw * (legRadiusScale * 0.12f), legColor * 0.9f, r);
+            DrawRoundedHead(d, e, p, ankle + new Vector3(dims.lw * 0.2f, -dims.lw * 0.02f, 0f), dims.lw * (legRadiusScale * 0.11f), legColor * 0.82f, r);
+
+            // Pied = prisme en coin pour l'appui au sol.
+            Vector3 footCenter = ankle + new Vector3(0f, -dims.ll * 0.08f, dims.lw * (0.56f + forwardLift * 0.26f));
+            DrawBodyPart(d, e, p, footCenter,
+                new Vector3(dims.lw * (legRadiusScale * 0.86f), dims.ll * 0.08f, dims.lw * (legRadiusScale * 1.9f)),
                 footColor, r);
+            DrawBodyPart(d, e, p, footCenter + new Vector3(0f, dims.ll * 0.05f, -dims.lw * 0.22f),
+                new Vector3(dims.lw * (legRadiusScale * 0.7f), dims.ll * 0.05f, dims.lw * (legRadiusScale * 1.2f)),
+                footColor * 0.9f, r);
         }
 
         private void DrawSoldier(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
