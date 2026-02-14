@@ -22,7 +22,9 @@ namespace XCOM_3
         private const int PanelHeight = 500;
 
         private const float PreviewRotationSpeed = 1.8f;
+        private const float MouseRotationSensitivity = 0.015f;
         private float _previewRotation;
+        private bool _isDraggingPreview;
 
         public bool IsVisible { get; private set; }
 
@@ -51,7 +53,7 @@ namespace XCOM_3
         public void Hide() => IsVisible = false;
         public void Toggle() => IsVisible = !IsVisible;
 
-        public void Update(GameTime gameTime, KeyboardState keyboard)
+        public void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse, MouseState previousMouse)
         {
             if (!IsVisible)
                 return;
@@ -61,6 +63,22 @@ namespace XCOM_3
                 _previewRotation -= PreviewRotationSpeed * dt;
             if (keyboard.IsKeyDown(Keys.Right))
                 _previewRotation += PreviewRotationSpeed * dt;
+
+            Rectangle previewRect = GetPreviewRect(GetPanelBounds());
+            bool mouseInsidePreview = previewRect.Contains(mouse.Position);
+            bool pressStarted = mouse.LeftButton == ButtonState.Pressed && previousMouse.LeftButton == ButtonState.Released;
+
+            if (pressStarted && mouseInsidePreview)
+                _isDraggingPreview = true;
+
+            if (mouse.LeftButton == ButtonState.Released)
+                _isDraggingPreview = false;
+
+            if (_isDraggingPreview)
+            {
+                int deltaX = mouse.X - previousMouse.X;
+                _previewRotation += deltaX * MouseRotationSensitivity;
+            }
         }
 
         public void DrawPreview3D(Unit unit)
@@ -166,7 +184,7 @@ namespace XCOM_3
                 ParasiteEveTheme.TextHighlight,
                 0.9f);
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, _font,
-                "Tourner: ← / →",
+                "Tourner: ← / → ou glisser souris",
                 new Vector2(previewRect.X + 14, previewRect.Bottom - 32),
                 ParasiteEveTheme.TextDim,
                 0.8f);
