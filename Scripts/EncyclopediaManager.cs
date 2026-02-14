@@ -316,9 +316,28 @@ namespace XCOM_3
                 _spriteBatch.DrawString(_font, $"  Protection: {armor.ArmorValue}", new Vector2(ContentX + 20, y), Color.White);
                 y += LineHeight;
 
-                string slot = armor.ArmorSlot == ArmorSlot.Head ? "Tête" : "Torse";
+                string slot = armor.ArmorSlot switch
+                {
+                    ArmorSlot.Head => "Tête",
+                    ArmorSlot.Torso => "Torse",
+                    ArmorSlot.Shield => "Bouclier",
+                    ArmorSlot.Shirt => "Chemise",
+                    ArmorSlot.Pants => "Pantalon",
+                    _ => "Inconnu"
+                };
                 _spriteBatch.DrawString(_font, $"  Emplacement: {slot}", new Vector2(ContentX + 20, y), Color.White);
-                y += LineHeight + 10;
+                y += LineHeight;
+
+                _spriteBatch.DrawString(_font, $"  Poids: {armor.WeightLbs:0.#} lb", new Vector2(ContentX + 20, y), Color.White);
+                y += LineHeight;
+
+                if (armor.BonusInventorySlots > 0)
+                {
+                    _spriteBatch.DrawString(_font, $"  Poches: {armor.BonusInventorySlots}x 1x1", new Vector2(ContentX + 20, y), Color.White);
+                    y += LineHeight;
+                }
+
+                y += 10;
             }
         }
 

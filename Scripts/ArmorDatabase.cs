@@ -45,6 +45,7 @@ namespace XCOM_3
             AddModernPlates(list);
             AddShields(list);
             AddCombatShirts(list);
+            AddPants(list);
 
             return list.ToArray();
         }
@@ -115,7 +116,36 @@ namespace XCOM_3
                 ArmorSlot.Shirt,
                 ProtectionLevel.None,
                 0,
+                0.8f,
+                0,
                 "Protection feu / confort thermique."
+            ));
+        }
+
+        private static void AddPants(List<ItemData> list)
+        {
+            list.Add(new ItemData(
+                "Jeans Leger",
+                ItemType.Armor,
+                0,
+                ArmorSlot.Pants,
+                ProtectionLevel.None,
+                0,
+                1f,
+                4,
+                "Jeans léger (1 lb). Ajoute 4 poches 1x1."
+            ));
+
+            list.Add(new ItemData(
+                "Jeans de Travail",
+                ItemType.Armor,
+                0,
+                ArmorSlot.Pants,
+                ProtectionLevel.None,
+                0,
+                2f,
+                4,
+                "Jeans de travail (2 lb). Ajoute 4 poches 1x1."
             ));
         }
 
@@ -124,13 +154,13 @@ namespace XCOM_3
         // ─────────────────────────────────────────────
 
         private static ItemData Helmet(string name, int armor, ProtectionLevel level, string desc)
-            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Head, level, 0, desc);
+            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Head, level, 0, 0f, 0, desc);
 
         private static ItemData Vest(string name, int armor, ProtectionLevel level, string desc)
-            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Torso, level, 0, desc);
+            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Torso, level, 0, 0f, 0, desc);
 
         private static ItemData Shield(string name, int armor, ProtectionLevel level, int apPenalty, string desc)
-            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Shield, level, apPenalty, desc);
+            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Shield, level, apPenalty, 0f, 0, desc);
 
         private static void AddPlateVariants(List<ItemData> list, string baseName, int baseArmor)
         {
@@ -142,6 +172,8 @@ namespace XCOM_3
                 ArmorSlot.Torso,
                 ProtectionLevel.NIJ_III,
                 1,
+                0f,
+                0,
                 "Plaques SAPI. -1 PM."
             ));
             list.Add(new ItemData(
@@ -151,6 +183,8 @@ namespace XCOM_3
                 ArmorSlot.Torso,
                 ProtectionLevel.NIJ_IV,
                 1,
+                0f,
+                0,
                 "Plaques ESAPI. -1 PM."
             ));
         }

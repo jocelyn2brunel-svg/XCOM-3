@@ -21,7 +21,8 @@ namespace XCOM_3
         Head,
         Torso,
         Shield,
-        Shirt
+        Shirt,
+        Pants
     }
 
     public enum ProtectionLevel
@@ -50,6 +51,8 @@ namespace XCOM_3
         public ArmorSlot ArmorSlot { get; set; }
         public ProtectionLevel ProtectionLevel;
         public int MobilityPenalty;
+        public float WeightLbs;
+        public int BonusInventorySlots;
         public string Description;
 
         // Données de grenades
@@ -65,6 +68,8 @@ namespace XCOM_3
             ArmorSlot = ArmorSlot.Head;
             ProtectionLevel = ProtectionLevel.None;
             MobilityPenalty = 0;
+            WeightLbs = 0f;
+            BonusInventorySlots = 0;
             Description = "";
         }
 
@@ -73,6 +78,8 @@ namespace XCOM_3
                        ArmorSlot armorSlot = ArmorSlot.Head,
                        ProtectionLevel protectionLevel = ProtectionLevel.None,
                        int mobilityPenalty = 0,
+                       float weightLbs = 0f,
+                       int bonusInventorySlots = 0,
                        string description = "")
         {
             Name = name;
@@ -82,6 +89,8 @@ namespace XCOM_3
             ArmorSlot = armorSlot;
             ProtectionLevel = protectionLevel;
             MobilityPenalty = mobilityPenalty;
+            WeightLbs = weightLbs;
+            BonusInventorySlots = bonusInventorySlots;
             Description = description;
         }
 
@@ -91,6 +100,8 @@ namespace XCOM_3
             Name = name;
             Type = ItemType.Grenade;
             GrenadeData = grenadeData;
+            WeightLbs = 0f;
+            BonusInventorySlots = 0;
         }
 
     }
