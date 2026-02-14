@@ -66,13 +66,19 @@ namespace XCOM_3
 
             Rectangle previewRect = GetPreviewRect(GetPanelBounds());
             bool mouseInsidePreview = previewRect.Contains(mouse.Position);
-            bool pressStarted = mouse.LeftButton == ButtonState.Pressed && previousMouse.LeftButton == ButtonState.Released;
+            bool isMousePressed = mouse.LeftButton == ButtonState.Pressed;
 
-            if (pressStarted && mouseInsidePreview)
-                _isDraggingPreview = true;
-
-            if (mouse.LeftButton == ButtonState.Released)
+            // Sur certaines plateformes, l'état "Pressed ce frame / Released frame précédente"
+            // peut être raté lors d'un changement de focus UI. On autorise donc le drag dès que
+            // le clic maintenu est dans l'aperçu, ce qui rend la rotation souris fiable.
+            if (!isMousePressed)
+            {
                 _isDraggingPreview = false;
+            }
+            else if (mouseInsidePreview)
+            {
+                _isDraggingPreview = true;
+            }
 
             if (_isDraggingPreview)
             {
