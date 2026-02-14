@@ -615,20 +615,19 @@ namespace XCOM_3
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
             int floorCount = Math.Max(1, currentMap?.FloorCount ?? 1);
-            for (int floor = 0; floor < floorCount; floor++)
-            {
-                float yOffset = floor * cellSize;
-                if (floor == 0)
-                {
-                    renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture, yOffset);
-                }
-                else if (upperFloorCells.Count > 0)
-                {
-                    renderer3D.DrawGridCells(upperFloorCells, cellSize, tileTexture, yOffset);
-                }
+            int floorToRender = Math.Clamp(viewedFloor, 0, floorCount - 1);
+            float yOffset = floorToRender * cellSize;
 
-                renderer3D.DrawWalls(wallSegments, cellSize, editorMode: false, floorHeightOffset: yOffset);
+            if (floorToRender == 0)
+            {
+                renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture, yOffset);
             }
+            else if (upperFloorCells.Count > 0)
+            {
+                renderer3D.DrawGridCells(upperFloorCells, cellSize, tileTexture, yOffset);
+            }
+
+            renderer3D.DrawWalls(wallSegments, cellSize, editorMode: false, floorHeightOffset: yOffset);
 
             foreach (var unit in playerUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
             foreach (var unit in enemyUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
