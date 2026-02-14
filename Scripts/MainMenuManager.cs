@@ -198,7 +198,7 @@ namespace XCOM_3
                 _font,
                 text,
                 Vector2.Zero,
-                Color.White,
+                UIThemeManager.PrimaryColor,
                 0f,
                 Vector2.Zero,
                 3f,
