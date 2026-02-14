@@ -22,7 +22,8 @@ namespace XCOM_3
         Torso,
         Shield,
         Shirt,
-        Pants
+        Pants,
+        ChestRig
     }
 
     public enum ProtectionLevel

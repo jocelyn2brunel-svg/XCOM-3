@@ -52,7 +52,9 @@ namespace XCOM_3
         public Item EquippedShield { get; set; }
         public Item EquippedShirt { get; set; }
         public Item EquippedPants { get; set; }
+        public Item EquippedChestRig { get; set; }
         public List<Item> PantsInventory { get; set; } = new List<Item>();
+        public List<Item> ChestRigInventory { get; set; } = new List<Item>();
         public string EquippedBackpack;
 
         // Orientation et animation
@@ -134,7 +136,9 @@ namespace XCOM_3
             EquippedShield = null;
             EquippedShirt = null;
             EquippedPants = null;
+            EquippedChestRig = null;
             PantsInventory = new List<Item>();
+            ChestRigInventory = new List<Item>();
             EquippedBackpack = "Medium Backpack"; // ← AJOUTER CETTE LIGNE (sac par défaut)
 
         }
@@ -169,7 +173,9 @@ namespace XCOM_3
             EquippedShield = other.EquippedShield;  // NOUVEAU
             EquippedShirt = other.EquippedShirt;    // NOUVEAU
             EquippedPants = other.EquippedPants;
+            EquippedChestRig = other.EquippedChestRig;
             PantsInventory = new List<Item>(other.PantsInventory);
+            ChestRigInventory = new List<Item>(other.ChestRigInventory);
             EquippedBackpack = other.EquippedBackpack; // ← AJOUTER CETTE LIGNE
 
             Grenades = new System.Collections.Generic.List<GrenadeData>(other.Grenades);
@@ -198,6 +204,7 @@ namespace XCOM_3
             if (EquippedShield != null) total += EquippedShield.Data.ArmorValue; // NOUVEAU
             if (EquippedShirt != null) total += EquippedShirt.Data.ArmorValue;   // NOUVEAU
             if (EquippedPants != null) total += EquippedPants.Data.ArmorValue;
+            if (EquippedChestRig != null) total += EquippedChestRig.Data.ArmorValue;
             total += Skills.GetDefenseBonus();
             return total;
         }
@@ -267,8 +274,11 @@ namespace XCOM_3
             total += EquippedShield?.Data?.WeightLbs ?? 0f;
             total += EquippedShirt?.Data?.WeightLbs ?? 0f;
             total += EquippedPants?.Data?.WeightLbs ?? 0f;
+            total += EquippedChestRig?.Data?.WeightLbs ?? 0f;
 
             foreach (var item in PantsInventory)
+                total += item?.Data?.WeightLbs ?? 0f;
+            foreach (var item in ChestRigInventory)
                 total += item?.Data?.WeightLbs ?? 0f;
 
             return total;
@@ -277,6 +287,30 @@ namespace XCOM_3
         public int GetPantsInventoryCapacity()
         {
             return EquippedPants?.Data?.BonusInventorySlots ?? 0;
+        }
+
+        public int GetChestRigInventoryCapacity()
+        {
+            return EquippedChestRig?.Data?.BonusInventorySlots ?? 0;
+        }
+
+        public void RefreshGrenadeInventoryFromEquipment()
+        {
+            Grenades.Clear();
+
+            foreach (var item in PantsInventory)
+            {
+                if (item?.Data?.GrenadeData != null)
+                    Grenades.Add(item.Data.GrenadeData);
+            }
+
+            foreach (var item in ChestRigInventory)
+            {
+                if (item?.Data?.GrenadeData != null)
+                    Grenades.Add(item.Data.GrenadeData);
+            }
+
+            MaxGrenades = Grenades.Count;
         }
 
         public int GetMaxHealth()

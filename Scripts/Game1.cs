@@ -1281,6 +1281,16 @@ namespace XCOM_3
                 var pantsData = availablePants[random.Next(availablePants.Count)];
                 unit.EquippedPants = new Item(pantsData, Point.Zero);
                 unit.PantsInventory = new List<Item>();
+
+                int pantsCapacity = unit.GetPantsInventoryCapacity();
+                int movedGrenades = Math.Min(unit.Grenades.Count, pantsCapacity);
+                for (int i = 0; i < movedGrenades; i++)
+                {
+                    GrenadeData grenade = unit.Grenades[i];
+                    unit.PantsInventory.Add(new Item(new ItemData(grenade.Name, grenade), Point.Zero));
+                }
+
+                unit.RefreshGrenadeInventoryFromEquipment();
             }
         }
 
