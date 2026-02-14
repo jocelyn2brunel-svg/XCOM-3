@@ -51,6 +51,8 @@ namespace XCOM_3
         public Item EquippedArmor { get; set; }
         public Item EquippedShield { get; set; }
         public Item EquippedShirt { get; set; }
+        public Item EquippedPants { get; set; }
+        public List<Item> PantsInventory { get; set; } = new List<Item>();
         public string EquippedBackpack;
 
         // Orientation et animation
@@ -131,6 +133,8 @@ namespace XCOM_3
             EquippedArmor = null;
             EquippedShield = null;
             EquippedShirt = null;
+            EquippedPants = null;
+            PantsInventory = new List<Item>();
             EquippedBackpack = "Medium Backpack"; // ← AJOUTER CETTE LIGNE (sac par défaut)
 
         }
@@ -164,6 +168,8 @@ namespace XCOM_3
             EquippedArmor = other.EquippedArmor;
             EquippedShield = other.EquippedShield;  // NOUVEAU
             EquippedShirt = other.EquippedShirt;    // NOUVEAU
+            EquippedPants = other.EquippedPants;
+            PantsInventory = new List<Item>(other.PantsInventory);
             EquippedBackpack = other.EquippedBackpack; // ← AJOUTER CETTE LIGNE
 
             Grenades = new System.Collections.Generic.List<GrenadeData>(other.Grenades);
@@ -191,6 +197,7 @@ namespace XCOM_3
             if (EquippedArmor != null) total += EquippedArmor.Data.ArmorValue;
             if (EquippedShield != null) total += EquippedShield.Data.ArmorValue; // NOUVEAU
             if (EquippedShirt != null) total += EquippedShirt.Data.ArmorValue;   // NOUVEAU
+            if (EquippedPants != null) total += EquippedPants.Data.ArmorValue;
             total += Skills.GetDefenseBonus();
             return total;
         }
@@ -246,7 +253,30 @@ namespace XCOM_3
             int penalty = 0;
             if (EquippedArmor != null) penalty += EquippedArmor.Data.MobilityPenalty;
             if (EquippedShield != null) penalty += EquippedShield.Data.MobilityPenalty;
+            if (EquippedPants != null) penalty += EquippedPants.Data.MobilityPenalty;
             return penalty;
+        }
+
+        public float GetEquippedWeightLbs()
+        {
+            float total = 0f;
+
+            total += EquippedWeapon?.Data?.WeightLbs ?? 0f;
+            total += EquippedHelmet?.Data?.WeightLbs ?? 0f;
+            total += EquippedArmor?.Data?.WeightLbs ?? 0f;
+            total += EquippedShield?.Data?.WeightLbs ?? 0f;
+            total += EquippedShirt?.Data?.WeightLbs ?? 0f;
+            total += EquippedPants?.Data?.WeightLbs ?? 0f;
+
+            foreach (var item in PantsInventory)
+                total += item?.Data?.WeightLbs ?? 0f;
+
+            return total;
+        }
+
+        public int GetPantsInventoryCapacity()
+        {
+            return EquippedPants?.Data?.BonusInventorySlots ?? 0;
         }
 
         public int GetMaxHealth()
@@ -514,7 +544,7 @@ namespace XCOM_3
         /// </summary>
         public int GetShortMoveRange()
         {
-            return GetShortMoveRange(0f);
+            return GetShortMoveRange(GetEquippedWeightLbs());
         }
 
         /// <summary>
@@ -532,7 +562,7 @@ namespace XCOM_3
         /// </summary>
         public int GetMaxMoveRange()
         {
-            return GetMaxMoveRange(0f);
+            return GetMaxMoveRange(GetEquippedWeightLbs());
         }
 
         /// <summary>
@@ -550,7 +580,7 @@ namespace XCOM_3
         /// </summary>
         public int GetSprintRange()
         {
-            return GetSprintRange(0f);
+            return GetSprintRange(GetEquippedWeightLbs());
         }
 
         /// <summary>
