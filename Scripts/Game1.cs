@@ -908,7 +908,10 @@ namespace XCOM_3
                 for (int upperFloor = floorToRender + 1; upperFloor < floorCount; upperFloor++)
                 {
                     float upperFloorOffset = upperFloor * cellSize;
-                    var wallsForUpperFloor = GetWallsForFloor(upperFloor);
+                    var wallsForUpperFloor = FilterUpperFloorWallsForLowerView(
+                        upperFloor,
+                        floorToRender,
+                        GetWallsForFloor(upperFloor));
                     var fadedUpperWalls = new HashSet<WallSegment>();
 
                     if (unitsOnFloor.Count > 0)
@@ -1278,6 +1281,53 @@ namespace XCOM_3
             }
 
             return filteredWalls;
+        }
+
+        private HashSet<WallSegment> FilterUpperFloorWallsForLowerView(int sourceFloor, int viewedFloor, HashSet<WallSegment> walls)
+        {
+            if (sourceFloor <= viewedFloor || currentMap?.Buildings == null || currentMap.Buildings.Count == 0)
+                return walls;
+
+            var filteredWalls = new HashSet<WallSegment>();
+            foreach (var wall in walls)
+            {
+                if (!IsInteriorWallOnFloor(wall, sourceFloor))
+                    filteredWalls.Add(wall);
+            }
+
+            return filteredWalls;
+        }
+
+        private bool IsInteriorWallOnFloor(WallSegment wall, int floor)
+        {
+            if (currentMap?.Buildings == null || floor <= 0)
+                return false;
+
+            foreach (var building in currentMap.Buildings)
+            {
+                if (building.FloorCount <= floor)
+                    continue;
+
+                int setback = GetFloorSetback(building, floor);
+                int minX = building.X + setback;
+                int minY = building.Y + setback;
+                int maxX = building.X + building.Width - setback;
+                int maxY = building.Y + building.Height - setback;
+
+                bool inBounds = wall.IsHorizontal
+                    ? wall.Start.X >= minX && wall.End.X <= maxX && wall.Start.Y >= minY && wall.Start.Y <= maxY
+                    : wall.Start.X >= minX && wall.Start.X <= maxX && wall.Start.Y >= minY && wall.End.Y <= maxY;
+
+                if (!inBounds)
+                    continue;
+
+                if (wall.IsHorizontal)
+                    return wall.Start.Y > minY && wall.Start.Y < maxY;
+
+                return wall.Start.X > minX && wall.Start.X < maxX;
+            }
+
+            return false;
         }
 
         private int GetFloorSetback(BuildingFootprintData building, int floor)
@@ -1828,6 +1878,31 @@ namespace XCOM_3
             return GetCellsForFloor(floor).Contains(cell);
         }
 
+        private bool IsCellHoverableOnViewedFloor(Point cell, int floor)
+        {
+            return IsCellAvailableOnFloor(cell, floor) || IsGroundExteriorCell(cell);
+        }
+
+        private bool IsGroundExteriorCell(Point cell)
+        {
+            if (cell.X < 0 || cell.Y < 0 || cell.X >= gridWidth || cell.Y >= gridHeight)
+                return false;
+
+            if (currentMap?.Buildings == null || currentMap.Buildings.Count == 0)
+                return true;
+
+            foreach (var building in currentMap.Buildings)
+            {
+                if (cell.X >= building.X && cell.X < building.X + building.Width &&
+                    cell.Y >= building.Y && cell.Y < building.Y + building.Height)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         Unit GetUnitAtCell(Point cell)
         {
             return unitManager.SpatialHash.GetUnitAt(cell, 0);
@@ -1902,7 +1977,7 @@ namespace XCOM_3
                 GraphicsDevice.Viewport.Height,
                 viewedFloor * cellSize);
 
-            if (hoveredCell.X != -1 && !IsCellAvailableOnFloor(hoveredCell, viewedFloor))
+            if (hoveredCell.X != -1 && !IsCellHoverableOnViewedFloor(hoveredCell, viewedFloor))
                 hoveredCell = new Point(-1, -1);
 
             // We moved the clears here to ensure a clean slate, but only populate if needed
