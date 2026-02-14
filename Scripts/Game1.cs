@@ -2242,12 +2242,13 @@ namespace XCOM_3
                     apCost = 2;
                     Console.WriteLine($"[MOVEMENT] Max move: {distance} cells (2 AP)");
                 }
-                else if (distance <= sprintRange && selectedUnit.CanSprint())
+                else if (distance <= sprintRange && selectedUnit.CanSprint(distance))
                 {
-                    // Zone jaune (2 AP + stamina)
+                    // Zone jaune (2 AP + phosphocréatine)
                     apCost = 2;
                     isSprint = true;
-                    Console.WriteLine($"[MOVEMENT] SPRINT: {distance} cells (2 AP + {Unit.SPRINT_STAMINA_COST} stamina)");
+                    int phosphocreatineCost = selectedUnit.GetSprintPhosphocreatineCost(distance);
+                    Console.WriteLine($"[MOVEMENT] SPRINT: {distance} cells (2 AP + {phosphocreatineCost}% phosphocreatine)");
                 }
                 else
                 {
@@ -2271,10 +2272,10 @@ namespace XCOM_3
                 }
 
                 combatSystem.UpdateUnitCover(selectedUnit);
-                // Consommer stamina si sprint
+                // Consommer la phosphocréatine si sprint
                 if (isSprint)
                 {
-                    selectedUnit.ConsumeSprint();
+                    selectedUnit.ConsumeSprint(distance);
                 }
 
                 // Mettre à jour l'UI
@@ -2406,7 +2407,7 @@ namespace XCOM_3
         {
             float basePerception = observer?.PerceptionRangeCells ?? 0;
             float lightMultiplier = MathHelper.Lerp(0.55f, 1.05f, CalculateSunIntensity(timeOfDay));
-            float fatigueMultiplier = observer != null && observer.Stamina < observer.MaxStamina * 0.25f ? 0.9f : 1f;
+            float fatigueMultiplier = observer != null && observer.Phosphocreatine < observer.MaxPhosphocreatine * 0.25f ? 0.9f : 1f;
             return Math.Max(8, (int)Math.Round(basePerception * lightMultiplier * fatigueMultiplier));
         }
 
