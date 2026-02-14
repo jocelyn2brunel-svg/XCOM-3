@@ -105,7 +105,9 @@ namespace XCOM_3
 
             lastPosition = cell;
 
-            EquippedWeapon = null;
+            EquippedWeapon = weaponData != null
+                ? new Item(new ItemData(weapon, ItemType.Weapon, weaponData), Point.Zero)
+                : null;
             EquippedHelmet = null;
             EquippedArmor = null;
             EquippedShield = null;
