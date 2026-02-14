@@ -246,6 +246,12 @@ namespace XCOM_3
             return GetMaxMoveRange(); // Utilise la nouvelle méthode
         }
 
+        public static float ComputeOrientationFromDelta(float deltaX, float deltaZ)
+        {
+            // Système de coordonnées monde : inversion X pour corriger droite/gauche à l'écran.
+            return (float)Math.Atan2(-deltaX, deltaZ);
+        }
+
         public void UpdateVisualPosition(int cellSize = 2)
         {
             VisualPosition = new Vector3(
@@ -302,7 +308,7 @@ namespace XCOM_3
             Vector3 direction = TargetPosition - VisualPosition;
             if (direction.LengthSquared() > 0.001f)
             {
-                TargetOrientation = (float)Math.Atan2(direction.X, direction.Z);
+                TargetOrientation = ComputeOrientationFromDelta(direction.X, direction.Z);
                 finalMoveOrientation = TargetOrientation;
             }
         }

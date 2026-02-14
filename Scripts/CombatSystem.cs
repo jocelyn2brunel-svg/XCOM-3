@@ -31,6 +31,7 @@ namespace XCOM_3
 
         private CoverSystem coverSystem;
         private readonly Dictionary<Unit, int> targetPressureCache = new Dictionary<Unit, int>();
+        private readonly Dictionary<Unit, bool> lineOfSightCache = new Dictionary<Unit, bool>();
 
         public CombatSystem(Random random, PathfindingSystem pathfinding,
             Func<Point, Unit> getUnitAtCell, OptimizedUnitManager unitManager)
@@ -133,12 +134,15 @@ namespace XCOM_3
                           Math.Abs(target.Cell.Y - enemy.Cell.Y);
 
             // Tirer si possible
-            if (distance <= enemy.WeaponData.Range &&
-                pathfinding.HasLineOfSight(enemy.Cell, target.Cell))
+            bool canSeeTarget = lineOfSightCache.TryGetValue(target, out bool cachedLoS)
+                ? cachedLoS
+                : pathfinding.HasLineOfSight(enemy.Cell, target.Cell);
+
+            if (distance <= enemy.WeaponData.Range && canSeeTarget)
             {
                 float deltaX = target.Cell.X - enemy.Cell.X;
                 float deltaZ = target.Cell.Y - enemy.Cell.Y;
-                enemy.TargetOrientation = (float)Math.Atan2(deltaX, deltaZ);
+                enemy.TargetOrientation = Unit.ComputeOrientationFromDelta(deltaX, deltaZ);
 
                 InitiateFire(enemy, target);
                 return;
@@ -210,7 +214,7 @@ namespace XCOM_3
                 float score = 0f;
                 int distance = Math.Abs(player.Cell.X - enemy.Cell.X) +
                                Math.Abs(player.Cell.Y - enemy.Cell.Y);
-                bool hasLineOfSight = pathfinding.HasLineOfSight(enemy.Cell, player.Cell);
+                bool hasLineOfSight = HasPotentialLineOfSight(enemy, player, distance);
 
                 // 1. Distance (plus proche = plus prioritaire)
                 score += Math.Max(0, 100 - distance * 5);
@@ -269,6 +273,7 @@ namespace XCOM_3
         private void BuildTargetPressureCache(Unit currentEnemy)
         {
             targetPressureCache.Clear();
+            lineOfSightCache.Clear();
 
             foreach (var enemy in enemyUnits)
             {
@@ -279,6 +284,25 @@ namespace XCOM_3
                 targetPressureCache.TryGetValue(pendingTarget, out int count);
                 targetPressureCache[pendingTarget] = count + 1;
             }
+        }
+
+        private bool HasPotentialLineOfSight(Unit enemy, Unit target, int distance)
+        {
+            if (lineOfSightCache.TryGetValue(target, out bool cachedValue))
+            {
+                return cachedValue;
+            }
+
+            // Optimisation IA : inutile de tester la ligne de vue des cibles très lointaines.
+            if (distance > enemy.WeaponData.Range + 6)
+            {
+                lineOfSightCache[target] = false;
+                return false;
+            }
+
+            bool hasLoS = pathfinding.HasLineOfSight(enemy.Cell, target.Cell);
+            lineOfSightCache[target] = hasLoS;
+            return hasLoS;
         }
 
 
@@ -338,7 +362,7 @@ namespace XCOM_3
 
             float deltaX = target.Cell.X - shooter.Cell.X;
             float deltaZ = target.Cell.Y - shooter.Cell.Y;
-            shooter.TargetOrientation = (float)Math.Atan2(deltaX, deltaZ);
+            shooter.TargetOrientation = Unit.ComputeOrientationFromDelta(deltaX, deltaZ);
 
             IsActionInProgress = true;
             shooter.IsFiring = true;
