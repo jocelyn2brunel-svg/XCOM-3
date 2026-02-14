@@ -599,6 +599,7 @@ namespace XCOM_3
             }
 
             _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | PgUp/PgDn: Etage | I: Inventaire", new Vector2(10, 10), Color.White);
+            _spriteBatch.DrawString(font, "Escaliers: balises orange/bleu sur la grille", new Vector2(10, 70), new Color(255, 190, 90));
 
             string timeStr = GetTimeOfDayString(timeOfDay);
             _spriteBatch.DrawString(font, $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}", new Vector2(10, 30), Color.Yellow);
@@ -631,6 +632,7 @@ namespace XCOM_3
 
             var wallsForFloor = GetWallsForFloor(floorToRender);
             renderer3D.DrawWalls(wallsForFloor, cellSize, editorMode: false, floorHeightOffset: yOffset);
+            renderer3D.DrawStairConnections(currentMap?.StairConnections, floorToRender, cellSize);
 
             foreach (var unit in playerUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
             foreach (var unit in enemyUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
