@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.Text;
 
 namespace XCOM_3.Scripts
@@ -76,6 +77,9 @@ namespace XCOM_3.Scripts
                 bounds.Height - 4
             );
             sb.Draw(pixel, innerBounds, BackgroundMedium);
+
+            // Grain subtil pour casser l'aspect trop lisse
+            DrawGrainEffect(sb, pixel, innerBounds);
             
             if (drawBorder)
             {
@@ -307,6 +311,35 @@ namespace XCOM_3.Scripts
             {
                 Rectangle line = new Rectangle(area.X, y, area.Width, 1);
                 sb.Draw(pixel, line, scanlineColor);
+            }
+        }
+
+        /// <summary>
+        /// Dessine un effet de grain/texture pour un rendu plus analogique.
+        /// </summary>
+        public static void DrawGrainEffect(SpriteBatch sb, Texture2D pixel,
+                                           Rectangle bounds, float intensity = 0.03f)
+        {
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+            {
+                return;
+            }
+
+            // Seed fixe basée sur la position pour garder un motif stable visuellement.
+            Random rand = new Random(bounds.X + bounds.Y);
+
+            // Nombre de points de grain proportionnel à la surface.
+            int grainCount = (bounds.Width * bounds.Height) / 400;
+
+            for (int i = 0; i < grainCount; i++)
+            {
+                int x = bounds.X + rand.Next(bounds.Width);
+                int y = bounds.Y + rand.Next(bounds.Height);
+
+                float alpha = (float)rand.NextDouble() * intensity;
+                Color grainColor = new Color(0f, 0f, 0f, alpha);
+
+                sb.Draw(pixel, new Rectangle(x, y, 1, 1), grainColor);
             }
         }
 
