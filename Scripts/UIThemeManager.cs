@@ -11,6 +11,19 @@ namespace XCOM_3
 
         public static Color DisabledColor => Color.Gray;
 
+        public static Color SecondaryColor
+        {
+            get
+            {
+                // Variante atténuée de la couleur primaire pour les textes secondaires.
+                return new Color(
+                    (int)MathHelper.Clamp(PrimaryColor.R * 0.75f, 0, 255),
+                    (int)MathHelper.Clamp(PrimaryColor.G * 0.75f, 0, 255),
+                    (int)MathHelper.Clamp(PrimaryColor.B * 0.75f, 0, 255)
+                );
+            }
+        }
+
         public static Color HoverColor
         {
             get
