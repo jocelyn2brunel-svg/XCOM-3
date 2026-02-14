@@ -500,11 +500,20 @@ namespace XCOM_3
         /// </summary>
         public void ClearSpawnZones(HashSet<WallSegment> walls, int gridWidth, int gridHeight)
         {
-            // Zone joueur (bas)
-            walls.RemoveWhere(w => w.Start.Y > gridHeight - 4 || w.End.Y > gridHeight - 4);
+            bool IsPerimeterWall(WallSegment wall)
+            {
+                bool onTopEdge = wall.IsHorizontal && wall.Start.Y == 0;
+                bool onBottomEdge = wall.IsHorizontal && wall.Start.Y == gridHeight;
+                bool onLeftEdge = !wall.IsHorizontal && wall.Start.X == 0;
+                bool onRightEdge = !wall.IsHorizontal && wall.Start.X == gridWidth;
+                return onTopEdge || onBottomEdge || onLeftEdge || onRightEdge;
+            }
 
-            // Zone ennemie (haut)
-            walls.RemoveWhere(w => w.Start.Y < 4 || w.End.Y < 4);
+            // Zone joueur (bas) : on garde les murs de bordure pour éviter de "supprimer" la carte visuellement.
+            walls.RemoveWhere(w => !IsPerimeterWall(w) && (w.Start.Y > gridHeight - 4 || w.End.Y > gridHeight - 4));
+
+            // Zone ennemie (haut) : idem, on ne retire que les murs intérieurs.
+            walls.RemoveWhere(w => !IsPerimeterWall(w) && (w.Start.Y < 4 || w.End.Y < 4));
         }
 
         private void GenerateInterior(HashSet<WallSegment> walls,
