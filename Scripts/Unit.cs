@@ -9,6 +9,23 @@ namespace XCOM_3
     // ═══════════════════════════════════════════════════════════════════════
     public partial class Unit
     {
+        private static readonly HashSet<string> HumanClasses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Assault",
+            "Heavy",
+            "Scout"
+        };
+
+        private static readonly HashSet<string> KnownFeminineNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Nadia", "Maya", "Elena", "Sofia", "Leila", "Iris"
+        };
+
+        private static readonly HashSet<string> KnownMasculineNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Alex", "Victor", "Jonas", "Marco", "Ethan", "Hugo"
+        };
+
         public enum HumanBodyType { Masculine, Feminine }
         public enum Handedness { Right, Left }
 
@@ -210,10 +227,7 @@ namespace XCOM_3
 
         private static HumanBodyType DetermineBodyType(Team team, string unitClass, string name)
         {
-            bool isHuman = team == Team.Player ||
-                           string.Equals(unitClass, "Assault", StringComparison.OrdinalIgnoreCase) ||
-                           string.Equals(unitClass, "Heavy", StringComparison.OrdinalIgnoreCase) ||
-                           string.Equals(unitClass, "Scout", StringComparison.OrdinalIgnoreCase);
+            bool isHuman = IsHumanUnit(team, unitClass);
 
             if (!isHuman)
                 return HumanBodyType.Masculine;
@@ -222,12 +236,10 @@ namespace XCOM_3
             {
                 string trimmedName = name.Trim();
 
-                string[] feminineNames = { "Nadia", "Maya", "Elena", "Sofia", "Leila", "Iris" };
-                if (Array.Exists(feminineNames, n => string.Equals(n, trimmedName, StringComparison.OrdinalIgnoreCase)))
+                if (KnownFeminineNames.Contains(trimmedName))
                     return HumanBodyType.Feminine;
 
-                string[] masculineNames = { "Alex", "Victor", "Jonas", "Marco", "Ethan", "Hugo" };
-                if (Array.Exists(masculineNames, n => string.Equals(n, trimmedName, StringComparison.OrdinalIgnoreCase)))
+                if (KnownMasculineNames.Contains(trimmedName))
                     return HumanBodyType.Masculine;
             }
 
@@ -237,10 +249,7 @@ namespace XCOM_3
 
         private static Handedness DetermineHandedness(Team team, string unitClass, string name, HumanBodyType bodyType)
         {
-            bool isHuman = team == Team.Player ||
-                           string.Equals(unitClass, "Assault", StringComparison.OrdinalIgnoreCase) ||
-                           string.Equals(unitClass, "Heavy", StringComparison.OrdinalIgnoreCase) ||
-                           string.Equals(unitClass, "Scout", StringComparison.OrdinalIgnoreCase);
+            bool isHuman = IsHumanUnit(team, unitClass);
 
             if (!isHuman)
                 return Handedness.Right;
@@ -252,6 +261,11 @@ namespace XCOM_3
             // Méta-analyses : hommes ~11-13% gauchers, femmes ~9-11% gauchères.
             int leftHandedChancePercent = bodyType == HumanBodyType.Masculine ? 12 : 10;
             return (hash % 100) < leftHandedChancePercent ? Handedness.Left : Handedness.Right;
+        }
+
+        private static bool IsHumanUnit(Team team, string unitClass)
+        {
+            return team == Team.Player || (!string.IsNullOrWhiteSpace(unitClass) && HumanClasses.Contains(unitClass));
         }
 
         public int GetMobilityPenalty()
