@@ -1815,6 +1815,21 @@ namespace XCOM_3
             if (floor <= 0)
                 return false;
 
+            int setback = GetFloorSetback(building, floor);
+            int minX = building.X + setback;
+            int minY = building.Y + setback;
+            int maxX = building.X + building.Width - setback;
+            int maxY = building.Y + building.Height - setback;
+
+            bool onPerimeter = wall.IsHorizontal
+                ? (wall.Start.Y == minY || wall.Start.Y == maxY)
+                : (wall.Start.X == minX || wall.Start.X == maxX);
+
+            // Les façades doivent toujours rester présentes sur l'empreinte réelle de l'étage,
+            // y compris quand l'étage applique un retrait (setback).
+            if (onPerimeter)
+                return false;
+
             int seed =
                 building.X * 92821 +
                 building.Y * 68917 +
@@ -1827,8 +1842,8 @@ namespace XCOM_3
             int roll = Math.Abs(seed % 100);
 
             // Retirer ponctuellement des cloisons intérieures sur les étages.
-            bool interiorHorizontal = wall.IsHorizontal && wall.Start.Y > building.Y && wall.Start.Y < building.Y + building.Height;
-            bool interiorVertical = !wall.IsHorizontal && wall.Start.X > building.X && wall.Start.X < building.X + building.Width;
+            bool interiorHorizontal = wall.IsHorizontal && wall.Start.Y > minY && wall.Start.Y < maxY;
+            bool interiorVertical = !wall.IsHorizontal && wall.Start.X > minX && wall.Start.X < maxX;
 
             if ((interiorHorizontal || interiorVertical) && roll < 18 + floor * 2)
                 return true;
