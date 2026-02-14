@@ -12,6 +12,24 @@ namespace XCOM_3
         Warehouse
     }
 
+    public struct GeneratedBuilding
+    {
+        public int X;
+        public int Y;
+        public int Width;
+        public int Height;
+        public int FloorCount;
+
+        public GeneratedBuilding(int x, int y, int width, int height, int floorCount)
+        {
+            X = x;
+            Y = y;
+            Width = width;
+            Height = height;
+            FloorCount = floorCount;
+        }
+    }
+
     /// <summary>
     /// Représente un segment de mur entre deux cases
     /// </summary>
@@ -54,6 +72,7 @@ namespace XCOM_3
     public class EdgeWallGenerator
     {
         private Random random;
+        public List<GeneratedBuilding> LastGeneratedBuildings { get; } = new List<GeneratedBuilding>();
 
         public enum WallPattern
         {
@@ -75,6 +94,8 @@ namespace XCOM_3
         /// </summary>
         public HashSet<WallSegment> GenerateWalls(int gridWidth, int gridHeight, WallPattern pattern, int density = 20)
         {
+            LastGeneratedBuildings.Clear();
+
             if (gridWidth < 10 || gridHeight < 10)
             {
                 Console.WriteLine("Grid too small, using scattered pattern");
@@ -376,6 +397,8 @@ namespace XCOM_3
                     int y = blockY + offsetY;
 
                     BuildingType type = (BuildingType)random.Next(0, 4);
+                    int buildingFloors = random.Next(2, 6);
+                    LastGeneratedBuildings.Add(new GeneratedBuilding(x, y, buildingWidth, buildingHeight, buildingFloors));
 
                     // Murs extérieurs
                     for (int i = x; i < x + buildingWidth; i++)

@@ -41,6 +41,7 @@ namespace XCOM_3
         // Points d'intérêt
         public List<ObjectivePoint> Objectives { get; set; } = new List<ObjectivePoint>();
         public List<StairConnectionData> StairConnections { get; set; } = new List<StairConnectionData>();
+        public List<BuildingFootprintData> Buildings { get; set; } = new List<BuildingFootprintData>();
 
         // Paramètres de mission
         public string SuggestedMissionType { get; set; } = "Tutorial";
@@ -215,6 +216,16 @@ namespace XCOM_3
         public int ToY { get; set; }
         public int ToFloor { get; set; }
         public bool Bidirectional { get; set; } = true;
+    }
+
+    [Serializable]
+    public class BuildingFootprintData
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public int FloorCount { get; set; } = 1;
     }
 
     /// <summary>

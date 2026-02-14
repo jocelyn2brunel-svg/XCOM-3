@@ -622,9 +622,11 @@ namespace XCOM_3
             {
                 renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture, yOffset);
             }
-            else if (upperFloorCells.Count > 0)
+            else
             {
-                renderer3D.DrawGridCells(upperFloorCells, cellSize, tileTexture, yOffset);
+                var floorCells = GetCellsForFloor(floorToRender);
+                if (floorCells.Count > 0)
+                    renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, yOffset);
             }
 
             renderer3D.DrawWalls(wallSegments, cellSize, editorMode: false, floorHeightOffset: yOffset);
@@ -821,6 +823,39 @@ namespace XCOM_3
             // Réinitialiser spatial hash
             if (unitManager != null)
                 unitManager.InitializeForMission(playerUnits, enemyUnits);
+        }
+
+        private HashSet<Point> GetCellsForFloor(int floor)
+        {
+            if (floor <= 0)
+                return new HashSet<Point>();
+
+            if (currentMap?.Buildings != null && currentMap.Buildings.Count > 0)
+            {
+                var cells = new HashSet<Point>();
+                foreach (var building in currentMap.Buildings)
+                {
+                    if (building.FloorCount <= floor)
+                        continue;
+
+                    int minX = Math.Max(0, building.X);
+                    int minY = Math.Max(0, building.Y);
+                    int maxX = Math.Min(gridWidth, building.X + building.Width);
+                    int maxY = Math.Min(gridHeight, building.Y + building.Height);
+
+                    for (int x = minX; x < maxX; x++)
+                    {
+                        for (int y = minY; y < maxY; y++)
+                        {
+                            cells.Add(new Point(x, y));
+                        }
+                    }
+                }
+
+                return cells;
+            }
+
+            return upperFloorCells;
         }
 
         private HashSet<Point> ComputeUpperFloorCells()
