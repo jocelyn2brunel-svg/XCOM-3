@@ -328,6 +328,11 @@ namespace XCOM_3
             DrawUnit(unit, cellSize, silhouetteColor, drawEquipment: false);
         }
 
+        public void DrawUnitGhost(Unit unit, int cellSize, Color ghostColor)
+        {
+            DrawUnit(unit, cellSize, ghostColor, drawEquipment: true);
+        }
+
 
 
         public void DrawSelectionIndicator(Unit u, int size, Color c, float scale = 1.1f) =>

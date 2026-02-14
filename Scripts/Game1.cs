@@ -1013,7 +1013,7 @@ namespace XCOM_3
                         ? new Color(80, 200, 255, 135)
                         : new Color(255, 120, 90, 115);
 
-                    renderer3D.DrawUnitSilhouette(unit, cellSize, belowFloorColor);
+                    renderer3D.DrawUnitGhost(unit, cellSize, belowFloorColor);
                 }
 
                 GraphicsDevice.BlendState = BlendState.Opaque;
@@ -1031,7 +1031,7 @@ namespace XCOM_3
                         ? new Color(80, 200, 255, 135)
                         : new Color(255, 120, 90, 115);
 
-                    renderer3D.DrawUnitSilhouette(unit, cellSize, aboveFloorColor);
+                    renderer3D.DrawUnitGhost(unit, cellSize, aboveFloorColor);
                 }
 
                 GraphicsDevice.BlendState = BlendState.Opaque;
