@@ -562,49 +562,96 @@ namespace XCOM_3
 
             float pulse = (float)Math.Sin(gameTime * 3f) * 0.15f + 0.85f;
 
-            // Zone 1 : Mouvement court (1 AP) - VERT
-            foreach (var cell in zones.ShortMove)
+            HashSet<Point> shortZone = zones.ShortMove != null
+                ? new HashSet<Point>(zones.ShortMove)
+                : new HashSet<Point>();
+            HashSet<Point> maxZone = new HashSet<Point>(shortZone);
+            if (zones.MaxMove != null)
             {
-                Color color = new Color(0, 255, 0, 190) * pulse;
-                DrawCellOutline(cell, cellSize, 0.02f, color);
+                maxZone.UnionWith(zones.MaxMove);
+            }
+            HashSet<Point> sprintZone = new HashSet<Point>(maxZone);
+            if (zones.Sprint != null)
+            {
+                sprintZone.UnionWith(zones.Sprint);
             }
 
-            // Zone 2 : Mouvement max (2 AP) - BLEU
-            foreach (var cell in zones.MaxMove)
-            {
-                Color color = new Color(0, 150, 255, 175) * pulse;
-                DrawCellOutline(cell, cellSize, 0.03f, color);
-            }
+            // Zone 1 : contour externe du mouvement court (1 AP) - VERT
+            DrawZonePerimeter(shortZone, cellSize, 0.02f, new Color(0, 255, 0, 220) * pulse);
 
-            // Zone 3 : Sprint (2 AP + stamina) - JAUNE avec warning
-            foreach (var cell in zones.Sprint)
-            {
-                // Pulse plus rapide pour le warning
-                float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
-                Color color = new Color(255, 200, 0, 185) * sprintPulse;
-                DrawCellOutline(cell, cellSize, 0.04f, color);
+            // Zone 2 : contour externe du mouvement max (2 AP) - BLEU
+            DrawZonePerimeter(maxZone, cellSize, 0.03f, new Color(0, 150, 255, 210) * pulse);
 
-                // Petit indicateur de stamina au centre
-                DrawSprintIndicator(cell, cellSize, gameTime);
+            // Zone 3 : contour externe du sprint (2 AP + stamina) - JAUNE
+            float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
+            DrawZonePerimeter(sprintZone, cellSize, 0.04f, new Color(255, 200, 0, 215) * sprintPulse);
+
+            // Indicateur sprint uniquement sur les cellules de frontière
+            foreach (var cell in sprintZone)
+            {
+                if (IsBoundaryCell(cell, sprintZone))
+                {
+                    DrawSprintIndicator(cell, cellSize, gameTime);
+                }
             }
         }
 
-        private void DrawCellOutline(Point cell, int cellSize, float height, Color color)
+        private static readonly Point[] CardinalDirections =
         {
-            float outlineThickness = Math.Max(cellSize * 0.08f, 0.05f);
-            float outlineLength = cellSize * 0.9f;
+            new Point(0, -1),
+            new Point(1, 0),
+            new Point(0, 1),
+            new Point(-1, 0)
+        };
 
-            float centerX = cell.X * cellSize + cellSize / 2f;
-            float centerZ = cell.Y * cellSize + cellSize / 2f;
-            float halfLength = outlineLength / 2f;
+        private bool IsBoundaryCell(Point cell, HashSet<Point> zone)
+        {
+            if (zone == null || zone.Count == 0) return false;
 
-            // Haut / bas
-            DrawCube(new Vector3(centerX, height, centerZ - halfLength), new Vector3(outlineLength, 0.03f, outlineThickness), color);
-            DrawCube(new Vector3(centerX, height, centerZ + halfLength), new Vector3(outlineLength, 0.03f, outlineThickness), color);
+            foreach (var dir in CardinalDirections)
+            {
+                if (!zone.Contains(new Point(cell.X + dir.X, cell.Y + dir.Y)))
+                {
+                    return true;
+                }
+            }
 
-            // Gauche / droite
-            DrawCube(new Vector3(centerX - halfLength, height, centerZ), new Vector3(outlineThickness, 0.03f, outlineLength), color);
-            DrawCube(new Vector3(centerX + halfLength, height, centerZ), new Vector3(outlineThickness, 0.03f, outlineLength), color);
+            return false;
+        }
+
+        private void DrawZonePerimeter(HashSet<Point> zone, int cellSize, float height, Color color)
+        {
+            if (zone == null || zone.Count == 0) return;
+
+            float edgeThickness = Math.Max(cellSize * 0.09f, 0.06f);
+            float edgeLength = cellSize * 0.9f;
+            float halfLength = edgeLength / 2f;
+
+            foreach (Point cell in zone)
+            {
+                float centerX = cell.X * cellSize + cellSize / 2f;
+                float centerZ = cell.Y * cellSize + cellSize / 2f;
+
+                if (!zone.Contains(new Point(cell.X, cell.Y - 1)))
+                {
+                    DrawCube(new Vector3(centerX, height, centerZ - halfLength), new Vector3(edgeLength, 0.03f, edgeThickness), color);
+                }
+
+                if (!zone.Contains(new Point(cell.X + 1, cell.Y)))
+                {
+                    DrawCube(new Vector3(centerX + halfLength, height, centerZ), new Vector3(edgeThickness, 0.03f, edgeLength), color);
+                }
+
+                if (!zone.Contains(new Point(cell.X, cell.Y + 1)))
+                {
+                    DrawCube(new Vector3(centerX, height, centerZ + halfLength), new Vector3(edgeLength, 0.03f, edgeThickness), color);
+                }
+
+                if (!zone.Contains(new Point(cell.X - 1, cell.Y)))
+                {
+                    DrawCube(new Vector3(centerX - halfLength, height, centerZ), new Vector3(edgeThickness, 0.03f, edgeLength), color);
+                }
+            }
         }
 
         /// <summary>
@@ -662,7 +709,7 @@ namespace XCOM_3
                     cell.Y * cellSize + cellSize / 2f
                 );
 
-                float pulse = (float)Math.Sin(gameTime * 4f + i * 0.3f) * 0.2f + 0.8f;
+                float pulse = (float)Math.Sin(gameTime * 4f + i * 0.3f) * 0.08f + 0.92f;
 
                 // Marqueur de point de passage
                 DrawCube(pos, new Vector3(cellSize * 0.22f, 0.05f, cellSize * 0.22f), pathColor * pulse);
