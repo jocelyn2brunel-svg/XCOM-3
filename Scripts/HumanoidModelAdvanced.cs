@@ -366,7 +366,6 @@ namespace XCOM_3
                 DrawBodyPart(device, effect, pos, ringPos, ringScale, new Color(180, 180, 180), rot); // Métal
             }
 
-            Console.WriteLine($"[EQUIPMENT] Drew {Math.Min(grenades.Count, 3)} grenades on vest");
         }
 
         // ═══════════════════════════════════════════════════════════════════════
