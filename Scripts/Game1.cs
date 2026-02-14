@@ -1878,7 +1878,11 @@ namespace XCOM_3
         {
             if (IsTabPressed(keyboard)) SelectNextActiveUnit();
 
-            hoveredCell = camera.GetCellFromMouse(mouse.Position, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            hoveredCell = camera.GetCellFromMouse(
+                mouse.Position,
+                GraphicsDevice.Viewport.Width,
+                GraphicsDevice.Viewport.Height,
+                viewedFloor * cellSize);
 
             // We moved the clears here to ensure a clean slate, but only populate if needed
             currentPath.Clear();
@@ -2229,7 +2233,11 @@ namespace XCOM_3
         private void HandleGrenadeThrow(MouseState mouse, bool leftClick)
         {
             if (selectedUnit == null || selectedGrenade == null) return;
-            throwTarget = camera.GetCellFromMouse(mouse.Position, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            throwTarget = camera.GetCellFromMouse(
+                mouse.Position,
+                GraphicsDevice.Viewport.Width,
+                GraphicsDevice.Viewport.Height,
+                viewedFloor * cellSize);
             if (throwTarget.X >= 0)
             {
                 explosionPreview = ThrowTrajectoryCalculator.GetExplosionPreview(throwTarget, selectedGrenade.Radius, gridWidth, gridHeight);
