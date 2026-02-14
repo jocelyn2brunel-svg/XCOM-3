@@ -241,6 +241,43 @@ namespace XCOM_3
             }
         }
 
+
+        public void DrawRampTiles(IEnumerable<RampTileData> ramps, int floorToRender, int cellSize)
+        {
+            if (ramps == null)
+                return;
+
+            float floorYOffset = floorToRender * cellSize;
+            foreach (var ramp in ramps)
+            {
+                if (ramp.Floor != floorToRender)
+                    continue;
+
+                DrawNorthRamp(ramp.X, ramp.Y, floorYOffset, cellSize);
+            }
+        }
+
+        private void DrawNorthRamp(int cellX, int cellY, float floorYOffset, int cellSize)
+        {
+            const int slices = 6;
+            float sliceDepth = cellSize / (float)slices;
+
+            for (int i = 0; i < slices; i++)
+            {
+                float t = (i + 1f) / slices;
+                float sliceHeight = t * cellSize;
+                float zMin = cellY * cellSize - i * sliceDepth;
+
+                Vector3 pos = new Vector3(
+                    cellX * cellSize + cellSize / 2f,
+                    floorYOffset + sliceHeight / 2f,
+                    zMin + sliceDepth / 2f);
+
+                Color color = Color.Lerp(new Color(170, 120, 80), new Color(220, 180, 120), t);
+                DrawCube(pos, new Vector3(cellSize * 0.95f, sliceHeight, sliceDepth * 0.95f), color * 0.85f);
+            }
+        }
+
         public void DrawStairConnections(IEnumerable<StairConnectionData> stairs, int floorToRender, int cellSize)
         {
             if (stairs == null) return;
