@@ -141,6 +141,7 @@ namespace XCOM_3
         private const int TabHeight = 42;
         private const int TabSpacing = 8;
         private const int TabTopMargin = 12;
+        private const float WallHeightRatio = 0.92f;
 
 
         public Game1()
@@ -870,6 +871,11 @@ namespace XCOM_3
             else
             {
                 var floorCells = GetCellsForFloor(floorToRender);
+                var exteriorCells = GetExteriorCells(floorCells);
+
+                if (exteriorCells.Count > 0)
+                    renderer3D.DrawGridCells(exteriorCells, cellSize, tileTexture, 0f);
+
                 if (floorCells.Count > 0)
                     renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, yOffset);
             }
@@ -1183,7 +1189,7 @@ namespace XCOM_3
             if (!SegmentsIntersect(camera2D, unit2D, wallStart, wallEnd))
                 return false;
 
-            float wallHeight = cellSize * 1.8f;
+            float wallHeight = cellSize * WallHeightRatio;
             float wallMidHeight = floorHeightOffset + wallHeight * 0.5f;
             float viewMin = Math.Min(cameraPos.Y, unitPos.Y);
             float viewMax = Math.Max(cameraPos.Y, unitPos.Y);
@@ -1255,6 +1261,23 @@ namespace XCOM_3
             }
 
             return upperFloorCells;
+        }
+
+        private HashSet<Point> GetExteriorCells(HashSet<Point> blockedCells)
+        {
+            var exteriorCells = new HashSet<Point>();
+
+            for (int x = 0; x < gridWidth; x++)
+            {
+                for (int y = 0; y < gridHeight; y++)
+                {
+                    Point cell = new Point(x, y);
+                    if (!blockedCells.Contains(cell))
+                        exteriorCells.Add(cell);
+                }
+            }
+
+            return exteriorCells;
         }
 
         private HashSet<Point> ComputeUpperFloorCells()
