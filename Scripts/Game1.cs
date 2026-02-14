@@ -1467,6 +1467,7 @@ namespace XCOM_3
                 }
 
                 // Effectuer le déplacement
+                selectedUnit.SetMovementStyle(apCost, isSprint);
                 selectedUnit.StartMoveAlongPath(path, cellSize);
                 selectedUnit.Floor = detailedPath.EndFloor;
                 unitManager.OnUnitMoved(selectedUnit, movementGoal, detailedPath.EndFloor);

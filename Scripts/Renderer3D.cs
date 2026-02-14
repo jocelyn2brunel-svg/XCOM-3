@@ -290,13 +290,11 @@ namespace XCOM_3
             // Utiliser l'orientation pilotée par l'unité (déplacement, visée, tir)
             float orientation = unit.Orientation;
 
-            // Animation
-            float legSwing = (float)Math.Sin(globalAnimationTime * 8f) * 0.3f;
-            float armSwing = (float)Math.Sin(globalAnimationTime * 8f + Math.PI) * 0.2f;
-            float bodyBob = unit.IsMoving ?
-                (float)Math.Abs(Math.Sin(globalAnimationTime * 8f)) * 0.15f : 0f;
-            float idleBob = !unit.IsMoving ?
-                (float)Math.Sin(globalAnimationTime * 2f) * 0.05f : 0f;
+            // Animation pilotée par l'état de l'unité (jog / run / sprint)
+            float legSwing = unit.IsMoving ? unit.LegSwing : 0f;
+            float armSwing = unit.IsMoving ? unit.ArmSwing : 0f;
+            float bodyBob = unit.IsMoving ? unit.BodyBob : 0f;
+            float idleBob = unit.IsMoving ? 0f : unit.IdleBobOffset;
 
             if (unit.IsAiming || unit.IsFiring)
             {
@@ -310,8 +308,8 @@ namespace XCOM_3
                 unit,           // ← Passer l'unité complète
                 scale,
                 orientation,
-                unit.IsMoving ? legSwing : 0f,
-                unit.IsMoving ? armSwing : 0f,
+                legSwing,
+                armSwing,
                 bodyBob,
                 idleBob
             );

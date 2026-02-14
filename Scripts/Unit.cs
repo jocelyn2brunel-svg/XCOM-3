@@ -66,11 +66,14 @@ namespace XCOM_3
         public float IdleTime = 0f;
         public float IdleBobOffset = 0f;
 
+        public enum MovementGait { Jog, Run, Sprint }
+
         // Animation de marche
         public float WalkCycleTime = 0f;
         public float LegSwing = 0f;
         public float ArmSwing = 0f;
         public float BodyBob = 0f;
+        public MovementGait CurrentMovementGait = MovementGait.Jog;
 
         // Système de compétences et progression
         public UnitSkills Skills = new UnitSkills();
@@ -268,6 +271,18 @@ namespace XCOM_3
             }
         }
 
+
+        public void SetMovementStyle(int actionPointCost, bool isSprint = false)
+        {
+            if (isSprint)
+            {
+                CurrentMovementGait = MovementGait.Sprint;
+                return;
+            }
+
+            CurrentMovementGait = actionPointCost <= 1 ? MovementGait.Jog : MovementGait.Run;
+        }
+
         public void UpdateAnimation(float deltaTime)
         {
             float orientationDiff = TargetOrientation - Orientation;
@@ -287,8 +302,40 @@ namespace XCOM_3
 
             if (IsMoving)
             {
-                float moveSpeed = 3f * deltaTime;
-                MoveProgress += moveSpeed;
+                float moveSpeedMultiplier;
+                float cycleSpeed;
+                float legAmplitude;
+                float armAmplitude;
+                float bobAmplitude;
+
+                switch (CurrentMovementGait)
+                {
+                    case MovementGait.Sprint:
+                        moveSpeedMultiplier = 3.9f;
+                        cycleSpeed = 11f;
+                        legAmplitude = 0.42f;
+                        armAmplitude = 0.30f;
+                        bobAmplitude = 0.14f;
+                        break;
+
+                    case MovementGait.Run:
+                        moveSpeedMultiplier = 3.3f;
+                        cycleSpeed = 8.5f;
+                        legAmplitude = 0.32f;
+                        armAmplitude = 0.22f;
+                        bobAmplitude = 0.10f;
+                        break;
+
+                    default:
+                        moveSpeedMultiplier = 2.7f;
+                        cycleSpeed = 6.2f;
+                        legAmplitude = 0.22f;
+                        armAmplitude = 0.16f;
+                        bobAmplitude = 0.07f;
+                        break;
+                }
+
+                MoveProgress += moveSpeedMultiplier * deltaTime;
 
                 if (MoveProgress >= 1f)
                 {
@@ -317,10 +364,10 @@ namespace XCOM_3
                 else
                 {
                     VisualPosition = Vector3.Lerp(moveSegmentStart, TargetPosition, MoveProgress);
-                    WalkCycleTime += deltaTime * 8f;
-                    LegSwing = (float)Math.Sin(WalkCycleTime) * 0.3f;
-                    ArmSwing = (float)Math.Sin(WalkCycleTime + MathHelper.Pi) * 0.2f;
-                    BodyBob = Math.Abs((float)Math.Sin(WalkCycleTime * 2f)) * 0.1f;
+                    WalkCycleTime += deltaTime * cycleSpeed;
+                    LegSwing = (float)Math.Sin(WalkCycleTime) * legAmplitude;
+                    ArmSwing = (float)Math.Sin(WalkCycleTime + MathHelper.Pi) * armAmplitude;
+                    BodyBob = Math.Abs((float)Math.Sin(WalkCycleTime * 2f)) * bobAmplitude;
                 }
             }
             else
