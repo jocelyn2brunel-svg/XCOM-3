@@ -16,6 +16,7 @@ namespace XCOM_3
         private readonly GraphicsDevice _graphicsDevice;
         private readonly BasicEffect _previewEffect;
         private readonly HumanoidModelAdvanced _previewModel;
+        private RenderTarget2D _previewRenderTarget;
 
         private const int PanelWidth = 930;
         private const int PanelHeight = 500;
@@ -69,13 +70,20 @@ namespace XCOM_3
 
             Rectangle panel = GetPanelBounds();
             Rectangle previewRect = GetPreviewRect(panel);
+            EnsurePreviewRenderTarget(previewRect.Width, previewRect.Height);
+
+            if (_previewRenderTarget == null)
+                return;
 
             Viewport originalViewport = _graphicsDevice.Viewport;
             DepthStencilState originalDepth = _graphicsDevice.DepthStencilState;
             BlendState originalBlend = _graphicsDevice.BlendState;
             RasterizerState originalRasterizer = _graphicsDevice.RasterizerState;
+            RenderTargetBinding[] originalRenderTargets = _graphicsDevice.GetRenderTargets();
 
-            _graphicsDevice.Viewport = new Viewport(previewRect);
+            _graphicsDevice.SetRenderTarget(_previewRenderTarget);
+
+            _graphicsDevice.Viewport = new Viewport(0, 0, _previewRenderTarget.Width, _previewRenderTarget.Height);
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
@@ -103,6 +111,7 @@ namespace XCOM_3
 
             _previewModel.DrawWithEquipment(_graphicsDevice, _previewEffect, previewUnit, 2.35f);
 
+            _graphicsDevice.SetRenderTargets(originalRenderTargets);
             _graphicsDevice.Viewport = originalViewport;
             _graphicsDevice.DepthStencilState = originalDepth;
             _graphicsDevice.BlendState = originalBlend;
@@ -126,6 +135,9 @@ namespace XCOM_3
 
             Rectangle infoSection = new Rectangle(panelX + 16, panelY + 52, 450, PanelHeight - 90);
             ParasiteEveTheme.DrawPanel(spriteBatch, _pixel, infoSection);
+
+            if (_previewRenderTarget != null)
+                spriteBatch.Draw(_previewRenderTarget, previewRect, Color.White);
 
             Vector2 cursor = new Vector2(infoSection.X + 12, infoSection.Y + 12);
             DrawPair(spriteBatch, ref cursor, "Nom", unit.Name);
@@ -201,5 +213,28 @@ namespace XCOM_3
 
         private static Rectangle GetPreviewRect(Rectangle panel)
             => new Rectangle(panel.X + 485, panel.Y + 52, 430, panel.Height - 90);
+
+        private void EnsurePreviewRenderTarget(int width, int height)
+        {
+            if (width <= 0 || height <= 0)
+                return;
+
+            if (_previewRenderTarget != null && (_previewRenderTarget.Width != width || _previewRenderTarget.Height != height))
+            {
+                _previewRenderTarget.Dispose();
+                _previewRenderTarget = null;
+            }
+
+            if (_previewRenderTarget == null)
+            {
+                _previewRenderTarget = new RenderTarget2D(
+                    _graphicsDevice,
+                    width,
+                    height,
+                    false,
+                    SurfaceFormat.Color,
+                    DepthFormat.Depth24);
+            }
+        }
     }
 }
