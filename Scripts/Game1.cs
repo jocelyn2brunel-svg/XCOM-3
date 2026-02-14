@@ -1175,6 +1175,8 @@ namespace XCOM_3
                 if (random.Next(100) < 50) unit.AddGrenade(grenadeDatabase["Smoke Grenade"]);
             }
 
+            AssignRandomPants(playerUnits);
+
             switch (missionType)
             {
                 case "Tutorial":
@@ -1257,10 +1259,29 @@ namespace XCOM_3
                     }
             }
 
+            AssignRandomPants(enemyUnits);
+
             foreach (var unit in playerUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
             foreach (var unit in enemyUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
 
             Console.WriteLine($"Units created for {missionType}: 6 player, {enemyUnits.Count} enemy");
+        }
+
+        private void AssignRandomPants(List<Unit> units)
+        {
+            if (units == null || units.Count == 0)
+                return;
+
+            var availablePants = ArmorDatabase.GetArmorsBySlot(ArmorSlot.Pants);
+            if (availablePants == null || availablePants.Count == 0)
+                return;
+
+            foreach (var unit in units)
+            {
+                var pantsData = availablePants[random.Next(availablePants.Count)];
+                unit.EquippedPants = new Item(pantsData, Point.Zero);
+                unit.PantsInventory = new List<Item>();
+            }
         }
 
         private List<Point> GetCityCenterSpawnCells(int count)
@@ -1715,9 +1736,9 @@ namespace XCOM_3
         private int GetEffectivePerceptionRange(Unit observer)
         {
             float basePerception = observer?.PerceptionRangeCells ?? 0;
-            float lightMultiplier = MathHelper.Lerp(0.35f, 1.0f, CalculateSunIntensity(timeOfDay));
-            float fatigueMultiplier = observer != null && observer.Stamina < observer.MaxStamina * 0.25f ? 0.8f : 1f;
-            return Math.Max(4, (int)Math.Round(basePerception * lightMultiplier * fatigueMultiplier));
+            float lightMultiplier = MathHelper.Lerp(0.55f, 1.05f, CalculateSunIntensity(timeOfDay));
+            float fatigueMultiplier = observer != null && observer.Stamina < observer.MaxStamina * 0.25f ? 0.9f : 1f;
+            return Math.Max(8, (int)Math.Round(basePerception * lightMultiplier * fatigueMultiplier));
         }
 
         private List<Unit> FilterTargetsByPerception(Unit shooter, List<Unit> targets)
