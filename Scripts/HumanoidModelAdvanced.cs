@@ -91,11 +91,14 @@ namespace XCOM_3
             // Dimensions de base selon le type
             var dims = GetUnitDimensions(type, scale);
 
+            bool hasWeapon = unit.EquippedWeapon != null || unit.WeaponData != null;
+            bool isAiming = unit.IsAiming || unit.IsFiring;
+
             // Dessiner le corps de base
-            DrawUnitBody(device, effect, animatedPos, teamColor, scale, type, rot, legSwing, armSwing, dims);
+            DrawUnitBody(device, effect, animatedPos, teamColor, scale, type, rot, legSwing, armSwing, dims, hasWeapon, isAiming);
 
             // ✅ NOUVEAU : Dessiner l'équipement
-            DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims);
+            DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, isAiming);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -103,8 +106,10 @@ namespace XCOM_3
         // ═══════════════════════════════════════════════════════════════════════
 
         private void DrawEquipment(GraphicsDevice device, BasicEffect effect, Vector3 pos, Unit unit,
-                                   float scale, Matrix rot, UnitDimensions dims)
+                                   float scale, Matrix rot, UnitDimensions dims, bool isAiming)
         {
+            Item weaponToDraw = GetDisplayedWeapon(unit);
+
             // CASQUE
             if (unit.EquippedHelmet != null)
             {
@@ -124,9 +129,9 @@ namespace XCOM_3
             }
 
             // ARME
-            if (unit.EquippedWeapon != null)
+            if (weaponToDraw != null)
             {
-                DrawWeapon(device, effect, pos, unit.EquippedWeapon, scale, rot, dims, unit.IsAiming || unit.IsFiring);
+                DrawWeapon(device, effect, pos, weaponToDraw, scale, rot, dims, isAiming);
             }
 
             // CHEMISE (sous le gilet)
@@ -140,6 +145,25 @@ namespace XCOM_3
             {
                 DrawEquippedGrenades(device, effect, pos, unit.Grenades, scale, rot, dims);
             }
+        }
+
+        private Item GetDisplayedWeapon(Unit unit)
+        {
+            if (unit.EquippedWeapon != null)
+            {
+                return unit.EquippedWeapon;
+            }
+
+            if (unit.WeaponData == null)
+            {
+                return null;
+            }
+
+            string weaponName = string.IsNullOrWhiteSpace(unit.Weapon)
+                ? unit.WeaponData.Name
+                : unit.Weapon;
+
+            return new Item(new ItemData(weaponName, ItemType.Weapon, unit.WeaponData), Point.Zero);
         }
 
         private void DrawHelmet(GraphicsDevice device, BasicEffect effect, Vector3 pos, Item helmet,
@@ -276,10 +300,10 @@ namespace XCOM_3
             Color weaponColor = GetWeaponColor(weapon.Data.Name);
             WeaponType weaponType = GetWeaponType(weapon.Data.Name);
 
-            // Position sur le bras droit
+            // Position calée entre les deux mains (pose articulée)
             Vector3 weaponPos = isAiming
-                ? new Vector3(dims.tw * 0.45f, dims.ll + dims.th * 0.82f, dims.td * 0.9f)
-                : new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.7f, dims.td * 0.3f);
+                ? new Vector3(dims.tw * 0.05f, dims.ll + dims.th * 0.78f, dims.td * 0.95f)
+                : new Vector3(dims.tw * 0.12f, dims.ll + dims.th * 0.66f, dims.td * 0.52f);
             Vector3 weaponScale = GetWeaponScale(weaponType, dims);
 
             // Corps de l'arme
@@ -289,9 +313,9 @@ namespace XCOM_3
             if (weaponType == WeaponType.Rifle || weaponType == WeaponType.Sniper)
             {
                 Vector3 stockPos = new Vector3(
-                    dims.tw * 0.5f,
-                    dims.ll + dims.th * 0.8f,
-                    -weaponScale.Z * 0.3f
+                    weaponPos.X - dims.tw * 0.2f,
+                    weaponPos.Y + dims.lw * 0.1f,
+                    weaponPos.Z - weaponScale.Z * 0.35f
                 );
                 Vector3 stockScale = new Vector3(weaponScale.X * 0.8f, weaponScale.Y * 0.5f, weaponScale.Z * 0.4f);
                 DrawBodyPart(device, effect, pos, stockPos, stockScale, new Color(80, 50, 30), rot);
@@ -299,9 +323,9 @@ namespace XCOM_3
 
             // Canon (partie avant)
             Vector3 barrelPos = new Vector3(
-                dims.tw * 0.65f,
-                dims.ll + dims.th * 0.7f,
-                dims.td * 0.3f + weaponScale.Z * 0.6f
+                weaponPos.X + dims.tw * 0.18f,
+                weaponPos.Y,
+                weaponPos.Z + weaponScale.Z * 0.62f
             );
             Vector3 barrelScale = new Vector3(weaponScale.X * 0.5f, weaponScale.Y * 0.5f, weaponScale.Z * 0.3f);
             DrawBodyPart(device, effect, pos, barrelPos, barrelScale, new Color(40, 40, 40), rot);
@@ -503,7 +527,8 @@ namespace XCOM_3
         // ═══════════════════════════════════════════════════════════════════════
 
         private void DrawUnitBody(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s,
-                                  UnitType type, Matrix r, float l, float a, UnitDimensions dims)
+                                  UnitType type, Matrix r, float l, float a, UnitDimensions dims,
+                                  bool hasWeapon = false, bool isAiming = false)
         {
             switch (type)
             {
@@ -513,8 +538,55 @@ namespace XCOM_3
                 case UnitType.Heavy: DrawHeavyBody(d, e, p, c, s, r, l, a, dims); break;
                 case UnitType.Scout: DrawScoutBody(d, e, p, c, s, r, l, a, dims); break;
             }
+
+            DrawSkeletonJoints(d, e, p, dims, r, c, l, a);
+
+            if (hasWeapon)
+            {
+                DrawWeaponGripPose(d, e, p, dims, r, c, isAiming);
+            }
         }
 
+
+        private void DrawSkeletonJoints(GraphicsDevice d, BasicEffect e, Vector3 p, UnitDimensions dims,
+                                        Matrix r, Color bodyColor, float legSwing, float armSwing)
+        {
+            Color jointColor = bodyColor * 0.65f;
+            Vector3 jointScale = new Vector3(dims.lw * 0.55f, dims.lw * 0.55f, dims.lw * 0.55f);
+
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.3f + legSwing * 0.04f, dims.ll * 0.42f, legSwing * 0.08f), jointScale, jointColor, r);
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.3f - legSwing * 0.04f, dims.ll * 0.42f, -legSwing * 0.08f), jointScale, jointColor, r);
+
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.94f, 0), jointScale, jointColor, r);
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.94f, 0), jointScale, jointColor, r);
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.62f, -armSwing * 0.1f), jointScale, jointColor, r);
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.62f, armSwing * 0.1f), jointScale, jointColor, r);
+        }
+
+        private void DrawWeaponGripPose(GraphicsDevice d, BasicEffect e, Vector3 p, UnitDimensions dims,
+                                        Matrix r, Color bodyColor, bool isAiming)
+        {
+            Color armColor = bodyColor * 0.9f;
+            float shoulderY = dims.ll + dims.th * 0.9f;
+            float elbowY = dims.ll + dims.th * (isAiming ? 0.82f : 0.72f);
+            float handY = dims.ll + dims.th * (isAiming ? 0.76f : 0.64f);
+            float handZ = dims.td * (isAiming ? 0.95f : 0.45f);
+
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.35f),
+                new Vector3(dims.lw * 0.95f, dims.al * 0.5f, dims.lw * 0.9f), armColor, r);
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.62f, (elbowY + handY) * 0.5f, handZ * 0.7f),
+                new Vector3(dims.lw * 0.85f, dims.al * 0.5f, dims.lw * 0.8f), armColor * 0.95f, r);
+
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.45f),
+                new Vector3(dims.lw * 0.95f, dims.al * 0.45f, dims.lw * 0.9f), armColor * 0.95f, r);
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.42f, (elbowY + handY) * 0.5f, handZ * 0.85f),
+                new Vector3(dims.lw * 0.85f, dims.al * 0.45f, dims.lw * 0.8f), armColor * 0.9f, r);
+
+            Color jointColor = bodyColor * 0.6f;
+            Vector3 elbowScale = new Vector3(dims.lw * 0.6f, dims.lw * 0.6f, dims.lw * 0.6f);
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, elbowY, handZ * 0.5f), elbowScale, jointColor, r);
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.5f, elbowY, handZ * 0.6f), elbowScale, jointColor, r);
+        }
         private void DrawSoldier(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
         {
             var dims = GetUnitDimensions(UnitType.Soldier, s);
