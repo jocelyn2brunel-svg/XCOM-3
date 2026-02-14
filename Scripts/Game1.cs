@@ -874,6 +874,16 @@ namespace XCOM_3
             else if (floorToRender < 0)
             {
                 var basementCells = GetCellsForFloor(floorToRender);
+
+                if (basementCells.Count > 0)
+                {
+                    // Conserver le sol du RDC visible quand on explore les sous-sols,
+                    // sauf au-dessus des cases qui correspondent au sous-sol affiché.
+                    var groundVisibleCells = GetExteriorCells(basementCells);
+                    if (groundVisibleCells.Count > 0)
+                        renderer3D.DrawGridCells(groundVisibleCells, cellSize, tileTexture, 0f);
+                }
+
                 if (basementCells.Count > 0)
                     renderer3D.DrawGridCells(basementCells, cellSize, tileTexture, yOffset);
             }
