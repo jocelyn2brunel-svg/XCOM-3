@@ -52,6 +52,11 @@ namespace XCOM_3
         private int gridHeight;
         private int cellSize;
 
+        // Mode cinématique épaule (visée)
+        private bool useShoulderCamera = false;
+        private Vector3 shoulderCameraPosition;
+        private Vector3 shoulderCameraTarget;
+
         // ═══════════════════════════════════════════════════════════════════════
         // CONSTRUCTEUR
         // ═══════════════════════════════════════════════════════════════════════
@@ -115,6 +120,15 @@ namespace XCOM_3
         /// </summary>
         public void UpdateCamera()
         {
+            if (useShoulderCamera)
+            {
+                Position = shoulderCameraPosition;
+                Target = shoulderCameraTarget;
+                ViewMatrix = Matrix.CreateLookAt(Position, Target, Vector3.Up);
+                ViewFrustum = new BoundingFrustum(ViewMatrix * ProjectionMatrix);
+                return;
+            }
+
             // Centre de la grille
             float centerX = (gridWidth * cellSize) / 2f + cameraOffset.X;
             float centerZ = (gridHeight * cellSize) / 2f + cameraOffset.Y;
@@ -338,6 +352,29 @@ namespace XCOM_3
         {
             BoundingSphere sphere = new BoundingSphere(position, radius);
             return ViewFrustum.Intersects(sphere);
+        }
+
+        public void SetShoulderCamera(Vector3 desiredPosition, Vector3 desiredTarget)
+        {
+            if (!useShoulderCamera)
+            {
+                shoulderCameraPosition = desiredPosition;
+                shoulderCameraTarget = desiredTarget;
+            }
+            else
+            {
+                shoulderCameraPosition = Vector3.Lerp(shoulderCameraPosition, desiredPosition, 0.2f);
+                shoulderCameraTarget = Vector3.Lerp(shoulderCameraTarget, desiredTarget, 0.25f);
+            }
+
+            useShoulderCamera = true;
+            UpdateCamera();
+        }
+
+        public void ClearShoulderCamera()
+        {
+            useShoulderCamera = false;
+            UpdateCamera();
         }
 
         // ═══════════════════════════════════════════════════════════════════════

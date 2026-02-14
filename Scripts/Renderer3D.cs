@@ -207,7 +207,7 @@ namespace XCOM_3
                         DrawCube(jointCenter, jointScale, new Color(80, 65, 50));
                     }
                 }
-             
+
 
                 // ? Ombre portée au sol
                 if (!editorMode)
@@ -270,7 +270,7 @@ namespace XCOM_3
             DrawCube(center + new Vector3(0f, 0.35f, 0f), new Vector3(cellSize * 0.12f, 0.7f, cellSize * 0.12f), color * 0.85f);
         }
 
-        
+
 
 
         public void DrawUnit(Unit unit, int cellSize)
@@ -287,13 +287,8 @@ namespace XCOM_3
 
             float scale = cellSize * 0.8f;
 
-            // Calculer l'orientation (rotation vers la position cible)
-            Vector2 direction = new Vector2(
-                unit.TargetPosition.X - unit.VisualPosition.X,
-                unit.TargetPosition.Z - unit.VisualPosition.Z
-            );
-            float orientation = direction.Length() > 0.01f ?
-                (float)Math.Atan2(direction.X, direction.Y) : 0f;
+            // Utiliser l'orientation pilotée par l'unité (déplacement, visée, tir)
+            float orientation = unit.Orientation;
 
             // Animation
             float legSwing = (float)Math.Sin(globalAnimationTime * 8f) * 0.3f;
@@ -302,6 +297,11 @@ namespace XCOM_3
                 (float)Math.Abs(Math.Sin(globalAnimationTime * 8f)) * 0.15f : 0f;
             float idleBob = !unit.IsMoving ?
                 (float)Math.Sin(globalAnimationTime * 2f) * 0.05f : 0f;
+
+            if (unit.IsAiming || unit.IsFiring)
+            {
+                armSwing = -0.28f;
+            }
 
             // ✅ NOUVEAU : Utiliser DrawWithEquipment au lieu de Draw
             humanoidModel.DrawWithEquipment(
