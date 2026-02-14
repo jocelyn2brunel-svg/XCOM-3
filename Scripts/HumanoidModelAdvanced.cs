@@ -305,9 +305,11 @@ namespace XCOM_3
             bool hasWeapon = GetDisplayedWeapon(unit) != null;
             bool isAiming = unit.IsAiming || unit.IsFiring;
             bool hasPants = unit.EquippedPants != null;
+            bool hasShirt = unit.EquippedShirt != null;
 
             // Dessiner le corps de base
-            DrawUnitBody(device, effect, animatedPos, bodyColor, scale, type, rot, legSwing, armSwing, dims, hasWeapon, isAiming, unit.BodyType, hasPants, unit.DominantHand);
+            DrawUnitBody(device, effect, animatedPos, bodyColor, scale, type, rot, legSwing, armSwing, dims,
+                hasWeapon, isAiming, unit.BodyType, hasPants, unit.DominantHand, hasShirt);
 
             // Afficher l'équipement porté (armes, armures, vêtements, poches)
             if (drawEquipment)
@@ -363,7 +365,8 @@ namespace XCOM_3
             // CHEMISE (sous le gilet)
             if (unit.EquippedShirt != null)
             {
-                DrawShirt(device, effect, pos, unit.EquippedShirt, scale, rot, dims, armSwing);
+                DrawShirt(device, effect, pos, unit.EquippedShirt, scale, rot, dims, armSwing,
+                    weaponToDraw != null, isAiming, dominantHand);
             }
 
             // PANTALON + POCHES CARGO
@@ -411,6 +414,18 @@ namespace XCOM_3
                 0f,
                 -dims.al * (0.32f + Math.Max(0f, backward) * 0.1f),
                 forward * dims.al * 0.28f + Math.Max(0f, backward) * dims.al * 0.12f + bendBias * dims.al * 0.08f);
+        }
+
+        private static void ComputeForwardDominantArmPoints(UnitDimensions dims, Unit.Handedness dominantHand,
+                                                             out Vector3 shoulder, out Vector3 elbow, out Vector3 wrist)
+        {
+            float dominantSign = GetHandSideSign(dominantHand);
+            float shoulderY = dims.ll + dims.th * 0.86f;
+            float shoulderX = dominantSign * dims.tw * 0.58f;
+
+            shoulder = new Vector3(shoulderX, shoulderY, 0f);
+            elbow = new Vector3(shoulderX, shoulderY - dims.al * 0.06f, dims.al * 0.48f);
+            wrist = new Vector3(shoulderX, shoulderY - dims.al * 0.1f, dims.al * 0.96f);
         }
 
         private static void ComputeRunningLegPoints(UnitDimensions dims, float phase, float hipX,
@@ -628,7 +643,8 @@ namespace XCOM_3
         }
 
         private void DrawShirt(GraphicsDevice device, BasicEffect effect, Vector3 pos, Item shirt,
-                               float scale, Matrix rot, UnitDimensions dims, float armSwing)
+                               float scale, Matrix rot, UnitDimensions dims, float armSwing,
+                               bool hasWeapon, bool isAiming, Unit.Handedness dominantHand)
         {
             Color shirtColor = new Color(100, 120, 80); // Couleur militaire
 
@@ -638,11 +654,44 @@ namespace XCOM_3
 
             DrawBodyPart(device, effect, pos, shirtPos, shirtScale, shirtColor * 0.8f, rot);
 
-            // Manches alignées aux bras animés (proportions + direction)
-            ComputeSwingingArmPoints(dims, armSwing, -dims.tw * 0.6f, 0.9f, 0f,
-                out Vector3 leftShoulder, out Vector3 leftElbow, out Vector3 leftWrist);
-            ComputeSwingingArmPoints(dims, -armSwing, dims.tw * 0.6f, 0.9f, 0f,
-                out Vector3 rightShoulder, out Vector3 rightElbow, out Vector3 rightWrist);
+            // Manches alignées à la pose active pour éviter les bras fantômes / chevauchement visuel.
+            Vector3 leftShoulder;
+            Vector3 leftElbow;
+            Vector3 leftWrist;
+            Vector3 rightShoulder;
+            Vector3 rightElbow;
+            Vector3 rightWrist;
+
+            if (!hasWeapon)
+            {
+                ComputeForwardDominantArmPoints(dims, dominantHand,
+                    out Vector3 dominantShoulder, out Vector3 dominantElbow, out Vector3 dominantWrist);
+
+                if (dominantHand == Unit.Handedness.Left)
+                {
+                    leftShoulder = dominantShoulder;
+                    leftElbow = dominantElbow;
+                    leftWrist = dominantWrist;
+                    ComputeSwingingArmPoints(dims, -armSwing, dims.tw * 0.6f, 0.9f, 0f,
+                        out rightShoulder, out rightElbow, out rightWrist);
+                }
+                else
+                {
+                    rightShoulder = dominantShoulder;
+                    rightElbow = dominantElbow;
+                    rightWrist = dominantWrist;
+                    ComputeSwingingArmPoints(dims, armSwing, -dims.tw * 0.6f, 0.9f, 0f,
+                        out leftShoulder, out leftElbow, out leftWrist);
+                }
+            }
+            else
+            {
+                float aimingDampen = isAiming ? 0.2f : 1f;
+                ComputeSwingingArmPoints(dims, armSwing * aimingDampen, -dims.tw * 0.6f, 0.9f, 0f,
+                    out leftShoulder, out leftElbow, out leftWrist);
+                ComputeSwingingArmPoints(dims, -armSwing * aimingDampen, dims.tw * 0.6f, 0.9f, 0f,
+                    out rightShoulder, out rightElbow, out rightWrist);
+            }
 
             DrawFrustumBetween(device, effect, pos, leftShoulder, leftElbow,
                 dims.lw * 0.62f, dims.lw * 0.56f, shirtColor * 0.9f, rot, 5);
@@ -953,11 +1002,12 @@ namespace XCOM_3
                                   bool hasWeapon = false, bool isAiming = false,
                                   Unit.HumanBodyType bodyType = Unit.HumanBodyType.Masculine,
                                   bool hasPants = false,
-                                  Unit.Handedness dominantHand = Unit.Handedness.Right)
+                                  Unit.Handedness dominantHand = Unit.Handedness.Right,
+                                  bool hasShirt = false)
         {
             bool useTPose = false;
             bool useCustomArmPose = (hasWeapon && isAiming) || !hasWeapon;
-            bool drawDefaultArms = !useCustomArmPose;
+            bool drawDefaultArms = !useCustomArmPose && !hasShirt;
 
             switch (type)
             {
@@ -972,11 +1022,11 @@ namespace XCOM_3
 
             // Ne verrouille la pose "prise d'arme" que pendant la visée/tir,
             // sinon on laisse l'animation de balancement des bras visible en déplacement.
-            if (hasWeapon && isAiming)
+            if (!hasShirt && hasWeapon && isAiming)
             {
                 DrawWeaponGripPose(d, e, p, dims, r, c, isAiming, dominantHand);
             }
-            else if (!hasWeapon)
+            else if (!hasShirt && !hasWeapon)
             {
                 DrawUnarmedDominantArmForwardPose(d, e, p, dims, r, c, dominantHand);
             }
