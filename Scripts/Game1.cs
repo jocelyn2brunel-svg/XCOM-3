@@ -1065,9 +1065,15 @@ namespace XCOM_3
                 ? GetCityCenterSpawnCells(6)
                 : Enumerable.Range(0, 6).Select(i => new Point(2 + i, gridHeight - 2)).ToList();
 
+            string[] femaleNames = { "Nadia", "Maya", "Elena", "Sofia", "Leila", "Iris" };
+            string[] maleNames = { "Alex", "Victor", "Jonas", "Marco", "Ethan", "Hugo" };
+
             for (int i = 0; i < playerSpawnCells.Count; i++)
             {
-                playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, "Soldier " + (i + 1), "Assault", "Rifle", weaponDatabase["M16A1"]));
+                bool useFemale = i % 2 == 0;
+                int nameIndex = (i / 2) % femaleNames.Length;
+                string callSign = useFemale ? femaleNames[nameIndex] : maleNames[nameIndex];
+                playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, callSign, "Assault", "Rifle", weaponDatabase["M16A1"]));
             }
 
             foreach (var unit in playerUnits)

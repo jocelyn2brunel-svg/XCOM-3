@@ -114,13 +114,13 @@ namespace XCOM_3
             UnitType type = GetUnitType(unit);
 
             // Dimensions de base selon le type
-            var dims = GetUnitDimensions(type, scale);
+            var dims = GetUnitDimensions(type, scale, unit.BodyType);
 
             bool hasWeapon = unit.EquippedWeapon != null || unit.WeaponData != null;
             bool isAiming = unit.IsAiming || unit.IsFiring;
 
             // Dessiner le corps de base
-            DrawUnitBody(device, effect, animatedPos, teamColor, scale, type, rot, legSwing, armSwing, dims, hasWeapon, isAiming);
+            DrawUnitBody(device, effect, animatedPos, teamColor, scale, type, rot, legSwing, armSwing, dims, hasWeapon, isAiming, unit.BodyType);
 
             // ✅ NOUVEAU : Dessiner l'équipement
             DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, isAiming);
@@ -480,9 +480,9 @@ namespace XCOM_3
             public float head, tw, th, td, lw, al, ll;
         }
 
-        private UnitDimensions GetUnitDimensions(UnitType type, float scale)
+        private UnitDimensions GetUnitDimensions(UnitType type, float scale, Unit.HumanBodyType bodyType = Unit.HumanBodyType.Masculine)
         {
-            return type switch
+            UnitDimensions baseDimensions = type switch
             {
                 UnitType.Soldier => new UnitDimensions
                 {
@@ -545,6 +545,19 @@ namespace XCOM_3
                     ll = 0.55f * scale
                 }
             };
+
+            if (type == UnitType.Soldier && bodyType == Unit.HumanBodyType.Feminine)
+            {
+                baseDimensions.head *= 0.98f;
+                baseDimensions.tw *= 0.9f;
+                baseDimensions.th *= 0.97f;
+                baseDimensions.td *= 0.92f;
+                baseDimensions.lw *= 0.9f;
+                baseDimensions.al *= 0.96f;
+                baseDimensions.ll *= 1.02f;
+            }
+
+            return baseDimensions;
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -553,11 +566,12 @@ namespace XCOM_3
 
         private void DrawUnitBody(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s,
                                   UnitType type, Matrix r, float l, float a, UnitDimensions dims,
-                                  bool hasWeapon = false, bool isAiming = false)
+                                  bool hasWeapon = false, bool isAiming = false,
+                                  Unit.HumanBodyType bodyType = Unit.HumanBodyType.Masculine)
         {
             switch (type)
             {
-                case UnitType.Soldier: DrawSoldierBody(d, e, p, c, s, r, l, a, dims); break;
+                case UnitType.Soldier: DrawSoldierBody(d, e, p, c, s, r, l, a, dims, bodyType); break;
                 case UnitType.Alien: DrawAlienBody(d, e, p, c, s, r, l, a, dims); break;
                 case UnitType.Zombie: DrawZombieBody(d, e, p, c, s, r, l, a, dims); break;
                 case UnitType.Heavy: DrawHeavyBody(d, e, p, c, s, r, l, a, dims); break;
@@ -612,11 +626,11 @@ namespace XCOM_3
         private void DrawSoldier(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
         {
             var dims = GetUnitDimensions(UnitType.Soldier, s);
-            DrawSoldierBody(d, e, p, c, s, r, l, a, dims);
+            DrawSoldierBody(d, e, p, c, s, r, l, a, dims, Unit.HumanBodyType.Masculine);
         }
 
         private void DrawSoldierBody(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r,
-                                     float l, float a, UnitDimensions dims)
+                                     float l, float a, UnitDimensions dims, Unit.HumanBodyType bodyType)
         {
             Color skin = new(220, 180, 140), dark = new(52, 58, 90);
 
@@ -656,7 +670,38 @@ namespace XCOM_3
             DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0),
                 dims.head * 0.52f, skin, r);
 
+            DrawHumanHeadFeatures(d, e, p, c, r, dims, bodyType);
+        }
+
+        private void DrawHumanHeadFeatures(GraphicsDevice d, BasicEffect e, Vector3 p, Color c,
+                                           Matrix r, UnitDimensions dims, Unit.HumanBodyType bodyType)
+        {
+            if (bodyType == Unit.HumanBodyType.Feminine)
+            {
+                DrawAerisInspiredFeatures(d, e, p, c, r, dims);
+                return;
+            }
+
             DrawCloudInspiredFeatures(d, e, p, c, r, dims);
+        }
+
+        private void DrawAerisInspiredFeatures(GraphicsDevice d, BasicEffect e, Vector3 p, Color c,
+                                               Matrix r, UnitDimensions dims)
+        {
+            float headY = dims.ll + dims.th + dims.head * 0.6f;
+            Color hair = new(128, 84, 56);
+
+            DrawBodyPart(d, e, p, new Vector3(0, headY + dims.head * 0.75f, 0),
+                        new Vector3(dims.head * 0.95f, dims.head * 0.2f, dims.head * 0.95f), hair * 0.95f, r);
+            DrawBodyPart(d, e, p, new Vector3(0, headY + dims.head * 0.2f, -dims.head * 0.5f),
+                        new Vector3(dims.head * 0.55f, dims.head * 0.65f, dims.head * 0.28f), hair * 0.9f, r);
+            DrawBodyPart(d, e, p, new Vector3(-dims.head * 0.52f, headY + dims.head * 0.3f, dims.head * 0.38f),
+                        new Vector3(dims.head * 0.23f, dims.head * 0.35f, dims.head * 0.2f), hair, r);
+
+            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.22f, dims.td * 0.05f),
+                        new Vector3(dims.tw * 0.9f, dims.th * 0.11f, dims.td), new Color(88, 60, 64), r);
+            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.45f, dims.td * 0.58f),
+                        new Vector3(dims.tw * 0.35f, dims.th * 0.2f, dims.td * 0.2f), c * 0.75f, r);
         }
 
         private void DrawCloudInspiredFeatures(GraphicsDevice d, BasicEffect e, Vector3 p, Color c,
