@@ -2773,7 +2773,11 @@ namespace XCOM_3
         {
             Vector2 size = font.MeasureString(Text);
             bounds = new Rectangle((int)Position.X, (int)Position.Y, (int)size.X, (int)size.Y);
-            Color c = !IsEnabled ? Color.Gray : bounds.Contains(mouse.Position) ? Color.Yellow : Color.White;
+            Color c = !IsEnabled
+                ? UIThemeManager.DisabledColor
+                : bounds.Contains(mouse.Position)
+                    ? UIThemeManager.HoverColor
+                    : UIThemeManager.PrimaryColor;
             sb.DrawString(font, Text, Position, c);
         }
 
