@@ -142,6 +142,7 @@ namespace XCOM_3
         private const int TabSpacing = 8;
         private const int TabTopMargin = 12;
         private const float WallHeightRatio = 0.92f;
+        private const int HoverRevealRadius = 2;
         private RasterizerState hoveredCellWireframeState;
 
 
@@ -870,8 +871,11 @@ namespace XCOM_3
 
             var wallsForFloor = GetWallsForFloor(floorToRender);
             HashSet<WallSegment> fadedWalls = new HashSet<WallSegment>();
+            HashSet<WallSegment> hoverRevealWalls = new HashSet<WallSegment>();
             HashSet<Unit> occludedUnits = new HashSet<Unit>();
             ComputeOcclusionFromWalls(wallsForFloor, unitsOnFloor, yOffset, fadedWalls, occludedUnits);
+            ComputeOcclusionFromHoveredArea(wallsForFloor, yOffset, hoverRevealWalls);
+            fadedWalls.UnionWith(hoverRevealWalls);
 
             if (floorToRender == 0)
             {
@@ -909,6 +913,9 @@ namespace XCOM_3
             if (opaqueWalls.Count > 0)
                 renderer3D.DrawWalls(opaqueWalls, cellSize, editorMode: false, floorHeightOffset: yOffset);
 
+            if (hoverRevealWalls.Count > 0)
+                DrawWireframeWalls(hoverRevealWalls, yOffset, new Color(255, 235, 130, 165));
+
             if (floorToRender < floorCount - 1)
             {
                 for (int upperFloor = floorToRender + 1; upperFloor < floorCount; upperFloor++)
@@ -922,6 +929,7 @@ namespace XCOM_3
 
                     if (unitsOnFloor.Count > 0)
                         ComputeOcclusionFromWalls(wallsForUpperFloor, unitsOnFloor, upperFloorOffset, fadedUpperWalls, new HashSet<Unit>());
+                    ComputeOcclusionFromHoveredArea(wallsForUpperFloor, upperFloorOffset, fadedUpperWalls);
 
                     var opaqueUpperWalls = new HashSet<WallSegment>(wallsForUpperFloor.Where(w => !fadedUpperWalls.Contains(w)));
                     if (opaqueUpperWalls.Count > 0)
@@ -963,6 +971,7 @@ namespace XCOM_3
 
                     if (lowerFloorUnits.Count > 0)
                         ComputeOcclusionFromWalls(wallsForLowerFloor, lowerFloorUnits, lowerFloorOffset, fadedLowerWalls, new HashSet<Unit>());
+                    ComputeOcclusionFromHoveredArea(wallsForLowerFloor, lowerFloorOffset, fadedLowerWalls);
 
                     var opaqueLowerWalls = new HashSet<WallSegment>(wallsForLowerFloor.Where(w => !fadedLowerWalls.Contains(w)));
                     if (opaqueLowerWalls.Count > 0)
@@ -1184,22 +1193,92 @@ namespace XCOM_3
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
             float floorYOffset = viewedFloor * cellSize;
-            Vector3 position = new Vector3(hoveredCell.X * cellSize + cellSize / 2f, floorYOffset + 0.15f, hoveredCell.Y * cellSize + cellSize / 2f);
-            Vector3 wireframePosition = new Vector3(position.X, floorYOffset + (cellSize * WallHeightRatio * 0.5f), position.Z);
-            Vector3 wireframeScale = new Vector3(cellSize * 0.96f, cellSize * WallHeightRatio, cellSize * 0.96f);
-            RasterizerState previousRasterizer = GraphicsDevice.RasterizerState;
+            List<Point> revealCells = GetHoveredAreaCells(HoverRevealRadius);
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.None;
 
-            renderer3D.DrawPlane(position, new Vector3(cellSize, 1, cellSize), Color.Yellow * pulse);
+            foreach (Point cell in revealCells)
+            {
+                float distance = Vector2.Distance(new Vector2(cell.X, cell.Y), new Vector2(hoveredCell.X, hoveredCell.Y));
+                float intensity = MathHelper.Clamp(1f - (distance / (HoverRevealRadius + 0.5f)), 0.2f, 1f);
+                Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, floorYOffset + 0.12f, cell.Y * cellSize + cellSize / 2f);
+                renderer3D.DrawPlane(position, new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f), new Color(255, 230, 120, 120) * pulse * intensity);
+            }
 
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+        }
+
+
+        private void DrawWireframeWalls(HashSet<WallSegment> walls, float floorHeightOffset, Color wireColor)
+        {
+            if (walls == null || walls.Count == 0)
+                return;
+
+            RasterizerState previousRasterizer = GraphicsDevice.RasterizerState;
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
             GraphicsDevice.RasterizerState = hoveredCellWireframeState;
-            renderer3D.DrawCube(wireframePosition, wireframeScale, new Color(255, 240, 120, 180) * pulse);
+
+            renderer3D.DrawWalls(walls, cellSize, editorMode: false, floorHeightOffset: floorHeightOffset, wallOverrideColor: wireColor);
 
             GraphicsDevice.RasterizerState = previousRasterizer;
             GraphicsDevice.BlendState = BlendState.Opaque;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+        }
+
+        private void ComputeOcclusionFromHoveredArea(
+            IEnumerable<WallSegment> walls,
+            float floorHeightOffset,
+            HashSet<WallSegment> fadedWalls)
+        {
+            if (hoveredCell.X < 0 || hoveredCell.Y < 0)
+                return;
+
+            Vector3 cameraPos = camera.Position;
+            float hoverY = viewedFloor * cellSize + cellSize * 0.35f;
+            List<Point> revealCells = GetHoveredAreaCells(HoverRevealRadius);
+
+            foreach (Point cell in revealCells)
+            {
+                Vector3 revealPoint = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    hoverY,
+                    cell.Y * cellSize + cellSize / 2f);
+
+                foreach (var wall in walls)
+                {
+                    if (wall.Type == WallType.Window || wall.Type == WallType.Door)
+                        continue;
+
+                    if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, revealPoint))
+                        fadedWalls.Add(wall);
+                }
+            }
+        }
+
+        private List<Point> GetHoveredAreaCells(int radius)
+        {
+            List<Point> cells = new List<Point>();
+
+            if (hoveredCell.X < 0 || hoveredCell.Y < 0)
+                return cells;
+
+            for (int x = hoveredCell.X - radius; x <= hoveredCell.X + radius; x++)
+            {
+                for (int y = hoveredCell.Y - radius; y <= hoveredCell.Y + radius; y++)
+                {
+                    if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight)
+                        continue;
+
+                    float distance = Vector2.Distance(new Vector2(hoveredCell.X, hoveredCell.Y), new Vector2(x, y));
+                    if (distance <= radius)
+                        cells.Add(new Point(x, y));
+                }
+            }
+
+            return cells;
         }
 
         private void LoadMap(MapData map = null)
