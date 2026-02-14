@@ -950,19 +950,21 @@ namespace XCOM_3
             if (distance <= shortRange && unit.ActionPoints >= 1)
             {
                 actionPointCost = 1;
+                phosphocreatineCost = unit.GetMovementPhosphocreatineCost(distance);
                 return true;
             }
 
             if (distance <= maxRange && unit.ActionPoints >= 2)
             {
                 actionPointCost = 2;
+                phosphocreatineCost = unit.GetMovementPhosphocreatineCost(distance);
                 return true;
             }
 
             if (distance <= sprintRange && unit.CanSprint(distance))
             {
                 actionPointCost = 2;
-                phosphocreatineCost = unit.GetSprintPhosphocreatineCost(distance);
+                phosphocreatineCost = unit.GetMovementPhosphocreatineCost(distance);
                 return true;
             }
 
@@ -2402,27 +2404,29 @@ namespace XCOM_3
 
                 // Déterminer le coût
                 int apCost = 0;
-                bool isSprint = false;
+                bool consumesPhosphocreatine = false;
                 int actionPointsBeforeMove = selectedUnit.ActionPoints;
+                int phosphocreatineCost = selectedUnit.GetMovementPhosphocreatineCost(distance);
 
-                if (distance <= shortRange && selectedUnit.ActionPoints >= 1)
+                if (distance <= shortRange && selectedUnit.ActionPoints >= 1 && selectedUnit.Phosphocreatine >= phosphocreatineCost)
                 {
                     // Zone verte (1 AP)
                     apCost = 1;
-                    Console.WriteLine($"[MOVEMENT] Short move: {distance} cells (1 AP)");
+                    consumesPhosphocreatine = true;
+                    Console.WriteLine($"[MOVEMENT] Short move: {distance} cells (1 AP + {phosphocreatineCost}% phosphocreatine)");
                 }
-                else if (distance <= maxRange && selectedUnit.ActionPoints >= 2)
+                else if (distance <= maxRange && selectedUnit.ActionPoints >= 2 && selectedUnit.Phosphocreatine >= phosphocreatineCost)
                 {
                     // Zone bleue (2 AP)
                     apCost = 2;
-                    Console.WriteLine($"[MOVEMENT] Max move: {distance} cells (2 AP)");
+                    consumesPhosphocreatine = true;
+                    Console.WriteLine($"[MOVEMENT] Max move: {distance} cells (2 AP + {phosphocreatineCost}% phosphocreatine)");
                 }
                 else if (distance <= sprintRange && selectedUnit.CanSprint(distance))
                 {
                     // Zone jaune (2 AP + phosphocréatine)
                     apCost = 2;
-                    isSprint = true;
-                    int phosphocreatineCost = selectedUnit.GetSprintPhosphocreatineCost(distance);
+                    consumesPhosphocreatine = true;
                     Console.WriteLine($"[MOVEMENT] SPRINT: {distance} cells (2 AP + {phosphocreatineCost}% phosphocreatine)");
                 }
                 else
@@ -2433,7 +2437,7 @@ namespace XCOM_3
                 }
 
                 // Effectuer le déplacement
-                selectedUnit.SetMovementStyle(apCost, isSprint);
+                selectedUnit.SetMovementStyle(apCost, distance > maxRange);
                 selectedUnit.StartMoveAlongPath(path, cellSize);
                 selectedUnit.Floor = detailedPath.EndFloor;
                 unitManager.OnUnitMoved(selectedUnit, movementGoal, detailedPath.EndFloor);
@@ -2447,8 +2451,7 @@ namespace XCOM_3
                 }
 
                 combatSystem.UpdateUnitCover(selectedUnit);
-                // Consommer la phosphocréatine si sprint
-                if (isSprint)
+                if (consumesPhosphocreatine)
                 {
                     selectedUnit.ConsumeSprint(distance);
                 }

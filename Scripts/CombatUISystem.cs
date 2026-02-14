@@ -532,8 +532,6 @@ namespace XCOM_3
 
                 int distance = currentPath.Count;
                 int apCost = selectedUnit.GetMovementAPCost(distance);
-                bool isSprint = selectedUnit.IsSprint(distance);
-
                 string moveType;
                 Color moveColor;
 
@@ -553,9 +551,8 @@ namespace XCOM_3
                     moveColor = new Color(255, 200, 50);
                 }
 
-                string costText = isSprint ?
-                    $"{distance} cells: {apCost} AP + {selectedUnit.GetSprintPhosphocreatineCost(distance)}% PCr" :
-                    $"{distance} cells: {apCost} AP";
+                int phosphocreatineCost = selectedUnit.GetMovementPhosphocreatineCost(distance);
+                string costText = $"{distance} cells: {apCost} AP + {phosphocreatineCost}% PCr";
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, moveType,
                     pos, moveColor, 0.75f);
