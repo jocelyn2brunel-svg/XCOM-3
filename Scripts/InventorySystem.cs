@@ -14,6 +14,8 @@ namespace XCOM_3
     /// </summary>
     public class InventorySystem
     {
+        private const float Mk2WeightLbs = 1.3228f; // 600 grammes
+
         // ═══════════════════════════════════════════════════════════════════════
         // CONSTANTES
         // ═══════════════════════════════════════════════════════════════════════
@@ -120,6 +122,7 @@ namespace XCOM_3
             ItemDatabase["Incendiary Grenade"] = new ItemData("Incendiary Grenade", grenadeDB["Incendiary Grenade"]);
             ItemDatabase["EMP Grenade"] = new ItemData("EMP Grenade", grenadeDB["EMP Grenade"]);
             ItemDatabase["Demolition Charge"] = new ItemData("Demolition Charge", grenadeDB["Demolition Charge"]);
+            ItemDatabase["MK 2"] = new ItemData("MK 2", grenadeDB["MK 2"], Mk2WeightLbs, "Grenade MK2 (1x1) - 600g");
 
             // Armures (charger depuis ArmorDatabase)
             foreach (var armor in ArmorDatabase.GetAllArmors())
@@ -153,7 +156,8 @@ namespace XCOM_3
                 "Frag Grenade",
                 "Smoke Grenade",
                 "HE Grenade",
-                "Plasma Grenade"
+                "Plasma Grenade",
+                "MK 2"
             };
 
             foreach (var itemName in itemsToAdd)

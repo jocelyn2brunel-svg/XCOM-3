@@ -96,13 +96,14 @@ namespace XCOM_3
         }
 
         // Constructeur pour grenades
-        public ItemData(string name, GrenadeData grenadeData)
+        public ItemData(string name, GrenadeData grenadeData, float weightLbs = 0f, string description = "")
         {
             Name = name;
             Type = ItemType.Grenade;
             GrenadeData = grenadeData;
-            WeightLbs = 0f;
+            WeightLbs = weightLbs;
             BonusInventorySlots = 0;
+            Description = description;
         }
 
     }

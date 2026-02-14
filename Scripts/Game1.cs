@@ -55,7 +55,8 @@ namespace XCOM_3
         private List<Vector3> trajectoryPreview = new List<Vector3>();
 
         // Constantes
-        private const int MaxThrowRange = 5;
+        private const int BaseThrowRange = 20;
+        private const float Mk2WeightLbs = 1.3228f; // 600 grammes
 
         // --- Système de cartes ---
         private MapData currentMap;
@@ -2108,6 +2109,7 @@ namespace XCOM_3
             }
 
             AssignRandomPants(playerUnits);
+            EquipMk2GrenadeToAlliedPockets(playerUnits);
 
             switch (missionType)
             {
@@ -2221,6 +2223,36 @@ namespace XCOM_3
                     GrenadeData grenade = unit.Grenades[i];
                     unit.PantsInventory.Add(new Item(new ItemData(grenade.Name, grenade), Point.Zero));
                 }
+
+                unit.RefreshGrenadeInventoryFromEquipment();
+            }
+        }
+
+        private void EquipMk2GrenadeToAlliedPockets(List<Unit> alliedUnits)
+        {
+            if (alliedUnits == null || alliedUnits.Count == 0 || !grenadeDatabase.ContainsKey("MK 2"))
+                return;
+
+            GrenadeData mk2Data = grenadeDatabase["MK 2"];
+
+            foreach (var unit in alliedUnits)
+            {
+                if (unit == null)
+                    continue;
+
+                int pantsCapacity = unit.GetPantsInventoryCapacity();
+                bool alreadyHasMk2 = unit.PantsInventory.Any(i => i?.Data?.Name == "MK 2")
+                    || unit.ChestRigInventory.Any(i => i?.Data?.Name == "MK 2");
+
+                if (alreadyHasMk2)
+                    continue;
+
+                var mk2Item = new Item(new ItemData("MK 2", mk2Data, Mk2WeightLbs, "Grenade MK2 (1x1) - 600g"), Point.Zero);
+
+                if (pantsCapacity > unit.PantsInventory.Count)
+                    unit.PantsInventory.Add(mk2Item);
+                else if (unit.GetChestRigInventoryCapacity() > unit.ChestRigInventory.Count)
+                    unit.ChestRigInventory.Add(mk2Item);
 
                 unit.RefreshGrenadeInventoryFromEquipment();
             }
@@ -2695,7 +2727,8 @@ namespace XCOM_3
                         {
                             throwMode = true;
                             selectedGrenade = selectedUnit.Grenades[0];
-                            throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, MaxThrowRange, gridWidth, gridHeight);
+                            int throwRange = GetUnitThrowRange(selectedUnit);
+                            throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
                             Console.WriteLine($"Mode grenade activé: {selectedGrenade.Name}");
                         }
                         break;
@@ -2818,6 +2851,14 @@ namespace XCOM_3
             availableGrenades.Add(new GrenadeItem(grenadeDatabase["Demolition Charge"], new Point(290, 300)));
         }
 
+        private int GetUnitThrowRange(Unit unit)
+        {
+            if (unit == null)
+                return BaseThrowRange;
+
+            return BaseThrowRange + unit.Skills.GetGrenadeThrowRangeBonus();
+        }
+
         private void HandleGrenadeThrow(MouseState mouse, bool leftClick)
         {
             if (selectedUnit == null || selectedGrenade == null) return;
@@ -2833,7 +2874,8 @@ namespace XCOM_3
                 Vector3 targetPos = new Vector3(throwTarget.X * cellSize + cellSize / 2f, 0, throwTarget.Y * cellSize + cellSize / 2f);
                 trajectoryPreview = ThrowTrajectoryCalculator.CalculateArcPoints(startPos, targetPos);
             }
-            if (leftClick && throwTarget.X >= 0 && ThrowTrajectoryCalculator.IsInThrowRange(selectedUnit.Cell, throwTarget, MaxThrowRange))
+            int throwRange = GetUnitThrowRange(selectedUnit);
+            if (leftClick && throwTarget.X >= 0 && ThrowTrajectoryCalculator.IsInThrowRange(selectedUnit.Cell, throwTarget, throwRange))
             {
                 LaunchGrenade(selectedUnit, selectedGrenade, throwTarget);
                 selectedUnit.ActionPoints -= selectedGrenade.AOCost;
