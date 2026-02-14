@@ -290,13 +290,12 @@ namespace XCOM_3
                                       Color? bodyColorOverride = null, bool drawEquipment = true)
         {
             Vector3 pos = unit.VisualPosition;
-            Color teamColor = bodyColorOverride ?? (unit.Team == Team.Player ? new Color(100, 150, 255) : new Color(255, 100, 100));
-
             Vector3 animatedPos = pos + new Vector3(0, bodyBob + idleBob, 0);
             Matrix rot = Matrix.CreateRotationY(orientation);
 
             // Déterminer le type d'unité
             UnitType type = GetUnitType(unit);
+            Color bodyColor = bodyColorOverride ?? GetDefaultBodyColor(type);
 
             // Dimensions de base selon le type
             var dims = GetUnitDimensions(type, scale, unit.BodyType);
@@ -306,7 +305,7 @@ namespace XCOM_3
             bool hasPants = unit.EquippedPants != null;
 
             // Dessiner le corps de base
-            DrawUnitBody(device, effect, animatedPos, teamColor, scale, type, rot, legSwing, armSwing, dims, hasWeapon, isAiming, unit.BodyType, hasPants, unit.DominantHand);
+            DrawUnitBody(device, effect, animatedPos, bodyColor, scale, type, rot, legSwing, armSwing, dims, hasWeapon, isAiming, unit.BodyType, hasPants, unit.DominantHand);
 
             // Afficher l'équipement porté (armes, armures, vêtements, poches)
             if (drawEquipment)
@@ -314,6 +313,16 @@ namespace XCOM_3
                 DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, legSwing, isAiming, unit.DominantHand);
             }
         }
+
+        private static Color GetDefaultBodyColor(UnitType type)
+            => type switch
+            {
+                UnitType.Alien => new Color(110, 170, 110),
+                UnitType.Zombie => new Color(120, 110, 95),
+                UnitType.Heavy => new Color(110, 120, 130),
+                UnitType.Scout => new Color(105, 125, 115),
+                _ => new Color(115, 125, 110)
+            };
 
         // ═══════════════════════════════════════════════════════════════════════
         // DESSIN D'ÉQUIPEMENT
