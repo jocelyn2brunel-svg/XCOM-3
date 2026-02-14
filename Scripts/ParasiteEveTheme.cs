@@ -23,6 +23,8 @@ namespace XCOM_3.Scripts
         public static readonly Color BorderDark = new Color(20, 100, 65, 255);
         public static readonly Color BorderMain = new Color(40, 220, 140, 255);
         public static readonly Color PanelBackground = new Color(20, 45, 25, 200);
+        public static readonly Color PanelBackgroundDark = new Color(10, 25, 15, 230);
+        public static readonly Color PanelBackgroundLight = new Color(20, 45, 25, 220);
         
         // Texte
         public static readonly Color TextNormal = new Color(200, 255, 200, 255);  // Vert clair
@@ -64,7 +66,7 @@ namespace XCOM_3.Scripts
         public static void DrawPanel(SpriteBatch sb, Texture2D pixel, Rectangle bounds, bool drawBorder = true)
         {
             // Fond dégradé
-            sb.Draw(pixel, bounds, BackgroundDark);
+            DrawGradientBackground(sb, pixel, bounds);
             
             // Overlay semi-transparent pour effet de profondeur
             Rectangle innerBounds = new Rectangle(
@@ -78,6 +80,27 @@ namespace XCOM_3.Scripts
             if (drawBorder)
             {
                 DrawDoubleBorder(sb, pixel, bounds, cornerCut: 8);
+            }
+        }
+
+        private static void DrawGradientBackground(SpriteBatch sb, Texture2D pixel, Rectangle bounds)
+        {
+            int steps = 20;
+            int stepHeight = System.Math.Max(1, bounds.Height / steps);
+
+            for (int i = 0; i < steps; i++)
+            {
+                float t = i / (float)steps;
+                Color color = Color.Lerp(PanelBackgroundDark, PanelBackgroundLight, t * 0.3f);
+
+                Rectangle stepRect = new Rectangle(
+                    bounds.X,
+                    bounds.Y + i * stepHeight,
+                    bounds.Width,
+                    stepHeight + 1
+                );
+
+                sb.Draw(pixel, stepRect, color);
             }
         }
 
