@@ -321,6 +321,48 @@ namespace XCOM_3
                 bodyColorOverride,
                 drawEquipment
             );
+
+            DrawUnitFacingArrow(unit, cellSize);
+        }
+
+        private void DrawUnitFacingArrow(Unit unit, int cellSize)
+        {
+            Vector3 forward = new Vector3((float)Math.Sin(unit.Orientation), 0f, -(float)Math.Cos(unit.Orientation));
+            if (forward.LengthSquared() < 0.0001f)
+                return;
+
+            forward.Normalize();
+
+            Vector3 unitCenter = new Vector3(
+                unit.VisualPosition.X,
+                unit.VisualPosition.Y,
+                unit.VisualPosition.Z);
+
+            float yOffset = cellSize * 0.95f;
+            float shaftLength = cellSize * 0.38f;
+            float shaftThickness = cellSize * 0.07f;
+            float headLength = cellSize * 0.18f;
+            float headWidth = cellSize * 0.19f;
+
+            Vector3 shaftCenter = unitCenter + forward * (shaftLength * 0.5f) + new Vector3(0f, yOffset, 0f);
+            Vector3 headCenter = unitCenter + forward * (shaftLength + headLength * 0.5f) + new Vector3(0f, yOffset, 0f);
+
+            float yaw = (float)Math.Atan2(forward.X, forward.Z);
+            Matrix arrowRotation = Matrix.CreateRotationY(yaw);
+
+            DrawVertices(
+                cubeVerts.Select(v => new VertexPositionColor(v.Position, new Color(255, 215, 0))).ToArray(),
+                cubeIdx,
+                Matrix.CreateScale(shaftThickness, shaftThickness, shaftLength) *
+                arrowRotation *
+                Matrix.CreateTranslation(shaftCenter));
+
+            DrawVertices(
+                cubeVerts.Select(v => new VertexPositionColor(v.Position, new Color(255, 140, 0))).ToArray(),
+                cubeIdx,
+                Matrix.CreateScale(headWidth, shaftThickness * 1.25f, headLength) *
+                arrowRotation *
+                Matrix.CreateTranslation(headCenter));
         }
 
         public void DrawUnitSilhouette(Unit unit, int cellSize, Color silhouetteColor)
