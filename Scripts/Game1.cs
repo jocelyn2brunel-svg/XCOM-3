@@ -884,16 +884,25 @@ namespace XCOM_3
             if (opaqueWalls.Count > 0)
                 renderer3D.DrawWalls(opaqueWalls, cellSize, editorMode: false, floorHeightOffset: yOffset);
 
-            for (int upperFloor = floorToRender + 1; upperFloor < floorCount; upperFloor++)
+            if (floorToRender < floorCount - 1)
             {
-                float upperFloorOffset = upperFloor * cellSize;
-                var wallsForUpperFloor = GetWallsForFloor(upperFloor);
-                renderer3D.DrawWalls(
-                    wallsForUpperFloor,
-                    cellSize,
-                    editorMode: false,
-                    floorHeightOffset: upperFloorOffset,
-                    wallOverrideColor: new Color(165, 150, 130));
+                GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+
+                for (int upperFloor = floorToRender + 1; upperFloor < floorCount; upperFloor++)
+                {
+                    float upperFloorOffset = upperFloor * cellSize;
+                    var wallsForUpperFloor = GetWallsForFloor(upperFloor);
+                    renderer3D.DrawWalls(
+                        wallsForUpperFloor,
+                        cellSize,
+                        editorMode: false,
+                        floorHeightOffset: upperFloorOffset,
+                        wallOverrideColor: new Color(165, 150, 130, 105));
+                }
+
+                GraphicsDevice.BlendState = BlendState.Opaque;
+                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
             }
 
             if (floorToRender > 0)
