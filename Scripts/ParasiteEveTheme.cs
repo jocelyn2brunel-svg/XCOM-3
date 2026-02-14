@@ -20,6 +20,7 @@ namespace XCOM_3.Scripts
         
         // Bordures et panels (vert moyen)
         public static readonly Color BorderColor = new Color(60, 140, 80, 255);
+        public static readonly Color BorderMain = BorderColor;
         public static readonly Color PanelBackground = new Color(20, 45, 25, 200);
         
         // Texte
@@ -75,7 +76,7 @@ namespace XCOM_3.Scripts
             
             if (drawBorder)
             {
-                DrawBorder(sb, pixel, bounds, BorderColor, 2);
+                DrawCutCornerBorder(sb, pixel, bounds, BorderMain, 2, cornerCut: 8);
             }
         }
 
@@ -95,6 +96,59 @@ namespace XCOM_3.Scripts
         }
 
         /// <summary>
+        /// Dessine une bordure avec coins coupés (style PE2).
+        /// </summary>
+        public static void DrawCutCornerBorder(SpriteBatch sb, Texture2D pixel,
+                                               Rectangle rect, Color color,
+                                               int thickness, int cornerCut)
+        {
+            int safeThickness = System.Math.Max(1, thickness);
+            int maxCornerCut = System.Math.Max(0, (System.Math.Min(rect.Width, rect.Height) - safeThickness * 2) / 2);
+            int safeCornerCut = System.Math.Clamp(cornerCut, 0, maxCornerCut);
+
+            if (safeCornerCut <= 0)
+            {
+                DrawBorder(sb, pixel, rect, color, safeThickness);
+                return;
+            }
+
+            // Bord supérieur (sans les coins)
+            sb.Draw(pixel, new Rectangle(rect.Left + safeCornerCut, rect.Top,
+                rect.Width - safeCornerCut * 2, safeThickness), color);
+
+            // Bord inférieur (sans les coins)
+            sb.Draw(pixel, new Rectangle(rect.Left + safeCornerCut, rect.Bottom - safeThickness,
+                rect.Width - safeCornerCut * 2, safeThickness), color);
+
+            // Bord gauche (sans les coins)
+            sb.Draw(pixel, new Rectangle(rect.Left, rect.Top + safeCornerCut,
+                safeThickness, rect.Height - safeCornerCut * 2), color);
+
+            // Bord droit (sans les coins)
+            sb.Draw(pixel, new Rectangle(rect.Right - safeThickness, rect.Top + safeCornerCut,
+                safeThickness, rect.Height - safeCornerCut * 2), color);
+
+            DrawCornerCutDiagonals(sb, pixel, rect, color, safeThickness, safeCornerCut);
+        }
+
+        private static void DrawCornerCutDiagonals(SpriteBatch sb, Texture2D pixel,
+                                                   Rectangle rect, Color color,
+                                                   int thickness, int cornerCut)
+        {
+            for (int i = 0; i < cornerCut; i++)
+            {
+                // Haut-gauche
+                sb.Draw(pixel, new Rectangle(rect.Left + i, rect.Top + cornerCut - i - 1, thickness, thickness), color);
+                // Haut-droite
+                sb.Draw(pixel, new Rectangle(rect.Right - cornerCut + i, rect.Top + i, thickness, thickness), color);
+                // Bas-gauche
+                sb.Draw(pixel, new Rectangle(rect.Left + i, rect.Bottom - cornerCut + i - thickness, thickness, thickness), color);
+                // Bas-droite
+                sb.Draw(pixel, new Rectangle(rect.Right - cornerCut + i, rect.Bottom - i - 1, thickness, thickness), color);
+            }
+        }
+
+        /// <summary>
         /// Dessine un bouton style PE2
         /// </summary>
         public static void DrawButton(SpriteBatch sb, Texture2D pixel, SpriteFont font, 
@@ -111,7 +165,7 @@ namespace XCOM_3.Scripts
             
             // Bordure
             Color borderColor = isHovered ? SelectionOutline : BorderColor;
-            DrawBorder(sb, pixel, bounds, borderColor, isHovered ? 2 : 1);
+            DrawCutCornerBorder(sb, pixel, bounds, borderColor, isHovered ? 2 : 1, cornerCut: 6);
             
             // Texte centré
             Vector2 textSize = font.MeasureString(safeText);
@@ -152,7 +206,7 @@ namespace XCOM_3.Scripts
             }
             
             // Bordure
-            DrawBorder(sb, pixel, bounds, BorderColor, 1);
+            DrawCutCornerBorder(sb, pixel, bounds, BorderMain, 1, cornerCut: 4);
         }
 
         /// <summary>
@@ -192,7 +246,7 @@ namespace XCOM_3.Scripts
                 TextHighlight);
             
             // Bordure
-            DrawBorder(sb, pixel, bounds, BorderColor, 1);
+            DrawCutCornerBorder(sb, pixel, bounds, BorderMain, 1, cornerCut: 4);
         }
 
         /// <summary>
