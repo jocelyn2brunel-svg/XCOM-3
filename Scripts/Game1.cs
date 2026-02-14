@@ -143,6 +143,7 @@ namespace XCOM_3
         private const int TabTopMargin = 12;
         private const float WallHeightRatio = 0.92f;
         private const int HoverRevealRadius = 2;
+        private const int UnitWireframeRevealRadius = 1;
         private RasterizerState hoveredCellWireframeState;
 
 
@@ -1442,18 +1443,53 @@ namespace XCOM_3
                 if (unit == null || unit.Health <= 0)
                     continue;
 
-                Vector3 revealPoint = new Vector3(
-                    unit.Cell.X * cellSize + cellSize / 2f,
-                    floorHeightOffset + cellSize * 0.15f,
-                    unit.Cell.Y * cellSize + cellSize / 2f);
-
-                foreach (var wall in walls)
+                List<Point> revealCells = new List<Point>();
+                for (int x = unit.Cell.X - UnitWireframeRevealRadius; x <= unit.Cell.X + UnitWireframeRevealRadius; x++)
                 {
-                    if (wall.Type == WallType.Door)
-                        continue;
+                    for (int y = unit.Cell.Y - UnitWireframeRevealRadius; y <= unit.Cell.Y + UnitWireframeRevealRadius; y++)
+                    {
+                        if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight)
+                            continue;
 
-                    if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, revealPoint))
-                        fadedWalls.Add(wall);
+                        revealCells.Add(new Point(x, y));
+                    }
+                }
+
+                foreach (Point revealCell in revealCells)
+                {
+                    Vector3 revealPoint = new Vector3(
+                        revealCell.X * cellSize + cellSize / 2f,
+                        floorHeightOffset + cellSize * 0.35f,
+                        revealCell.Y * cellSize + cellSize / 2f);
+
+                    foreach (var wall in walls)
+                    {
+                        if (wall.Type == WallType.Door)
+                            continue;
+
+                        if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, revealPoint))
+                            fadedWalls.Add(wall);
+                    }
+                }
+
+                // Double-check la case exacte de l'unité avec plusieurs hauteurs pour éviter
+                // qu'un mur fil de fer n'empiète partiellement sur elle.
+                float[] revealHeights = { 0.2f, 0.5f, 0.8f };
+                foreach (float heightRatio in revealHeights)
+                {
+                    Vector3 revealPoint = new Vector3(
+                        unit.Cell.X * cellSize + cellSize / 2f,
+                        floorHeightOffset + cellSize * heightRatio,
+                        unit.Cell.Y * cellSize + cellSize / 2f);
+
+                    foreach (var wall in walls)
+                    {
+                        if (wall.Type == WallType.Door)
+                            continue;
+
+                        if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, revealPoint))
+                            fadedWalls.Add(wall);
+                    }
                 }
             }
         }
