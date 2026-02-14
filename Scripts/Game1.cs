@@ -623,13 +623,14 @@ namespace XCOM_3
 
         private void HandleFloorViewControls(KeyboardState keyboard)
         {
+            int minFloor = GetMinimumViewFloor();
             int maxFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
 
             if (keyboard.IsKeyDown(Keys.PageUp) && previousKeyboardState.IsKeyUp(Keys.PageUp))
                 viewedFloor = Math.Min(viewedFloor + 1, maxFloor);
 
             if (keyboard.IsKeyDown(Keys.PageDown) && previousKeyboardState.IsKeyUp(Keys.PageDown))
-                viewedFloor = Math.Max(viewedFloor - 1, 0);
+                viewedFloor = Math.Max(viewedFloor - 1, minFloor);
         }
 
         private void ReadInputs(out bool leftClick, out bool escapePressed, out bool iPressed,
@@ -839,7 +840,9 @@ namespace XCOM_3
 
             string timeStr = GetTimeOfDayString(timeOfDay);
             _spriteBatch.DrawString(font, $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}", new Vector2(10, 30), Color.Yellow);
-            _spriteBatch.DrawString(font, $"Etage affiche: {viewedFloor + 1}/{Math.Max(1, currentMap?.FloorCount ?? 1)}", new Vector2(10, 50), Color.LightGreen);
+            string floorLabel = viewedFloor == 0 ? "RDC" : viewedFloor > 0 ? $"+{viewedFloor}" : viewedFloor.ToString();
+            int maxBasements = Math.Abs(GetMinimumViewFloor());
+            _spriteBatch.DrawString(font, $"Etage affiche: {floorLabel} (Sous-sols: {maxBasements} | Etages: {Math.Max(1, currentMap?.FloorCount ?? 1)})", new Vector2(10, 50), Color.LightGreen);
         }
 
         private void DrawWorld3D(GameTime gameTime)
@@ -852,7 +855,7 @@ namespace XCOM_3
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
             int floorCount = Math.Max(1, currentMap?.FloorCount ?? 1);
-            int floorToRender = Math.Clamp(viewedFloor, 0, floorCount - 1);
+            int floorToRender = Math.Clamp(viewedFloor, GetMinimumViewFloor(), floorCount - 1);
             float yOffset = floorToRender * cellSize;
 
             List<Unit> unitsOnFloor = playerUnits.Where(u => u.Floor == viewedFloor)
@@ -867,6 +870,12 @@ namespace XCOM_3
             if (floorToRender == 0)
             {
                 renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture, yOffset);
+            }
+            else if (floorToRender < 0)
+            {
+                var basementCells = GetCellsForFloor(floorToRender);
+                if (basementCells.Count > 0)
+                    renderer3D.DrawGridCells(basementCells, cellSize, tileTexture, yOffset);
             }
             else
             {
@@ -924,9 +933,9 @@ namespace XCOM_3
                 }
             }
 
-            if (floorToRender > 0)
+            if (floorToRender > GetMinimumViewFloor())
             {
-                for (int lowerFloor = 0; lowerFloor < floorToRender; lowerFloor++)
+                for (int lowerFloor = GetMinimumViewFloor(); lowerFloor < floorToRender; lowerFloor++)
                 {
                     float lowerFloorOffset = lowerFloor * cellSize;
                     var wallsForLowerFloor = GetWallsForFloor(lowerFloor);
@@ -944,7 +953,7 @@ namespace XCOM_3
                             cellSize,
                             editorMode: false,
                             floorHeightOffset: lowerFloorOffset,
-                            wallOverrideColor: new Color(95, 140, 170));
+                            wallOverrideColor: lowerFloor < 0 ? new Color(85, 105, 130) : new Color(95, 140, 170));
                     }
 
                     if (fadedLowerWalls.Count > 0)
@@ -957,7 +966,7 @@ namespace XCOM_3
                             cellSize,
                             editorMode: false,
                             floorHeightOffset: lowerFloorOffset,
-                            wallOverrideColor: new Color(95, 140, 170, 85));
+                            wallOverrideColor: lowerFloor < 0 ? new Color(85, 105, 130, 85) : new Color(95, 140, 170, 85));
 
                         GraphicsDevice.BlendState = BlendState.Opaque;
                         GraphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -1210,15 +1219,23 @@ namespace XCOM_3
 
         private HashSet<WallSegment> GetWallsForFloor(int floor)
         {
-            if (floor <= 0 || currentMap?.Buildings == null || currentMap.Buildings.Count == 0)
+            if (floor == 0 || currentMap?.Buildings == null || currentMap.Buildings.Count == 0)
                 return wallSegments;
 
             var filteredWalls = new HashSet<WallSegment>();
 
             foreach (var building in currentMap.Buildings)
             {
-                if (building.FloorCount <= floor)
-                    continue;
+                if (floor > 0)
+                {
+                    if (building.FloorCount <= floor)
+                        continue;
+                }
+                else
+                {
+                    if (building.BasementCount < Math.Abs(floor))
+                        continue;
+                }
 
                 int minX = building.X;
                 int minY = building.Y;
@@ -1288,11 +1305,17 @@ namespace XCOM_3
             if ((interiorHorizontal || interiorVertical) && roll < 18 + floor * 2)
                 return true;
 
-            // Créer quelques ouvertures en façade à partir du 2e étage.
-            bool facade = wall.Start.X == building.X || wall.Start.X == building.X + building.Width ||
-                          wall.Start.Y == building.Y || wall.Start.Y == building.Y + building.Height;
+            // Ne retire plus les façades en étage: cela créait des murs manquants sur certaines générations.
+            return false;
+        }
 
-            return floor >= 2 && facade && roll < 8;
+        private int GetMinimumViewFloor()
+        {
+            if (currentMap?.Buildings == null || currentMap.Buildings.Count == 0)
+                return 0;
+
+            int deepestBasement = currentMap.Buildings.Max(b => Math.Max(0, b.BasementCount));
+            return -deepestBasement;
         }
 
         private void ComputeOcclusionFromWalls(
@@ -1392,7 +1415,36 @@ namespace XCOM_3
         private HashSet<Point> GetCellsForFloor(int floor)
         {
             if (floor <= 0)
-                return new HashSet<Point>();
+            {
+                if (floor == 0)
+                    return new HashSet<Point>();
+
+                var basementCells = new HashSet<Point>();
+                if (currentMap?.Buildings == null)
+                    return basementCells;
+
+                int basementLevel = Math.Abs(floor);
+                foreach (var building in currentMap.Buildings)
+                {
+                    if (building.BasementCount < basementLevel)
+                        continue;
+
+                    int minX = Math.Max(0, building.X);
+                    int minY = Math.Max(0, building.Y);
+                    int maxX = Math.Min(gridWidth, building.X + building.Width);
+                    int maxY = Math.Min(gridHeight, building.Y + building.Height);
+
+                    for (int x = minX; x < maxX; x++)
+                    {
+                        for (int y = minY; y < maxY; y++)
+                        {
+                            basementCells.Add(new Point(x, y));
+                        }
+                    }
+                }
+
+                return basementCells;
+            }
 
             if (currentMap?.Buildings != null && currentMap.Buildings.Count > 0)
             {
