@@ -1715,9 +1715,15 @@ namespace XCOM_3
         private int GetEffectivePerceptionRange(Unit observer)
         {
             float basePerception = observer?.PerceptionRangeCells ?? 0;
-            float lightMultiplier = MathHelper.Lerp(0.35f, 1.0f, CalculateSunIntensity(timeOfDay));
-            float fatigueMultiplier = observer != null && observer.Stamina < observer.MaxStamina * 0.25f ? 0.8f : 1f;
-            return Math.Max(4, (int)Math.Round(basePerception * lightMultiplier * fatigueMultiplier));
+            // La pénalité de nuit était trop agressive (jusqu'à ~35% de la portée de base),
+            // ce qui donnait une sensation de perception très basse en jeu.
+            float lightMultiplier = MathHelper.Lerp(0.65f, 1.0f, CalculateSunIntensity(timeOfDay));
+
+            // La fatigue réduit toujours la perception, mais de manière moins sévère.
+            float fatigueMultiplier = observer != null && observer.Stamina < observer.MaxStamina * 0.25f ? 0.9f : 1f;
+
+            // Garantit une portée minimale plus confortable, même dans les pires conditions.
+            return Math.Max(7, (int)Math.Round(basePerception * lightMultiplier * fatigueMultiplier));
         }
 
         private List<Unit> FilterTargetsByPerception(Unit shooter, List<Unit> targets)
