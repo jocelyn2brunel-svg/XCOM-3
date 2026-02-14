@@ -1188,7 +1188,7 @@ namespace XCOM_3
                 }
             }
 
-            return filteredWalls.Count > 0 ? filteredWalls : wallSegments;
+            return filteredWalls;
         }
 
         private void ComputeOcclusionFromWalls(
