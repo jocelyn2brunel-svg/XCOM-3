@@ -126,6 +126,7 @@ namespace XCOM_3
         private string selectedMission = ""; // Utilisé dans CreateUnits et StartMission
 
         private StatsPanel statsPanel;
+        private CharacterInfoPanel characterInfoPanel;
 
         private bool showCoverIndicators = false;
 
@@ -206,6 +207,7 @@ namespace XCOM_3
             statsPanel = new StatsPanel(
                 Content.Load<SpriteFont>("Arial"),
                 GraphicsDevice);
+            characterInfoPanel = new CharacterInfoPanel(font, GraphicsDevice);
 
             combatSystem = new CombatSystem(random, pathfinding, GetUnitAtCell, unitManager);
             combatUI = new CombatUISystem(GraphicsDevice, _spriteBatch, font, pixel);
@@ -276,7 +278,10 @@ namespace XCOM_3
                 showInventory = !showInventory;
 
                 if (showInventory)
+                {
                     statsPanel.Hide(); // ferme skills si inventaire ouvert
+                    characterInfoPanel.Hide();
+                }
             }
 
             // SKILLS
@@ -286,12 +291,35 @@ namespace XCOM_3
                 bool newState = !statsPanel.IsVisible;
 
                 if (newState)
+                    characterInfoPanel.Hide(); // ferme fiche perso si skills ouvert
+
+                if (newState)
                     showInventory = false; // ferme inventaire si skills ouvert
 
                 if (newState)
                     statsPanel.Show();
                 else
                     statsPanel.Hide();
+            }
+
+            // FICHE PERSONNAGE
+            if (keyboard.IsKeyDown(Keys.C) &&
+                !previousKeyboardState.IsKeyDown(Keys.C) &&
+                currentState == GameState.Playing &&
+                selectedUnit?.Team == Team.Player)
+            {
+                bool newState = !characterInfoPanel.IsVisible;
+
+                if (newState)
+                {
+                    showInventory = false;
+                    statsPanel.Hide();
+                }
+
+                if (newState)
+                    characterInfoPanel.Show();
+                else
+                    characterInfoPanel.Hide();
             }
 
             statsPanel.Update(gameTime, mouse, previousMouseState);
@@ -409,6 +437,7 @@ namespace XCOM_3
                     break;
             }
             statsPanel.Draw(_spriteBatch, selectedUnit);
+            characterInfoPanel.Draw(_spriteBatch, selectedUnit);
 
             DrawOverlay();
 
@@ -461,6 +490,12 @@ namespace XCOM_3
             {
                 inventorySystem.Update(mouse, leftClick, keyboard, selectedUnit);
                 if (escapePressed) showInventory = false;
+                return;
+            }
+
+            if (characterInfoPanel.IsVisible)
+            {
+                if (escapePressed) characterInfoPanel.Hide();
                 return;
             }
 
@@ -705,7 +740,7 @@ namespace XCOM_3
                 combatUI.DrawMovementInfo(selectedUnit, hoveredCell, currentPath);
             }
 
-            _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | PgUp/PgDn: Etage | I: Inventaire", new Vector2(10, 10), Color.White);
+            _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | PgUp/PgDn: Etage | I: Inventaire | C: Fiche perso", new Vector2(10, 10), Color.White);
             _spriteBatch.DrawString(font, "Escaliers: balises orange/bleu sur la grille", new Vector2(10, 70), new Color(255, 190, 90));
 
             string timeStr = GetTimeOfDayString(timeOfDay);
