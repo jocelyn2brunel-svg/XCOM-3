@@ -875,6 +875,7 @@ namespace XCOM_3
             HashSet<Unit> occludedUnits = new HashSet<Unit>();
             ComputeOcclusionFromWalls(wallsForFloor, unitsOnFloor, yOffset, fadedWalls, occludedUnits);
             ComputeOcclusionFromHoveredArea(wallsForFloor, yOffset, hoverRevealWalls);
+            ComputeOcclusionFromPathArea(wallsForFloor, yOffset, hoverRevealWalls);
             fadedWalls.UnionWith(hoverRevealWalls);
 
             if (floorToRender == 0)
@@ -930,6 +931,7 @@ namespace XCOM_3
                     if (unitsOnFloor.Count > 0)
                         ComputeOcclusionFromWalls(wallsForUpperFloor, unitsOnFloor, upperFloorOffset, fadedUpperWalls, new HashSet<Unit>());
                     ComputeOcclusionFromHoveredArea(wallsForUpperFloor, upperFloorOffset, fadedUpperWalls);
+                    ComputeOcclusionFromPathArea(wallsForUpperFloor, upperFloorOffset, fadedUpperWalls);
 
                     var opaqueUpperWalls = new HashSet<WallSegment>(wallsForUpperFloor.Where(w => !fadedUpperWalls.Contains(w)));
                     if (opaqueUpperWalls.Count > 0)
@@ -961,6 +963,7 @@ namespace XCOM_3
                     if (lowerFloorUnits.Count > 0)
                         ComputeOcclusionFromWalls(wallsForLowerFloor, lowerFloorUnits, lowerFloorOffset, fadedLowerWalls, new HashSet<Unit>());
                     ComputeOcclusionFromHoveredArea(wallsForLowerFloor, lowerFloorOffset, fadedLowerWalls);
+                    ComputeOcclusionFromPathArea(wallsForLowerFloor, lowerFloorOffset, fadedLowerWalls);
 
                     var opaqueLowerWalls = new HashSet<WallSegment>(wallsForLowerFloor.Where(w => !fadedLowerWalls.Contains(w)));
                     if (opaqueLowerWalls.Count > 0)
@@ -1229,6 +1232,38 @@ namespace XCOM_3
                 Vector3 revealPoint = new Vector3(
                     cell.X * cellSize + cellSize / 2f,
                     hoverY,
+                    cell.Y * cellSize + cellSize / 2f);
+
+                foreach (var wall in walls)
+                {
+                    if (wall.Type == WallType.Door)
+                        continue;
+
+                    if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, revealPoint))
+                        fadedWalls.Add(wall);
+                }
+            }
+        }
+
+        private void ComputeOcclusionFromPathArea(
+            IEnumerable<WallSegment> walls,
+            float floorHeightOffset,
+            HashSet<WallSegment> fadedWalls)
+        {
+            if (currentPath == null || currentPath.Count == 0 || selectedUnit == null)
+                return;
+
+            if (selectedUnit.Team != Team.Player || selectedUnit.Floor != viewedFloor)
+                return;
+
+            Vector3 cameraPos = camera.Position;
+            float pathY = viewedFloor * cellSize + cellSize * 0.25f;
+
+            foreach (Point cell in currentPath)
+            {
+                Vector3 revealPoint = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    pathY,
                     cell.Y * cellSize + cellSize / 2f);
 
                 foreach (var wall in walls)
