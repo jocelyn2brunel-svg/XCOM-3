@@ -1406,12 +1406,12 @@ namespace XCOM_3
 
         private bool IsInteriorWallOnFloor(WallSegment wall, int floor)
         {
-            if (currentMap?.Buildings == null || floor <= 0)
+            if (currentMap?.Buildings == null)
                 return false;
 
             foreach (var building in currentMap.Buildings)
             {
-                if (building.FloorCount <= floor)
+                if (!BuildingHasFloor(building, floor))
                     continue;
 
                 int setback = GetFloorSetback(building, floor);
@@ -1434,6 +1434,14 @@ namespace XCOM_3
             }
 
             return false;
+        }
+
+        private static bool BuildingHasFloor(BuildingFootprintData building, int floor)
+        {
+            if (floor >= 0)
+                return building.FloorCount > floor;
+
+            return building.BasementCount >= Math.Abs(floor);
         }
 
         private int GetFloorSetback(BuildingFootprintData building, int floor)
