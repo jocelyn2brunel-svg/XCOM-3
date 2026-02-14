@@ -349,7 +349,10 @@ namespace XCOM_3
             {
                 if (wall.IsHorizontal)
                 {
-                    for (int x = wall.Start.X; x < wall.End.X; x++)
+                    int minX = Math.Min(wall.Start.X, wall.End.X);
+                    int maxX = Math.Max(wall.Start.X, wall.End.X);
+
+                    for (int x = minX; x < maxX; x++)
                     {
                         var top = new Point(x, wall.Start.Y - 1);
                         var bottom = new Point(x, wall.Start.Y);
@@ -359,7 +362,10 @@ namespace XCOM_3
                 }
                 else
                 {
-                    for (int y = wall.Start.Y; y < wall.End.Y; y++)
+                    int minY = Math.Min(wall.Start.Y, wall.End.Y);
+                    int maxY = Math.Max(wall.Start.Y, wall.End.Y);
+
+                    for (int y = minY; y < maxY; y++)
                     {
                         var left = new Point(wall.Start.X - 1, y);
                         var right = new Point(wall.Start.X, y);
