@@ -200,33 +200,35 @@ namespace XCOM_3
             if (length < 0.0001f)
                 return;
 
-            int safeSegments = Math.Max(3, segments);
-            float segmentHeight = length / safeSegments;
             Vector3 dir = segment / length;
             Matrix limbRot = CreateRotationFromUpTo(dir);
             Matrix partRot = limbRot * modelRot;
 
-            for (int i = 0; i < safeSegments; i++)
-            {
-                float t = safeSegments == 1 ? 0f : i / (safeSegments - 1f);
-                float arch = 1f - MathF.Abs((t - 0.5f) * 2f);
+            // Avant-bras low-poly optimisé : 2 prismes trapézoïdaux inversés.
+            // 1) Prisme court (proche du coude), 2) prisme long (vers le poignet).
+            const float shortPrismRatio = 0.38f;
+            float shortLength = length * shortPrismRatio;
+            float longLength = length - shortLength;
 
-                // Avant-bras low-poly : tronc de cône avec léger renflement au milieu.
-                float baseRadius = MathHelper.Lerp(elbowRadius, wristRadius, t);
-                float muscleBulge = 1f + arch * 0.14f;
+            Vector3 mid = Vector3.Lerp(start, end, shortPrismRatio);
+            Vector3 shortCenter = Vector3.Lerp(start, mid, 0.5f);
+            Vector3 longCenter = Vector3.Lerp(mid, end, 0.5f);
 
-                // Poignet plus aplati : plus large de profil (Z) que de face (X).
-                float wristFlatten = MathHelper.Lerp(1f, 0.82f, t);
-                float wristProfile = MathHelper.Lerp(1f, 1.08f, t);
+            float midRadius = MathHelper.Lerp(elbowRadius, wristRadius, shortPrismRatio);
 
-                Vector3 segPos = Vector3.Lerp(start, end, t);
-                Vector3 segScale = new Vector3(
-                    baseRadius * muscleBulge * wristFlatten,
-                    segmentHeight * 1.03f,
-                    baseRadius * muscleBulge * wristProfile);
+            // Prisme court : plus massif côté coude.
+            Vector3 shortScale = new Vector3(
+                ((elbowRadius + midRadius) * 0.5f) * 0.96f,
+                shortLength * 0.52f,
+                ((elbowRadius + midRadius) * 0.5f) * 1.02f);
+            DrawBodyPart(device, effect, center, shortCenter, shortScale, color, modelRot, partRot);
 
-                DrawBodyPart(device, effect, center, segPos, segScale, color * (0.9f + arch * 0.1f), modelRot, partRot);
-            }
+            // Prisme long : plus fin et légèrement aplati vers le poignet.
+            Vector3 longScale = new Vector3(
+                ((midRadius + wristRadius) * 0.5f) * 0.84f,
+                longLength * 0.52f,
+                ((midRadius + wristRadius) * 0.5f) * 0.94f);
+            DrawBodyPart(device, effect, center, longCenter, longScale, color * 0.95f, modelRot, partRot);
         }
 
         private void DrawFootPyramid(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
