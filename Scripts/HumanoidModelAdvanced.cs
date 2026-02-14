@@ -755,53 +755,53 @@ namespace XCOM_3
             {
                 UnitType.Soldier => new UnitDimensions
                 {
-                    head = 0.25f * scale,
-                    tw = 0.35f * scale,
-                    th = 0.5f * scale,
-                    td = 0.25f * scale,
-                    lw = 0.15f * scale,
-                    al = 0.45f * scale,
-                    ll = 0.55f * scale
+                    head = 0.28f * scale,
+                    tw = 0.38f * scale,
+                    th = 0.70f * scale,
+                    td = 0.28f * scale,
+                    lw = 0.13f * scale,
+                    al = 0.55f * scale,
+                    ll = 1.00f * scale
                 },
                 UnitType.Alien => new UnitDimensions
                 {
-                    head = 0.35f * scale,
-                    tw = 0.3f * scale,
-                    th = 0.45f * scale,
-                    td = 0.2f * scale,
+                    head = 0.40f * scale,
+                    tw = 0.32f * scale,
+                    th = 0.65f * scale,
+                    td = 0.22f * scale,
                     lw = 0.1f * scale,
-                    al = 0.55f * scale,
-                    ll = 0.45f * scale
+                    al = 0.65f * scale,
+                    ll = 1.05f * scale
                 },
                 UnitType.Zombie => new UnitDimensions
                 {
-                    head = 0.22f * scale,
-                    tw = 0.32f * scale,
-                    th = 0.48f * scale,
-                    td = 0.23f * scale,
-                    lw = 0.11f * scale,
-                    al = 0.5f * scale,
-                    ll = 0.5f * scale
+                    head = 0.26f * scale,
+                    tw = 0.36f * scale,
+                    th = 0.65f * scale,
+                    td = 0.26f * scale,
+                    lw = 0.12f * scale,
+                    al = 0.58f * scale,
+                    ll = 0.95f * scale
                 },
                 UnitType.Heavy => new UnitDimensions
                 {
-                    head = 0.23f * scale,
-                    tw = 0.5f * scale,
-                    th = 0.55f * scale,
-                    td = 0.35f * scale,
-                    lw = 0.15f * scale,
-                    al = 0.4f * scale,
-                    ll = 0.5f * scale
+                    head = 0.26f * scale,
+                    tw = 0.55f * scale,
+                    th = 0.75f * scale,
+                    td = 0.40f * scale,
+                    lw = 0.18f * scale,
+                    al = 0.52f * scale,
+                    ll = 0.95f * scale
                 },
                 UnitType.Scout => new UnitDimensions
                 {
-                    head = 0.22f * scale,
-                    tw = 0.28f * scale,
-                    th = 0.45f * scale,
-                    td = 0.2f * scale,
-                    lw = 0.09f * scale,
-                    al = 0.42f * scale,
-                    ll = 0.58f * scale
+                    head = 0.26f * scale,
+                    tw = 0.30f * scale,
+                    th = 0.68f * scale,
+                    td = 0.22f * scale,
+                    lw = 0.10f * scale,
+                    al = 0.58f * scale,
+                    ll = 1.05f * scale
                 },
                 _ => new UnitDimensions
                 {
@@ -818,12 +818,11 @@ namespace XCOM_3
             if (type == UnitType.Soldier && bodyType == Unit.HumanBodyType.Feminine)
             {
                 baseDimensions.head *= 0.98f;
-                baseDimensions.tw *= 0.94f;
-                baseDimensions.th *= 0.97f;
-                baseDimensions.td *= 0.92f;
+                baseDimensions.tw *= 0.90f;
+                baseDimensions.td *= 0.85f;
                 baseDimensions.lw *= 0.9f;
-                baseDimensions.al *= 0.96f;
-                baseDimensions.ll *= 1.02f;
+                baseDimensions.th *= 0.95f;
+                baseDimensions.ll *= 1.05f;
             }
 
             return baseDimensions;
