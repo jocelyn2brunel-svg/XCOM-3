@@ -40,15 +40,71 @@ namespace XCOM_3
 
         private void DrawBodyPart(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
                                   Vector3 scale, Color color, Matrix rot)
+            => DrawBodyPart(device, effect, center, relative, scale, color, rot, rot);
+
+        private void DrawBodyPart(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
+                                  Vector3 scale, Color color, Matrix modelRot, Matrix partRot)
         {
             var verts = new VertexPositionColor[8];
             for (int i = 0; i < 8; i++) verts[i] = new VertexPositionColor(cubeVertices[i].Position, color);
-            Vector3 finalPos = center + Vector3.Transform(relative, rot);
-            effect.World = Matrix.CreateScale(scale) * rot * Matrix.CreateTranslation(finalPos);
+            Vector3 finalPos = center + Vector3.Transform(relative, modelRot);
+            effect.World = Matrix.CreateScale(scale) * partRot * Matrix.CreateTranslation(finalPos);
             foreach (var pass in effect.CurrentTechnique.Passes)
             {
                 pass.Apply();
                 device.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, 8, cubeIndices, 0, 12);
+            }
+        }
+
+        private static Matrix CreateRotationFromUpTo(Vector3 direction)
+        {
+            const float epsilon = 1e-5f;
+            if (direction.LengthSquared() < epsilon)
+                return Matrix.Identity;
+
+            Vector3 from = Vector3.Up;
+            Vector3 to = Vector3.Normalize(direction);
+            float dot = MathHelper.Clamp(Vector3.Dot(from, to), -1f, 1f);
+
+            if (dot > 0.9999f)
+                return Matrix.Identity;
+
+            if (dot < -0.9999f)
+                return Matrix.CreateFromAxisAngle(Vector3.Right, MathHelper.Pi);
+
+            Vector3 axis = Vector3.Normalize(Vector3.Cross(from, to));
+            float angle = MathF.Acos(dot);
+            return Matrix.CreateFromAxisAngle(axis, angle);
+        }
+
+        private void DrawRoundedCapsuleBetween(GraphicsDevice device, BasicEffect effect, Vector3 center,
+                                               Vector3 start, Vector3 end, float radius,
+                                               Color color, Matrix modelRot, int segments = 4)
+        {
+            Vector3 segment = end - start;
+            float length = segment.Length();
+            if (length < 0.0001f)
+                return;
+
+            int safeSegments = Math.Max(2, segments);
+            float segmentHeight = length / safeSegments;
+            Vector3 dir = segment / length;
+            Matrix limbRot = CreateRotationFromUpTo(dir);
+            Matrix partRot = limbRot * modelRot;
+            Vector3 midpoint = (start + end) * 0.5f;
+
+            for (int i = 0; i < safeSegments; i++)
+            {
+                float t = safeSegments == 1 ? 0f : i / (safeSegments - 1f);
+                float arch = 1f - MathF.Abs((t - 0.5f) * 2f);
+                float bulge = 0.82f + arch * 0.18f;
+
+                Vector3 localOffset = new Vector3(0f, (i - (safeSegments - 1) * 0.5f) * segmentHeight, 0f);
+                Vector3 rotatedOffset = Vector3.Transform(localOffset, limbRot);
+                Vector3 segPos = midpoint + rotatedOffset;
+                Vector3 segScale = new Vector3(radius * bulge, segmentHeight * 1.05f, radius * bulge);
+
+                DrawBodyPart(device, effect, center, segPos, segScale, color * (0.92f + arch * 0.08f), modelRot, partRot);
             }
         }
 
@@ -591,13 +647,23 @@ namespace XCOM_3
                                         Matrix r, Color bodyColor, float legSwing, float armSwing)
         {
             Color jointColor = bodyColor * 0.65f;
-            DrawRoundedHead(d, e, p, new Vector3(-dims.tw * 0.3f + legSwing * 0.04f, dims.ll * 0.42f, legSwing * 0.08f), dims.lw * 0.28f, jointColor, r);
-            DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.3f - legSwing * 0.04f, dims.ll * 0.42f, -legSwing * 0.08f), dims.lw * 0.28f, jointColor, r);
 
-            DrawRoundedHead(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.94f, 0), dims.lw * 0.28f, jointColor, r);
-            DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.94f, 0), dims.lw * 0.28f, jointColor, r);
-            DrawRoundedHead(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.62f, -armSwing * 0.1f), dims.lw * 0.28f, jointColor, r);
-            DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.62f, armSwing * 0.1f), dims.lw * 0.28f, jointColor, r);
+            float legPhase = MathHelper.Clamp(legSwing / 0.42f, -1f, 1f);
+            float rearLegPhase = -legPhase;
+            Vector3 leftKnee = new Vector3(-dims.tw * 0.3f, dims.ll * (0.5f + Math.Max(0f, legPhase) * 0.18f), legPhase * dims.ll * 0.34f);
+            Vector3 rightKnee = new Vector3(dims.tw * 0.3f, dims.ll * (0.5f + Math.Max(0f, rearLegPhase) * 0.18f), rearLegPhase * dims.ll * 0.34f);
+            DrawRoundedHead(d, e, p, leftKnee, dims.lw * 0.28f, jointColor, r);
+            DrawRoundedHead(d, e, p, rightKnee, dims.lw * 0.28f, jointColor, r);
+
+            DrawRoundedHead(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.9f, 0), dims.lw * 0.28f, jointColor, r);
+            DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.9f, 0), dims.lw * 0.28f, jointColor, r);
+
+            float armPhase = MathHelper.Clamp(armSwing / 0.3f, -1f, 1f);
+            float oppositeArmPhase = -armPhase;
+            Vector3 leftElbow = new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * (0.57f + Math.Max(0f, armPhase) * 0.06f), armPhase * dims.al * 0.32f);
+            Vector3 rightElbow = new Vector3(dims.tw * 0.6f, dims.ll + dims.th * (0.57f + Math.Max(0f, oppositeArmPhase) * 0.06f), oppositeArmPhase * dims.al * 0.32f);
+            DrawRoundedHead(d, e, p, leftElbow, dims.lw * 0.28f, jointColor, r);
+            DrawRoundedHead(d, e, p, rightElbow, dims.lw * 0.28f, jointColor, r);
         }
 
         private void DrawWeaponGripPose(GraphicsDevice d, BasicEffect e, Vector3 p, UnitDimensions dims,
@@ -632,26 +698,56 @@ namespace XCOM_3
             DrawRunningLeg(d, e, p, r, dims, -legSwing, dims.tw * legSpread, legRadiusScale, legColor, footColor);
         }
 
+        private void DrawSwingingArmPair(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
+                                         UnitDimensions dims, float armSwing,
+                                         float shoulderSpread, float shoulderHeight,
+                                         float bendBias, float radiusScale, Color armColor)
+        {
+            DrawSwingingArm(d, e, p, r, dims, armSwing, -dims.tw * shoulderSpread, shoulderHeight, bendBias, radiusScale, armColor);
+            DrawSwingingArm(d, e, p, r, dims, -armSwing, dims.tw * shoulderSpread, shoulderHeight, bendBias, radiusScale, armColor);
+        }
+
+        private void DrawSwingingArm(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
+                                     UnitDimensions dims, float phase, float shoulderX,
+                                     float shoulderHeight, float bendBias,
+                                     float radiusScale, Color armColor)
+        {
+            float normalizedPhase = MathHelper.Clamp(phase / 0.3f, -1f, 1f);
+
+            Vector3 shoulder = new Vector3(shoulderX, dims.ll + dims.th * shoulderHeight, -normalizedPhase * dims.al * 0.08f);
+            Vector3 elbow = new Vector3(
+                shoulderX,
+                dims.ll + dims.th * (shoulderHeight - 0.33f) + Math.Max(0f, normalizedPhase) * dims.al * 0.18f,
+                normalizedPhase * dims.al * 0.32f + bendBias * dims.al * 0.12f);
+            Vector3 wrist = new Vector3(
+                shoulderX,
+                dims.ll + dims.th * (shoulderHeight - 0.66f) + Math.Max(0f, normalizedPhase) * dims.al * 0.1f,
+                elbow.Z - Math.Min(0f, normalizedPhase) * dims.al * 0.22f + bendBias * dims.al * 0.1f);
+
+            DrawRoundedCapsuleBetween(d, e, p, shoulder, elbow, dims.lw * radiusScale, armColor, r, 4);
+            DrawRoundedCapsuleBetween(d, e, p, elbow, wrist, dims.lw * (radiusScale * 0.92f), armColor * 0.95f, r, 4);
+        }
+
         private void DrawRunningLeg(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
                                     UnitDimensions dims, float phase, float hipX,
                                     float legRadiusScale, Color legColor, Color footColor)
         {
-            float upperLen = dims.ll * 0.52f;
-            float lowerLen = dims.ll * 0.48f;
-            float kneeLift = Math.Max(0f, phase) * dims.ll * 0.22f;
+            float normalizedPhase = MathHelper.Clamp(phase / 0.42f, -1f, 1f);
 
-            float thighForward = phase * dims.ll * 0.38f;
-            float shinForward = thighForward - Math.Min(0f, phase) * dims.ll * 0.18f;
+            Vector3 hip = new Vector3(hipX, dims.ll, -normalizedPhase * dims.ll * 0.04f);
+            Vector3 knee = new Vector3(
+                hipX,
+                dims.ll * (0.5f + Math.Max(0f, normalizedPhase) * 0.18f),
+                normalizedPhase * dims.ll * 0.34f);
+            Vector3 ankle = new Vector3(
+                hipX,
+                dims.ll * 0.08f + Math.Max(0f, normalizedPhase) * dims.ll * 0.12f,
+                knee.Z - Math.Min(0f, normalizedPhase) * dims.ll * 0.28f + Math.Max(0f, normalizedPhase) * dims.ll * 0.06f);
 
-            Vector3 thighPos = new Vector3(hipX, dims.ll - upperLen * 0.5f, thighForward * 0.55f);
-            Vector3 shinPos = new Vector3(hipX, lowerLen * 0.5f + kneeLift, shinForward);
+            DrawRoundedCapsuleBetween(d, e, p, hip, knee, dims.lw * legRadiusScale, legColor, r, 4);
+            DrawRoundedCapsuleBetween(d, e, p, knee, ankle, dims.lw * (legRadiusScale * 0.92f), legColor * 0.96f, r, 4);
 
-            DrawRoundedCapsuleY(d, e, p, thighPos,
-                upperLen, dims.lw * legRadiusScale, legColor, r, 4);
-            DrawRoundedCapsuleY(d, e, p, shinPos,
-                lowerLen, dims.lw * (legRadiusScale * 0.92f), legColor * 0.96f, r, 4);
-
-            Vector3 bootPos = new Vector3(hipX, dims.ll * 0.08f + kneeLift * 0.45f, shinForward + dims.lw * 0.55f);
+            Vector3 bootPos = ankle + new Vector3(0f, dims.ll * 0.05f, dims.lw * (0.45f + Math.Max(0f, normalizedPhase) * 0.35f));
             Vector3 bootScale = new Vector3(dims.lw * (legRadiusScale * 2.35f), dims.ll * 0.2f, dims.lw * (legRadiusScale * 2.7f));
             DrawBodyPart(d, e, p, bootPos, bootScale, footColor, r);
         }
@@ -677,16 +773,13 @@ namespace XCOM_3
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.8f, dims.td * 0.15f),
                         new Vector3(dims.tw * 0.75f, dims.th * 0.33f, dims.td * 0.85f), c * 0.8f, r);
 
-            // Bras
-            DrawRoundedCapsuleY(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.7f, -a * 0.15f),
-                dims.al, dims.lw * 0.52f, c * 0.85f, r, 5);
-            DrawRoundedCapsuleY(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.7f, a * 0.15f),
-                dims.al, dims.lw * 0.52f, c * 0.85f, r, 5);
+            // Bras articulés (épaule → coude → poignet)
+            DrawSwingingArmPair(d, e, p, r, dims, a, 0.6f, 0.9f, 0f, 0.52f, c * 0.85f);
 
             // Bracelets / avant-bras plus marqués
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.58f, -a * 0.15f),
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.5f, -a * 0.08f),
                         new Vector3(dims.lw * 1.5f, dims.al * 0.22f, dims.lw * 1.25f), new Color(55, 70, 100), r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.58f, a * 0.15f),
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.5f, a * 0.08f),
                         new Vector3(dims.lw * 1.5f, dims.al * 0.22f, dims.lw * 1.25f), new Color(55, 70, 100), r);
 
             // Tête
@@ -764,8 +857,7 @@ namespace XCOM_3
             Color skin = new(150, 200, 150), dark = c * 0.6f;
             DrawRunningLegPair(d, e, p, r, dims, l * 1.1f, 0.3f, 1f, dark, dark * 0.9f);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0), new Vector3(dims.tw, dims.th, dims.td), c, r);
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.6f, -a * 0.2f), new Vector3(dims.lw, dims.al, dims.lw), c * 0.85f, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.6f, a * 0.2f), new Vector3(dims.lw, dims.al, dims.lw), c * 0.85f, r);
+            DrawSwingingArmPair(d, e, p, r, dims, a * 1.1f, 0.6f, 0.82f, 0.15f, 0.95f, c * 0.85f);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, 0), new Vector3(dims.head, dims.head * 1.3f, dims.head * 0.9f), skin, r);
             DrawBodyPart(d, e, p, new Vector3(-dims.head * 0.3f, dims.ll + dims.th + dims.head * 0.5f + 0.1f * s, dims.head * 0.5f), new Vector3(dims.head * 0.2f, dims.head * 0.25f, dims.head * 0.1f), Color.Black, r);
             DrawBodyPart(d, e, p, new Vector3(dims.head * 0.3f, dims.ll + dims.th + dims.head * 0.5f + 0.1f * s, dims.head * 0.5f), new Vector3(dims.head * 0.2f, dims.head * 0.25f, dims.head * 0.1f), Color.Black, r);
@@ -784,8 +876,7 @@ namespace XCOM_3
             Color skin = new(140, 160, 130), dark = new(80, 70, 60);
             DrawRunningLegPair(d, e, p, r, dims, l * 1.15f, 0.35f, 1f, dark, dark * 0.85f);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, -0.1f * s), new Vector3(dims.tw, dims.th, dims.td), c * 0.7f, r);
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.5f, 0.15f * s - a * 0.1f), new Vector3(dims.lw, dims.al, dims.lw), c * 0.6f, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.5f, 0.15f * s + a * 0.1f), new Vector3(dims.lw, dims.al, dims.lw), c * 0.6f, r);
+            DrawSwingingArmPair(d, e, p, r, dims, a * 0.8f, 0.6f, 0.72f, 0.45f, 1f, c * 0.6f);
             DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, -0.05f * s), dims.head * 0.5f, skin, r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, dims.head * 0.55f), new Vector3(dims.head * 0.5f, dims.head * 0.2f, dims.head * 0.05f), new Color(180, 0, 0), r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.4f, dims.td * 0.9f), new Vector3(dims.lw * 1.5f, dims.lw, dims.lw * 2f), c * 0.5f, r);
@@ -803,8 +894,7 @@ namespace XCOM_3
             Color skin = new(220, 180, 140), dark = new(50, 50, 70);
             DrawRunningLegPair(d, e, p, r, dims, l * 0.9f, 0.3f, 1.2f, dark, dark * 0.8f);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0), new Vector3(dims.tw, dims.th, dims.td), c, r);
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.65f, dims.ll + dims.th * 0.7f, -a * 0.1f), new Vector3(dims.lw * 1.3f, dims.al, dims.lw * 1.3f), c * 0.85f, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.65f, dims.ll + dims.th * 0.7f, a * 0.1f), new Vector3(dims.lw * 1.3f, dims.al, dims.lw * 1.3f), c * 0.85f, r);
+            DrawSwingingArmPair(d, e, p, r, dims, a * 0.75f, 0.65f, 0.88f, -0.1f, 1.25f, c * 0.85f);
             DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, 0), dims.head * 0.56f, skin, r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, dims.head * 0.6f), new Vector3(dims.head * 0.8f, dims.head * 0.4f, dims.head * 0.15f), new Color(30, 30, 30), r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, dims.td * 0.9f), new Vector3(dims.tw * 0.4f, dims.th * 0.4f, dims.td * 0.7f), new Color(60, 60, 60), r);
@@ -824,8 +914,7 @@ namespace XCOM_3
             Color skin = new(220, 180, 140), dark = new(70, 70, 90);
             DrawRunningLegPair(d, e, p, r, dims, l * 1.2f, 0.25f, 1f, dark, dark * 0.85f);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0), new Vector3(dims.tw, dims.th, dims.td), c, r);
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.55f, dims.ll + dims.th * 0.7f, -a * 0.18f), new Vector3(dims.lw, dims.al, dims.lw), c * 0.85f, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.55f, dims.ll + dims.th * 0.7f, a * 0.18f), new Vector3(dims.lw, dims.al, dims.lw), c * 0.85f, r);
+            DrawSwingingArmPair(d, e, p, r, dims, a * 1.2f, 0.55f, 0.9f, 0f, 0.95f, c * 0.85f);
             DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0), dims.head * 0.5f, skin, r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f + 0.05f * s, dims.head * 0.6f), new Vector3(dims.head * 0.7f, dims.head * 0.25f, dims.head * 0.08f), new Color(50, 100, 150), r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, dims.head * 0.8f), new Vector3(dims.head * 0.1f, dims.head * 0.1f, dims.head * 0.35f), new Color(255, 0, 0), r);
