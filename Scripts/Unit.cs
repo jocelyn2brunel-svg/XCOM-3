@@ -324,9 +324,9 @@ namespace XCOM_3
 
         public static float ComputeOrientationFromDelta(float deltaX, float deltaZ)
         {
-            // Le modèle humanoïde est orienté « dos » vers +Z dans son espace local,
-            // on applique donc un demi-tour pour que la face regarde la direction du déplacement.
-            return MathHelper.WrapAngle((float)Math.Atan2(-deltaX, deltaZ) + MathHelper.Pi);
+            // L'orientation est utilisée à la fois pour la rotation du modèle et pour la flèche
+            // de direction; elle doit donc pointer directement vers le vecteur de déplacement.
+            return MathHelper.WrapAngle((float)Math.Atan2(-deltaX, deltaZ));
         }
 
         public void UpdateVisualPosition(int cellSize = 2)
