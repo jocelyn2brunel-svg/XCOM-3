@@ -131,6 +131,7 @@ namespace XCOM_3
 
         private Point lastHoveredCell = new Point(-1, -1);
         private int viewedFloor = 0;
+        private HashSet<Point> upperFloorCells = new();
 
 
         public Game1()
@@ -617,7 +618,15 @@ namespace XCOM_3
             for (int floor = 0; floor < floorCount; floor++)
             {
                 float yOffset = floor * cellSize;
-                renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture, yOffset);
+                if (floor == 0)
+                {
+                    renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture, yOffset);
+                }
+                else if (upperFloorCells.Count > 0)
+                {
+                    renderer3D.DrawGridCells(upperFloorCells, cellSize, tileTexture, yOffset);
+                }
+
                 renderer3D.DrawWalls(wallSegments, cellSize, editorMode: false, floorHeightOffset: yOffset);
             }
 
@@ -769,6 +778,7 @@ namespace XCOM_3
 
             // Charger les murs
             wallSegments = map.GetWalls();
+            upperFloorCells = ComputeUpperFloorCells();
 
             Console.WriteLine($"[GAME] Loaded map: {map.Name} ({gridWidth}x{gridHeight})");
 
@@ -812,6 +822,101 @@ namespace XCOM_3
             // Réinitialiser spatial hash
             if (unitManager != null)
                 unitManager.InitializeForMission(playerUnits, enemyUnits);
+        }
+
+        private HashSet<Point> ComputeUpperFloorCells()
+        {
+            var outsideCells = new HashSet<Point>();
+            var queue = new Queue<Point>();
+
+            for (int x = 0; x < gridWidth; x++)
+            {
+                EnqueueBoundaryCell(new Point(x, 0), outsideCells, queue);
+                EnqueueBoundaryCell(new Point(x, gridHeight - 1), outsideCells, queue);
+            }
+
+            for (int y = 1; y < gridHeight - 1; y++)
+            {
+                EnqueueBoundaryCell(new Point(0, y), outsideCells, queue);
+                EnqueueBoundaryCell(new Point(gridWidth - 1, y), outsideCells, queue);
+            }
+
+            while (queue.Count > 0)
+            {
+                Point current = queue.Dequeue();
+                foreach (var neighbor in GetCardinalNeighbors(current))
+                {
+                    if (outsideCells.Contains(neighbor) || IsBlockedByWall(current, neighbor))
+                        continue;
+
+                    outsideCells.Add(neighbor);
+                    queue.Enqueue(neighbor);
+                }
+            }
+
+            var interiorCells = new HashSet<Point>();
+            for (int x = 0; x < gridWidth; x++)
+            {
+                for (int y = 0; y < gridHeight; y++)
+                {
+                    Point cell = new Point(x, y);
+                    if (!outsideCells.Contains(cell))
+                    {
+                        interiorCells.Add(cell);
+                    }
+                }
+            }
+
+            return interiorCells;
+        }
+
+        private void EnqueueBoundaryCell(Point cell, HashSet<Point> visited, Queue<Point> queue)
+        {
+            if (cell.X < 0 || cell.Y < 0 || cell.X >= gridWidth || cell.Y >= gridHeight || visited.Contains(cell))
+                return;
+
+            visited.Add(cell);
+            queue.Enqueue(cell);
+        }
+
+        private IEnumerable<Point> GetCardinalNeighbors(Point cell)
+        {
+            Point[] neighbors =
+            {
+                new Point(cell.X, cell.Y - 1),
+                new Point(cell.X, cell.Y + 1),
+                new Point(cell.X - 1, cell.Y),
+                new Point(cell.X + 1, cell.Y)
+            };
+
+            foreach (var neighbor in neighbors)
+            {
+                if (neighbor.X >= 0 && neighbor.X < gridWidth && neighbor.Y >= 0 && neighbor.Y < gridHeight)
+                    yield return neighbor;
+            }
+        }
+
+        private bool IsBlockedByWall(Point a, Point b)
+        {
+            int dx = b.X - a.X;
+            int dy = b.Y - a.Y;
+
+            if (Math.Abs(dx) + Math.Abs(dy) != 1)
+                return true;
+
+            foreach (var wall in wallSegments)
+            {
+                bool isBetweenCells =
+                    (dy == 1 && wall.IsHorizontal && wall.Start.Y == b.Y && a.X >= wall.Start.X && a.X < wall.End.X) ||
+                    (dy == -1 && wall.IsHorizontal && wall.Start.Y == a.Y && a.X >= wall.Start.X && a.X < wall.End.X) ||
+                    (dx == 1 && !wall.IsHorizontal && wall.Start.X == b.X && a.Y >= wall.Start.Y && a.Y < wall.End.Y) ||
+                    (dx == -1 && !wall.IsHorizontal && wall.Start.X == a.X && a.Y >= wall.Start.Y && a.Y < wall.End.Y);
+
+                if (isBetweenCells && (wall.Type == WallType.Full || wall.Type == WallType.Window))
+                    return true;
+            }
+
+            return false;
         }
 
         private class AStarNode

@@ -127,6 +127,17 @@ namespace XCOM_3
                                       new Vector3(size * 0.95f, 1, size * 0.95f), tex);
         }
 
+        public void DrawGridCells(IEnumerable<Point> cells, int size, Texture2D tex, float floorHeightOffset = 0f)
+        {
+            foreach (var cell in cells)
+            {
+                DrawTexturedPlane(
+                    new Vector3(cell.X * size + size / 2f, floorHeightOffset, cell.Y * size + size / 2f),
+                    new Vector3(size * 0.95f, 1, size * 0.95f),
+                    tex);
+            }
+        }
+
         /// <summary>
         /// ? MURS AMÉLIORÉS - Version avec détails, hauteur et ombres
         /// </summary>
