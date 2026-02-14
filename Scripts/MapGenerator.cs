@@ -58,6 +58,15 @@ namespace XCOM_3
             wallGenerator.ClearSpawnZones(walls, map.GridWidth, map.GridHeight);
 
             map.SetWalls(walls);
+            map.Buildings = wallGenerator.LastGeneratedBuildings
+                .ConvertAll(b => new BuildingFootprintData
+                {
+                    X = b.X,
+                    Y = b.Y,
+                    Width = b.Width,
+                    Height = b.Height,
+                    FloorCount = Math.Clamp(b.FloorCount, 1, map.FloorCount)
+                });
 
             // Générer les zones de spawn
             map.GenerateDefaultSpawnZones();
@@ -122,6 +131,15 @@ namespace XCOM_3
             wallGenerator.ClearSpawnZones(walls, width, height);
 
             map.SetWalls(walls);
+            map.Buildings = wallGenerator.LastGeneratedBuildings
+                .ConvertAll(b => new BuildingFootprintData
+                {
+                    X = b.X,
+                    Y = b.Y,
+                    Width = b.Width,
+                    Height = b.Height,
+                    FloorCount = Math.Clamp(b.FloorCount, 1, map.FloorCount)
+                });
             map.GenerateDefaultSpawnZones();
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount);
 
