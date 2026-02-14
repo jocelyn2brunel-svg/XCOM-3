@@ -514,7 +514,7 @@ namespace XCOM_3
                 for (int i = 0; i < pantsCapacity; i++)
                 {
                     Rectangle pocketSlot = GetPantsPocketSlotByIndex(i);
-                    if (pocketSlot.Contains(mouse.Position))
+                    if (pocketSlot.Contains(mousePosition))
                     {
                         if (!isPocketSized)
                             return false;
