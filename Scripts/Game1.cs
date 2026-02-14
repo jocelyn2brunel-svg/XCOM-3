@@ -35,7 +35,7 @@ namespace XCOM_3
         private Color directionalLight = Color.White;
 
         // --- NOUVEAU: Système d'inventaire ---
-        private bool showInventory = false;   
+        private bool showInventory = false;
 
         // --- Système de grenades ---
         private Dictionary<string, GrenadeData> grenadeDatabase;
@@ -208,8 +208,8 @@ namespace XCOM_3
             combatSystem = new CombatSystem(random, pathfinding, GetUnitAtCell, unitManager);
             combatUI = new CombatUISystem(GraphicsDevice, _spriteBatch, font, pixel);
             combatSystem.OnUnitKilled += HandleUnitKilled;
-            combatSystem.OnFireCompleted += HandleFireCompleted;          
-        
+            combatSystem.OnFireCompleted += HandleFireCompleted;
+
             Window.ClientSizeChanged += (_, _) =>
             {
                 combatUI.UpdateFireTargetsUIPositions(selectedUnit);
@@ -467,12 +467,73 @@ namespace XCOM_3
             else if (combatSystem.CurrentTurn == TurnState.EnemyTurn) combatSystem.UpdateEnemyTurn(cellSize);
 
             combatSystem.UpdateFiringAnimations(gameTime);
+            UpdateAimCameraAndPose();
             camera.HandleControls(keyboard, mouse, previousMouseState, gameTime, allowZoom: !statsPanel.IsVisible); UpdateDayNightCycle(gameTime);
             HandleFloorViewControls(keyboard);
 
             if (escapePressed) ReturnToMainMenuWithSave();
         }
 
+
+        private void UpdateAimCameraAndPose()
+        {
+            foreach (var unit in playerUnits)
+            {
+                unit.IsAiming = false;
+            }
+
+            Unit aimingUnit = null;
+            Unit targetUnit = null;
+
+            if (selectedUnit != null && selectedUnit.Team == Team.Player && selectedUnit.ActionPoints > 0 && !selectedUnit.IsMoving)
+            {
+                targetUnit = combatUI.SelectedFireTarget ?? combatUI.HoveredFireTarget;
+
+                if (targetUnit != null && combatUI.ShowFireTargets)
+                {
+                    float deltaX = targetUnit.Cell.X - selectedUnit.Cell.X;
+                    float deltaZ = targetUnit.Cell.Y - selectedUnit.Cell.Y;
+                    selectedUnit.TargetOrientation = (float)Math.Atan2(deltaX, deltaZ);
+                    selectedUnit.IsAiming = true;
+                    aimingUnit = selectedUnit;
+                }
+            }
+
+            if (aimingUnit == null)
+            {
+                aimingUnit = playerUnits.FirstOrDefault(u => u.IsFiring && u.PendingTarget != null);
+                targetUnit = aimingUnit?.PendingTarget;
+
+                if (aimingUnit != null)
+                {
+                    aimingUnit.IsAiming = true;
+                }
+            }
+
+            if (aimingUnit != null && targetUnit != null)
+            {
+                Vector3 shooterPos = aimingUnit.VisualPosition + new Vector3(0f, cellSize * 0.75f, 0f);
+                Vector3 toTarget = targetUnit.VisualPosition - aimingUnit.VisualPosition;
+                toTarget.Y = 0f;
+
+                if (toTarget.LengthSquared() > 0.001f)
+                {
+                    toTarget.Normalize();
+                    Vector3 right = Vector3.Normalize(Vector3.Cross(Vector3.Up, toTarget));
+
+                    Vector3 cameraPos = shooterPos
+                        - toTarget * (cellSize * 1.2f)
+                        + right * (cellSize * 0.42f)
+                        + Vector3.Up * (cellSize * 0.3f);
+
+                    Vector3 lookTarget = targetUnit.VisualPosition + new Vector3(0f, cellSize * 0.65f, 0f);
+                    camera.SetShoulderCamera(cameraPos, lookTarget);
+                    return;
+                }
+            }
+
+            camera.ClearShoulderCamera();
+        }
 
         private void HandleFloorViewControls(KeyboardState keyboard)
         {
@@ -552,7 +613,7 @@ namespace XCOM_3
             else if (time < 0.5f) return MathHelper.Lerp(0.7f, 1.0f, (time - 0.25f) / 0.25f);
             else if (time < 0.75f) return MathHelper.Lerp(1.0f, 0.7f, (time - 0.5f) / 0.25f);
             else return MathHelper.Lerp(0.7f, 0.3f, (time - 0.75f) / 0.25f);
-        }              
+        }
 
         private void DrawGameOver()
         {
@@ -1195,7 +1256,7 @@ namespace XCOM_3
             return null;
         }
 
-        
+
 
         private List<EnemyTemplate> enemyPool = new()
         {
@@ -1451,7 +1512,7 @@ namespace XCOM_3
                             Console.WriteLine($"Mode grenade activé: {selectedGrenade.Name}");
                         }
                         break;
-                    
+
                     case "RECHARGER":
                         Console.WriteLine("Action future : RECHARGER");
                         break;
@@ -1679,7 +1740,7 @@ namespace XCOM_3
         { Name = name; Class = unitClass; Weapon = weapon; ActionPoints = ap; }
     }
 
-    
+
 
     public static class Extensions { public static Vector2 ToVector2(this Point p) => new(p.X, p.Y); }
 }

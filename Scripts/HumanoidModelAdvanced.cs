@@ -126,7 +126,7 @@ namespace XCOM_3
             // ARME
             if (unit.EquippedWeapon != null)
             {
-                DrawWeapon(device, effect, pos, unit.EquippedWeapon, scale, rot, dims);
+                DrawWeapon(device, effect, pos, unit.EquippedWeapon, scale, rot, dims, unit.IsAiming || unit.IsFiring);
             }
 
             // CHEMISE (sous le gilet)
@@ -271,13 +271,15 @@ namespace XCOM_3
         }
 
         private void DrawWeapon(GraphicsDevice device, BasicEffect effect, Vector3 pos, Item weapon,
-                                float scale, Matrix rot, UnitDimensions dims)
+                                float scale, Matrix rot, UnitDimensions dims, bool isAiming)
         {
             Color weaponColor = GetWeaponColor(weapon.Data.Name);
             WeaponType weaponType = GetWeaponType(weapon.Data.Name);
 
             // Position sur le bras droit
-            Vector3 weaponPos = new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.7f, dims.td * 0.3f);
+            Vector3 weaponPos = isAiming
+                ? new Vector3(dims.tw * 0.45f, dims.ll + dims.th * 0.82f, dims.td * 0.9f)
+                : new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.7f, dims.td * 0.3f);
             Vector3 weaponScale = GetWeaponScale(weaponType, dims);
 
             // Corps de l'arme

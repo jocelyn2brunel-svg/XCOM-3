@@ -27,6 +27,7 @@ namespace XCOM_3
 
         public WeaponData WeaponData;
         public bool IsFiring = false, WillHit = false;
+        public bool IsAiming = false;
         public Point? FireTarget = null;
         public float FireProgress = 0f;
         public Unit PendingTarget = null;

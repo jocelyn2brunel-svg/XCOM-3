@@ -31,7 +31,7 @@ namespace XCOM_3
 
         private CoverSystem coverSystem;
 
-        public CombatSystem(Random random, PathfindingSystem pathfinding, 
+        public CombatSystem(Random random, PathfindingSystem pathfinding,
             Func<Point, Unit> getUnitAtCell, OptimizedUnitManager unitManager)
         {
             this.random = random;
@@ -80,11 +80,11 @@ namespace XCOM_3
             {
                 u.ActionPoints = 2;
             }
-            
+
             EnemyTurnIndex = 0;
             CurrentTurn = TurnState.EnemyTurn;
             unitManager.OnNewTurn();
-            
+
             Console.WriteLine("[COMBAT] Tour ennemi");
         }
 
@@ -322,6 +322,10 @@ namespace XCOM_3
             if (!pathfinding.HasLineOfSight(shooter.Cell, target.Cell))
                 return;
 
+            float deltaX = target.Cell.X - shooter.Cell.X;
+            float deltaZ = target.Cell.Y - shooter.Cell.Y;
+            shooter.TargetOrientation = (float)Math.Atan2(deltaX, deltaZ);
+
             IsActionInProgress = true;
             shooter.IsFiring = true;
             shooter.FireTarget = target.Cell;
@@ -406,7 +410,7 @@ namespace XCOM_3
         {
             int baseDamage = shooter.WeaponData.Damage + shooter.Skills.GetDamageBonus();
             int damage = Math.Max(baseDamage - target.GetTotalArmor(), 1);
-            
+
             target.Health = Math.Max(target.Health - damage, 0);
 
             Console.WriteLine($"[COMBAT] {target.Name} prend {damage} dégâts! HP: {target.Health}/{target.MaxHealth}");
@@ -420,7 +424,7 @@ namespace XCOM_3
             if (target.Health <= 0)
             {
                 Console.WriteLine($"[COMBAT] {target.Name} est éliminé!");
-                
+
                 if (shooter.Team == Team.Player)
                 {
                     shooter.Skills.GainKillXP(target.Class);
