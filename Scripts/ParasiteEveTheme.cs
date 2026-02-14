@@ -20,7 +20,8 @@ namespace XCOM_3.Scripts
         
         // Bordures et panels (vert moyen)
         public static readonly Color BorderColor = new Color(60, 140, 80, 255);
-        public static readonly Color BorderMain = BorderColor;
+        public static readonly Color BorderDark = new Color(20, 100, 65, 255);
+        public static readonly Color BorderMain = new Color(40, 220, 140, 255);
         public static readonly Color PanelBackground = new Color(20, 45, 25, 200);
         
         // Texte
@@ -76,7 +77,30 @@ namespace XCOM_3.Scripts
             
             if (drawBorder)
             {
-                DrawCutCornerBorder(sb, pixel, bounds, BorderMain, 2, cornerCut: 8);
+                DrawDoubleBorder(sb, pixel, bounds, cornerCut: 8);
+            }
+        }
+
+        /// <summary>
+        /// Dessine une double bordure (externe sombre + interne lumineuse) pour donner une profondeur PE2.
+        /// </summary>
+        public static void DrawDoubleBorder(SpriteBatch sb, Texture2D pixel,
+                                            Rectangle bounds, int cornerCut)
+        {
+            // Bordure externe (plus foncée)
+            DrawCutCornerBorder(sb, pixel, bounds, BorderDark, 2, cornerCut);
+
+            // Bordure interne (lumineuse)
+            Rectangle innerBounds = new Rectangle(
+                bounds.X + 2,
+                bounds.Y + 2,
+                bounds.Width - 4,
+                bounds.Height - 4
+            );
+
+            if (innerBounds.Width > 0 && innerBounds.Height > 0)
+            {
+                DrawCutCornerBorder(sb, pixel, innerBounds, BorderMain, 1, cornerCut - 2);
             }
         }
 
