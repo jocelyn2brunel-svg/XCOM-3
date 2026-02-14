@@ -164,10 +164,12 @@ namespace XCOM_3
                     int targetIndex = path.IndexOf(validCell.Value);
                     if (targetIndex >= 0)
                     {
+                        enemy.SetMovementStyle(1);
                         enemy.StartMoveAlongPath(path.Take(targetIndex + 1).ToList(), cellSize);
                     }
                     else
                     {
+                        enemy.SetMovementStyle(1);
                         enemy.StartMoveTo(validCell.Value, cellSize);
                     }
                     unitManager.OnUnitMoved(enemy, validCell.Value);
@@ -294,6 +296,7 @@ namespace XCOM_3
                     !pathfinding.BlocksMovement(enemy.Cell, move) &&
                     getUnitAtCell(move) == null)
                 {
+                    enemy.SetMovementStyle(1);
                     enemy.StartMoveTo(move, cellSize);
                     unitManager.OnUnitMoved(enemy, move);
                     UpdateUnitCover(enemy);
