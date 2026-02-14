@@ -1264,6 +1264,7 @@ namespace XCOM_3
             var alliedUnitsOnFloor = playerUnits
                 .Where(u => u.Health > 0 && u.Floor == floorToRender)
                 .ToList();
+            var wallsOnFloor = GetWallsForFloor(floorToRender);
 
             if (alliedUnitsOnFloor.Count == 0)
                 return;
@@ -1273,6 +1274,8 @@ namespace XCOM_3
             foreach (var ally in alliedUnitsOnFloor)
             {
                 DrawTacticalFlashlightBeam(ally, floorToRender);
+                if (wallsOnFloor.Count > 0)
+                    DrawTacticalFlashlightWallHighlights(ally, floorToRender, wallsOnFloor);
             }
 
             GraphicsDevice.BlendState = BlendState.Opaque;
@@ -1331,6 +1334,90 @@ namespace XCOM_3
                         beamColor * (0.35f + intensity * 0.65f));
                 }
             }
+        }
+
+        private void DrawTacticalFlashlightWallHighlights(Unit ally, int floorToRender, HashSet<WallSegment> wallsOnFloor)
+        {
+            if (ally == null || wallsOnFloor == null || wallsOnFloor.Count == 0)
+                return;
+
+            const float halfConeAngleRadians = MathHelper.Pi / 9f; // 20°
+            float cosHalfConeAngle = (float)Math.Cos(halfConeAngleRadians);
+
+            Vector2 beamOrigin = new Vector2(ally.VisualPosition.X / cellSize, ally.VisualPosition.Z / cellSize);
+            Vector2 forward = new Vector2((float)Math.Sin(ally.Orientation), (float)Math.Cos(ally.Orientation));
+            if (forward.LengthSquared() < 0.0001f)
+                return;
+
+            forward.Normalize();
+
+            float wallHeight = cellSize * WallHeightRatio;
+            float floorHeightOffset = floorToRender * cellSize;
+            float wallThickness = cellSize * 0.15f;
+
+            foreach (var wall in wallsOnFloor)
+            {
+                Vector2 wallCenter = new Vector2((wall.Start.X + wall.End.X) * 0.5f, (wall.Start.Y + wall.End.Y) * 0.5f);
+                Vector2 toWall = wallCenter - beamOrigin;
+                float distance = toWall.Length();
+                if (distance < 0.05f || distance > TacticalFlashlightRangeCells)
+                    continue;
+
+                Vector2 toWallDir = toWall / distance;
+                float angleDot = Vector2.Dot(forward, toWallDir);
+                if (angleDot < cosHalfConeAngle)
+                    continue;
+
+                if (!HasLineOfSightToWall(ally.Cell, wall, wallsOnFloor))
+                    continue;
+
+                float distanceFactor = 1f - (distance / TacticalFlashlightRangeCells);
+                float coneFactor = (angleDot - cosHalfConeAngle) / (1f - cosHalfConeAngle);
+                float intensity = MathHelper.Clamp(distanceFactor * coneFactor, 0f, 1f);
+                if (intensity <= 0.04f)
+                    continue;
+
+                Vector3 wallCenterWorld = new Vector3(
+                    wallCenter.X * cellSize,
+                    floorHeightOffset + wallHeight * 0.5f,
+                    wallCenter.Y * cellSize);
+
+                Vector3 highlightScale = wall.IsHorizontal
+                    ? new Vector3(cellSize * 0.98f, wallHeight * 0.94f, wallThickness * 1.05f)
+                    : new Vector3(wallThickness * 1.05f, wallHeight * 0.94f, cellSize * 0.98f);
+
+                Color highlightColor = Color.Lerp(
+                    new Color(255, 220, 140, 40),
+                    new Color(255, 245, 210, 185),
+                    intensity);
+
+                renderer3D.DrawCube(wallCenterWorld, highlightScale, highlightColor * (0.35f + intensity * 0.65f));
+            }
+        }
+
+        private bool HasLineOfSightToWall(Point originCell, WallSegment targetWall, HashSet<WallSegment> candidateWalls)
+        {
+            Vector2 origin = new Vector2(originCell.X + 0.5f, originCell.Y + 0.5f);
+            Vector2 targetCenter = new Vector2((targetWall.Start.X + targetWall.End.X) * 0.5f, (targetWall.Start.Y + targetWall.End.Y) * 0.5f);
+
+            foreach (var wall in candidateWalls)
+            {
+                if (wall.Equals(targetWall))
+                    continue;
+
+                Vector2 wallStart = new Vector2(wall.Start.X, wall.Start.Y);
+                Vector2 wallEnd = new Vector2(wall.End.X, wall.End.Y);
+
+                if (!TryGetSegmentIntersectionParam(origin, targetCenter, wallStart, wallEnd, out float rayT))
+                    continue;
+
+                if (rayT > 0.999f)
+                    continue;
+
+                return false;
+            }
+
+            return true;
         }
 
         private Color GetSkyColor(float time)
