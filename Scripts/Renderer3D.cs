@@ -120,22 +120,22 @@ namespace XCOM_3
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, texturedPlaneVerts, 0, 4, texturedPlaneIdx, 0, 2);
         }
 
-        public void DrawGrid(int w, int h, int size, Texture2D tex)
+        public void DrawGrid(int w, int h, int size, Texture2D tex, float floorHeightOffset = 0f)
         {
             for (int x = 0; x < w; x++) for (int z = 0; z < h; z++)
-                    DrawTexturedPlane(new Vector3(x * size + size / 2f, 0, z * size + size / 2f),
+                    DrawTexturedPlane(new Vector3(x * size + size / 2f, floorHeightOffset, z * size + size / 2f),
                                       new Vector3(size * 0.95f, 1, size * 0.95f), tex);
         }
 
         /// <summary>
         /// ? MURS AMÉLIORÉS - Version avec détails, hauteur et ombres
         /// </summary>
-        public void DrawWalls(HashSet<WallSegment> walls, int size, bool editorMode = false)
+        public void DrawWalls(HashSet<WallSegment> walls, int size, bool editorMode = false, float floorHeightOffset = 0f)
         {
             foreach (var s in walls)
             {
-                Vector3 start = new(s.Start.X * size, 0, s.Start.Y * size);
-                Vector3 end = new(s.End.X * size, 0, s.End.Y * size);
+                Vector3 start = new(s.Start.X * size, floorHeightOffset, s.Start.Y * size);
+                Vector3 end = new(s.End.X * size, floorHeightOffset, s.End.Y * size);
                 Vector3 center = (start + end) / 2f;
 
                 // ? Hauteur du mur augmentée

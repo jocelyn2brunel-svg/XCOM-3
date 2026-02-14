@@ -130,6 +130,7 @@ namespace XCOM_3
         private bool showCoverIndicators = false;
 
         private Point lastHoveredCell = new Point(-1, -1);
+        private int viewedFloor = 0;
 
 
         public Game1()
@@ -423,7 +424,7 @@ namespace XCOM_3
 
         private void HandleFireCompleted()
         {
-            if (selectedUnit != null && selectedUnit.Team == Team.Player)
+            if (selectedUnit != null && selectedUnit.Team == Team.Player && selectedUnit.Floor == viewedFloor)
                 combatUI.UpdateFireTargets(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit));
         }
 
@@ -466,8 +467,21 @@ namespace XCOM_3
 
             combatSystem.UpdateFiringAnimations(gameTime);
             camera.HandleControls(keyboard, mouse, previousMouseState, gameTime, allowZoom: !statsPanel.IsVisible); UpdateDayNightCycle(gameTime);
+            HandleFloorViewControls(keyboard);
 
             if (escapePressed) ReturnToMainMenuWithSave();
+        }
+
+
+        private void HandleFloorViewControls(KeyboardState keyboard)
+        {
+            int maxFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
+
+            if (keyboard.IsKeyDown(Keys.PageUp) && previousKeyboardState.IsKeyUp(Keys.PageUp))
+                viewedFloor = Math.Min(viewedFloor + 1, maxFloor);
+
+            if (keyboard.IsKeyDown(Keys.PageDown) && previousKeyboardState.IsKeyUp(Keys.PageDown))
+                viewedFloor = Math.Max(viewedFloor - 1, 0);
         }
 
         private void ReadInputs(out bool leftClick, out bool escapePressed, out bool iPressed,
@@ -578,15 +592,16 @@ namespace XCOM_3
 
             if (combatUI.ShowFireTargets && selectedUnit?.Team == Team.Player) combatUI.DrawFireTargets(mouse);
 
-            if (selectedUnit != null && selectedUnit.Team == Team.Player)
+            if (selectedUnit != null && selectedUnit.Team == Team.Player && selectedUnit.Floor == viewedFloor)
             {
                 combatUI.DrawMovementInfo(selectedUnit, hoveredCell, currentPath);
             }
 
-            _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | I: Inventaire", new Vector2(10, 10), Color.White);
+            _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | PgUp/PgDn: Etage | I: Inventaire", new Vector2(10, 10), Color.White);
 
             string timeStr = GetTimeOfDayString(timeOfDay);
             _spriteBatch.DrawString(font, $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}", new Vector2(10, 30), Color.Yellow);
+            _spriteBatch.DrawString(font, $"Etage affiche: {viewedFloor + 1}/{Math.Max(1, currentMap?.FloorCount ?? 1)}", new Vector2(10, 50), Color.LightGreen);
         }
 
         private void DrawWorld3D(GameTime gameTime)
@@ -598,16 +613,21 @@ namespace XCOM_3
             GraphicsDevice.RasterizerState = new RasterizerState { CullMode = CullMode.None };
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-            renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture);
-            renderer3D.DrawWalls(wallSegments, cellSize, editorMode: false);
+            int floorCount = Math.Max(1, currentMap?.FloorCount ?? 1);
+            for (int floor = 0; floor < floorCount; floor++)
+            {
+                float yOffset = floor * cellSize;
+                renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture, yOffset);
+                renderer3D.DrawWalls(wallSegments, cellSize, editorMode: false, floorHeightOffset: yOffset);
+            }
 
-            foreach (var unit in playerUnits) renderer3D.DrawUnit(unit, cellSize);
-            foreach (var unit in enemyUnits) renderer3D.DrawUnit(unit, cellSize);
+            foreach (var unit in playerUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
+            foreach (var unit in enemyUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
 
-            if (selectedUnit != null) renderer3D.DrawSelectionIndicator(selectedUnit, cellSize, new Color(0, 255, 255, 128));
+            if (selectedUnit != null && selectedUnit.Floor == viewedFloor) renderer3D.DrawSelectionIndicator(selectedUnit, cellSize, new Color(0, 255, 255, 128));
 
             Unit target = combatUI.SelectedFireTarget ?? combatUI.HoveredFireTarget;
-            if (target != null) renderer3D.DrawSelectionIndicator(target, cellSize, new Color(255, 0, 0, 128), 1.2f);
+            if (target != null && target.Floor == viewedFloor) renderer3D.DrawSelectionIndicator(target, cellSize, new Color(255, 0, 0, 128), 1.2f);
 
             renderer3D.DrawCraters(craters, cellSize);
             renderer3D.DrawGrenades(activeGrenades, cellSize);
@@ -628,7 +648,7 @@ namespace XCOM_3
             }
 
             // Dessiner l'icône de couverture sur les unités
-            foreach (var unit in playerUnits.Concat(enemyUnits))
+            foreach (var unit in playerUnits.Concat(enemyUnits).Where(u => u.Floor == viewedFloor))
             {
                 if (unit.CoverType != CoverType.None)
                 {
@@ -637,7 +657,8 @@ namespace XCOM_3
                 }
             }
 
-            if (selectedUnit != null && combatUI.SelectedFireTarget != null)
+            if (selectedUnit != null && combatUI.SelectedFireTarget != null &&
+                selectedUnit.Floor == viewedFloor && combatUI.SelectedFireTarget.Floor == viewedFloor)
             {
                 var coverSystem = combatSystem.GetCoverSystem();
                 if (coverSystem.IsUnitFlanked(combatUI.SelectedFireTarget, selectedUnit))
@@ -650,7 +671,7 @@ namespace XCOM_3
                 }
             }
 
-            if (selectedUnit != null && selectedUnit.Team == Team.Player)
+            if (selectedUnit != null && selectedUnit.Team == Team.Player && selectedUnit.Floor == viewedFloor)
             {
                 var zones = pathfinding.GetMovementZones(selectedUnit);
                 renderer3D.DrawMovementZones(zones, cellSize,
@@ -658,7 +679,7 @@ namespace XCOM_3
             }
 
             // Afficher le chemin
-            if (currentPath.Count > 0 && selectedUnit != null)
+            if (currentPath.Count > 0 && selectedUnit != null && selectedUnit.Floor == viewedFloor)
             {
                 renderer3D.DrawMovementPath(currentPath, selectedUnit, cellSize,
                     (float)gameTime.TotalGameTime.TotalSeconds);
@@ -684,13 +705,14 @@ namespace XCOM_3
         private void DrawMovableCells3D(GameTime gameTime)
         {
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 &&
-                combatSystem.CurrentTurn == TurnState.PlayerTurn && selectedUnit.Team == Team.Player)
+                combatSystem.CurrentTurn == TurnState.PlayerTurn && selectedUnit.Team == Team.Player &&
+                selectedUnit.Floor == viewedFloor)
             {
                 float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 3f) * 0.3f + 0.7f;
 
                 foreach (var cell in cachedMovableCells)
                 {
-                    Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, 0.05f, cell.Y * cellSize + cellSize / 2f);
+                    Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, viewedFloor * cellSize + 0.05f, cell.Y * cellSize + cellSize / 2f);
                     renderer3D.DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), Color.Green * pulse);
                 }
             }
@@ -698,14 +720,14 @@ namespace XCOM_3
 
         private void DrawPath3D(GameTime gameTime)
         {
-            if (currentPath.Count == 0 || selectedUnit == null || selectedUnit.Team != Team.Player) return;
+            if (currentPath.Count == 0 || selectedUnit == null || selectedUnit.Team != Team.Player || selectedUnit.Floor != viewedFloor) return;
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.2f + 0.8f;
 
             for (int i = 0; i < currentPath.Count; i++)
             {
                 Point cell = currentPath[i];
-                Vector3 pos = new Vector3(cell.X * cellSize + cellSize / 2f, 0.1f, cell.Y * cellSize + cellSize / 2f);
+                Vector3 pos = new Vector3(cell.X * cellSize + cellSize / 2f, viewedFloor * cellSize + 0.1f, cell.Y * cellSize + cellSize / 2f);
                 float intensity = 1f - (i / (float)currentPath.Count) * 0.5f;
                 renderer3D.DrawPlane(pos, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), new Color(100, 150, 255) * pulse * intensity);
             }
@@ -717,7 +739,7 @@ namespace XCOM_3
                 return;
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
-            Vector3 position = new Vector3(hoveredCell.X * cellSize + cellSize / 2f, 0.15f, hoveredCell.Y * cellSize + cellSize / 2f);
+            Vector3 position = new Vector3(hoveredCell.X * cellSize + cellSize / 2f, viewedFloor * cellSize + 0.15f, hoveredCell.Y * cellSize + cellSize / 2f);
 
             renderer3D.DrawPlane(position, new Vector3(cellSize, 1, cellSize), Color.Yellow * pulse);
         }
@@ -738,6 +760,7 @@ namespace XCOM_3
 
             // Appliquer les données de la carte
             currentMap = map;
+            viewedFloor = 0;
             gridWidth = map.GridWidth;
             gridHeight = map.GridHeight;
             cellSize = map.CellSize;
