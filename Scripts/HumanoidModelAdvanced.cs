@@ -112,7 +112,7 @@ namespace XCOM_3
 
         private void DrawRoundedCapsuleBetween(GraphicsDevice device, BasicEffect effect, Vector3 center,
                                                Vector3 start, Vector3 end, float radius,
-                                               Color color, Matrix modelRot, int segments = 4)
+                                               Color color, Matrix modelRot, int segments = 6)
         {
             Vector3 segment = end - start;
             float length = segment.Length();
@@ -142,7 +142,7 @@ namespace XCOM_3
         }
 
         private void DrawRoundedCapsuleY(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
-                                         float height, float radius, Color color, Matrix rot, int segments = 4)
+                                         float height, float radius, Color color, Matrix rot, int segments = 6)
         {
             int safeSegments = Math.Max(2, segments);
             float segmentHeight = height / safeSegments;
@@ -163,7 +163,7 @@ namespace XCOM_3
         private void DrawRoundedHead(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
                                      float radius, Color color, Matrix rot)
         {
-            DrawRoundedCapsuleY(device, effect, center, relative, radius * 1.35f, radius * 1.05f, color, rot, 5);
+            DrawRoundedCapsuleY(device, effect, center, relative, radius * 1.4f, radius * 1.02f, color, rot, 7);
         }
 
         /// <summary>
@@ -711,14 +711,14 @@ namespace XCOM_3
             float handZ = dims.td * (isAiming ? 0.95f : 0.45f);
 
             DrawRoundedCapsuleY(d, e, p, new Vector3(dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.35f),
-                dims.al * 0.52f, dims.lw * 0.5f, armColor, r, 4);
+                dims.al * 0.52f, dims.lw * 0.5f, armColor, r, 6);
             DrawRoundedCapsuleY(d, e, p, new Vector3(dims.tw * 0.62f, (elbowY + handY) * 0.5f, handZ * 0.7f),
-                dims.al * 0.48f, dims.lw * 0.46f, armColor * 0.95f, r, 4);
+                dims.al * 0.48f, dims.lw * 0.46f, armColor * 0.95f, r, 6);
 
             DrawRoundedCapsuleY(d, e, p, new Vector3(-dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.45f),
-                dims.al * 0.46f, dims.lw * 0.5f, armColor * 0.95f, r, 4);
+                dims.al * 0.46f, dims.lw * 0.5f, armColor * 0.95f, r, 6);
             DrawRoundedCapsuleY(d, e, p, new Vector3(-dims.tw * 0.42f, (elbowY + handY) * 0.5f, handZ * 0.85f),
-                dims.al * 0.42f, dims.lw * 0.46f, armColor * 0.9f, r, 4);
+                dims.al * 0.42f, dims.lw * 0.46f, armColor * 0.9f, r, 6);
 
             Color jointColor = bodyColor * 0.6f;
             DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.6f, elbowY, handZ * 0.5f), dims.lw * 0.3f, jointColor, r);
@@ -762,11 +762,11 @@ namespace XCOM_3
                 -dims.al * (0.32f + Math.Max(0f, backward) * 0.1f),
                 forward * dims.al * 0.28f + Math.Max(0f, backward) * dims.al * 0.12f + bendBias * dims.al * 0.08f);
 
-            DrawRoundedCapsuleBetween(d, e, p, shoulder, elbow, dims.lw * radiusScale, armColor, r, 4);
-            DrawRoundedCapsuleBetween(d, e, p, elbow, wrist, dims.lw * (radiusScale * 0.92f), armColor * 0.95f, r, 4);
+            DrawRoundedCapsuleBetween(d, e, p, shoulder, elbow, dims.lw * radiusScale, armColor, r, 6);
+            DrawRoundedCapsuleBetween(d, e, p, elbow, wrist, dims.lw * (radiusScale * 0.92f), armColor * 0.95f, r, 6);
 
             Vector3 handPos = wrist + new Vector3(0f, -dims.lw * 0.25f, forward * dims.lw * 0.95f);
-            Vector3 handScale = new Vector3(dims.lw * (radiusScale * 1.15f), dims.lw * (radiusScale * 0.85f), dims.lw * (radiusScale * 1.35f));
+            Vector3 handScale = new Vector3(dims.lw * (radiusScale * 1.02f), dims.lw * (radiusScale * 0.82f), dims.lw * (radiusScale * 1.08f));
             DrawBodyPart(d, e, p, handPos, handScale, armColor * 0.92f, r);
         }
 
@@ -788,11 +788,11 @@ namespace XCOM_3
                 -dims.ll * (0.44f + Math.Max(0f, backward) * 0.12f),
                 forward * dims.ll * 0.18f + Math.Max(0f, backward) * dims.ll * 0.24f);
 
-            DrawRoundedCapsuleBetween(d, e, p, hip, knee, dims.lw * legRadiusScale, legColor, r, 4);
-            DrawRoundedCapsuleBetween(d, e, p, knee, ankle, dims.lw * (legRadiusScale * 0.92f), legColor * 0.96f, r, 4);
+            DrawRoundedCapsuleBetween(d, e, p, hip, knee, dims.lw * legRadiusScale, legColor, r, 6);
+            DrawRoundedCapsuleBetween(d, e, p, knee, ankle, dims.lw * (legRadiusScale * 0.92f), legColor * 0.96f, r, 6);
 
             Vector3 bootPos = ankle + new Vector3(0f, dims.ll * 0.05f, dims.lw * (0.45f + Math.Max(0f, forward) * 0.35f));
-            Vector3 bootScale = new Vector3(dims.lw * (legRadiusScale * 2.35f), dims.ll * 0.2f, dims.lw * (legRadiusScale * 2.7f));
+            Vector3 bootScale = new Vector3(dims.lw * (legRadiusScale * 2.05f), dims.ll * 0.18f, dims.lw * (legRadiusScale * 2.25f));
             DrawBodyPart(d, e, p, bootPos, bootScale, footColor, r);
         }
 
@@ -813,15 +813,15 @@ namespace XCOM_3
 
             // Torse en polygones (silhouette triangulaire selon le type de corps)
             bool feminine = bodyType == Unit.HumanBodyType.Feminine;
-            float topWidth = dims.tw * (feminine ? 0.9f : 1.05f);
-            float bottomWidth = dims.tw * (feminine ? 1.1f : 0.7f);
+            float topWidth = dims.tw * (feminine ? 0.92f : 1.0f);
+            float bottomWidth = dims.tw * (feminine ? 1.04f : 0.78f);
             DrawTorsoPolygon(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0),
                             dims.th, topWidth, bottomWidth, dims.td, body, r);
 
             // Poitrine plus triangulaire
-            float chestWidth = dims.tw * (feminine ? 0.82f : 0.75f);
-            float chestHeight = dims.th * (feminine ? 0.36f : 0.33f);
-            float chestDepth = dims.td * (feminine ? 0.95f : 0.85f);
+            float chestWidth = dims.tw * (feminine ? 0.74f : 0.68f);
+            float chestHeight = dims.th * (feminine ? 0.33f : 0.3f);
+            float chestDepth = dims.td * (feminine ? 0.82f : 0.74f);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.8f, dims.td * 0.15f),
                         new Vector3(chestWidth, chestHeight, chestDepth), body * 0.92f, r);
 
