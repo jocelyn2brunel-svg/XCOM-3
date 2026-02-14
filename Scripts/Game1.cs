@@ -289,38 +289,7 @@ namespace XCOM_3
             ReadInputs(out bool leftClick, out bool escapePressed, out bool iPressed,
                        out MouseState mouse, out KeyboardState keyboard);
 
-            // INVENTAIRE
-            if (iPressed && currentState == GameState.Playing && selectedUnit?.Team == Team.Player)
-            {
-                if (showInventory)
-                    CloseUnitPages();
-                else
-                    OpenUnitPage(UnitPageTab.Inventory);
-            }
-
-            // SKILLS
-            if (keyboard.IsKeyDown(Keys.K) &&
-                !previousKeyboardState.IsKeyDown(Keys.K) &&
-                currentState == GameState.Playing &&
-                selectedUnit?.Team == Team.Player)
-            {
-                if (statsPanel.IsVisible)
-                    CloseUnitPages();
-                else
-                    OpenUnitPage(UnitPageTab.Skills);
-            }
-
-            // FICHE PERSONNAGE
-            if (keyboard.IsKeyDown(Keys.C) &&
-                !previousKeyboardState.IsKeyDown(Keys.C) &&
-                currentState == GameState.Playing &&
-                selectedUnit?.Team == Team.Player)
-            {
-                if (characterInfoPanel.IsVisible)
-                    CloseUnitPages();
-                else
-                    OpenUnitPage(UnitPageTab.Info);
-            }
+            HandleUnitPageShortcuts(iPressed, keyboard);
 
             if (leftClick && currentState == GameState.Playing)
             {
@@ -519,7 +488,8 @@ namespace XCOM_3
 
             combatSystem.UpdateFiringAnimations(gameTime);
             UpdateAimCameraAndPose();
-            camera.HandleControls(keyboard, mouse, previousMouseState, gameTime, allowZoom: !statsPanel.IsVisible); UpdateDayNightCycle(gameTime);
+            camera.HandleControls(keyboard, mouse, previousMouseState, gameTime, allowZoom: !statsPanel.IsVisible);
+            UpdateDayNightCycle(gameTime);
             HandleFloorViewControls(keyboard);
 
             if (escapePressed) ReturnToMainMenuWithSave();
@@ -652,6 +622,34 @@ namespace XCOM_3
             leftClick = mouse.LeftButton == ButtonState.Pressed && previousMouseState.LeftButton == ButtonState.Released;
             escapePressed = keyboard.IsKeyDown(Keys.Escape) && previousKeyboardState.IsKeyUp(Keys.Escape);
             iPressed = keyboard.IsKeyDown(Keys.I) && previousKeyboardState.IsKeyUp(Keys.I);
+        }
+
+        private void HandleUnitPageShortcuts(bool inventoryPressed, KeyboardState keyboard)
+        {
+            if (!CanUseUnitPageShortcuts())
+                return;
+
+            ToggleUnitPageIfPressed(inventoryPressed, showInventory, UnitPageTab.Inventory);
+
+            bool skillsPressed = keyboard.IsKeyDown(Keys.K) && previousKeyboardState.IsKeyUp(Keys.K);
+            ToggleUnitPageIfPressed(skillsPressed, statsPanel.IsVisible, UnitPageTab.Skills);
+
+            bool infoPressed = keyboard.IsKeyDown(Keys.C) && previousKeyboardState.IsKeyUp(Keys.C);
+            ToggleUnitPageIfPressed(infoPressed, characterInfoPanel.IsVisible, UnitPageTab.Info);
+        }
+
+        private bool CanUseUnitPageShortcuts() =>
+            currentState == GameState.Playing && selectedUnit?.Team == Team.Player;
+
+        private void ToggleUnitPageIfPressed(bool keyPressed, bool pageVisible, UnitPageTab tab)
+        {
+            if (!keyPressed)
+                return;
+
+            if (pageVisible)
+                CloseUnitPages();
+            else
+                OpenUnitPage(tab);
         }
 
         private bool IsTabPressed(KeyboardState keyboard) =>
