@@ -524,7 +524,7 @@ namespace XCOM_3
         private void DrawSoldierBody(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r,
                                      float l, float a, UnitDimensions dims)
         {
-            Color skin = new(220, 180, 140), dark = new(60, 60, 80);
+            Color skin = new(220, 180, 140), dark = new(52, 58, 90);
 
             // Jambes
             DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.3f + l * 0.05f, dims.ll * 0.5f, l * 0.1f),
@@ -532,9 +532,19 @@ namespace XCOM_3
             DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.3f - l * 0.05f, dims.ll * 0.5f, -l * 0.1f),
                         new Vector3(dims.lw, dims.ll, dims.lw), dark, r);
 
+            // Bottes volumineuses style low-poly PS1
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.3f + l * 0.05f, dims.ll * 0.08f, dims.lw * 0.4f),
+                        new Vector3(dims.lw * 1.65f, dims.ll * 0.22f, dims.lw * 1.9f), dark * 0.8f, r);
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.3f - l * 0.05f, dims.ll * 0.08f, dims.lw * 0.4f),
+                        new Vector3(dims.lw * 1.65f, dims.ll * 0.22f, dims.lw * 1.9f), dark * 0.8f, r);
+
             // Torse
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0),
-                        new Vector3(dims.tw, dims.th, dims.td), c, r);
+                        new Vector3(dims.tw * 0.95f, dims.th, dims.td), c, r);
+
+            // Poitrine plus triangulaire
+            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.8f, dims.td * 0.15f),
+                        new Vector3(dims.tw * 0.75f, dims.th * 0.33f, dims.td * 0.85f), c * 0.8f, r);
 
             // Bras
             DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.7f, -a * 0.15f),
@@ -542,9 +552,42 @@ namespace XCOM_3
             DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.7f, a * 0.15f),
                         new Vector3(dims.lw, dims.al, dims.lw), c * 0.85f, r);
 
+            // Bracelets / avant-bras plus marqués
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.58f, -a * 0.15f),
+                        new Vector3(dims.lw * 1.5f, dims.al * 0.22f, dims.lw * 1.25f), new Color(55, 70, 100), r);
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.58f, a * 0.15f),
+                        new Vector3(dims.lw * 1.5f, dims.al * 0.22f, dims.lw * 1.25f), new Color(55, 70, 100), r);
+
             // Tête
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0),
                         new Vector3(dims.head, dims.head * 1.2f, dims.head), skin, r);
+
+            DrawCloudInspiredFeatures(d, e, p, c, r, dims);
+        }
+
+        private void DrawCloudInspiredFeatures(GraphicsDevice d, BasicEffect e, Vector3 p, Color c,
+                                               Matrix r, UnitDimensions dims)
+        {
+            float headY = dims.ll + dims.th + dims.head * 0.6f;
+
+            // Picots de cheveux façon Cloud (version low-poly inspirée)
+            Color hair = new(236, 205, 96);
+            DrawBodyPart(d, e, p, new Vector3(0, headY + dims.head * 0.82f, 0),
+                        new Vector3(dims.head * 1.05f, dims.head * 0.24f, dims.head * 1.05f), hair * 0.95f, r);
+            DrawBodyPart(d, e, p, new Vector3(-dims.head * 0.86f, headY + dims.head * 0.62f, dims.head * 0.06f),
+                        new Vector3(dims.head * 0.42f, dims.head * 0.26f, dims.head * 0.34f), hair * 0.88f, r);
+            DrawBodyPart(d, e, p, new Vector3(dims.head * 0.88f, headY + dims.head * 0.54f, 0),
+                        new Vector3(dims.head * 0.55f, dims.head * 0.3f, dims.head * 0.4f), hair, r);
+            DrawBodyPart(d, e, p, new Vector3(dims.head * 0.48f, headY + dims.head * 0.76f, dims.head * 0.66f),
+                        new Vector3(dims.head * 0.34f, dims.head * 0.22f, dims.head * 0.34f), hair * 0.92f, r);
+
+            // Épaulette unique sur l'épaule gauche pour une silhouette marquante
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.86f, dims.ll + dims.th * 0.84f, 0),
+                        new Vector3(dims.tw * 0.42f, dims.al * 0.35f, dims.td * 0.95f), new Color(85, 92, 112), r);
+
+            // Ceinture large contrastée
+            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.22f, dims.td * 0.05f),
+                        new Vector3(dims.tw * 0.98f, dims.th * 0.14f, dims.td * 1.08f), new Color(82, 64, 46), r);
         }
 
         private void DrawAlien(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
@@ -606,6 +649,8 @@ namespace XCOM_3
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, 0), new Vector3(dims.head * 1.1f, dims.head, dims.head * 1.1f), skin, r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, dims.head * 0.6f), new Vector3(dims.head * 0.8f, dims.head * 0.4f, dims.head * 0.15f), new Color(30, 30, 30), r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, dims.td * 0.9f), new Vector3(dims.tw * 0.4f, dims.th * 0.4f, dims.td * 0.7f), new Color(60, 60, 60), r);
+
+            DrawCloudInspiredFeatures(d, e, p, c, r, dims);
         }
 
         private void DrawScout(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
@@ -626,6 +671,8 @@ namespace XCOM_3
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0), new Vector3(dims.head, dims.head * 1.2f, dims.head), skin, r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f + 0.05f * s, dims.head * 0.6f), new Vector3(dims.head * 0.7f, dims.head * 0.25f, dims.head * 0.08f), new Color(50, 100, 150), r);
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, dims.head * 0.8f), new Vector3(dims.head * 0.1f, dims.head * 0.1f, dims.head * 0.35f), new Color(255, 0, 0), r);
+
+            DrawCloudInspiredFeatures(d, e, p, c, r, dims);
         }
     }
 }
