@@ -867,6 +867,19 @@ namespace XCOM_3
 
             var wallsForFloor = GetWallsForFloor(floorToRender);
             renderer3D.DrawWalls(wallsForFloor, cellSize, editorMode: false, floorHeightOffset: yOffset);
+
+            for (int upperFloor = floorToRender + 1; upperFloor < floorCount; upperFloor++)
+            {
+                float upperFloorOffset = upperFloor * cellSize;
+                var wallsForUpperFloor = GetWallsForFloor(upperFloor);
+                renderer3D.DrawWalls(
+                    wallsForUpperFloor,
+                    cellSize,
+                    editorMode: false,
+                    floorHeightOffset: upperFloorOffset,
+                    wallOverrideColor: new Color(165, 150, 130));
+            }
+
             renderer3D.DrawStairConnections(currentMap?.StairConnections, floorToRender, cellSize);
 
             foreach (var unit in playerUnits.Where(u => u.Floor == viewedFloor)) renderer3D.DrawUnit(unit, cellSize);
