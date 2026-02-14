@@ -166,6 +166,63 @@ namespace XCOM_3
             DrawRoundedCapsuleY(device, effect, center, relative, radius * 1.4f, radius * 1.02f, color, rot, 7);
         }
 
+        private void DrawFrustumBetween(GraphicsDevice device, BasicEffect effect, Vector3 center,
+                                        Vector3 start, Vector3 end, float startRadius, float endRadius,
+                                        Color color, Matrix modelRot, int segments = 5)
+        {
+            Vector3 segment = end - start;
+            float length = segment.Length();
+            if (length < 0.0001f)
+                return;
+
+            int safeSegments = Math.Max(2, segments);
+            float segmentHeight = length / safeSegments;
+            Vector3 dir = segment / length;
+            Matrix limbRot = CreateRotationFromUpTo(dir);
+            Matrix partRot = limbRot * modelRot;
+
+            for (int i = 0; i < safeSegments; i++)
+            {
+                float t = safeSegments == 1 ? 0f : i / (safeSegments - 1f);
+                float radius = MathHelper.Lerp(startRadius, endRadius, t);
+                Vector3 segPos = Vector3.Lerp(start, end, t);
+                Vector3 segScale = new Vector3(radius, segmentHeight * 1.03f, radius);
+                DrawBodyPart(device, effect, center, segPos, segScale, color * (0.9f + 0.1f * (1f - t)), modelRot, partRot);
+            }
+        }
+
+        private void DrawFootPyramid(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
+                                     float width, float height, float backDepth, float frontDepth,
+                                     Color color, Matrix modelRot)
+        {
+            float halfW = width * 0.5f;
+            float halfH = height * 0.5f;
+            float back = backDepth * 0.5f;
+            float front = frontDepth;
+            float apexW = width * 0.16f;
+
+            var verts = new VertexPositionColor[8]
+            {
+                new(new Vector3(-halfW, -halfH, -back), color),
+                new(new Vector3(-halfW, -halfH, front), color),
+                new(new Vector3( halfW, -halfH, front), color),
+                new(new Vector3( halfW, -halfH, -back), color),
+                new(new Vector3(-apexW, halfH, -back * 0.4f), color),
+                new(new Vector3(-apexW, halfH, front * 0.25f), color),
+                new(new Vector3( apexW, halfH, front * 0.25f), color),
+                new(new Vector3( apexW, halfH, -back * 0.4f), color)
+            };
+
+            Vector3 finalPos = center + Vector3.Transform(relative, modelRot);
+            effect.World = modelRot * Matrix.CreateTranslation(finalPos);
+
+            foreach (var pass in effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                device.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, 8, cubeIndices, 0, 12);
+            }
+        }
+
         /// <summary>
         /// Dessine une unité avec son équipement visible
         /// </summary>
@@ -810,9 +867,16 @@ namespace XCOM_3
                 -dims.al * (0.32f + Math.Max(0f, backward) * 0.1f),
                 forward * dims.al * 0.28f + Math.Max(0f, backward) * dims.al * 0.12f + bendBias * dims.al * 0.08f);
 
-            DrawRoundedCapsuleBetween(d, e, p, shoulder, elbow, dims.lw * radiusScale, armColor, r, 8);
-            DrawRoundedCapsuleBetween(d, e, p, elbow, wrist, dims.lw * (radiusScale * 0.92f), armColor * 0.95f, r, 8);
+            // Épaule = sphère
+            DrawRoundedHead(d, e, p, shoulder, dims.lw * (radiusScale * 0.56f), armColor * 0.88f, r);
 
+            // Biceps + avant-bras = cônes tronqués
+            DrawFrustumBetween(d, e, p, shoulder, elbow,
+                dims.lw * (radiusScale * 1.08f), dims.lw * (radiusScale * 0.88f), armColor, r, 6);
+            DrawFrustumBetween(d, e, p, elbow, wrist,
+                dims.lw * (radiusScale * 0.9f), dims.lw * (radiusScale * 0.72f), armColor * 0.95f, r, 6);
+
+            // Main = prisme rectangulaire
             Vector3 handPos = wrist + new Vector3(0f, -dims.lw * 0.25f, forward * dims.lw * 0.95f);
             Vector3 handScale = new Vector3(dims.lw * (radiusScale * 1.02f), dims.lw * (radiusScale * 0.82f), dims.lw * (radiusScale * 1.08f));
             DrawBodyPart(d, e, p, handPos, handScale, armColor * 0.92f, r);
@@ -836,12 +900,26 @@ namespace XCOM_3
                 -dims.ll * (0.44f + Math.Max(0f, backward) * 0.12f),
                 forward * dims.ll * 0.18f + Math.Max(0f, backward) * dims.ll * 0.24f);
 
-            DrawRoundedCapsuleBetween(d, e, p, hip, knee, dims.lw * legRadiusScale, legColor, r, 8);
-            DrawRoundedCapsuleBetween(d, e, p, knee, ankle, dims.lw * (legRadiusScale * 0.92f), legColor * 0.96f, r, 8);
+            // Cuisses = gros cône tronqué
+            DrawFrustumBetween(d, e, p, hip, knee,
+                dims.lw * (legRadiusScale * 1.35f), dims.lw * (legRadiusScale * 1.02f), legColor, r, 7);
 
-            Vector3 bootPos = ankle + new Vector3(0f, dims.ll * 0.05f, dims.lw * (0.45f + Math.Max(0f, forward) * 0.35f));
-            Vector3 bootScale = new Vector3(dims.lw * (legRadiusScale * 2.05f), dims.ll * 0.18f, dims.lw * (legRadiusScale * 2.25f));
-            DrawBodyPart(d, e, p, bootPos, bootScale, footColor, r);
+            // Genou = sphère
+            DrawRoundedHead(d, e, p, knee, dims.lw * (legRadiusScale * 0.44f), legColor * 0.85f, r);
+
+            // Tibia = cône tronqué
+            DrawFrustumBetween(d, e, p, knee, ankle,
+                dims.lw * (legRadiusScale * 1.0f), dims.lw * (legRadiusScale * 0.8f), legColor * 0.96f, r, 7);
+
+            // Cheville = sphère
+            DrawRoundedHead(d, e, p, ankle, dims.lw * (legRadiusScale * 0.34f), legColor * 0.82f, r);
+
+            // Pied = pyramide à base carrée allongée vers l'avant
+            Vector3 bootPos = ankle + new Vector3(0f, dims.ll * 0.06f, dims.lw * (0.42f + Math.Max(0f, forward) * 0.35f));
+            DrawFootPyramid(d, e, p, bootPos,
+                dims.lw * (legRadiusScale * 2.1f), dims.ll * 0.18f,
+                dims.lw * (legRadiusScale * 0.8f), dims.lw * (legRadiusScale * 2.25f),
+                footColor, r);
         }
 
         private void DrawSoldier(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
@@ -863,24 +941,33 @@ namespace XCOM_3
                 DrawRunningLegPair(d, e, p, r, dims, l, 0.3f, 0.55f, dark, dark * 0.8f);
             }
 
-            // Torse en polygones (silhouette triangulaire selon le type de corps)
+            // Poitrine = prisme trapézoïdal inversé
             bool feminine = bodyType == Unit.HumanBodyType.Feminine;
-            float topWidth = dims.tw * (feminine ? 0.92f : 1.0f);
-            float bottomWidth = dims.tw * (feminine ? 1.04f : 0.78f);
+            float topWidth = dims.tw * (feminine ? 1.0f : 1.08f);
+            float bottomWidth = dims.tw * (feminine ? 0.84f : 0.76f);
             DrawTorsoPolygon(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0),
                             dims.th, topWidth, bottomWidth, dims.td, body, r);
 
-            // Poitrine plus triangulaire
-            float chestWidth = dims.tw * (feminine ? 0.74f : 0.68f);
-            float chestHeight = dims.th * (feminine ? 0.33f : 0.3f);
-            float chestDepth = dims.td * (feminine ? 0.82f : 0.74f);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.8f, dims.td * 0.15f),
-                        new Vector3(chestWidth, chestHeight, chestDepth), body * 0.92f, r);
+            // Abdomen = prisme rectangulaire
+            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.2f, 0),
+                new Vector3(dims.tw * 0.64f, dims.th * 0.38f, dims.td * 0.72f), body * 0.9f, r);
 
-            // Bras articulés (épaule → coude → poignet)
+            // Bassin/fessier = forme culotte
+            DrawTorsoPolygon(d, e, p, new Vector3(0, dims.ll - dims.th * 0.04f, 0),
+                dims.th * 0.24f, dims.tw * 0.86f, dims.tw * 0.74f, dims.td * 0.9f, dark * 0.94f, r);
+            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.24f, dims.ll - dims.th * 0.06f, -dims.td * 0.05f),
+                new Vector3(dims.tw * 0.26f, dims.th * 0.16f, dims.td * 0.6f), dark * 0.88f, r);
+            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.24f, dims.ll - dims.th * 0.06f, -dims.td * 0.05f),
+                new Vector3(dims.tw * 0.26f, dims.th * 0.16f, dims.td * 0.6f), dark * 0.88f, r);
+
+            // Bras: épaules sphériques, segments en cônes tronqués, mains en prismes rectangulaires
             DrawSwingingArmPair(d, e, p, r, dims, a, 0.6f, 0.9f, 0f, 0.52f, body * 0.9f);
 
-            // Tête
+            // Cou = cylindre
+            DrawRoundedCapsuleY(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.1f, 0),
+                dims.head * 0.48f, dims.head * 0.2f, skin * 0.95f, r, 5);
+
+            // Tête = sphère
             DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0),
                 dims.head * 0.52f, skin, r);
 
