@@ -1058,6 +1058,7 @@ namespace XCOM_3
                     ComputeOcclusionFromPathArea(wallsForUpperFloor, upperFloorOffset, fadedUpperWalls);
 
                     var opaqueUpperWalls = new HashSet<WallSegment>(wallsForUpperFloor.Where(w => !fadedUpperWalls.Contains(w)));
+                    opaqueUpperWalls = FilterCameraFacingWallsForNonViewedFloor(opaqueUpperWalls);
                     if (opaqueUpperWalls.Count > 0)
                     {
                         renderer3D.DrawWalls(
@@ -1093,6 +1094,7 @@ namespace XCOM_3
                     ComputeOcclusionFromPathArea(wallsForLowerFloor, lowerFloorOffset, fadedLowerWalls);
 
                     var opaqueLowerWalls = new HashSet<WallSegment>(wallsForLowerFloor.Where(w => !fadedLowerWalls.Contains(w)));
+                    opaqueLowerWalls = FilterCameraFacingWallsForNonViewedFloor(opaqueLowerWalls);
                     if (opaqueLowerWalls.Count > 0)
                     {
                         renderer3D.DrawWalls(
@@ -1719,6 +1721,39 @@ namespace XCOM_3
 
             int deepestBasement = currentMap.Buildings.Max(b => Math.Max(0, b.BasementCount));
             return -deepestBasement;
+        }
+
+        private HashSet<WallSegment> FilterCameraFacingWallsForNonViewedFloor(HashSet<WallSegment> walls)
+        {
+            if (walls == null || walls.Count == 0)
+                return walls;
+
+            var filteredWalls = new HashSet<WallSegment>(walls.Where(w => !IsWallFacingCamera(w, camera.Position)));
+
+            // Garde-fou: ne jamais vider complètement les murs d'un étage.
+            return filteredWalls.Count > 0 ? filteredWalls : walls;
+        }
+
+        private bool IsWallFacingCamera(WallSegment wall, Vector3 cameraPos)
+        {
+            float wallCenterX = (wall.Start.X + wall.End.X) * 0.5f * cellSize;
+            float wallCenterZ = (wall.Start.Y + wall.End.Y) * 0.5f * cellSize;
+            float sideTolerance = cellSize * 0.1f;
+
+            if (wall.IsHorizontal)
+            {
+                float dz = cameraPos.Z - wallCenterZ;
+                if (Math.Abs(dz) <= sideTolerance)
+                    return false;
+
+                return dz > 0f;
+            }
+
+            float dx = cameraPos.X - wallCenterX;
+            if (Math.Abs(dx) <= sideTolerance)
+                return false;
+
+            return dx > 0f;
         }
 
         private void ComputeOcclusionFromWalls(
