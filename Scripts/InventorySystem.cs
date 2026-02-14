@@ -255,6 +255,8 @@ namespace XCOM_3
             {
                 StartDragFromEquipment(unit.EquippedWeapon);
                 unit.EquippedWeapon = null;
+                unit.Weapon = string.Empty;
+                unit.WeaponData = null;
                 Console.WriteLine($"[INVENTORY] Unequipped weapon: {draggedItem.Data.Name}");
                 return;
             }
