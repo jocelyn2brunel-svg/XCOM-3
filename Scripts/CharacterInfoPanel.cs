@@ -138,7 +138,14 @@ namespace XCOM_3
             DrawPair(spriteBatch, ref cursor, "Sante", $"{unit.Health}/{unit.GetMaxHealth()}");
             DrawPair(spriteBatch, ref cursor, "Endurance", $"{unit.Stamina}/{unit.MaxStamina}");
 
-            ParasiteEveTheme.DrawPanel(spriteBatch, _pixel, previewRect);
+            // Ne pas recouvrir l'aperçu 3D avec un fond opaque : on dessine seulement un cadre
+            // et des bandeaux d'UI pour conserver la lisibilité du texte.
+            ParasiteEveTheme.DrawBorder(spriteBatch, _pixel, previewRect, ParasiteEveTheme.BorderColor, 2);
+
+            Rectangle previewHeader = new Rectangle(previewRect.X + 2, previewRect.Y + 2, previewRect.Width - 4, 30);
+            Rectangle previewFooter = new Rectangle(previewRect.X + 2, previewRect.Bottom - 34, previewRect.Width - 4, 32);
+            spriteBatch.Draw(_pixel, previewHeader, new Color(8, 20, 12, 190));
+            spriteBatch.Draw(_pixel, previewFooter, new Color(8, 20, 12, 170));
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, _font,
                 "APERÇU 3D",
                 new Vector2(previewRect.X + 14, previewRect.Y + 10),
