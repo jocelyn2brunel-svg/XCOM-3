@@ -718,7 +718,7 @@ namespace XCOM_3
                     tw = 0.35f * scale,
                     th = 0.5f * scale,
                     td = 0.25f * scale,
-                    lw = 0.12f * scale,
+                    lw = 0.15f * scale,
                     al = 0.45f * scale,
                     ll = 0.55f * scale
                 },
@@ -1061,24 +1061,36 @@ namespace XCOM_3
 
             // 1) Cage thoracique
             float ribTopWidth = dims.tw * (feminine ? 1.0f : 1.08f);
-            float ribBottomWidth = dims.tw * (feminine ? 0.88f : 0.8f);
+            float ribBottomWidth = dims.tw * (feminine ? 0.9f : 0.84f);
             float chestDepth = dims.td;
             Matrix ribRot = Matrix.CreateRotationX(MathHelper.ToRadians(-2f)) * r;
             DrawTorsoPolygon(d, e, p, new Vector3(0, ribCenterY, trunkCenterZ),
                 ribHeight, ribTopWidth, ribBottomWidth, chestDepth, chestColor, ribRot);
 
-            // 2) Abdomen (profondeur réduite de 20% vs cage thoracique)
+            // 2) Abdomen-pont : capsule continue + bloc de soutien
+            // pour relier visuellement la sortie de cage et l'entrée de bassin.
             float abdomenDepth = chestDepth * 0.8f;
-            DrawRoundedCapsuleY(d, e, p, new Vector3(0, abdomenCenterY, trunkCenterZ),
-                abdomenHeight, dims.tw * 0.31f, chestColor * 0.86f, r, 5);
+            float pelvisTopWidth = dims.tw * (feminine ? 1.06f : 1.02f);
+            float pelvisBottomWidth = dims.tw * (feminine ? 0.9f : 0.84f);
+            float abdomenStartY = ribCenterY - ribHeight * 0.45f;
+            float abdomenEndY = pelvisCenterY + pelvisHeight * 0.45f;
+            float abdomenRadius = MathHelper.Lerp(ribBottomWidth, pelvisTopWidth, 0.5f) * 0.36f;
+
+            DrawRoundedCapsuleBetween(d, e, p,
+                new Vector3(0, abdomenStartY, trunkCenterZ),
+                new Vector3(0, abdomenEndY, trunkCenterZ),
+                abdomenRadius,
+                chestColor * 0.88f,
+                r,
+                6);
+
             DrawBodyPart(d, e, p, new Vector3(0, abdomenCenterY, trunkCenterZ),
-                new Vector3(dims.tw * 0.5f, abdomenHeight * 0.58f, abdomenDepth), chestColor * 0.83f, r);
+                new Vector3(MathHelper.Lerp(ribBottomWidth, pelvisTopWidth, 0.5f), abdomenHeight * 0.58f, abdomenDepth),
+                chestColor * 0.83f, r);
 
             // 3) Bassin : forme en coin/trapèze (plus large en haut), incliné vers l'avant.
-            float pelvisTopWidth = dims.tw * (feminine ? 1.04f : 0.98f);
-            float pelvisBottomWidth = dims.tw * (feminine ? 0.86f : 0.8f);
             float pelvisDepth = chestDepth * 0.84f;
-            Matrix pelvisRot = Matrix.CreateRotationX(MathHelper.ToRadians(-12f)) * r;
+            Matrix pelvisRot = Matrix.CreateRotationX(MathHelper.ToRadians(-5f)) * r;
             DrawTorsoPolygon(d, e, p, new Vector3(0, pelvisCenterY, trunkCenterZ),
                 pelvisHeight, pelvisTopWidth, pelvisBottomWidth, pelvisDepth, pelvisColor * 0.94f, pelvisRot);
 
