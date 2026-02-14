@@ -207,12 +207,13 @@ namespace XCOM_3
 
             bool hasWeapon = GetDisplayedWeapon(unit) != null;
             bool isAiming = unit.IsAiming || unit.IsFiring;
+            bool hasPants = unit.EquippedPants != null;
 
             // Dessiner le corps de base
-            DrawUnitBody(device, effect, animatedPos, teamColor, scale, type, rot, legSwing, armSwing, dims, hasWeapon, isAiming, unit.BodyType);
+            DrawUnitBody(device, effect, animatedPos, teamColor, scale, type, rot, legSwing, armSwing, dims, hasWeapon, isAiming, unit.BodyType, hasPants, unit.DominantHand);
 
             // Afficher l'équipement porté (armes, armures, vêtements, poches)
-            DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, legSwing, isAiming);
+            DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, legSwing, isAiming, unit.DominantHand);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -220,7 +221,8 @@ namespace XCOM_3
         // ═══════════════════════════════════════════════════════════════════════
 
         private void DrawEquipment(GraphicsDevice device, BasicEffect effect, Vector3 pos, Unit unit,
-                                   float scale, Matrix rot, UnitDimensions dims, float legSwing, bool isAiming)
+                                   float scale, Matrix rot, UnitDimensions dims, float legSwing, bool isAiming,
+                                   Unit.Handedness dominantHand)
         {
             Item weaponToDraw = GetDisplayedWeapon(unit);
 
@@ -245,7 +247,7 @@ namespace XCOM_3
             // ARME
             if (weaponToDraw != null)
             {
-                DrawWeapon(device, effect, pos, weaponToDraw, scale, rot, dims, isAiming);
+                DrawWeapon(device, effect, pos, weaponToDraw, scale, rot, dims, isAiming, dominantHand);
             }
 
             // CHEMISE (sous le gilet)
@@ -415,15 +417,17 @@ namespace XCOM_3
         }
 
         private void DrawWeapon(GraphicsDevice device, BasicEffect effect, Vector3 pos, Item weapon,
-                                float scale, Matrix rot, UnitDimensions dims, bool isAiming)
+                                float scale, Matrix rot, UnitDimensions dims, bool isAiming,
+                                Unit.Handedness dominantHand)
         {
             Color weaponColor = GetWeaponColor(weapon.Data.Name);
             WeaponType weaponType = GetWeaponType(weapon.Data.Name);
+            float handSign = dominantHand == Unit.Handedness.Left ? -1f : 1f;
 
             // Position calée entre les deux mains (pose articulée)
             Vector3 weaponPos = isAiming
-                ? new Vector3(dims.tw * 0.05f, dims.ll + dims.th * 0.78f, dims.td * 0.95f)
-                : new Vector3(dims.tw * 0.12f, dims.ll + dims.th * 0.66f, dims.td * 0.52f);
+                ? new Vector3(handSign * dims.tw * 0.05f, dims.ll + dims.th * 0.78f, dims.td * 0.95f)
+                : new Vector3(handSign * dims.tw * 0.12f, dims.ll + dims.th * 0.66f, dims.td * 0.52f);
             Vector3 weaponScale = GetWeaponScale(weaponType, dims);
 
             // Corps de l'arme
@@ -433,7 +437,7 @@ namespace XCOM_3
             if (weaponType == WeaponType.Rifle || weaponType == WeaponType.Sniper)
             {
                 Vector3 stockPos = new Vector3(
-                    weaponPos.X - dims.tw * 0.2f,
+                    weaponPos.X - handSign * dims.tw * 0.2f,
                     weaponPos.Y + dims.lw * 0.1f,
                     weaponPos.Z - weaponScale.Z * 0.35f
                 );
@@ -443,7 +447,7 @@ namespace XCOM_3
 
             // Canon (partie avant)
             Vector3 barrelPos = new Vector3(
-                weaponPos.X + dims.tw * 0.18f,
+                weaponPos.X + handSign * dims.tw * 0.18f,
                 weaponPos.Y,
                 weaponPos.Z + weaponScale.Z * 0.62f
             );
@@ -696,11 +700,13 @@ namespace XCOM_3
         private void DrawUnitBody(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s,
                                   UnitType type, Matrix r, float l, float a, UnitDimensions dims,
                                   bool hasWeapon = false, bool isAiming = false,
-                                  Unit.HumanBodyType bodyType = Unit.HumanBodyType.Masculine)
+                                  Unit.HumanBodyType bodyType = Unit.HumanBodyType.Masculine,
+                                  bool hasPants = false,
+                                  Unit.Handedness dominantHand = Unit.Handedness.Right)
         {
             switch (type)
             {
-                case UnitType.Soldier: DrawSoldierBody(d, e, p, c, s, r, l, a, dims, bodyType); break;
+                case UnitType.Soldier: DrawSoldierBody(d, e, p, c, s, r, l, a, dims, bodyType, hasPants); break;
                 case UnitType.Alien: DrawAlienBody(d, e, p, c, s, r, l, a, dims); break;
                 case UnitType.Zombie: DrawZombieBody(d, e, p, c, s, r, l, a, dims); break;
                 case UnitType.Heavy: DrawHeavyBody(d, e, p, c, s, r, l, a, dims); break;
@@ -713,7 +719,7 @@ namespace XCOM_3
             // sinon on laisse l'animation de balancement des bras visible en déplacement.
             if (hasWeapon && isAiming)
             {
-                DrawWeaponGripPose(d, e, p, dims, r, c, isAiming);
+                DrawWeaponGripPose(d, e, p, dims, r, c, isAiming, dominantHand);
             }
         }
 
@@ -742,27 +748,29 @@ namespace XCOM_3
         }
 
         private void DrawWeaponGripPose(GraphicsDevice d, BasicEffect e, Vector3 p, UnitDimensions dims,
-                                        Matrix r, Color bodyColor, bool isAiming)
+                                        Matrix r, Color bodyColor, bool isAiming, Unit.Handedness dominantHand)
         {
             Color armColor = bodyColor * 0.9f;
             float shoulderY = dims.ll + dims.th * 0.9f;
             float elbowY = dims.ll + dims.th * (isAiming ? 0.82f : 0.72f);
             float handY = dims.ll + dims.th * (isAiming ? 0.76f : 0.64f);
             float handZ = dims.td * (isAiming ? 0.95f : 0.45f);
+            float handSign = dominantHand == Unit.Handedness.Left ? -1f : 1f;
+            float supportSign = -handSign;
 
-            DrawRoundedCapsuleY(d, e, p, new Vector3(dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.35f),
+            DrawRoundedCapsuleY(d, e, p, new Vector3(handSign * dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.35f),
                 dims.al * 0.52f, dims.lw * 0.5f, armColor, r, 6);
-            DrawRoundedCapsuleY(d, e, p, new Vector3(dims.tw * 0.62f, (elbowY + handY) * 0.5f, handZ * 0.7f),
+            DrawRoundedCapsuleY(d, e, p, new Vector3(handSign * dims.tw * 0.62f, (elbowY + handY) * 0.5f, handZ * 0.7f),
                 dims.al * 0.48f, dims.lw * 0.46f, armColor * 0.95f, r, 6);
 
-            DrawRoundedCapsuleY(d, e, p, new Vector3(-dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.45f),
+            DrawRoundedCapsuleY(d, e, p, new Vector3(supportSign * dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.45f),
                 dims.al * 0.46f, dims.lw * 0.5f, armColor * 0.95f, r, 6);
-            DrawRoundedCapsuleY(d, e, p, new Vector3(-dims.tw * 0.42f, (elbowY + handY) * 0.5f, handZ * 0.85f),
+            DrawRoundedCapsuleY(d, e, p, new Vector3(supportSign * dims.tw * 0.42f, (elbowY + handY) * 0.5f, handZ * 0.85f),
                 dims.al * 0.42f, dims.lw * 0.46f, armColor * 0.9f, r, 6);
 
             Color jointColor = bodyColor * 0.6f;
-            DrawRoundedHead(d, e, p, new Vector3(dims.tw * 0.6f, elbowY, handZ * 0.5f), dims.lw * 0.3f, jointColor, r);
-            DrawRoundedHead(d, e, p, new Vector3(-dims.tw * 0.5f, elbowY, handZ * 0.6f), dims.lw * 0.3f, jointColor, r);
+            DrawRoundedHead(d, e, p, new Vector3(handSign * dims.tw * 0.6f, elbowY, handZ * 0.5f), dims.lw * 0.3f, jointColor, r);
+            DrawRoundedHead(d, e, p, new Vector3(supportSign * dims.tw * 0.5f, elbowY, handZ * 0.6f), dims.lw * 0.3f, jointColor, r);
         }
 
         private void DrawRunningLegPair(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
@@ -802,8 +810,8 @@ namespace XCOM_3
                 -dims.al * (0.32f + Math.Max(0f, backward) * 0.1f),
                 forward * dims.al * 0.28f + Math.Max(0f, backward) * dims.al * 0.12f + bendBias * dims.al * 0.08f);
 
-            DrawRoundedCapsuleBetween(d, e, p, shoulder, elbow, dims.lw * radiusScale, armColor, r, 6);
-            DrawRoundedCapsuleBetween(d, e, p, elbow, wrist, dims.lw * (radiusScale * 0.92f), armColor * 0.95f, r, 6);
+            DrawRoundedCapsuleBetween(d, e, p, shoulder, elbow, dims.lw * radiusScale, armColor, r, 8);
+            DrawRoundedCapsuleBetween(d, e, p, elbow, wrist, dims.lw * (radiusScale * 0.92f), armColor * 0.95f, r, 8);
 
             Vector3 handPos = wrist + new Vector3(0f, -dims.lw * 0.25f, forward * dims.lw * 0.95f);
             Vector3 handScale = new Vector3(dims.lw * (radiusScale * 1.02f), dims.lw * (radiusScale * 0.82f), dims.lw * (radiusScale * 1.08f));
@@ -828,8 +836,8 @@ namespace XCOM_3
                 -dims.ll * (0.44f + Math.Max(0f, backward) * 0.12f),
                 forward * dims.ll * 0.18f + Math.Max(0f, backward) * dims.ll * 0.24f);
 
-            DrawRoundedCapsuleBetween(d, e, p, hip, knee, dims.lw * legRadiusScale, legColor, r, 6);
-            DrawRoundedCapsuleBetween(d, e, p, knee, ankle, dims.lw * (legRadiusScale * 0.92f), legColor * 0.96f, r, 6);
+            DrawRoundedCapsuleBetween(d, e, p, hip, knee, dims.lw * legRadiusScale, legColor, r, 8);
+            DrawRoundedCapsuleBetween(d, e, p, knee, ankle, dims.lw * (legRadiusScale * 0.92f), legColor * 0.96f, r, 8);
 
             Vector3 bootPos = ankle + new Vector3(0f, dims.ll * 0.05f, dims.lw * (0.45f + Math.Max(0f, forward) * 0.35f));
             Vector3 bootScale = new Vector3(dims.lw * (legRadiusScale * 2.05f), dims.ll * 0.18f, dims.lw * (legRadiusScale * 2.25f));
@@ -843,13 +851,17 @@ namespace XCOM_3
         }
 
         private void DrawSoldierBody(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r,
-                                     float l, float a, UnitDimensions dims, Unit.HumanBodyType bodyType)
+                                     float l, float a, UnitDimensions dims, Unit.HumanBodyType bodyType,
+                                     bool hasPants = false)
         {
             Color skin = new(220, 180, 140);
             Color body = skin * 0.95f;
             Color dark = body * 0.85f;
 
-            DrawRunningLegPair(d, e, p, r, dims, l, 0.3f, 0.55f, dark, dark * 0.8f);
+            if (!hasPants)
+            {
+                DrawRunningLegPair(d, e, p, r, dims, l, 0.3f, 0.55f, dark, dark * 0.8f);
+            }
 
             // Torse en polygones (silhouette triangulaire selon le type de corps)
             bool feminine = bodyType == Unit.HumanBodyType.Feminine;
