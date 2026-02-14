@@ -75,6 +75,10 @@ namespace XCOM_3
         public float BodyBob = 0f;
         public MovementGait CurrentMovementGait = MovementGait.Jog;
 
+        private int jogRangeCells;
+        private int runRangeCells;
+        private int sprintRangeCells;
+
         // Système de compétences et progression
         public UnitSkills Skills = new UnitSkills();
         private Point? lastPosition = null;
@@ -102,6 +106,8 @@ namespace XCOM_3
             Stamina = 100;
             MaxStamina = 100;
             MovementRange = 4;
+
+            InitializeMovementProfile();
 
 
             UpdateVisualPosition();
@@ -139,6 +145,9 @@ namespace XCOM_3
             Stamina = other.Stamina;
             MaxStamina = other.MaxStamina;
             MovementRange = other.MovementRange;
+            jogRangeCells = other.jogRangeCells;
+            runRangeCells = other.runRangeCells;
+            sprintRangeCells = other.sprintRangeCells;
             Health = other.Health;
             MaxHealth = other.MaxHealth;
 
@@ -459,7 +468,7 @@ namespace XCOM_3
         /// </summary>
         public int GetShortMoveRange()
         {
-            int baseRange = MovementRange / 2; // Moitié de la portée max
+            int baseRange = jogRangeCells + Skills.GetMovementBonus();
             int penalty = GetMobilityPenalty();
             return Math.Max(1, baseRange - penalty);
         }
@@ -469,7 +478,7 @@ namespace XCOM_3
         /// </summary>
         public int GetMaxMoveRange()
         {
-            int baseRange = MovementRange + Skills.GetMovementBonus();
+            int baseRange = runRangeCells + Skills.GetMovementBonus();
             int penalty = GetMobilityPenalty();
             return Math.Max(1, baseRange - penalty);
         }
@@ -479,7 +488,55 @@ namespace XCOM_3
         /// </summary>
         public int GetSprintRange()
         {
-            return GetMaxMoveRange() + 1; // +1 case en sprint
+            int baseRange = sprintRangeCells + Skills.GetMovementBonus();
+            int penalty = GetMobilityPenalty();
+            return Math.Max(GetMaxMoveRange(), baseRange - penalty);
+        }
+
+        private void InitializeMovementProfile()
+        {
+            const int feetPerCell = 5;
+
+            // Même indice de condition physique pour maintenir une progression logique
+            // (un jog faible donne aussi un run/sprint plutôt faibles).
+            float fitnessIndex = CreateNormalizedSeed(11);
+            float gaitVariation = CreateSignedSeed(29) * 0.08f;
+
+            float runIndex = MathHelper.Clamp(fitnessIndex + gaitVariation, 0f, 1f);
+            float sprintIndex = MathHelper.Clamp(fitnessIndex + gaitVariation * 1.35f, 0f, 1f);
+
+            if (BodyType == HumanBodyType.Feminine)
+            {
+                jogRangeCells = InterpolateFeetRangeToCells(53, 70, fitnessIndex, feetPerCell);
+                runRangeCells = InterpolateFeetRangeToCells(85, 100, runIndex, feetPerCell);
+                sprintRangeCells = InterpolateFeetRangeToCells(115, 140, sprintIndex, feetPerCell);
+            }
+            else
+            {
+                jogRangeCells = InterpolateFeetRangeToCells(53, 70, fitnessIndex, feetPerCell);
+                runRangeCells = InterpolateFeetRangeToCells(95, 105, runIndex, feetPerCell);
+                sprintRangeCells = InterpolateFeetRangeToCells(130, 155, sprintIndex, feetPerCell);
+            }
+
+            MovementRange = runRangeCells;
+        }
+
+        private int InterpolateFeetRangeToCells(int minFeet, int maxFeet, float t, int feetPerCell)
+        {
+            float feet = MathHelper.Lerp(minFeet, maxFeet, t);
+            return Math.Max(1, (int)MathF.Round(feet / feetPerCell));
+        }
+
+        private float CreateNormalizedSeed(int salt)
+        {
+            int baseHash = string.IsNullOrWhiteSpace(Name) ? 0 : Name.GetHashCode();
+            int seed = HashCode.Combine(baseHash, (int)BodyType, salt) & int.MaxValue;
+            return seed / (float)int.MaxValue;
+        }
+
+        private float CreateSignedSeed(int salt)
+        {
+            return (CreateNormalizedSeed(salt) * 2f) - 1f;
         }
 
         /// <summary>
