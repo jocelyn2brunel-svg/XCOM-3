@@ -908,8 +908,6 @@ namespace XCOM_3
                 for (int upperFloor = floorToRender + 1; upperFloor < floorCount; upperFloor++)
                 {
                     float upperFloorOffset = upperFloor * cellSize;
-                    DrawFloorLayerSurface(upperFloor, upperFloorOffset);
-
                     var wallsForUpperFloor = GetWallsForFloor(upperFloor);
                     var fadedUpperWalls = new HashSet<WallSegment>();
 
@@ -950,8 +948,6 @@ namespace XCOM_3
                 for (int lowerFloor = GetMinimumViewFloor(); lowerFloor < floorToRender; lowerFloor++)
                 {
                     float lowerFloorOffset = lowerFloor * cellSize;
-                    DrawFloorLayerSurface(lowerFloor, lowerFloorOffset);
-
                     var wallsForLowerFloor = GetWallsForFloor(lowerFloor);
                     var lowerFloorUnits = GetVisibleUnitsForFloor(lowerFloor);
                     var fadedLowerWalls = new HashSet<WallSegment>();
@@ -1282,19 +1278,6 @@ namespace XCOM_3
             }
 
             return filteredWalls;
-        }
-
-        private void DrawFloorLayerSurface(int floor, float floorOffset)
-        {
-            if (floor == 0)
-            {
-                renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture, floorOffset);
-                return;
-            }
-
-            var floorCells = GetCellsForFloor(floor);
-            if (floorCells.Count > 0)
-                renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, floorOffset);
         }
 
         private int GetFloorSetback(BuildingFootprintData building, int floor)
