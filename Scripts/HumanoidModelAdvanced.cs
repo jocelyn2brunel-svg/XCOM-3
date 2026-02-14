@@ -172,14 +172,14 @@ namespace XCOM_3
             // Dimensions de base selon le type
             var dims = GetUnitDimensions(type, scale, unit.BodyType);
 
-            bool hasWeapon = unit.EquippedWeapon != null || unit.WeaponData != null;
-            bool isAiming = unit.IsAiming || unit.IsFiring;
+            // Mode "déséquipé" demandé : aucune arme visible ni pose de visée forcée.
+            bool hasWeapon = false;
+            bool isAiming = false;
 
             // Dessiner le corps de base
             DrawUnitBody(device, effect, animatedPos, teamColor, scale, type, rot, legSwing, armSwing, dims, hasWeapon, isAiming, unit.BodyType);
 
-            // ✅ NOUVEAU : Dessiner l'équipement
-            DrawEquipment(device, effect, animatedPos, unit, scale, rot, dims, isAiming);
+            // Aucun équipement n'est rendu pour garder les unités sans tenue/armes.
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -763,32 +763,28 @@ namespace XCOM_3
         private void DrawSoldierBody(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r,
                                      float l, float a, UnitDimensions dims, Unit.HumanBodyType bodyType)
         {
-            Color skin = new(220, 180, 140), dark = new(52, 58, 90);
+            Color skin = new(220, 180, 140);
+            Color body = skin * 0.95f;
+            Color dark = body * 0.85f;
 
             DrawRunningLegPair(d, e, p, r, dims, l, 0.3f, 0.55f, dark, dark * 0.8f);
 
             // Torse
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0),
-                        new Vector3(dims.tw * 0.95f, dims.th, dims.td), c, r);
+                        new Vector3(dims.tw * 0.95f, dims.th, dims.td), body, r);
 
             // Poitrine plus triangulaire
             DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.8f, dims.td * 0.15f),
-                        new Vector3(dims.tw * 0.75f, dims.th * 0.33f, dims.td * 0.85f), c * 0.8f, r);
+                        new Vector3(dims.tw * 0.75f, dims.th * 0.33f, dims.td * 0.85f), body * 0.92f, r);
 
             // Bras articulés (épaule → coude → poignet)
-            DrawSwingingArmPair(d, e, p, r, dims, a, 0.6f, 0.9f, 0f, 0.52f, c * 0.85f);
-
-            // Bracelets / avant-bras plus marqués
-            DrawBodyPart(d, e, p, new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * 0.5f, -a * 0.08f),
-                        new Vector3(dims.lw * 1.5f, dims.al * 0.22f, dims.lw * 1.25f), new Color(55, 70, 100), r);
-            DrawBodyPart(d, e, p, new Vector3(dims.tw * 0.6f, dims.ll + dims.th * 0.5f, a * 0.08f),
-                        new Vector3(dims.lw * 1.5f, dims.al * 0.22f, dims.lw * 1.25f), new Color(55, 70, 100), r);
+            DrawSwingingArmPair(d, e, p, r, dims, a, 0.6f, 0.9f, 0f, 0.52f, body * 0.9f);
 
             // Tête
             DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0),
                 dims.head * 0.52f, skin, r);
 
-            DrawHumanHeadFeatures(d, e, p, c, r, dims, bodyType);
+            // Pas d'accessoires vestimentaires/cosmétiques.
         }
 
         private void DrawHumanHeadFeatures(GraphicsDevice d, BasicEffect e, Vector3 p, Color c,
