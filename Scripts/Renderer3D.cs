@@ -141,7 +141,7 @@ namespace XCOM_3
         /// <summary>
         /// ? MURS AMÉLIORÉS - Version avec détails, hauteur et ombres
         /// </summary>
-        public void DrawWalls(HashSet<WallSegment> walls, int size, bool editorMode = false, float floorHeightOffset = 0f)
+        public void DrawWalls(HashSet<WallSegment> walls, int size, bool editorMode = false, float floorHeightOffset = 0f, Color? wallOverrideColor = null)
         {
             foreach (var s in walls)
             {
@@ -161,9 +161,9 @@ namespace XCOM_3
                     : new Vector3(thickness, wallHeight, size);
 
                 // ? Couleur améliorée selon le mode
-                Color wallColor = editorMode
+                Color wallColor = wallOverrideColor ?? (editorMode
                     ? new Color(140, 140, 140)  // Gris clair en mode éditeur
-                    : new Color(100, 85, 70);   // Beige/brun en jeu
+                    : new Color(100, 85, 70));   // Beige/brun en jeu
 
                 // ------------------- NOUVEAU : GESTION DES FENÊTRES -------------------
                 if (s.Type == WallType.Window)
