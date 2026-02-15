@@ -316,28 +316,31 @@ namespace XCOM_3
 
         private void DrawVolumetricGrenadeGhost(Point centerCell, float minRadius, float maxRadius, Color color)
         {
-            int minX = Math.Max(0, centerCell.X - (int)Math.Ceiling(maxRadius));
-            int maxX = Math.Min(gridWidth - 1, centerCell.X + (int)Math.Ceiling(maxRadius));
-            int minY = Math.Max(0, centerCell.Y - (int)Math.Ceiling(maxRadius));
-            int maxY = Math.Min(gridHeight - 1, centerCell.Y + (int)Math.Ceiling(maxRadius));
-
-            float floorYOffset = viewedFloor * cellSize;
             float ghostHeight = cellSize * 1.35f;
-            HashSet<Point> zoneCells = new HashSet<Point>();
+            List<Unit> unitsInZone = new List<Unit>();
 
-            for (int x = minX; x <= maxX; x++)
+            void AddUnitsWithinZone(List<Unit> units)
             {
-                for (int y = minY; y <= maxY; y++)
+                foreach (Unit unit in units)
                 {
-                    float distance = Vector2.Distance(new Vector2(centerCell.X, centerCell.Y), new Vector2(x, y));
+                    if (unit == null || unit.Health <= 0 || unit.Floor != viewedFloor)
+                        continue;
+
+                    float distance = Vector2.Distance(
+                        new Vector2(centerCell.X, centerCell.Y),
+                        new Vector2(unit.Cell.X, unit.Cell.Y));
+
                     if (distance < minRadius || distance > maxRadius)
                         continue;
 
-                    zoneCells.Add(new Point(x, y));
+                    unitsInZone.Add(unit);
                 }
             }
 
-            if (zoneCells.Count == 0)
+            AddUnitsWithinZone(playerUnits);
+            AddUnitsWithinZone(enemyUnits);
+
+            if (unitsInZone.Count == 0)
                 return;
 
             RasterizerState previousRasterizer = GraphicsDevice.RasterizerState;
@@ -345,49 +348,14 @@ namespace XCOM_3
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.RasterizerState = hoveredCellWireframeState;
 
-            Point[] cardinalDirections =
+            foreach (Unit unit in unitsInZone)
             {
-                new Point(0, -1),
-                new Point(1, 0),
-                new Point(0, 1),
-                new Point(-1, 0)
-            };
-
-            foreach (Point cell in zoneCells)
-            {
-                bool isOuterBoundary = false;
-
-                foreach (Point direction in cardinalDirections)
-                {
-                    Point neighbor = new Point(cell.X + direction.X, cell.Y + direction.Y);
-
-                    if (neighbor.X < 0 || neighbor.X >= gridWidth || neighbor.Y < 0 || neighbor.Y >= gridHeight)
-                    {
-                        isOuterBoundary = true;
-                        break;
-                    }
-
-                    if (zoneCells.Contains(neighbor))
-                        continue;
-
-                    float neighborDistance = Vector2.Distance(
-                        new Vector2(centerCell.X, centerCell.Y),
-                        new Vector2(neighbor.X, neighbor.Y));
-
-                    if (neighborDistance > maxRadius)
-                    {
-                        isOuterBoundary = true;
-                        break;
-                    }
-                }
-
-                if (!isOuterBoundary)
-                    continue;
+                float floorYOffset = unit.Floor * cellSize;
 
                 Vector3 center = new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
+                    unit.Cell.X * cellSize + cellSize / 2f,
                     floorYOffset + ghostHeight / 2f,
-                    cell.Y * cellSize + cellSize / 2f);
+                    unit.Cell.Y * cellSize + cellSize / 2f);
 
                 renderer3D.DrawCube(
                     center,
