@@ -9,6 +9,7 @@ namespace XCOM_3
     public class Renderer3D
     {
         private const float WallHeightRatio = 0.92f;
+        private const float TileFillRatio = 1.0f;
         private GraphicsDevice gd;
         private BasicEffect basic, textured;
         private VertexPositionColor[] cubeVerts, planeVerts;
@@ -139,7 +140,7 @@ namespace XCOM_3
         {
             for (int x = 0; x < w; x++) for (int z = 0; z < h; z++)
                     DrawTexturedPlane(new Vector3(x * size + size / 2f, floorHeightOffset, z * size + size / 2f),
-                                      new Vector3(size * 0.95f, 1, size * 0.95f), tex);
+                                      new Vector3(size * TileFillRatio, 1, size * TileFillRatio), tex);
         }
 
         public void DrawGridCells(IEnumerable<Point> cells, int size, Texture2D tex, float floorHeightOffset = 0f)
@@ -148,7 +149,7 @@ namespace XCOM_3
             {
                 DrawTexturedPlane(
                     new Vector3(cell.X * size + size / 2f, floorHeightOffset, cell.Y * size + size / 2f),
-                    new Vector3(size * 0.95f, 1, size * 0.95f),
+                    new Vector3(size * TileFillRatio, 1, size * TileFillRatio),
                     tex);
             }
         }
@@ -165,7 +166,7 @@ namespace XCOM_3
 
                     DrawTexturedPlane(
                         new Vector3(x * size + size / 2f, floorHeightOffset + localOffset, z * size + size / 2f),
-                        new Vector3(size * 0.95f, 1, size * 0.95f),
+                        new Vector3(size * TileFillRatio, 1, size * TileFillRatio),
                         tex);
                 }
             }
