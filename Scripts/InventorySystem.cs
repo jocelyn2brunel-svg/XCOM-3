@@ -32,6 +32,8 @@ namespace XCOM_3
         private const int PANEL_GAP = 16;
         private const int SECTION_HEADER_HEIGHT = 36;
         private const int SECTION_PADDING = 12;
+        private const int CONTEXT_WINDOW_WIDTH = 280;
+        private const int CONTEXT_WINDOW_HEIGHT = 190;
 
         // ═══════════════════════════════════════════════════════════════════════
         // ÉTAT
@@ -65,6 +67,9 @@ namespace XCOM_3
         private bool showContextMenu = false;
         private Rectangle contextMenuRect;
         private ItemContextInfo contextMenuItem;
+        private Rectangle contextEquipButtonRect;
+        private Rectangle contextExamineButtonRect;
+        private Rectangle contextCloseButtonRect;
 
         private bool showExaminePopup = false;
         private Rectangle examinePopupRect;
@@ -807,7 +812,10 @@ namespace XCOM_3
                 if (clickedItem.HasValue)
                 {
                     contextMenuItem = clickedItem.Value;
-                    contextMenuRect = new Rectangle(mouse.X, mouse.Y, 140, 64);
+                    contextMenuRect = BuildContextWindow(mouse.Position);
+                    contextEquipButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 76, contextMenuRect.Width - 24, 22);
+                    contextExamineButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 50, contextMenuRect.Width - 24, 22);
+                    contextCloseButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 24, contextMenuRect.Width - 24, 16);
                     showContextMenu = true;
                     showExaminePopup = false;
                 }
@@ -819,15 +827,12 @@ namespace XCOM_3
 
             if (leftClick && showContextMenu)
             {
-                Rectangle equipRect = new Rectangle(contextMenuRect.X + 4, contextMenuRect.Y + 4, contextMenuRect.Width - 8, 24);
-                Rectangle examineRect = new Rectangle(contextMenuRect.X + 4, contextMenuRect.Y + 34, contextMenuRect.Width - 8, 24);
-
-                if (equipRect.Contains(mouse.Position))
+                if (contextEquipButtonRect.Contains(mouse.Position))
                 {
                     TryEquipByContext(contextMenuItem, unit);
                     showContextMenu = false;
                 }
-                else if (examineRect.Contains(mouse.Position))
+                else if (contextExamineButtonRect.Contains(mouse.Position))
                 {
                     examinedItemData = contextMenuItem.Data;
                     int width = 360;
@@ -841,6 +846,10 @@ namespace XCOM_3
                     openedExaminePopupThisClick = true;
                     showContextMenu = false;
                 }
+                else if (contextCloseButtonRect.Contains(mouse.Position))
+                {
+                    showContextMenu = false;
+                }
                 else if (!contextMenuRect.Contains(mouse.Position))
                 {
                     showContextMenu = false;
@@ -851,6 +860,17 @@ namespace XCOM_3
             {
                 showExaminePopup = false;
             }
+        }
+
+        private Rectangle BuildContextWindow(Point clickPoint)
+        {
+            int maxX = Math.Max(8, graphicsDevice.Viewport.Width - CONTEXT_WINDOW_WIDTH - 8);
+            int maxY = Math.Max(8, graphicsDevice.Viewport.Height - CONTEXT_WINDOW_HEIGHT - 8);
+
+            int x = Math.Min(Math.Max(8, clickPoint.X + 16), maxX);
+            int y = Math.Min(Math.Max(8, clickPoint.Y + 12), maxY);
+
+            return new Rectangle(x, y, CONTEXT_WINDOW_WIDTH, CONTEXT_WINDOW_HEIGHT);
         }
 
         private bool TryEquipByContext(ItemContextInfo info, Unit unit)
@@ -1168,14 +1188,31 @@ namespace XCOM_3
                 ParasiteEveTheme.DrawPanel(spriteBatch, pixel, contextMenuRect);
                 ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextMenuRect, ParasiteEveTheme.SelectionOutline, 1);
 
-                Rectangle equipRect = new Rectangle(contextMenuRect.X + 4, contextMenuRect.Y + 4, contextMenuRect.Width - 8, 24);
-                Rectangle examineRect = new Rectangle(contextMenuRect.X + 4, contextMenuRect.Y + 34, contextMenuRect.Width - 8, 24);
+                Rectangle headerRect = new Rectangle(contextMenuRect.X, contextMenuRect.Y, contextMenuRect.Width, 28);
+                ParasiteEveTheme.DrawSectionHeader(spriteBatch, pixel, font, headerRect, "INVENTAIRE CONTEXTUEL");
 
-                spriteBatch.Draw(pixel, equipRect, ParasiteEveTheme.ButtonNormal * 0.7f);
-                spriteBatch.Draw(pixel, examineRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                if (contextMenuItem.Data != null)
+                {
+                    string line1 = contextMenuItem.Data.Name;
+                    string line2 = $"Type: {contextMenuItem.Data.Type}";
+                    string line3 = $"Poids: {contextMenuItem.Data.WeightLbs:0.##} lbs";
 
-                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EQUIP", new Vector2(equipRect.X + 8, equipRect.Y + 5), ParasiteEveTheme.TextNormal, 0.7f);
-                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EXAMINE", new Vector2(examineRect.X + 8, examineRect.Y + 5), ParasiteEveTheme.TextNormal, 0.7f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line1,
+                        new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 40), ParasiteEveTheme.TextHighlight, 0.68f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line2,
+                        new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 62), ParasiteEveTheme.TextNormal, 0.62f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line3,
+                        new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 82), ParasiteEveTheme.TextDim, 0.58f);
+                }
+
+                spriteBatch.Draw(pixel, contextEquipButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                spriteBatch.Draw(pixel, contextExamineButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextEquipButtonRect, ParasiteEveTheme.BorderColor, 1);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextExamineButtonRect, ParasiteEveTheme.BorderColor, 1);
+
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EQUIPER", new Vector2(contextEquipButtonRect.X + 8, contextEquipButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EXAMINER", new Vector2(contextExamineButtonRect.X + 8, contextExamineButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "Fermer", new Vector2(contextCloseButtonRect.X, contextCloseButtonRect.Y - 2), ParasiteEveTheme.TextWarning, 0.58f);
             }
 
             if (showExaminePopup && examinedItemData != null)
@@ -1234,6 +1271,7 @@ namespace XCOM_3
         private void DrawEquipmentSlots(int equipX, int equipY, Unit unit)
         {
             bool isDragging = draggedItem != null;
+            DrawEquipmentGridBackdrop(unit);
 
             // Slots d'équipement principaux (empilés verticalement)
             DrawEquipmentSlot(GetWeaponSlotBounds(), "RIGHT HAND", unit.EquippedWeapon,
@@ -1302,6 +1340,24 @@ namespace XCOM_3
                 Item utilityItem = i < unit.BackpackInventory.Count ? unit.BackpackInventory[i] : null;
                 DrawEquipmentSlot(utilitySlot, $"BP{i + 1}", utilityItem, highlightPocket);
             }
+        }
+
+        private void DrawEquipmentGridBackdrop(Unit unit)
+        {
+            Rectangle panelBounds = GetEquipmentPanelBounds(unit);
+            Rectangle gridArea = new Rectangle(
+                panelBounds.X + SECTION_PADDING,
+                panelBounds.Y + SECTION_HEADER_HEIGHT + SECTION_PADDING,
+                panelBounds.Width - SECTION_PADDING * 2,
+                panelBounds.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
+
+            spriteBatch.Draw(pixel, gridArea, ParasiteEveTheme.BackgroundMedium * 0.28f);
+
+            for (int x = gridArea.X; x <= gridArea.Right; x += CELL_SIZE)
+                spriteBatch.Draw(pixel, new Rectangle(x, gridArea.Y, 1, gridArea.Height), ParasiteEveTheme.TextDim * 0.15f);
+
+            for (int y = gridArea.Y; y <= gridArea.Bottom; y += CELL_SIZE)
+                spriteBatch.Draw(pixel, new Rectangle(gridArea.X, y, gridArea.Width, 1), ParasiteEveTheme.TextDim * 0.15f);
         }
 
         private void DrawNearbyLootPanel(Rectangle lootWindow)
@@ -1408,9 +1464,10 @@ namespace XCOM_3
 
             if (equippedItem != null && draggedItem == null)
             {
-                // Petit effet de surbrillance pour l'objet équipé
+                // Les objets équipés restent visiblement en vert.
                 Rectangle inner = new Rectangle(slot.X + 2, slot.Y + 2, slot.Width - 4, slot.Height - 4);
-                spriteBatch.Draw(pixel, inner, ParasiteEveTheme.ButtonNormal * 0.5f);
+                spriteBatch.Draw(pixel, inner, Color.Lerp(ParasiteEveTheme.ButtonNormal, Color.LimeGreen, 0.5f) * 0.75f);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, inner, Color.LimeGreen * 0.9f, 1);
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, equippedItem.Data.Name,
                     new Vector2(inner.X + 4, inner.Y + inner.Height / 2 - 5), ParasiteEveTheme.TextNormal, 0.5f);
