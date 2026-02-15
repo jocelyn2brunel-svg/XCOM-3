@@ -70,6 +70,13 @@ namespace XCOM_3
                     FloorCount = Math.Clamp(b.FloorCount, 1, map.FloorCount),
                     BasementCount = Math.Max(0, b.BasementCount)
                 });
+            map.HescoBarriers = wallGenerator.LastGeneratedHescoBarriers
+                .ConvertAll(p => new HescoBarrierData
+                {
+                    X = p.X,
+                    Y = p.Y,
+                    Floor = 0
+                });
 
             // Générer les zones de spawn
             map.GenerateDefaultSpawnZones();
@@ -147,6 +154,13 @@ namespace XCOM_3
                     Height = b.Height,
                     FloorCount = Math.Clamp(b.FloorCount, 1, map.FloorCount),
                     BasementCount = Math.Max(0, b.BasementCount)
+                });
+            map.HescoBarriers = wallGenerator.LastGeneratedHescoBarriers
+                .ConvertAll(p => new HescoBarrierData
+                {
+                    X = p.X,
+                    Y = p.Y,
+                    Floor = 0
                 });
             map.GenerateDefaultSpawnZones();
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);

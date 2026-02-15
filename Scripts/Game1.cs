@@ -25,6 +25,7 @@ namespace XCOM_3
         // Textures
         private Texture2D tileTexture;
         private Texture2D brickWallTexture;
+        private Texture2D hescoWallTexture;
 
         // --- Systèmes ---
         private CombatSystem combatSystem;
@@ -182,6 +183,7 @@ namespace XCOM_3
             pixel = new Texture2D(GraphicsDevice, 1, 1); pixel.SetData(new[] { Color.White });
             tileTexture = LoadTileTexture();
             brickWallTexture = LoadBrickWallTexture();
+            hescoWallTexture = LoadHescoWallTexture();
             hoveredCellWireframeState = new RasterizerState
             {
                 CullMode = CullMode.None,
@@ -213,6 +215,14 @@ namespace XCOM_3
             return LoadFirstAvailableTexture(
                 new[] { "BrickWall32x32.jpeg", "BrickWall32x32.jpg", "BrickWall32x32.png" },
                 "brick wall",
+                pixel);
+        }
+
+        private Texture2D LoadHescoWallTexture()
+        {
+            return LoadFirstAvailableTexture(
+                new[] { "HescoBarrier32x32.jpg", "HescoBarrier32x32.jpeg", "HescoBarrier32x32.png" },
+                "hesco wall",
                 pixel);
         }
 
@@ -1049,9 +1059,13 @@ namespace XCOM_3
                     renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, yOffset);
             }
 
+            var hescoBarriersForFloor = GetHescoBarriersForFloor(floorToRender);
+            if (hescoBarriersForFloor.Count > 0)
+                renderer3D.DrawHescoBarriers(hescoBarriersForFloor, cellSize, yOffset, hescoWallTexture);
+
             var opaqueWalls = new HashSet<WallSegment>(wallsForFloor.Where(w => !fadedWalls.Contains(w)));
             if (opaqueWalls.Count > 0)
-                renderer3D.DrawWalls(opaqueWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: brickWallTexture);
+                renderer3D.DrawWalls(opaqueWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: brickWallTexture, hescoWallTexture: hescoWallTexture);
 
             if (hoverRevealWalls.Count > 0)
                 DrawWireframeWalls(hoverRevealWalls, yOffset, new Color(255, 235, 130, 64));
@@ -1083,7 +1097,8 @@ namespace XCOM_3
                             editorMode: false,
                             floorHeightOffset: upperFloorOffset,
                             wallOverrideColor: new Color(165, 150, 130),
-                            brickWallTexture: brickWallTexture);
+                            brickWallTexture: brickWallTexture,
+                            hescoWallTexture: hescoWallTexture);
                     }
 
                     if (fadedUpperWalls.Count > 0)
@@ -1119,7 +1134,8 @@ namespace XCOM_3
                             editorMode: false,
                             floorHeightOffset: lowerFloorOffset,
                             wallOverrideColor: lowerFloor < 0 ? new Color(85, 105, 130) : new Color(95, 140, 170),
-                            brickWallTexture: brickWallTexture);
+                            brickWallTexture: brickWallTexture,
+                            hescoWallTexture: hescoWallTexture);
                     }
 
                     if (fadedLowerWalls.Count > 0)
@@ -1551,7 +1567,7 @@ namespace XCOM_3
             GraphicsDevice.DepthStencilState = DepthStencilState.None;
             GraphicsDevice.RasterizerState = hoveredCellWireframeState;
 
-            renderer3D.DrawWalls(walls, cellSize, editorMode: false, floorHeightOffset: floorHeightOffset, wallOverrideColor: wireColor, brickWallTexture: brickWallTexture);
+            renderer3D.DrawWalls(walls, cellSize, editorMode: false, floorHeightOffset: floorHeightOffset, wallOverrideColor: wireColor, brickWallTexture: brickWallTexture, hescoWallTexture: hescoWallTexture);
 
             GraphicsDevice.RasterizerState = previousRasterizer;
             GraphicsDevice.BlendState = BlendState.Opaque;

@@ -27,6 +27,7 @@ namespace XCOM_3
             currentMap = map;
             currentMap.RampTiles ??= new List<RampTileData>();
             currentMap.TerrainHeights ??= new List<TerrainHeightData>();
+            currentMap.HescoBarriers ??= new List<HescoBarrierData>();
 
             if (currentMap.RampTiles.Count == 0 && currentMap.StairConnections != null)
             {
@@ -508,6 +509,19 @@ namespace XCOM_3
             }
 
             return upperFloorCells;
+        }
+
+
+
+        private List<Point> GetHescoBarriersForFloor(int floor)
+        {
+            if (currentMap?.HescoBarriers == null || currentMap.HescoBarriers.Count == 0)
+                return new List<Point>();
+
+            return currentMap.HescoBarriers
+                .Where(b => b.Floor == floor)
+                .Select(b => new Point(b.X, b.Y))
+                .ToList();
         }
 
         private HashSet<Point> GetExteriorCells(HashSet<Point> blockedCells)
