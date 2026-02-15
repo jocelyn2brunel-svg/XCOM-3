@@ -12,6 +12,7 @@ namespace XCOM_3
     {
         private Random random;
         private EdgeWallGenerator wallGenerator;
+        private readonly bool terrainReliefEnabled = false;
 
         public MapGenerator(Random rng)
         {
@@ -274,6 +275,10 @@ namespace XCOM_3
 
         private List<TerrainHeightData> GenerateTerrainRelief(int width, int height)
         {
+            // Temporairement désactivé: pas de collines ni de fossés.
+            if (!terrainReliefEnabled)
+                return new List<TerrainHeightData>();
+
             var heightMap = new float[width, height];
             int featureCount = Math.Max(3, (width * height) / 420);
 
