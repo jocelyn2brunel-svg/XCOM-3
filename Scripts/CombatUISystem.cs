@@ -269,15 +269,20 @@ namespace XCOM_3
         {
             UnitActionButtons.Clear();
 
+            bool hasFirearmEquipped = selectedUnit?.EquippedWeapon?.Data?.WeaponData != null
+                && selectedUnit.EquippedWeapon.Data.WeaponData.Type != WeaponType.Melee;
+
             int bw = ActionButtonWidth, bh = ActionButtonHeight;
             int by = graphicsDevice.Viewport.Height - bh - 20;
             int bx = (graphicsDevice.Viewport.Width - bw) / 2;
 
-            var buttons = new List<Button>
+            var buttons = new List<Button>();
+
+            if (hasFirearmEquipped)
             {
-                new Button("FIRE", new Vector2(bx - 130, by)),
-                new Button("RELOAD", new Vector2(bx, by))
-            };
+                buttons.Add(new Button("FIRE", new Vector2(bx - 130, by)));
+                buttons.Add(new Button("RELOAD", new Vector2(bx, by)));
+            }
 
             if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
             {
@@ -296,7 +301,7 @@ namespace XCOM_3
             }
 
             // Bouton CONFIRMER TIR
-            if (SelectedFireTarget != null && selectedUnit != null && selectedUnit.ActionPoints > 0)
+            if (hasFirearmEquipped && SelectedFireTarget != null && selectedUnit != null && selectedUnit.ActionPoints > 0)
             {
                 int fireConfirmWidth = 180;
                 int fireConfirmHeight = 50;
