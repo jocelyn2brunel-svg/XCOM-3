@@ -201,20 +201,39 @@ namespace XCOM_3
 
         private Texture2D LoadTileTexture()
         {
-            string[] candidates =
+            string[] textureFileNames =
             {
-                Path.Combine(AppContext.BaseDirectory, "TileParchment32x32.png"),
-                Path.Combine(AppContext.BaseDirectory, "Crate32x32.jpg")
+                "TileParchment32x32.png",
+                "Crate32x32.jpg"
             };
 
-            foreach (string path in candidates)
+            var searchRoots = new List<string>
             {
-                if (!File.Exists(path))
-                    continue;
+                AppContext.BaseDirectory,
+                Directory.GetCurrentDirectory()
+            };
 
-                using var stream = File.OpenRead(path);
-                Console.WriteLine($"[RENDER] Loaded tile texture: {Path.GetFileName(path)}");
-                return Texture2D.FromStream(GraphicsDevice, stream);
+            // Remonter quelques niveaux à partir du dossier de build pour retrouver
+            // les assets placés à la racine du repo lors d'un lancement en Debug.
+            DirectoryInfo rootProbe = new DirectoryInfo(AppContext.BaseDirectory);
+            for (int i = 0; i < 6 && rootProbe.Parent != null; i++)
+            {
+                rootProbe = rootProbe.Parent;
+                searchRoots.Add(rootProbe.FullName);
+            }
+
+            foreach (string root in searchRoots.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                foreach (string fileName in textureFileNames)
+                {
+                    string path = Path.Combine(root, fileName);
+                    if (!File.Exists(path))
+                        continue;
+
+                    using var stream = File.OpenRead(path);
+                    Console.WriteLine($"[RENDER] Loaded tile texture: {Path.GetFileName(path)} ({path})");
+                    return Texture2D.FromStream(GraphicsDevice, stream);
+                }
             }
 
             Console.WriteLine("[RENDER] Tile texture missing, using white fallback texture.");
