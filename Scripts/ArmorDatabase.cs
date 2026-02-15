@@ -47,6 +47,7 @@ namespace XCOM_3
             AddCombatShirts(list);
             AddPants(list);
             AddChestRigs(list);
+            AddBackpacks(list);
 
             return list.ToArray();
         }
@@ -194,6 +195,45 @@ namespace XCOM_3
                 1.8f,
                 4,
                 "Chest rig assaut renforcé. Ajoute 4 emplacements utilitaires 1x1."
+            ));
+        }
+
+        private static void AddBackpacks(List<ItemData> list)
+        {
+            list.Add(new ItemData(
+                "Backpack Small",
+                ItemType.Armor,
+                0,
+                ArmorSlot.Backpack,
+                ProtectionLevel.None,
+                0,
+                1.0f,
+                0,
+                "Sac à dos compact. 4 emplacements utilitaires."
+            ));
+
+            list.Add(new ItemData(
+                "Backpack Medium",
+                ItemType.Armor,
+                0,
+                ArmorSlot.Backpack,
+                ProtectionLevel.None,
+                0,
+                1.7f,
+                0,
+                "Sac à dos intermédiaire. 8 emplacements utilitaires."
+            ));
+
+            list.Add(new ItemData(
+                "Backpack XL",
+                ItemType.Armor,
+                0,
+                ArmorSlot.Backpack,
+                ProtectionLevel.None,
+                0,
+                2.4f,
+                0,
+                "Sac à dos grande capacité. 12 emplacements utilitaires."
             ));
         }
 
