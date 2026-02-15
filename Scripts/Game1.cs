@@ -1500,6 +1500,15 @@ namespace XCOM_3
                 selectedUnit.Floor == viewedFloor)
             {
                 float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 3f) * 0.3f + 0.7f;
+                float floorYOffset = viewedFloor * cellSize;
+
+                renderer3D.DrawZoneOutline(
+                    cachedMovableCells,
+                    cellSize,
+                    floorYOffset + 0.1f,
+                    new Color(110, 255, 160, 235) * pulse,
+                    terrainHeights,
+                    floorYOffset);
 
                 foreach (var cell in cachedMovableCells)
                 {
@@ -1541,7 +1550,13 @@ namespace XCOM_3
             float floorYOffset = viewedFloor * cellSize;
 
             float pulseBoost = 0.75f + pulse * 0.25f;
-            renderer3D.DrawZoneOutline(new[] { hoveredCell }, cellSize, floorYOffset + 0.14f, new Color(255, 220, 90, 230) * pulseBoost);
+            renderer3D.DrawZoneOutline(
+                new[] { hoveredCell },
+                cellSize,
+                floorYOffset + 0.14f,
+                new Color(255, 220, 90, 230) * pulseBoost,
+                terrainHeights,
+                floorYOffset);
         }
 
 
