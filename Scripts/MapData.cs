@@ -44,6 +44,7 @@ namespace XCOM_3
         public List<RampTileData> RampTiles { get; set; } = new List<RampTileData>();
         public List<BuildingFootprintData> Buildings { get; set; } = new List<BuildingFootprintData>();
         public List<TerrainHeightData> TerrainHeights { get; set; } = new List<TerrainHeightData>();
+        public List<HescoBarrierData> HescoBarriers { get; set; } = new List<HescoBarrierData>();
 
         // Paramètres de mission
         public string SuggestedMissionType { get; set; } = "Tutorial";
@@ -262,6 +263,15 @@ namespace XCOM_3
         public int X { get; set; }
         public int Y { get; set; }
         public float HeightOffset { get; set; }
+    }
+
+
+    [Serializable]
+    public class HescoBarrierData
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Floor { get; set; } = 0;
     }
 
     /// <summary>

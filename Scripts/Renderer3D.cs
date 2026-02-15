@@ -199,11 +199,11 @@ namespace XCOM_3
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, 4, texturedPlaneIdx, 0, 2);
         }
 
-        private void DrawWallSection(Vector3 center, Vector3 scale, bool isHorizontal, Color color, bool useBrickTexture, Texture2D brickWallTexture)
+        private void DrawWallSection(Vector3 center, Vector3 scale, bool isHorizontal, Color color, Texture2D wallTexture)
         {
             DrawCube(center, scale, color);
 
-            if (!useBrickTexture || brickWallTexture == null)
+            if (wallTexture == null)
                 return;
 
             float width = isHorizontal ? scale.X : scale.Z;
@@ -213,13 +213,52 @@ namespace XCOM_3
 
             if (isHorizontal)
             {
-                DrawTexturedVerticalQuad(center, width, height, true, center.Z - halfThickness - offset, brickWallTexture);
-                DrawTexturedVerticalQuad(center, width, height, true, center.Z + halfThickness + offset, brickWallTexture);
+                DrawTexturedVerticalQuad(center, width, height, true, center.Z - halfThickness - offset, wallTexture);
+                DrawTexturedVerticalQuad(center, width, height, true, center.Z + halfThickness + offset, wallTexture);
             }
             else
             {
-                DrawTexturedVerticalQuad(center, width, height, false, center.X - halfThickness - offset, brickWallTexture);
-                DrawTexturedVerticalQuad(center, width, height, false, center.X + halfThickness + offset, brickWallTexture);
+                DrawTexturedVerticalQuad(center, width, height, false, center.X - halfThickness - offset, wallTexture);
+                DrawTexturedVerticalQuad(center, width, height, false, center.X + halfThickness + offset, wallTexture);
+            }
+        }
+
+
+
+        public void DrawHescoBarriers(IEnumerable<Point> cells, int cellSize, float floorHeightOffset, Texture2D hescoTexture)
+        {
+            if (cells == null)
+                return;
+
+            float blockWidth = cellSize * 0.9f;
+            float blockHeight = cellSize * 0.9f;
+            float halfWidth = blockWidth / 2f;
+            float halfHeight = blockHeight / 2f;
+
+            foreach (Point cell in cells)
+            {
+                Vector3 center = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    floorHeightOffset + halfHeight,
+                    cell.Y * cellSize + cellSize / 2f);
+
+                DrawCube(center, new Vector3(blockWidth, blockHeight, blockWidth), new Color(132, 120, 95));
+
+                if (hescoTexture == null)
+                    continue;
+
+                float leftX = center.X - halfWidth - 0.01f;
+                float rightX = center.X + halfWidth + 0.01f;
+                float nearZ = center.Z - halfWidth - 0.01f;
+                float farZ = center.Z + halfWidth + 0.01f;
+
+                DrawTexturedVerticalQuad(center, blockWidth, blockHeight, true, nearZ, hescoTexture);
+                DrawTexturedVerticalQuad(center, blockWidth, blockHeight, true, farZ, hescoTexture);
+                DrawTexturedVerticalQuad(center, blockWidth, blockHeight, false, leftX, hescoTexture);
+                DrawTexturedVerticalQuad(center, blockWidth, blockHeight, false, rightX, hescoTexture);
+
+                Vector3 topPos = new Vector3(center.X, floorHeightOffset + blockHeight + 0.01f, center.Z);
+                DrawTexturedPlane(topPos, new Vector3(blockWidth, 1f, blockWidth), hescoTexture);
             }
         }
 
@@ -334,7 +373,7 @@ namespace XCOM_3
         /// <summary>
         /// ? MURS AMÉLIORÉS - Version avec détails, hauteur et ombres
         /// </summary>
-        public void DrawWalls(HashSet<WallSegment> walls, int size, bool editorMode = false, float floorHeightOffset = 0f, Color? wallOverrideColor = null, Texture2D brickWallTexture = null)
+        public void DrawWalls(HashSet<WallSegment> walls, int size, bool editorMode = false, float floorHeightOffset = 0f, Color? wallOverrideColor = null, Texture2D brickWallTexture = null, Texture2D hescoWallTexture = null)
         {
             foreach (var s in walls)
             {
@@ -360,6 +399,17 @@ namespace XCOM_3
                     ? new Color(140, 140, 140)  // Gris clair en mode éditeur
                     : new Color(100, 85, 70));   // Beige/brun en jeu
 
+                Texture2D wallTexture = null;
+                if (!editorMode)
+                {
+                    wallTexture = s.Material switch
+                    {
+                        WallMaterial.Brick => brickWallTexture,
+                        WallMaterial.Hesco => hescoWallTexture,
+                        _ => null
+                    };
+                }
+
                 // ------------------- NOUVEAU : GESTION DES FENÊTRES -------------------
                 if (s.Type == WallType.Window)
                 {
@@ -371,7 +421,7 @@ namespace XCOM_3
                         ? new Vector3(size, bottomHeight, thickness)
                         : new Vector3(thickness, bottomHeight, size);
 
-                    DrawWallSection(bottomCenter, bottomScale, s.IsHorizontal, wallColor, !editorMode && s.Material == WallMaterial.Brick, brickWallTexture);
+                    DrawWallSection(bottomCenter, bottomScale, s.IsHorizontal, wallColor, wallTexture);
 
                     // 2. LINTEAU (Le muret du haut - 20% de la hauteur totale)
                     float topPartHeight = wallHeight * 0.2f;
@@ -381,7 +431,7 @@ namespace XCOM_3
                         ? new Vector3(size, topPartHeight, thickness)
                         : new Vector3(thickness, topPartHeight, size);
 
-                    DrawWallSection(topPartCenter, topPartScale, s.IsHorizontal, wallColor, !editorMode && s.Material == WallMaterial.Brick, brickWallTexture);
+                    DrawWallSection(topPartCenter, topPartScale, s.IsHorizontal, wallColor, wallTexture);
 
                     // Le milieu reste vide pour laisser passer la ligne de vue !
                 }
@@ -414,8 +464,8 @@ namespace XCOM_3
                         ? new Vector3(frameWidth, openingHeight, thickness)
                         : new Vector3(thickness, openingHeight, frameWidth);
 
-                    DrawWallSection(leftCenter, frameScale, s.IsHorizontal, wallColor, !editorMode && s.Material == WallMaterial.Brick, brickWallTexture);
-                    DrawWallSection(rightCenter, frameScale, s.IsHorizontal, wallColor, !editorMode && s.Material == WallMaterial.Brick, brickWallTexture);
+                    DrawWallSection(leftCenter, frameScale, s.IsHorizontal, wallColor, wallTexture);
+                    DrawWallSection(rightCenter, frameScale, s.IsHorizontal, wallColor, wallTexture);
 
                     Vector3 topPartCenter = center;
                     topPartCenter.Y = floorHeightOffset + openingHeight + (topPartHeight / 2f);
@@ -423,15 +473,15 @@ namespace XCOM_3
                         ? new Vector3(size, topPartHeight, thickness)
                         : new Vector3(thickness, topPartHeight, size);
 
-                    DrawWallSection(topPartCenter, topPartScale, s.IsHorizontal, wallColor, !editorMode && s.Material == WallMaterial.Brick, brickWallTexture);
+                    DrawWallSection(topPartCenter, topPartScale, s.IsHorizontal, wallColor, wallTexture);
                 }
                 else
                 {
                     // Mur plein classique (Portes et Murs normaux)
-                    DrawWallSection(center, scale, s.IsHorizontal, wallColor, !editorMode && s.Material == WallMaterial.Brick, brickWallTexture);
+                    DrawWallSection(center, scale, s.IsHorizontal, wallColor, wallTexture);
 
                     // ? Ligne de démarcation (jointure au milieu) - Uniquement pour les murs pleins
-                    if (!editorMode && s.Material != WallMaterial.Brick)
+                    if (!editorMode && s.Material == WallMaterial.Standard)
                     {
                         Vector3 jointCenter = center;
                         jointCenter.Y = floorHeightOffset + wallHeight * 0.6f;

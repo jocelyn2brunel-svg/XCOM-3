@@ -36,7 +36,7 @@ namespace XCOM_3
     /// Représente un segment de mur entre deux cases
     /// </summary>
     public enum WallType { Full, Window, Door }
-    public enum WallMaterial { Standard, Brick }
+    public enum WallMaterial { Standard, Brick, Hesco }
 
     public struct WallSegment
     {
@@ -75,6 +75,7 @@ namespace XCOM_3
     {
         private Random random;
         public List<GeneratedBuilding> LastGeneratedBuildings { get; } = new List<GeneratedBuilding>();
+        public List<Point> LastGeneratedHescoBarriers { get; } = new List<Point>();
 
         public enum WallPattern
         {
@@ -97,6 +98,7 @@ namespace XCOM_3
         public HashSet<WallSegment> GenerateWalls(int gridWidth, int gridHeight, WallPattern pattern, int density = 20)
         {
             LastGeneratedBuildings.Clear();
+            LastGeneratedHescoBarriers.Clear();
 
             if (gridWidth < 10 || gridHeight < 10)
             {
@@ -470,7 +472,82 @@ namespace XCOM_3
                 }
             }
 
+            AddUrbanHescoFortifications(gridWidth, gridHeight);
+
             return walls;
+        }
+
+        private void AddUrbanHescoFortifications(int gridWidth, int gridHeight)
+        {
+            if (LastGeneratedBuildings.Count < 2)
+                return;
+
+            int placedFortifications = 0;
+            const int maxFortifications = 10;
+
+            for (int i = 0; i < LastGeneratedBuildings.Count - 1 && placedFortifications < maxFortifications; i++)
+            {
+                for (int j = i + 1; j < LastGeneratedBuildings.Count && placedFortifications < maxFortifications; j++)
+                {
+                    if (random.Next(100) >= 45)
+                        continue;
+
+                    var a = LastGeneratedBuildings[i];
+                    var b = LastGeneratedBuildings[j];
+
+                    var left = a.X <= b.X ? a : b;
+                    var right = a.X <= b.X ? b : a;
+                    int horizontalGap = right.X - (left.X + left.Width);
+                    int overlapYStart = Math.Max(left.Y, right.Y);
+                    int overlapYEnd = Math.Min(left.Y + left.Height, right.Y + right.Height);
+                    int overlapY = overlapYEnd - overlapYStart;
+
+                    if (horizontalGap >= 2 && horizontalGap <= 5 && overlapY >= 3)
+                    {
+                        int barrierX = left.X + left.Width + (horizontalGap / 2);
+                        int barrierLen = Math.Min(overlapY - 1, random.Next(2, 6));
+                        int barrierStartY = overlapYStart + random.Next(0, Math.Max(1, overlapY - barrierLen));
+
+                        if (barrierX > 1 && barrierX < gridWidth - 1)
+                        {
+                            for (int y = barrierStartY; y < barrierStartY + barrierLen && y < gridHeight - 2; y++)
+                                LastGeneratedHescoBarriers.Add(new Point(barrierX, y));
+
+                            placedFortifications++;
+                            continue;
+                        }
+                    }
+
+                    var top = a.Y <= b.Y ? a : b;
+                    var bottom = a.Y <= b.Y ? b : a;
+                    int verticalGap = bottom.Y - (top.Y + top.Height);
+                    int overlapXStart = Math.Max(top.X, bottom.X);
+                    int overlapXEnd = Math.Min(top.X + top.Width, bottom.X + bottom.Width);
+                    int overlapX = overlapXEnd - overlapXStart;
+
+                    if (verticalGap >= 2 && verticalGap <= 5 && overlapX >= 3)
+                    {
+                        int barrierY = top.Y + top.Height + (verticalGap / 2);
+                        int barrierLen = Math.Min(overlapX - 1, random.Next(2, 6));
+                        int barrierStartX = overlapXStart + random.Next(0, Math.Max(1, overlapX - barrierLen));
+
+                        if (barrierY > 1 && barrierY < gridHeight - 1)
+                        {
+                            for (int x = barrierStartX; x < barrierStartX + barrierLen && x < gridWidth - 2; x++)
+                                LastGeneratedHescoBarriers.Add(new Point(x, barrierY));
+
+                            placedFortifications++;
+                        }
+                    }
+                }
+            }
+
+            if (LastGeneratedHescoBarriers.Count > 1)
+            {
+                var uniqueBarriers = new HashSet<Point>(LastGeneratedHescoBarriers);
+                LastGeneratedHescoBarriers.Clear();
+                LastGeneratedHescoBarriers.AddRange(uniqueBarriers);
+            }
         }
 
         /// <summary>
