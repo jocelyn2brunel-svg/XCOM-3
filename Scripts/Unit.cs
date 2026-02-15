@@ -69,6 +69,7 @@ namespace XCOM_3
         public Item EquippedShirt { get; set; }
         public Item EquippedPants { get; set; }
         public Item EquippedChestRig { get; set; }
+        public Item EquippedBelt { get; set; }
         public List<Item> PantsInventory { get; set; } = new List<Item>();
         public List<Item> ChestRigInventory { get; set; } = new List<Item>();
         public string EquippedBackpack;
@@ -154,6 +155,7 @@ namespace XCOM_3
             EquippedShirt = null;
             EquippedPants = null;
             EquippedChestRig = null;
+            EquippedBelt = null;
             PantsInventory = new List<Item>();
             ChestRigInventory = new List<Item>();
             EquippedBackpack = "Medium Backpack"; // ← AJOUTER CETTE LIGNE (sac par défaut)
@@ -193,6 +195,7 @@ namespace XCOM_3
             EquippedShirt = other.EquippedShirt;    // NOUVEAU
             EquippedPants = other.EquippedPants;
             EquippedChestRig = other.EquippedChestRig;
+            EquippedBelt = other.EquippedBelt;
             PantsInventory = new List<Item>(other.PantsInventory);
             ChestRigInventory = new List<Item>(other.ChestRigInventory);
             EquippedBackpack = other.EquippedBackpack; // ← AJOUTER CETTE LIGNE
@@ -224,6 +227,7 @@ namespace XCOM_3
             if (EquippedShirt != null) total += EquippedShirt.Data.ArmorValue;   // NOUVEAU
             if (EquippedPants != null) total += EquippedPants.Data.ArmorValue;
             if (EquippedChestRig != null) total += EquippedChestRig.Data.ArmorValue;
+            if (EquippedBelt != null) total += EquippedBelt.Data.ArmorValue;
             total += Skills.GetDefenseBonus();
             return total;
         }
@@ -292,6 +296,7 @@ namespace XCOM_3
             total += EquippedShirt?.Data?.WeightLbs ?? 0f;
             total += EquippedPants?.Data?.WeightLbs ?? 0f;
             total += EquippedChestRig?.Data?.WeightLbs ?? 0f;
+            total += EquippedBelt?.Data?.WeightLbs ?? 0f;
 
             foreach (var item in PantsInventory)
                 total += item?.Data?.WeightLbs ?? 0f;
