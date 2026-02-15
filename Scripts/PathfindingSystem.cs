@@ -218,24 +218,30 @@ namespace XCOM_3
         public List<Point> GetShortMoveCells(Unit u)
         {
             if (u == null || u.ActionPoints <= 0) return new List<Point>();
-            return GetCellsInRange(u, u.GetShortMoveRange());
+            return GetCellsInRange(u, u.GetShortMoveRange(), includeAllFloors: false)
+                .Select(node => node.Cell)
+                .ToList();
         }
 
         public List<Point> GetMaxMoveCells(Unit u)
         {
             if (u == null || u.ActionPoints < 2) return new List<Point>();
-            return GetCellsInRange(u, u.GetMaxMoveRange());
+            return GetCellsInRange(u, u.GetMaxMoveRange(), includeAllFloors: false)
+                .Select(node => node.Cell)
+                .ToList();
         }
 
         public List<Point> GetSprintCells(Unit u)
         {
             if (u == null || !u.CanSprint()) return new List<Point>();
-            return GetCellsInRange(u, u.GetSprintRange());
+            return GetCellsInRange(u, u.GetSprintRange(), includeAllFloors: false)
+                .Select(node => node.Cell)
+                .ToList();
         }
 
-        private List<Point> GetCellsInRange(Unit u, int range)
+        private List<GridNode> GetCellsInRange(Unit u, int range, bool includeAllFloors)
         {
-            var reachable = new List<Point>();
+            var reachable = new List<GridNode>();
             var start = new GridNode(u.Cell, u.Floor);
             var queue = new Queue<GridNode>();
             var costs = new Dictionary<GridNode, int> { { start, 0 } };
@@ -271,8 +277,11 @@ namespace XCOM_3
                     costs[neighbor] = nextCost;
                     queue.Enqueue(neighbor);
 
-                    if (neighbor.Floor == u.Floor && neighbor.Cell != u.Cell)
-                        reachable.Add(neighbor.Cell);
+                    if (neighbor.Cell == u.Cell && neighbor.Floor == u.Floor)
+                        continue;
+
+                    if (includeAllFloors || neighbor.Floor == u.Floor)
+                        reachable.Add(neighbor);
                 }
             }
 
@@ -283,23 +292,32 @@ namespace XCOM_3
         {
             if (u == null || u.ActionPoints <= 0) return new List<Point>();
             int maxRange = u.CanSprint() ? u.GetSprintRange() : u.GetMaxMoveRange();
-            return GetCellsInRange(u, maxRange);
+            return GetCellsInRange(u, maxRange, includeAllFloors: false)
+                .Select(node => node.Cell)
+                .ToList();
         }
 
         public class MovementZones
         {
-            public List<Point> ShortMove { get; set; } = new List<Point>();
-            public List<Point> MaxMove { get; set; } = new List<Point>();
-            public List<Point> Sprint { get; set; } = new List<Point>();
+            public List<GridNode> ShortMove { get; set; } = new List<GridNode>();
+            public List<GridNode> MaxMove { get; set; } = new List<GridNode>();
+            public List<GridNode> Sprint { get; set; } = new List<GridNode>();
         }
 
         public MovementZones GetMovementZones(Unit u)
         {
             var zones = new MovementZones();
             if (u == null) return zones;
-            if (u.ActionPoints >= 1) zones.ShortMove = GetShortMoveCells(u);
-            if (u.ActionPoints >= 2) zones.MaxMove = GetMaxMoveCells(u).Except(zones.ShortMove).ToList();
-            if (u.CanSprint()) zones.Sprint = GetSprintCells(u).Except(zones.ShortMove).Except(zones.MaxMove).ToList();
+            if (u.ActionPoints >= 1) zones.ShortMove = GetCellsInRange(u, u.GetShortMoveRange(), includeAllFloors: true);
+            if (u.ActionPoints >= 2)
+                zones.MaxMove = GetCellsInRange(u, u.GetMaxMoveRange(), includeAllFloors: true)
+                    .Except(zones.ShortMove)
+                    .ToList();
+            if (u.CanSprint())
+                zones.Sprint = GetCellsInRange(u, u.GetSprintRange(), includeAllFloors: true)
+                    .Except(zones.ShortMove)
+                    .Except(zones.MaxMove)
+                    .ToList();
             return zones;
         }
 

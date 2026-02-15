@@ -1189,11 +1189,12 @@ namespace XCOM_3
                 }
             }
 
-            if (selectedUnit != null && selectedUnit.Team == Team.Player && selectedUnit.Floor == viewedFloor)
+            if (selectedUnit != null && selectedUnit.Team == Team.Player)
             {
                 var zones = pathfinding.GetMovementZones(selectedUnit);
                 renderer3D.DrawMovementZones(zones, cellSize,
-                    (float)gameTime.TotalGameTime.TotalSeconds);
+                    (float)gameTime.TotalGameTime.TotalSeconds,
+                    viewedFloor);
             }
 
             if (currentPath.Count > 0 && selectedUnit != null && selectedUnit.Floor == viewedFloor)

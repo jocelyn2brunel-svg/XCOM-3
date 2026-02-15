@@ -648,42 +648,43 @@ namespace XCOM_3
         /// <summary>
         /// Dessine les 3 zones de mouvement (court, max, sprint)
         /// </summary>
-        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime)
+        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime, int viewedFloor)
         {
             if (zones == null) return;
 
             float pulse = (float)Math.Sin(gameTime * 3f) * 0.15f + 0.85f;
+            float floorYOffset = viewedFloor * cellSize;
 
             HashSet<Point> shortZone = zones.ShortMove != null
-                ? new HashSet<Point>(zones.ShortMove)
+                ? zones.ShortMove.Where(node => node.Floor == viewedFloor).Select(node => node.Cell).ToHashSet()
                 : new HashSet<Point>();
             HashSet<Point> maxZone = new HashSet<Point>(shortZone);
             if (zones.MaxMove != null)
             {
-                maxZone.UnionWith(zones.MaxMove);
+                maxZone.UnionWith(zones.MaxMove.Where(node => node.Floor == viewedFloor).Select(node => node.Cell));
             }
             HashSet<Point> sprintZone = new HashSet<Point>(maxZone);
             if (zones.Sprint != null)
             {
-                sprintZone.UnionWith(zones.Sprint);
+                sprintZone.UnionWith(zones.Sprint.Where(node => node.Floor == viewedFloor).Select(node => node.Cell));
             }
 
             // Zone 1 : contour externe du mouvement court (1 AP) - VERT
-            DrawZonePerimeter(shortZone, cellSize, 0.02f, new Color(0, 255, 0, 220) * pulse);
+            DrawZonePerimeter(shortZone, cellSize, floorYOffset + 0.02f, new Color(0, 255, 0, 220) * pulse);
 
             // Zone 2 : contour externe du mouvement max (2 AP) - BLEU
-            DrawZonePerimeter(maxZone, cellSize, 0.03f, new Color(0, 150, 255, 210) * pulse);
+            DrawZonePerimeter(maxZone, cellSize, floorYOffset + 0.03f, new Color(0, 150, 255, 210) * pulse);
 
             // Zone 3 : contour externe du sprint (2 AP + phosphocréatine) - JAUNE
             float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
-            DrawZonePerimeter(sprintZone, cellSize, 0.04f, new Color(255, 200, 0, 215) * sprintPulse);
+            DrawZonePerimeter(sprintZone, cellSize, floorYOffset + 0.04f, new Color(255, 200, 0, 215) * sprintPulse);
 
             // Indicateur sprint uniquement sur les cellules de frontière
             foreach (var cell in sprintZone)
             {
                 if (IsBoundaryCell(cell, sprintZone))
                 {
-                    DrawSprintIndicator(cell, cellSize, gameTime);
+                    DrawSprintIndicator(cell, cellSize, gameTime, floorYOffset);
                 }
             }
         }
@@ -749,13 +750,13 @@ namespace XCOM_3
         /// <summary>
         /// Dessine un indicateur de sprint (petit symbole au centre de la case)
         /// </summary>
-        private void DrawSprintIndicator(Point cell, int cellSize, float gameTime)
+        private void DrawSprintIndicator(Point cell, int cellSize, float gameTime, float floorYOffset)
         {
             float pulse = (float)Math.Sin(gameTime * 6f) * 0.3f + 0.7f;
 
             Vector3 pos = new Vector3(
                 cell.X * cellSize + cellSize / 2f,
-                0.15f,
+                floorYOffset + 0.15f,
                 cell.Y * cellSize + cellSize / 2f
             );
 
