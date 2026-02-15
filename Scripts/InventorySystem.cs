@@ -681,7 +681,7 @@ namespace XCOM_3
                 Rectangle backpackGridBounds = GetBackpackUtilityGridBounds(unit);
                 if (backpackGridBounds.Contains(mousePosition))
                 {
-                    Point backpackGridPos = GetBackpackGridPositionFromMouse(mousePosition, unit);
+                    Point backpackGridPos = GetBackpackDropGridPositionFromMouse(mousePosition, unit, dragGridOffset);
                     if (!unit.BackpackInventory.CanPlaceItem(backpackGridPos, draggedSize))
                         return false;
 
@@ -1435,8 +1435,13 @@ namespace XCOM_3
             Rectangle backpackGridBounds = GetBackpackUtilityGridBounds(unit);
             if (backpackGridBounds.Contains(mousePosition))
             {
-                Point backpackGridPos = GetBackpackGridPositionFromMouse(mousePosition, unit);
-                previewRect = GetBackpackGridCellBounds(backpackGridPos, unit);
+                Point backpackGridPos = GetBackpackDropGridPositionFromMouse(mousePosition, unit, dragGridOffset);
+                Rectangle topLeftCell = GetBackpackGridCellBounds(backpackGridPos, unit);
+                previewRect = new Rectangle(
+                    topLeftCell.X,
+                    topLeftCell.Y,
+                    draggedSize.Width * CELL_SIZE,
+                    draggedSize.Height * CELL_SIZE);
 
                 unit.EnsureBackpackInventoryGrid();
                 canEquip = unit.BackpackInventory.CanPlaceItem(backpackGridPos, draggedSize);
@@ -1970,6 +1975,19 @@ namespace XCOM_3
             int step = CELL_SIZE + UTILITY_SLOT_GAP;
             int gridX = Math.Clamp(localX / step, 0, unit.BackpackInventory.Width - 1);
             int gridY = Math.Clamp(localY / step, 0, unit.BackpackInventory.Height - 1);
+            return new Point(gridX, gridY);
+        }
+
+        private Point GetBackpackDropGridPositionFromMouse(Point mousePosition, Unit unit, Point itemGridOffset)
+        {
+            unit.EnsureBackpackInventoryGrid();
+            Rectangle bounds = GetBackpackUtilityGridBounds(unit);
+            int localX = mousePosition.X - bounds.X;
+            int localY = mousePosition.Y - bounds.Y;
+
+            int step = CELL_SIZE + UTILITY_SLOT_GAP;
+            int gridX = localX / step - itemGridOffset.X;
+            int gridY = localY / step - itemGridOffset.Y;
             return new Point(gridX, gridY);
         }
 
