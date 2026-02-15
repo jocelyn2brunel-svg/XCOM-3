@@ -180,6 +180,21 @@ namespace XCOM_3
                 FillMode = FillMode.WireFrame
             };
 
+            InitializeMenuManagers();
+            InitializeGameplaySystems();
+            InitializeMapSystems();
+            InitializeDatabasesAndEncyclopedia();
+
+            explosionManager = new ExplosionManager(random);
+            edgeWallGenerator = new EdgeWallGenerator(random);
+            humanoidBatcher = new HumanoidBatchRenderer();
+
+            Console.WriteLine("[OPTIMIZATION] Batch renderer and spatial hash initialized");
+        }
+
+        private void InitializeMenuManagers()
+        {
+
             // ✅ INITIALISATION DES MANAGERS
 
             // 1. Main Menu Manager
@@ -223,7 +238,10 @@ namespace XCOM_3
 
             // 4. Encyclopedia Manager (nécessite weaponDatabase et inventorySystem)
             // On l'initialise APRÈS InitializeWeapons() et la création de inventorySystem
+        }
 
+        private void InitializeGameplaySystems()
+        {
             // tileTexture = Content.Load<Texture2D>("TileParchment32x32");
 
             renderer3D = new Renderer3D(GraphicsDevice);
@@ -251,7 +269,10 @@ namespace XCOM_3
                 GraphicsDevice.Viewport.Width,
                 GraphicsDevice.Viewport.Height
             );
+        }
 
+        private void InitializeMapSystems()
+        {
             // ✅ NOUVEAU : Initialiser le système de cartes
             mapGenerator = new MapGenerator(random);
             mapEditor = new MapEditor(camera, renderer3D, font, pixel, _spriteBatch);
@@ -270,7 +291,10 @@ namespace XCOM_3
             {
                 Console.WriteLine($"[GAME] Error checking maps: {ex.Message}");
             }
+        }
 
+        private void InitializeDatabasesAndEncyclopedia()
+        {
             InitializeWeapons();
             InitializeGrenades();
 
@@ -284,18 +308,11 @@ namespace XCOM_3
                 enemyPool
             );
             encyclopediaManager.OnBackToMainMenu += () => currentState = GameState.MainMenu;
-
-            explosionManager = new ExplosionManager(random);
-            edgeWallGenerator = new EdgeWallGenerator(random);
-            humanoidBatcher = new HumanoidBatchRenderer();
-
-            Console.WriteLine("[OPTIMIZATION] Batch renderer and spatial hash initialized");
         }
 
         protected override void Update(GameTime gameTime)
         {
             UpdateFPS(gameTime);
-            KeyboardState currentKeyboardState = Keyboard.GetState();
 
             ReadInputs(out bool leftClick, out bool escapePressed, out bool iPressed,
                        out MouseState mouse, out KeyboardState keyboard);
@@ -314,62 +331,7 @@ namespace XCOM_3
 
             UpdateGrenades(gameTime);
 
-            switch (currentState)
-            {
-                case GameState.MainMenu:
-                    mainMenuManager.Update(mouse, previousMouseState);
-                    break;
-
-                case GameState.CharacterCreation:
-                    characterCreationManager.Update(mouse, previousMouseState);
-                    if (escapePressed) currentState = GameState.MainMenu;
-                    break;
-
-                case GameState.MissionSelect:
-                    missionSelectManager.Update(mouse, previousMouseState);
-                    if (escapePressed) currentState = GameState.MainMenu;
-                    break;
-
-                case GameState.Playing:
-                    UpdatePlaying(gameTime, mouse, keyboard, leftClick, escapePressed);
-                    combatUI.Update(gameTime);
-
-                    break;
-
-                case GameState.MapEditor:
-                    mapEditor.Update(
-                        gameTime,
-                        mouse,
-                        keyboard,
-                        previousKeyboardState,
-                        previousMouseState,
-                        GraphicsDevice.Viewport.Width,
-                        GraphicsDevice.Viewport.Height
-                    );
-
-                    if (!mapEditor.IsActive)
-                        currentState = GameState.MainMenu;
-                    if (escapePressed)
-                    {
-                        mapEditor.Exit();
-                        currentState = GameState.MainMenu;
-                    }
-                    break;
-
-                case GameState.OptionsMenu:
-                    optionsMenuManager.Update(mouse, previousMouseState);
-                    if (escapePressed) currentState = GameState.MainMenu;
-                    break;
-
-                case GameState.Encyclopedia:
-                    encyclopediaManager.Update(mouse, previousMouseState);
-                    if (escapePressed) currentState = GameState.MainMenu;
-                    break;
-
-                case GameState.GameOver:
-                    if (escapePressed || leftClick) currentState = GameState.MainMenu;
-                    break;
-            }
+            UpdateCurrentState(gameTime, mouse, keyboard, leftClick, escapePressed);
 
             previousMouseState = mouse;
             previousKeyboardState = keyboard;
@@ -398,6 +360,85 @@ namespace XCOM_3
 
             _spriteBatch.Begin();
 
+            DrawCurrentStateUI();
+            statsPanel.Draw(_spriteBatch, selectedUnit);
+            characterInfoPanel.Draw(_spriteBatch, selectedUnit);
+            DrawUnitPageTabs();
+
+            DrawOverlay();
+
+            _spriteBatch.End();
+
+            base.Draw(gameTime);
+        }
+
+        private void UpdateCurrentState(GameTime gameTime, MouseState mouse, KeyboardState keyboard, bool leftClick, bool escapePressed)
+        {
+            switch (currentState)
+            {
+                case GameState.MainMenu:
+                    mainMenuManager.Update(mouse, previousMouseState);
+                    break;
+
+                case GameState.CharacterCreation:
+                    characterCreationManager.Update(mouse, previousMouseState);
+                    if (escapePressed) currentState = GameState.MainMenu;
+                    break;
+
+                case GameState.MissionSelect:
+                    missionSelectManager.Update(mouse, previousMouseState);
+                    if (escapePressed) currentState = GameState.MainMenu;
+                    break;
+
+                case GameState.Playing:
+                    UpdatePlaying(gameTime, mouse, keyboard, leftClick, escapePressed);
+                    combatUI.Update(gameTime);
+                    break;
+
+                case GameState.MapEditor:
+                    UpdateMapEditorState(gameTime, mouse, keyboard, escapePressed);
+                    break;
+
+                case GameState.OptionsMenu:
+                    optionsMenuManager.Update(mouse, previousMouseState);
+                    if (escapePressed) currentState = GameState.MainMenu;
+                    break;
+
+                case GameState.Encyclopedia:
+                    encyclopediaManager.Update(mouse, previousMouseState);
+                    if (escapePressed) currentState = GameState.MainMenu;
+                    break;
+
+                case GameState.GameOver:
+                    if (escapePressed || leftClick) currentState = GameState.MainMenu;
+                    break;
+            }
+        }
+
+        private void UpdateMapEditorState(GameTime gameTime, MouseState mouse, KeyboardState keyboard, bool escapePressed)
+        {
+            mapEditor.Update(
+                gameTime,
+                mouse,
+                keyboard,
+                previousKeyboardState,
+                previousMouseState,
+                GraphicsDevice.Viewport.Width,
+                GraphicsDevice.Viewport.Height
+            );
+
+            if (!mapEditor.IsActive)
+                currentState = GameState.MainMenu;
+
+            if (escapePressed)
+            {
+                mapEditor.Exit();
+                currentState = GameState.MainMenu;
+            }
+        }
+
+        private void DrawCurrentStateUI()
+        {
             switch (currentState)
             {
                 case GameState.MainMenu:
@@ -435,15 +476,6 @@ namespace XCOM_3
                     DrawGameOver();
                     break;
             }
-            statsPanel.Draw(_spriteBatch, selectedUnit);
-            characterInfoPanel.Draw(_spriteBatch, selectedUnit);
-            DrawUnitPageTabs();
-
-            DrawOverlay();
-
-            _spriteBatch.End();
-
-            base.Draw(gameTime);
         }
 
 
