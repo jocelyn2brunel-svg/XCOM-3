@@ -1150,37 +1150,48 @@ namespace XCOM_3
             // ✅ DESSIN DU FANTÔME DE PRÉVISUALISATION (AMÉLIORÉ)
             if (draggedItem != null)
             {
-                // 1. Calcul de la position théorique dans la grille (identique à HandleEndDrag)
-                int ghostGridX = (mouse.X - gridStartX) / CELL_SIZE - dragGridOffset.X;
-                int ghostGridY = (mouse.Y - gridStartY) / CELL_SIZE - dragGridOffset.Y;
-                Point ghostPos = new Point(ghostGridX, ghostGridY);
+                Rectangle gridArea = new Rectangle(
+                    gridStartX,
+                    gridStartY,
+                    GRID_WIDTH * CELL_SIZE,
+                    GRID_HEIGHT * CELL_SIZE);
 
-                // 2. Définition du rectangle visuel
-                Rectangle previewRect = new Rectangle(
-                    gridStartX + ghostGridX * CELL_SIZE,
-                    gridStartY + ghostGridY * CELL_SIZE,
-                    draggedItem.GetCurrentSize().Width * CELL_SIZE,
-                    draggedItem.GetCurrentSize().Height * CELL_SIZE
-                );
+                // N'afficher la prévisualisation de placement que dans la zone de grille.
+                // Sur le panneau d'équipement, elle n'est pas pertinente et semble décalée.
+                if (gridArea.Contains(mouse.Position))
+                {
+                    // 1. Calcul de la position théorique dans la grille (identique à HandleEndDrag)
+                    int ghostGridX = (mouse.X - gridStartX) / CELL_SIZE - dragGridOffset.X;
+                    int ghostGridY = (mouse.Y - gridStartY) / CELL_SIZE - dragGridOffset.Y;
+                    Point ghostPos = new Point(ghostGridX, ghostGridY);
 
-                // 3. Vérification de la validité via InventoryGrid
-                // On passe 'draggedItem' à CanPlaceItem pour qu'il ne se bloque pas lui-même
-                bool canPlace = inventoryGrid.CanPlaceItem(ghostPos, draggedItem.GetCurrentSize(), draggedItem);
+                    // 2. Définition du rectangle visuel
+                    Rectangle previewRect = new Rectangle(
+                        gridStartX + ghostGridX * CELL_SIZE,
+                        gridStartY + ghostGridY * CELL_SIZE,
+                        draggedItem.GetCurrentSize().Width * CELL_SIZE,
+                        draggedItem.GetCurrentSize().Height * CELL_SIZE
+                    );
 
-                // 4. Choix des couleurs selon le thème PE2
-                // Fond : Vert holographique (HoverOverlay) ou Rouge (TextDanger)
-                Color ghostColor = canPlace ?
-                    ParasiteEveTheme.HoverOverlay * 0.6f :
-                    ParasiteEveTheme.TextDanger * 0.4f;
+                    // 3. Vérification de la validité via InventoryGrid
+                    // On passe 'draggedItem' à CanPlaceItem pour qu'il ne se bloque pas lui-même
+                    bool canPlace = inventoryGrid.CanPlaceItem(ghostPos, draggedItem.GetCurrentSize(), draggedItem);
 
-                // Bordure : Plus intense pour la visibilité
-                Color borderColor = canPlace ?
-                    ParasiteEveTheme.SelectionOutline * 0.5f :
-                    ParasiteEveTheme.TextDanger * 0.8f;
+                    // 4. Choix des couleurs selon le thème PE2
+                    // Fond : Vert holographique (HoverOverlay) ou Rouge (TextDanger)
+                    Color ghostColor = canPlace ?
+                        ParasiteEveTheme.HoverOverlay * 0.6f :
+                        ParasiteEveTheme.TextDanger * 0.4f;
 
-                // 5. Rendu
-                spriteBatch.Draw(pixel, previewRect, ghostColor);
-                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
+                    // Bordure : Plus intense pour la visibilité
+                    Color borderColor = canPlace ?
+                        ParasiteEveTheme.SelectionOutline * 0.5f :
+                        ParasiteEveTheme.TextDanger * 0.8f;
+
+                    // 5. Rendu
+                    spriteBatch.Draw(pixel, previewRect, ghostColor);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
+                }
             }
 
             // ✅ Item en cours de drag (avec transparence)
