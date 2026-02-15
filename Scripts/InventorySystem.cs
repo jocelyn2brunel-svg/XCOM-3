@@ -26,7 +26,7 @@ namespace XCOM_3
         private const int EQUIP_PANEL_WIDTH = 420;
         private const int EQUIP_SLOT_LEFT_PADDING = 120;
         private const int EQUIP_LABEL_ROW_HEIGHT = CELL_SIZE;
-        private const int EQUIP_SLOT_VERTICAL_SPACING = 16;
+        private const int EQUIP_SLOT_VERTICAL_SPACING = 0;
         private const int UTILITY_SLOT_GAP = 6;
         private const int BACKPACK_UTILITY_COLUMNS = 4;
         private const int PANEL_GAP = 16;
