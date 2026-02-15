@@ -74,6 +74,7 @@ namespace XCOM_3
         {
             viewportWidth = width;
             viewportHeight = height;
+            camera?.UpdateProjection(GetViewportAspectRatio());
             Console.WriteLine($"[MAP EDITOR] Viewport updated: {width}x{height}");
         }
 
@@ -103,7 +104,7 @@ namespace XCOM_3
             CurrentMap = generator.GenerateEmptyMap(width, height, "New Map");
 
             cellSize = CurrentMap.CellSize;
-            camera = new CameraController(width, height, cellSize, 16f / 9f);
+            camera = new CameraController(width, height, cellSize, GetViewportAspectRatio());
 
             IsActive = true;
             ClearHistory();
@@ -118,7 +119,7 @@ namespace XCOM_3
         {
             CurrentMap = map;
             cellSize = map.CellSize;
-            camera = new CameraController(map.GridWidth, map.GridHeight, cellSize, 16f / 9f);
+            camera = new CameraController(map.GridWidth, map.GridHeight, cellSize, GetViewportAspectRatio());
 
             IsActive = true;
             ClearHistory();
@@ -147,6 +148,7 @@ namespace XCOM_3
             // ✅ Mettre à jour la taille du viewport
             this.viewportWidth = viewportWidth;
             this.viewportHeight = viewportHeight;
+            camera?.UpdateProjection(GetViewportAspectRatio());
 
             // Contrôles caméra
             camera.HandleControls(keyboard, mouse, prevMouse, gameTime);
@@ -761,6 +763,11 @@ namespace XCOM_3
             // Action
             spriteBatch.DrawString(font, action, new Vector2(keyBox.Right + 8, y), Color.LightGray,
                                   0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+        }
+
+        private float GetViewportAspectRatio()
+        {
+            return viewportHeight <= 0 ? 16f / 9f : (float)viewportWidth / viewportHeight;
         }
 
         private void DrawBorder(Rectangle rect, Color color, int thickness)
