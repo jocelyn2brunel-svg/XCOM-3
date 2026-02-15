@@ -238,14 +238,16 @@ namespace XCOM_3
 
         private int GetFloorSetback(BuildingFootprintData building, int floor)
         {
-            if (floor <= 1)
+            if (floor <= 0)
                 return 0;
 
             int seed = building.X * 73856093 ^ building.Y * 19349663 ^ floor * 83492791;
             int roll = Math.Abs(seed % 100);
 
-            // Quelques étages prennent du retrait pour créer terrasses et toits variés.
-            return roll < 40 ? 1 : 0;
+            // Évite les copies exactes du RDC sur les étages supérieurs :
+            // dès le 1er étage, appliquer ponctuellement un retrait.
+            int setbackChance = Math.Min(75, 40 + floor * 15);
+            return roll < setbackChance ? 1 : 0;
         }
 
         private bool ShouldSkipWallForFloor(BuildingFootprintData building, WallSegment wall, int floor)
@@ -283,7 +285,7 @@ namespace XCOM_3
             bool interiorHorizontal = wall.IsHorizontal && wall.Start.Y > minY && wall.Start.Y < maxY;
             bool interiorVertical = !wall.IsHorizontal && wall.Start.X > minX && wall.Start.X < maxX;
 
-            if ((interiorHorizontal || interiorVertical) && roll < 18 + floor * 2)
+            if ((interiorHorizontal || interiorVertical) && roll < Math.Min(70, 30 + floor * 10))
                 return true;
 
             // Ne retire plus les façades en étage: cela créait des murs manquants sur certaines générations.
