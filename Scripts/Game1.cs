@@ -1471,20 +1471,23 @@ namespace XCOM_3
             if (hoveredCell.X < 0 || hoveredCell.Y < 0)
                 return;
 
-            if (!IsHoveredCellBehindWall())
-                return;
-
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
             float floorYOffset = viewedFloor * cellSize;
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.None;
 
             float pulseBoost = 0.75f + pulse * 0.25f;
             Vector3 position = new Vector3(
                 hoveredCell.X * cellSize + cellSize / 2f,
                 floorYOffset + 0.12f,
                 hoveredCell.Y * cellSize + cellSize / 2f);
+
+            renderer3D.DrawZoneOutline(new[] { hoveredCell }, cellSize, floorYOffset + 0.14f, new Color(255, 220, 90, 230) * pulseBoost);
+
+            if (!IsHoveredCellBehindWall())
+                return;
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+
             renderer3D.DrawPlane(
                 position,
                 new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f),
