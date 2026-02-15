@@ -278,17 +278,28 @@ namespace XCOM_3
         private void DrawThrowMode3D(GameTime gameTime)
         {
             if (!throwMode) return;
+
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.3f + 0.7f;
+
             foreach (var cell in throwableCells)
             {
                 Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, 0.2f, cell.Y * cellSize + cellSize / 2f);
                 renderer3D.DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), Color.Yellow * 0.3f * pulse);
             }
+
+            bool isMk2 = string.Equals(selectedGrenade?.Name, "MK 2", StringComparison.OrdinalIgnoreCase);
+            if (isMk2 && throwTarget.X >= 0 && throwTarget.Y >= 0)
+            {
+                DrawVolumetricGrenadeGhost(throwTarget, 0f, 2f, new Color(255, 40, 40, 60) * pulse);
+                DrawVolumetricGrenadeGhost(throwTarget, 3f, 9f, new Color(255, 235, 80, 40) * pulse);
+            }
+
             foreach (var cell in explosionPreview)
             {
                 Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, 0.25f, cell.Y * cellSize + cellSize / 2f);
                 renderer3D.DrawPlane(position, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), Color.Red * 0.5f * pulse);
             }
+
             for (int i = 0; i < trajectoryPreview.Count - 1; i++)
             {
                 Vector3 a = trajectoryPreview[i];
@@ -300,6 +311,37 @@ namespace XCOM_3
                     float t = s / (float)steps;
                     Vector3 p = Vector3.Lerp(a, b, t);
                     renderer3D.DrawCube(p, new Vector3(cellSize * 0.08f), Color.White * 0.85f);
+                }
+            }
+        }
+
+        private void DrawVolumetricGrenadeGhost(Point centerCell, float minRadius, float maxRadius, Color color)
+        {
+            int minX = Math.Max(0, centerCell.X - (int)Math.Ceiling(maxRadius));
+            int maxX = Math.Min(gridWidth - 1, centerCell.X + (int)Math.Ceiling(maxRadius));
+            int minY = Math.Max(0, centerCell.Y - (int)Math.Ceiling(maxRadius));
+            int maxY = Math.Min(gridHeight - 1, centerCell.Y + (int)Math.Ceiling(maxRadius));
+
+            float floorYOffset = viewedFloor * cellSize;
+            float ghostHeight = cellSize * 1.35f;
+
+            for (int x = minX; x <= maxX; x++)
+            {
+                for (int y = minY; y <= maxY; y++)
+                {
+                    float distance = Vector2.Distance(new Vector2(centerCell.X, centerCell.Y), new Vector2(x, y));
+                    if (distance < minRadius || distance > maxRadius)
+                        continue;
+
+                    Vector3 center = new Vector3(
+                        x * cellSize + cellSize / 2f,
+                        floorYOffset + ghostHeight / 2f,
+                        y * cellSize + cellSize / 2f);
+
+                    renderer3D.DrawCube(
+                        center,
+                        new Vector3(cellSize * 0.82f, ghostHeight, cellSize * 0.82f),
+                        color);
                 }
             }
         }

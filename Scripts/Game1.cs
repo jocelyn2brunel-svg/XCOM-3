@@ -1198,7 +1198,7 @@ namespace XCOM_3
                 }
             }
 
-            if (selectedUnit != null && selectedUnit.Team == Team.Player)
+            if (!throwMode && selectedUnit != null && selectedUnit.Team == Team.Player)
             {
                 var zones = pathfinding.GetMovementZones(selectedUnit);
                 renderer3D.DrawMovementZones(zones, cellSize,
@@ -1206,7 +1206,7 @@ namespace XCOM_3
                     viewedFloor);
             }
 
-            if (currentPathNodes.Count > 0 && selectedUnit != null && currentPathNodes.Any(n => n.Floor == viewedFloor))
+            if (!throwMode && currentPathNodes.Count > 0 && selectedUnit != null && currentPathNodes.Any(n => n.Floor == viewedFloor))
             {
                 renderer3D.DrawMovementPath(currentPathNodes, selectedUnit, cellSize,
                     (float)gameTime.TotalGameTime.TotalSeconds);
