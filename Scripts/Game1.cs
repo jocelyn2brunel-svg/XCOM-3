@@ -89,6 +89,7 @@ namespace XCOM_3
 
         // --- A* Pathfinding ---
         private List<Point> currentPath = new();
+        private int currentPathEndFloor = 0;
         private Dictionary<Point, int> pathCosts = new();
 
         private Dictionary<string, WeaponData> weaponDatabase;
@@ -146,7 +147,7 @@ namespace XCOM_3
         private const int TabSpacing = 8;
         private const int TabTopMargin = 12;
         private const float WallHeightRatio = 0.92f;
-        private const int HoverRevealRadius = 2;
+        private const int HoverRevealRadius = 0;
         private const int UnitWireframeRevealRadius = 1;
         private RasterizerState hoveredCellWireframeState;
 
@@ -982,7 +983,7 @@ namespace XCOM_3
                 renderer3D.DrawWalls(opaqueWalls, cellSize, editorMode: false, floorHeightOffset: yOffset);
 
             if (hoverRevealWalls.Count > 0)
-                DrawWireframeWalls(hoverRevealWalls, yOffset, new Color(255, 235, 130, 165));
+                DrawWireframeWalls(hoverRevealWalls, yOffset, new Color(255, 235, 130, 64));
 
             if (floorToRender < floorCount - 1)
             {
@@ -1016,7 +1017,7 @@ namespace XCOM_3
 
                     if (fadedUpperWalls.Count > 0)
                     {
-                        DrawWireframeWalls(fadedUpperWalls, upperFloorOffset, new Color(205, 190, 170, 115));
+                        DrawWireframeWalls(fadedUpperWalls, upperFloorOffset, new Color(205, 190, 170, 64));
                     }
                 }
             }
@@ -1053,8 +1054,8 @@ namespace XCOM_3
                     if (fadedLowerWalls.Count > 0)
                     {
                         Color lowerWireColor = lowerFloor < 0
-                            ? new Color(105, 140, 180, 115)
-                            : new Color(120, 180, 215, 115);
+                            ? new Color(105, 140, 180, 64)
+                            : new Color(120, 180, 215, 64);
                         DrawWireframeWalls(fadedLowerWalls, lowerFloorOffset, lowerWireColor);
                     }
                 }
@@ -1118,7 +1119,7 @@ namespace XCOM_3
             occlusionWireWalls.ExceptWith(hoverRevealWalls);
             if (occlusionWireWalls.Count > 0)
             {
-                DrawWireframeWalls(occlusionWireWalls, yOffset, new Color(120, 190, 240, 120));
+                DrawWireframeWalls(occlusionWireWalls, yOffset, new Color(120, 190, 240, 64));
             }
 
             if (occludedUnits.Count > 0)
@@ -1197,7 +1198,7 @@ namespace XCOM_3
                     viewedFloor);
             }
 
-            if (currentPath.Count > 0 && selectedUnit != null && selectedUnit.Floor == viewedFloor)
+            if (currentPath.Count > 0 && selectedUnit != null && currentPathEndFloor == viewedFloor)
             {
                 renderer3D.DrawMovementPath(currentPath, selectedUnit, cellSize,
                     (float)gameTime.TotalGameTime.TotalSeconds);
@@ -1528,7 +1529,7 @@ namespace XCOM_3
             if (currentPath == null || currentPath.Count == 0 || selectedUnit == null)
                 return;
 
-            if (selectedUnit.Team != Team.Player || selectedUnit.Floor != viewedFloor)
+            if (selectedUnit.Team != Team.Player || currentPathEndFloor != viewedFloor)
                 return;
 
             Vector3 cameraPos = camera.Position;
@@ -2184,7 +2185,9 @@ namespace XCOM_3
                         previewFloor = transitionFloor;
                     }
 
-                    currentPath = pathfinding.FindPathDetailed(selectedUnit.Cell, selectedUnit.Floor, previewGoal, previewFloor, maxRange, selectedUnit).Cells;
+                    var previewPath = pathfinding.FindPathDetailed(selectedUnit.Cell, selectedUnit.Floor, previewGoal, previewFloor, maxRange, selectedUnit);
+                    currentPath = previewPath.Cells;
+                    currentPathEndFloor = previewPath.EndFloor;
                     lastHoveredCell = hoveredCell;
 
                     pathCosts.Clear();
@@ -2198,6 +2201,7 @@ namespace XCOM_3
             else
             {
                 currentPath.Clear();
+                currentPathEndFloor = selectedUnit?.Floor ?? viewedFloor;
                 pathCosts.Clear();
 
                 // If the mouse isn't on a valid movement cell, update the last hovered cell anyway
@@ -2313,6 +2317,7 @@ namespace XCOM_3
                 {
                     cachedMovableCells.Clear();
                     currentPath.Clear();
+                    currentPathEndFloor = viewedFloor;
                     pathCosts.Clear();
                 }
             }
@@ -2411,6 +2416,7 @@ namespace XCOM_3
                 cachedMovableCells = selectedUnit.ActionPoints > 0 ?
                     pathfinding.GetMovableCells(selectedUnit) : new List<Point>();
                 currentPath.Clear();
+                currentPathEndFloor = selectedUnit.Floor;
                 pathCosts.Clear();
             }
         }
@@ -2482,6 +2488,7 @@ namespace XCOM_3
             selectedUnit = null;
             cachedMovableCells.Clear();
             currentPath.Clear();
+            currentPathEndFloor = viewedFloor;
             pathCosts.Clear();
 
             // Grenade - reste identique
