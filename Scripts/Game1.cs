@@ -154,7 +154,6 @@ namespace XCOM_3
         private const int TabTopMargin = 12;
         private const float WallHeightRatio = 0.92f;
         private const int HoverRevealRadius = 2;
-        private const int UnitWireframeRevealRadius = 1;
         private RasterizerState hoveredCellWireframeState;
 
 
@@ -1014,7 +1013,6 @@ namespace XCOM_3
             HashSet<WallSegment> hoverRevealWalls = new HashSet<WallSegment>();
             HashSet<Unit> occludedUnits = new HashSet<Unit>();
             ComputeOcclusionFromWalls(wallsForFloor, unitsOnFloor, yOffset, fadedWalls, occludedUnits);
-            ComputeOcclusionFromVisibleUnitsArea(wallsForFloor, unitsOnFloor, yOffset, fadedWalls);
             ComputeOcclusionFromHoveredArea(wallsForFloor, yOffset, hoverRevealWalls);
             ComputeOcclusionFromPathArea(wallsForFloor, yOffset, hoverRevealWalls);
             fadedWalls.UnionWith(hoverRevealWalls);
@@ -1071,7 +1069,6 @@ namespace XCOM_3
 
                     if (unitsOnFloor.Count > 0)
                     {
-                        ComputeOcclusionFromVisibleUnitsArea(wallsForUpperFloor, unitsOnFloor, upperFloorOffset, fadedUpperWalls);
                         ComputeOcclusionFromWalls(wallsForUpperFloor, unitsOnFloor, upperFloorOffset, fadedUpperWalls, new HashSet<Unit>());
                     }
                     ComputeOcclusionFromHoveredArea(wallsForUpperFloor, upperFloorOffset, fadedUpperWalls);
@@ -1107,7 +1104,6 @@ namespace XCOM_3
 
                     if (lowerFloorUnits.Count > 0)
                     {
-                        ComputeOcclusionFromVisibleUnitsArea(wallsForLowerFloor, lowerFloorUnits, lowerFloorOffset, fadedLowerWalls);
                         ComputeOcclusionFromWalls(wallsForLowerFloor, lowerFloorUnits, lowerFloorOffset, fadedLowerWalls, new HashSet<Unit>());
                     }
                     ComputeOcclusionFromHoveredArea(wallsForLowerFloor, lowerFloorOffset, fadedLowerWalls);
@@ -1648,73 +1644,6 @@ namespace XCOM_3
             }
 
             return cells;
-        }
-
-        private void ComputeOcclusionFromVisibleUnitsArea(
-            IEnumerable<WallSegment> walls,
-            IEnumerable<Unit> units,
-            float floorHeightOffset,
-            HashSet<WallSegment> fadedWalls)
-        {
-            if (units == null)
-                return;
-
-            Vector3 cameraPos = camera.Position;
-
-            foreach (var unit in units)
-            {
-                if (unit == null || unit.Health <= 0)
-                    continue;
-
-                List<Point> revealCells = new List<Point>();
-                for (int x = unit.Cell.X - UnitWireframeRevealRadius; x <= unit.Cell.X + UnitWireframeRevealRadius; x++)
-                {
-                    for (int y = unit.Cell.Y - UnitWireframeRevealRadius; y <= unit.Cell.Y + UnitWireframeRevealRadius; y++)
-                    {
-                        if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight)
-                            continue;
-
-                        revealCells.Add(new Point(x, y));
-                    }
-                }
-
-                foreach (Point revealCell in revealCells)
-                {
-                    Vector3 revealPoint = new Vector3(
-                        revealCell.X * cellSize + cellSize / 2f,
-                        floorHeightOffset + cellSize * 0.35f,
-                        revealCell.Y * cellSize + cellSize / 2f);
-
-                    foreach (var wall in walls)
-                    {
-                        if (wall.Type == WallType.Door)
-                            continue;
-
-                        if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, revealPoint))
-                            fadedWalls.Add(wall);
-                    }
-                }
-
-                // Double-check la case exacte de l'unité avec plusieurs hauteurs pour éviter
-                // qu'un mur fil de fer n'empiète partiellement sur elle.
-                float[] revealHeights = { 0.2f, 0.5f, 0.8f };
-                foreach (float heightRatio in revealHeights)
-                {
-                    Vector3 revealPoint = new Vector3(
-                        unit.Cell.X * cellSize + cellSize / 2f,
-                        floorHeightOffset + cellSize * heightRatio,
-                        unit.Cell.Y * cellSize + cellSize / 2f);
-
-                    foreach (var wall in walls)
-                    {
-                        if (wall.Type == WallType.Door)
-                            continue;
-
-                        if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, revealPoint))
-                            fadedWalls.Add(wall);
-                    }
-                }
-            }
         }
 
         private (string Name, string Job) GenerateRandomRecruitProfile()
