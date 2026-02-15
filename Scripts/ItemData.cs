@@ -18,6 +18,7 @@ namespace XCOM_3
 
     public enum ArmorSlot
     {
+        None,
         Head,
         Torso,
         Shield,
@@ -68,7 +69,7 @@ namespace XCOM_3
             Type = type;
             WeaponData = weaponData;
             ArmorValue = 0;
-            ArmorSlot = ArmorSlot.Head;
+            ArmorSlot = ArmorSlot.None;
             ProtectionLevel = ProtectionLevel.None;
             MobilityPenalty = 0;
             WeightLbs = 0f;
@@ -78,7 +79,7 @@ namespace XCOM_3
 
         // Constructeur pour armures
         public ItemData(string name, ItemType type, int armorValue = 0,
-                       ArmorSlot armorSlot = ArmorSlot.Head,
+                       ArmorSlot armorSlot = ArmorSlot.None,
                        ProtectionLevel protectionLevel = ProtectionLevel.None,
                        int mobilityPenalty = 0,
                        float weightLbs = 0f,
