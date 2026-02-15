@@ -323,6 +323,8 @@ namespace XCOM_3
                     ArmorSlot.Shield => "Bouclier",
                     ArmorSlot.Shirt => "Chemise",
                     ArmorSlot.Pants => "Pantalon",
+                    ArmorSlot.ChestRig => "Chest Rig",
+                    ArmorSlot.Belt => "Ceinture",
                     _ => "Inconnu"
                 };
                 _spriteBatch.DrawString(_font, $"  Emplacement: {slot}", new Vector2(ContentX + 20, y), Color.White);

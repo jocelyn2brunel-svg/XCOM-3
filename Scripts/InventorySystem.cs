@@ -342,11 +342,20 @@ namespace XCOM_3
                 return;
             }
 
-            if (unit.EquippedAccessory != null && shieldSlot.Contains(mouse.Position))
+            Rectangle beltSlot = GetBeltSlotBounds();
+            if (unit.EquippedAccessory != null && beltSlot.Contains(mouse.Position))
             {
                 StartDragFromEquipment(unit.EquippedAccessory);
                 unit.EquippedAccessory = null;
                 Console.WriteLine($"[INVENTORY] Unequipped accessory: {draggedItem.Data.Name}");
+                return;
+            }
+
+            if (unit.EquippedBelt != null && beltSlot.Contains(mouse.Position))
+            {
+                StartDragFromEquipment(unit.EquippedBelt);
+                unit.EquippedBelt = null;
+                Console.WriteLine($"[INVENTORY] Unequipped belt: {draggedItem.Data.Name}");
                 return;
             }
 
@@ -614,8 +623,6 @@ namespace XCOM_3
                 Rectangle shieldSlot = GetShieldSlotBounds();
                 if (item.Data.ArmorSlot == ArmorSlot.Shield && shieldSlot.Contains(mousePosition))
                 {
-                    if (unit.EquippedAccessory != null)
-                        ReturnItemToGrid(unit.EquippedAccessory);
                     if (unit.EquippedShield != null)
                         ReturnItemToGrid(unit.EquippedShield);
                     unit.EquippedShield = new Item(item.Data, Point.Zero);
@@ -674,21 +681,35 @@ namespace XCOM_3
                     Console.WriteLine($"[INVENTORY] ✅ Equipped chest rig: {item.Data.Name}");
                     return true;
                 }
+
+                Rectangle beltSlot = GetBeltSlotBounds();
+                if (item.Data.ArmorSlot == ArmorSlot.Belt && beltSlot.Contains(mousePosition))
+                {
+                    if (unit.EquippedAccessory != null)
+                        ReturnItemToGrid(unit.EquippedAccessory);
+                    if (unit.EquippedBelt != null)
+                        ReturnItemToGrid(unit.EquippedBelt);
+
+                    unit.EquippedAccessory = null;
+                    unit.EquippedBelt = new Item(item.Data, Point.Zero);
+                    Console.WriteLine($"[INVENTORY] ✅ Equipped belt: {item.Data.Name}");
+                    return true;
+                }
             }
 
             if (item.Data.Type == ItemType.Accessory)
             {
-                Rectangle offHandSlot = GetShieldSlotBounds();
-                if (offHandSlot.Contains(mousePosition))
+                Rectangle beltSlot = GetBeltSlotBounds();
+                if (beltSlot.Contains(mousePosition))
                 {
-                    if (unit.EquippedShield != null)
-                        ReturnItemToGrid(unit.EquippedShield);
                     if (unit.EquippedAccessory != null)
                         ReturnItemToGrid(unit.EquippedAccessory);
+                    if (unit.EquippedBelt != null)
+                        ReturnItemToGrid(unit.EquippedBelt);
 
-                    unit.EquippedShield = null;
                     unit.EquippedAccessory = new Item(item.Data, Point.Zero);
-                    Console.WriteLine($"[INVENTORY] ✅ Equipped accessory: {item.Data.Name}");
+                    unit.EquippedBelt = null;
+                    Console.WriteLine($"[INVENTORY] ✅ Equipped accessory on belt: {item.Data.Name}");
                     return true;
                 }
             }
@@ -819,10 +840,10 @@ namespace XCOM_3
                 if (info.Data.ArmorSlot == ArmorSlot.Head && info.Source == "helmet") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Torso && info.Source == "armor") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Shield && info.Source == "shield") return true;
-                if (info.Data.ArmorSlot == ArmorSlot.Shield && info.Source == "accessory") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Shirt && info.Source == "shirt") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Pants && info.Source == "pants") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.ChestRig && info.Source == "chestrig") return true;
+                if (info.Data.ArmorSlot == ArmorSlot.Belt && info.Source == "belt") return true;
             }
 
             if (info.Data.Type == ItemType.Accessory && info.Source == "accessory")
@@ -853,12 +874,13 @@ namespace XCOM_3
                     case ArmorSlot.Shirt: target = GetShirtSlotBounds().Center; return true;
                     case ArmorSlot.Pants: target = GetPantsSlotBounds().Center; return true;
                     case ArmorSlot.ChestRig: target = GetChestRigSlotBounds().Center; return true;
+                    case ArmorSlot.Belt: target = GetBeltSlotBounds().Center; return true;
                 }
             }
 
             if (data.Type == ItemType.Accessory)
             {
-                target = GetShieldSlotBounds().Center;
+                target = GetBeltSlotBounds().Center;
                 return true;
             }
 
@@ -905,10 +927,11 @@ namespace XCOM_3
             if (unit.EquippedHelmet != null && GetHelmetSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedHelmet.Data, Source = "helmet", Index = -1 };
             if (unit.EquippedArmor != null && GetArmorSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedArmor.Data, Source = "armor", Index = -1 };
             if (unit.EquippedShield != null && GetShieldSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedShield.Data, Source = "shield", Index = -1 };
-            if (unit.EquippedAccessory != null && GetShieldSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedAccessory.Data, Source = "accessory", Index = -1 };
+            if (unit.EquippedAccessory != null && GetBeltSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedAccessory.Data, Source = "accessory", Index = -1 };
             if (unit.EquippedShirt != null && GetShirtSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedShirt.Data, Source = "shirt", Index = -1 };
             if (unit.EquippedPants != null && GetPantsSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedPants.Data, Source = "pants", Index = -1 };
             if (unit.EquippedChestRig != null && GetChestRigSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedChestRig.Data, Source = "chestrig", Index = -1 };
+            if (unit.EquippedBelt != null && GetBeltSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedBelt.Data, Source = "belt", Index = -1 };
 
             for (int i = 0; i < unit.GetPantsInventoryCapacity(); i++)
             {
@@ -941,6 +964,7 @@ namespace XCOM_3
                 case "shirt": unit.EquippedShirt = null; break;
                 case "pants": unit.EquippedPants = null; break;
                 case "chestrig": unit.EquippedChestRig = null; break;
+                case "belt": unit.EquippedBelt = null; break;
                 case "pantspocket": if (info.Index >= 0 && info.Index < unit.PantsInventory.Count) unit.PantsInventory.RemoveAt(info.Index); break;
                 case "rigpocket": if (info.Index >= 0 && info.Index < unit.ChestRigInventory.Count) unit.ChestRigInventory.RemoveAt(info.Index); break;
             }
@@ -967,6 +991,7 @@ namespace XCOM_3
                 case "shirt": unit.EquippedShirt = restored; break;
                 case "pants": unit.EquippedPants = restored; break;
                 case "chestrig": unit.EquippedChestRig = restored; break;
+                case "belt": unit.EquippedBelt = restored; break;
                 case "pantspocket":
                     if (info.Index >= 0 && info.Index <= unit.PantsInventory.Count) unit.PantsInventory.Insert(info.Index, restored);
                     break;
@@ -1160,15 +1185,12 @@ namespace XCOM_3
 
             bool isDragging = draggedItem != null;
 
-            // Slots d'équipement principaux (Organisés en 2 colonnes)
+            // Slots d'équipement principaux (Organisés en 3 colonnes)
             DrawEquipmentSlot(GetWeaponSlotBounds(), "RIGHT HAND", unit.EquippedWeapon,
                 isDragging && draggedItem.Data.Type == ItemType.Weapon);
 
-            Item offHandItem = unit.EquippedShield ?? unit.EquippedAccessory;
-            DrawEquipmentSlot(GetShieldSlotBounds(), "LEFT HAND", offHandItem,
-                isDragging &&
-                ((draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield) ||
-                 draggedItem.Data.Type == ItemType.Accessory));
+            DrawEquipmentSlot(GetShieldSlotBounds(), "LEFT HAND", unit.EquippedShield,
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield);
 
             DrawEquipmentSlot(GetHelmetSlotBounds(), "HEAD", unit.EquippedHelmet,
                 isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Head);
@@ -1184,6 +1206,12 @@ namespace XCOM_3
 
             DrawEquipmentSlot(GetChestRigSlotBounds(), "CHEST RIG", unit.EquippedChestRig,
                 isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.ChestRig);
+
+            Item beltItem = unit.EquippedAccessory ?? unit.EquippedBelt;
+            DrawEquipmentSlot(GetBeltSlotBounds(), "BELT", beltItem,
+                isDragging &&
+                (draggedItem.Data.Type == ItemType.Accessory ||
+                (draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Belt)));
 
             int pantsCapacity = unit.GetPantsInventoryCapacity();
             int chestRigCapacity = unit.GetChestRigInventoryCapacity();
@@ -1233,11 +1261,14 @@ namespace XCOM_3
 
         private void DrawEquipmentSlot(Rectangle slot, string label, Item equippedItem, bool highlight = false)
         {
-            // Fond de slot sombre
-            spriteBatch.Draw(pixel, slot, ParasiteEveTheme.BackgroundDark * 0.8f);
+            // Fond de slot sombre (ghost vert si item compatible)
+            Color slotBackground = highlight
+                ? Color.Lerp(ParasiteEveTheme.BackgroundDark, Color.LimeGreen, 0.35f) * 0.9f
+                : ParasiteEveTheme.BackgroundDark * 0.8f;
+            spriteBatch.Draw(pixel, slot, slotBackground);
 
-            // Bordure dynamique : brille si l'item traîné est compatible
-            Color borderColor = highlight ? ParasiteEveTheme.SelectionOutline : ParasiteEveTheme.BorderColor;
+            // Bordure dynamique : brille en vert si l'item traîné est compatible
+            Color borderColor = highlight ? Color.LimeGreen : ParasiteEveTheme.BorderColor;
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, slot, borderColor, highlight ? 2 : 1);
 
             // Label au-dessus du slot
@@ -1314,6 +1345,11 @@ namespace XCOM_3
         private Rectangle GetChestRigSlotBounds()
         {
             return GetMainEquipmentSlotBounds(2, 0);
+        }
+
+        private Rectangle GetBeltSlotBounds()
+        {
+            return GetMainEquipmentSlotBounds(2, 1);
         }
 
         private Rectangle GetMainEquipmentSlotBounds(int column, int row)
