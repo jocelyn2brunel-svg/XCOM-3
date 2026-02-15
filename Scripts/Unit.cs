@@ -386,8 +386,39 @@ namespace XCOM_3
             {
                 movementWaypoints.Enqueue(new Vector3(
                     cell.X * cellSize + cellSize / 2f,
-                    0,
+                    Floor * cellSize,
                     cell.Y * cellSize + cellSize / 2f
+                ));
+            }
+
+            BeginNextMoveSegment();
+        }
+
+        public void StartMoveAlongPath(List<GridNode> path, int cellSize = 2)
+        {
+            if (path == null || path.Count == 0)
+                return;
+
+            Point newCell = path[path.Count - 1].Cell;
+
+            if (lastPosition.HasValue && Team == Team.Player)
+            {
+                Skills.GainMovementXP(path.Count);
+            }
+
+            lastPosition = Cell;
+            Cell = newCell;
+            IsMoving = true;
+            MoveProgress = 0f;
+            WalkCycleTime = 0f;
+
+            movementWaypoints.Clear();
+            foreach (GridNode node in path)
+            {
+                movementWaypoints.Enqueue(new Vector3(
+                    node.Cell.X * cellSize + cellSize / 2f,
+                    node.Floor * cellSize,
+                    node.Cell.Y * cellSize + cellSize / 2f
                 ));
             }
 

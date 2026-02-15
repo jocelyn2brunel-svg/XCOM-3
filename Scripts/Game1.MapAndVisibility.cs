@@ -89,6 +89,7 @@ namespace XCOM_3
                 cachedMovableCells = pathfinding.GetMovableCells(selectedUnit);
 
             currentPath.Clear();
+            currentPathNodes.Clear();
             currentPathEndFloor = viewedFloor;
             pathCosts.Clear();
             hoveredCell = new Point(-1, -1);

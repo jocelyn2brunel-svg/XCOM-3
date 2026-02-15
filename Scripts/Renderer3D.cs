@@ -769,7 +769,7 @@ namespace XCOM_3
         /// <summary>
         /// Dessine le chemin avec coloration selon le coût (VERSION SIMPLIFIÉE)
         /// </summary>
-        public void DrawMovementPath(List<Point> path, Unit unit, int cellSize, float gameTime)
+        public void DrawMovementPath(List<GridNode> path, Unit unit, int cellSize, float gameTime)
         {
             if (path == null || path.Count == 0 || unit == null) return;
 
@@ -778,7 +778,8 @@ namespace XCOM_3
 
             for (int i = 0; i < path.Count; i++)
             {
-                Point cell = path[i];
+                GridNode node = path[i];
+                Point cell = node.Cell;
                 int distance = i + 1;
 
                 // Déterminer la couleur selon la distance
@@ -798,7 +799,7 @@ namespace XCOM_3
 
                 Vector3 pos = new Vector3(
                     cell.X * cellSize + cellSize / 2f,
-                    0.09f,
+                    node.Floor * cellSize + 0.09f,
                     cell.Y * cellSize + cellSize / 2f
                 );
 
@@ -810,10 +811,11 @@ namespace XCOM_3
                 // Tracé de trajectoire entre 2 cases
                 if (i < path.Count - 1)
                 {
-                    Point nextCell = path[i + 1];
+                    GridNode nextNode = path[i + 1];
+                    Point nextCell = nextNode.Cell;
                     Vector3 nextPos = new Vector3(
                         nextCell.X * cellSize + cellSize / 2f,
-                        0.09f,
+                        nextNode.Floor * cellSize + 0.09f,
                         nextCell.Y * cellSize + cellSize / 2f
                     );
 

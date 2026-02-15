@@ -89,6 +89,7 @@ namespace XCOM_3
 
         // --- A* Pathfinding ---
         private List<Point> currentPath = new();
+        private List<GridNode> currentPathNodes = new();
         private int currentPathEndFloor = 0;
         private Dictionary<Point, int> pathCosts = new();
 
@@ -814,7 +815,7 @@ namespace XCOM_3
 
             Vector3 destinationCenter = new Vector3(
                 destinationCell.X * cellSize + cellSize / 2f,
-                viewedFloor * cellSize,
+                currentPathEndFloor * cellSize,
                 destinationCell.Y * cellSize + cellSize / 2f
             );
 
@@ -1198,9 +1199,9 @@ namespace XCOM_3
                     viewedFloor);
             }
 
-            if (currentPath.Count > 0 && selectedUnit != null && currentPathEndFloor == viewedFloor)
+            if (currentPathNodes.Count > 0 && selectedUnit != null && currentPathNodes.Any(n => n.Floor == viewedFloor))
             {
-                renderer3D.DrawMovementPath(currentPath, selectedUnit, cellSize,
+                renderer3D.DrawMovementPath(currentPathNodes, selectedUnit, cellSize,
                     (float)gameTime.TotalGameTime.TotalSeconds);
             }
 
@@ -1436,15 +1437,23 @@ namespace XCOM_3
 
         private void DrawPath3D(GameTime gameTime)
         {
-            if (currentPath.Count == 0 || selectedUnit == null || selectedUnit.Team != Team.Player || selectedUnit.Floor != viewedFloor) return;
+            if (currentPathNodes.Count == 0 || selectedUnit == null || selectedUnit.Team != Team.Player || !currentPathNodes.Any(n => n.Floor == viewedFloor)) return;
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.2f + 0.8f;
 
-            for (int i = 0; i < currentPath.Count; i++)
+            int visibleNodeCount = currentPathNodes.Count(n => n.Floor == viewedFloor);
+            int visibleIndex = 0;
+
+            for (int i = 0; i < currentPathNodes.Count; i++)
             {
-                Point cell = currentPath[i];
-                Vector3 pos = new Vector3(cell.X * cellSize + cellSize / 2f, viewedFloor * cellSize + 0.1f, cell.Y * cellSize + cellSize / 2f);
-                float intensity = 1f - (i / (float)currentPath.Count) * 0.5f;
+                GridNode node = currentPathNodes[i];
+                if (node.Floor != viewedFloor)
+                    continue;
+
+                Point cell = node.Cell;
+                Vector3 pos = new Vector3(cell.X * cellSize + cellSize / 2f, node.Floor * cellSize + 0.1f, cell.Y * cellSize + cellSize / 2f);
+                float intensity = 1f - (visibleIndex / (float)Math.Max(1, visibleNodeCount)) * 0.5f;
+                visibleIndex++;
                 renderer3D.DrawPlane(pos, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), new Color(100, 150, 255) * pulse * intensity);
             }
         }
@@ -1526,21 +1535,24 @@ namespace XCOM_3
             float floorHeightOffset,
             HashSet<WallSegment> fadedWalls)
         {
-            if (currentPath == null || currentPath.Count == 0 || selectedUnit == null)
+            if (currentPathNodes == null || currentPathNodes.Count == 0 || selectedUnit == null)
                 return;
 
-            if (selectedUnit.Team != Team.Player || currentPathEndFloor != viewedFloor)
+            if (selectedUnit.Team != Team.Player)
                 return;
 
             Vector3 cameraPos = camera.Position;
             float pathY = viewedFloor * cellSize + cellSize * 0.25f;
 
-            foreach (Point cell in currentPath)
+            foreach (GridNode node in currentPathNodes)
             {
+                if (node.Floor != viewedFloor)
+                    continue;
+
                 Vector3 revealPoint = new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
+                    node.Cell.X * cellSize + cellSize / 2f,
                     pathY,
-                    cell.Y * cellSize + cellSize / 2f);
+                    node.Cell.Y * cellSize + cellSize / 2f);
 
                 foreach (var wall in walls)
                 {
@@ -2187,6 +2199,7 @@ namespace XCOM_3
 
                     var previewPath = pathfinding.FindPathDetailed(selectedUnit.Cell, selectedUnit.Floor, previewGoal, previewFloor, maxRange, selectedUnit);
                     currentPath = previewPath.Cells;
+                    currentPathNodes = previewPath.Nodes;
                     currentPathEndFloor = previewPath.EndFloor;
                     lastHoveredCell = hoveredCell;
 
@@ -2201,6 +2214,7 @@ namespace XCOM_3
             else
             {
                 currentPath.Clear();
+                currentPathNodes.Clear();
                 currentPathEndFloor = selectedUnit?.Floor ?? viewedFloor;
                 pathCosts.Clear();
 
@@ -2317,6 +2331,7 @@ namespace XCOM_3
                 {
                     cachedMovableCells.Clear();
                     currentPath.Clear();
+                    currentPathNodes.Clear();
                     currentPathEndFloor = viewedFloor;
                     pathCosts.Clear();
                 }
@@ -2347,6 +2362,7 @@ namespace XCOM_3
                 var detailedPath = pathfinding.FindPathDetailed(selectedUnit.Cell, selectedUnit.Floor, movementGoal, goalFloor,
                                                selectedUnit.GetSprintRange(), selectedUnit);
                 var path = detailedPath.Cells;
+                var pathNodes = detailedPath.Nodes;
 
                 if (path.Count == 0) return;
 
@@ -2391,7 +2407,7 @@ namespace XCOM_3
 
                 // Effectuer le déplacement
                 selectedUnit.SetMovementStyle(apCost, distance > maxRange);
-                selectedUnit.StartMoveAlongPath(path, cellSize);
+                selectedUnit.StartMoveAlongPath(pathNodes, cellSize);
                 selectedUnit.Floor = detailedPath.EndFloor;
                 unitManager.OnUnitMoved(selectedUnit, movementGoal, detailedPath.EndFloor);
                 selectedUnit.ActionPoints -= apCost;
@@ -2416,6 +2432,7 @@ namespace XCOM_3
                 cachedMovableCells = selectedUnit.ActionPoints > 0 ?
                     pathfinding.GetMovableCells(selectedUnit) : new List<Point>();
                 currentPath.Clear();
+                currentPathNodes.Clear();
                 currentPathEndFloor = selectedUnit.Floor;
                 pathCosts.Clear();
             }
@@ -2488,6 +2505,7 @@ namespace XCOM_3
             selectedUnit = null;
             cachedMovableCells.Clear();
             currentPath.Clear();
+            currentPathNodes.Clear();
             currentPathEndFloor = viewedFloor;
             pathCosts.Clear();
 
