@@ -1473,9 +1473,10 @@ namespace XCOM_3
             foreach (Point cell in revealCells)
             {
                 float distance = Vector2.Distance(new Vector2(cell.X, cell.Y), new Vector2(hoveredCell.X, hoveredCell.Y));
-                float intensity = MathHelper.Clamp(1f - (distance / (HoverRevealRadius + 0.5f)), 0.2f, 1f);
+                float intensity = MathHelper.Clamp(1f - (distance / (HoverRevealRadius + 0.75f)), 0.55f, 1f);
+                float pulseBoost = 0.75f + pulse * 0.25f;
                 Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, floorYOffset + 0.12f, cell.Y * cellSize + cellSize / 2f);
-                renderer3D.DrawPlane(position, new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f), new Color(255, 230, 120, 120) * pulse * intensity);
+                renderer3D.DrawPlane(position, new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f), new Color(255, 230, 120, 200) * pulseBoost * intensity);
             }
 
             GraphicsDevice.BlendState = BlendState.Opaque;
