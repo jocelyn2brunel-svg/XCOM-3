@@ -37,6 +37,7 @@ namespace XCOM_3
 
         // --- Événements pour communiquer avec Game1 ---
         public event Action OnNewGameRequested;
+        public event Action OnCharacterCreationRequested;
         public event Action OnContinueRequested;
         public event Action OnMapEditorRequested;
         public event Action OnEncyclopediaRequested;
@@ -144,7 +145,7 @@ namespace XCOM_3
 
         private List<Button> CreateMainMenuButtons()
         {
-            string[] labels = { "Continue", "Map Editor", "Character Creation", "Encyclopedia", "Options", "Quit" };
+            string[] labels = { "New Game", "Continue", "Map Editor", "Character Creation", "Encyclopedia", "Options", "Quit" };
             int startY = 100;
             int step = 28;
 
@@ -199,9 +200,14 @@ namespace XCOM_3
                     OnMapEditorRequested?.Invoke();
                     break;
 
+                case "New Game":
+                    Console.WriteLine("[MENU] New Game requested");
+                    OnNewGameRequested?.Invoke();
+                    break;
+
                 case "Character Creation":
                     Console.WriteLine("[MENU] Character Creation requested");
-                    OnNewGameRequested?.Invoke();
+                    OnCharacterCreationRequested?.Invoke();
                     break;
 
                 case "Encyclopedia":
