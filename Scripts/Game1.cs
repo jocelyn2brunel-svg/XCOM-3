@@ -245,18 +245,30 @@ namespace XCOM_3
             {
                 foreach (string fileName in textureFileNames)
                 {
-                    string path = Path.Combine(root, fileName);
-                    if (!File.Exists(path))
-                        continue;
+                    foreach (string path in EnumerateCandidateTexturePaths(root, fileName))
+                    {
+                        if (!File.Exists(path))
+                            continue;
 
-                    using var stream = File.OpenRead(path);
-                    Console.WriteLine($"[RENDER] Loaded {textureLabel} texture: {Path.GetFileName(path)} ({path})");
-                    return Texture2D.FromStream(GraphicsDevice, stream);
+                        using var stream = File.OpenRead(path);
+                        Console.WriteLine($"[RENDER] Loaded {textureLabel} texture: {Path.GetFileName(path)} ({path})");
+                        return Texture2D.FromStream(GraphicsDevice, stream);
+                    }
                 }
             }
 
             Console.WriteLine($"[RENDER] {textureLabel} texture missing, using fallback texture.");
             return fallback;
+        }
+
+        private static IEnumerable<string> EnumerateCandidateTexturePaths(string root, string fileName)
+        {
+            yield return Path.Combine(root, fileName);
+            yield return Path.Combine(root, "Content", fileName);
+            yield return Path.Combine(root, "Content", "Textures", fileName);
+            yield return Path.Combine(root, "Assets", fileName);
+            yield return Path.Combine(root, "Assets", "Textures", fileName);
+            yield return Path.Combine(root, "Textures", fileName);
         }
 
         private void InitializeMenuManagers()
