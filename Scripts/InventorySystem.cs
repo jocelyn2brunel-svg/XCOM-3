@@ -1241,6 +1241,21 @@ namespace XCOM_3
                     spriteBatch.Draw(pixel, previewRect, ghostColor);
                     ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
                 }
+
+                if (equipmentWindow.Contains(mouse.Position) &&
+                    TryGetEquipmentPreviewRect(selectedUnit, mouse.Position, draggedItem, out Rectangle previewRect, out bool canEquip))
+                {
+                    Color ghostColor = canEquip
+                        ? ParasiteEveTheme.HoverOverlay * 0.6f
+                        : ParasiteEveTheme.TextDanger * 0.4f;
+
+                    Color borderColor = canEquip
+                        ? ParasiteEveTheme.SelectionOutline * 0.5f
+                        : ParasiteEveTheme.TextDanger * 0.8f;
+
+                    spriteBatch.Draw(pixel, previewRect, ghostColor);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
+                }
             }
 
             // ✅ Item en cours de drag (avec transparence)
@@ -1314,6 +1329,121 @@ namespace XCOM_3
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "Click outside to close", new Vector2(examinePopupRect.X + 16, examinePopupRect.Bottom - 26), ParasiteEveTheme.TextWarning, 0.6f);
             }
+        }
+
+        private bool TryGetEquipmentPreviewRect(Unit unit, Point mousePosition, GridItem item, out Rectangle previewRect, out bool canEquip)
+        {
+            previewRect = Rectangle.Empty;
+            canEquip = false;
+
+            if (unit == null || item?.Data == null)
+                return false;
+
+            ItemSize draggedSize = item.GetCurrentSize();
+            bool isPocketSized = draggedSize.Width == 1 && draggedSize.Height == 1;
+
+            if (item.Data.Type == ItemType.Weapon && GetWeaponSlotBounds().Contains(mousePosition))
+            {
+                previewRect = GetWeaponSlotBounds();
+                canEquip = true;
+                return true;
+            }
+
+            if (item.Data.Type == ItemType.Armor)
+            {
+                if (item.Data.ArmorSlot == ArmorSlot.Head && GetHelmetSlotBounds().Contains(mousePosition))
+                {
+                    previewRect = GetHelmetSlotBounds();
+                    canEquip = true;
+                    return true;
+                }
+
+                if (item.Data.ArmorSlot == ArmorSlot.Torso && GetArmorSlotBounds().Contains(mousePosition))
+                {
+                    previewRect = GetArmorSlotBounds();
+                    canEquip = true;
+                    return true;
+                }
+
+                if (item.Data.ArmorSlot == ArmorSlot.Shield && GetShieldSlotBounds().Contains(mousePosition))
+                {
+                    previewRect = GetShieldSlotBounds();
+                    canEquip = true;
+                    return true;
+                }
+
+                if (item.Data.ArmorSlot == ArmorSlot.Shirt && GetShirtSlotBounds().Contains(mousePosition))
+                {
+                    previewRect = GetShirtSlotBounds();
+                    canEquip = true;
+                    return true;
+                }
+
+                if (item.Data.ArmorSlot == ArmorSlot.Pants && GetPantsSlotBounds().Contains(mousePosition))
+                {
+                    previewRect = GetPantsSlotBounds();
+                    canEquip = true;
+                    return true;
+                }
+
+                if (item.Data.ArmorSlot == ArmorSlot.ChestRig && GetChestRigSlotBounds().Contains(mousePosition))
+                {
+                    previewRect = GetChestRigSlotBounds();
+                    canEquip = true;
+                    return true;
+                }
+
+                if (item.Data.ArmorSlot == ArmorSlot.Belt && GetBeltSlotBounds().Contains(mousePosition))
+                {
+                    previewRect = GetBeltSlotBounds();
+                    canEquip = true;
+                    return true;
+                }
+            }
+
+            if (item.Data.Type == ItemType.Accessory && GetBeltSlotBounds().Contains(mousePosition))
+            {
+                previewRect = GetBeltSlotBounds();
+                canEquip = true;
+                return true;
+            }
+
+            int pantsCapacity = unit.GetPantsInventoryCapacity();
+            for (int i = 0; i < pantsCapacity; i++)
+            {
+                Rectangle pocketSlot = GetPantsPocketSlotByIndex(i);
+                if (pocketSlot.Contains(mousePosition))
+                {
+                    previewRect = pocketSlot;
+                    canEquip = isPocketSized;
+                    return true;
+                }
+            }
+
+            int chestRigCapacity = unit.GetChestRigInventoryCapacity();
+            for (int i = 0; i < chestRigCapacity; i++)
+            {
+                Rectangle rigSlot = GetChestRigPocketSlotByIndex(i, unit);
+                if (rigSlot.Contains(mousePosition))
+                {
+                    previewRect = rigSlot;
+                    canEquip = isPocketSized;
+                    return true;
+                }
+            }
+
+            Rectangle backpackGridBounds = GetBackpackUtilityGridBounds(unit);
+            if (backpackGridBounds.Contains(mousePosition))
+            {
+                Point backpackGridPos = GetBackpackGridPositionFromMouse(mousePosition, unit);
+                previewRect = GetBackpackGridCellBounds(backpackGridPos, unit);
+
+                unit.EnsureBackpackInventoryGrid();
+                canEquip = unit.BackpackInventory.CanPlaceItem(backpackGridPos, draggedSize);
+                return true;
+            }
+
+            return false;
         }
 
         private void DrawInventoryGrid(int gridStartX, int gridStartY)
