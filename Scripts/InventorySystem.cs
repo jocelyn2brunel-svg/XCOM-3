@@ -424,16 +424,16 @@ namespace XCOM_3
                 }
             }
 
-            int backpackCapacity = unit.GetBackpackInventoryCapacity();
-            for (int i = 0; i < backpackCapacity; i++)
+            unit.EnsureBackpackInventoryGrid();
+            foreach (GridItem backpackItem in unit.BackpackInventory.GetAllItems())
             {
-                Rectangle backpackSlot = GetBackpackUtilitySlotByIndex(i);
-                if (i < unit.BackpackInventory.Count && unit.BackpackInventory[i] != null && backpackSlot.Contains(mouse.Position))
+                Rectangle backpackItemBounds = GetBackpackItemBounds(backpackItem, unit);
+                if (backpackItemBounds.Contains(mouse.Position))
                 {
-                    StartDragFromEquipment(unit.BackpackInventory[i], mouse, backpackSlot);
-                    unit.BackpackInventory.RemoveAt(i);
+                    StartDragFromEquipment(new Item(backpackItem.Data, Point.Zero), mouse, backpackItemBounds);
+                    unit.BackpackInventory.RemoveItem(backpackItem);
                     unit.RefreshGrenadeInventoryFromEquipment();
-                    Console.WriteLine($"[INVENTORY] Unequipped backpack utility slot {i + 1}: {draggedItem.Data.Name}");
+                    Console.WriteLine($"[INVENTORY] Unequipped backpack utility item: {draggedItem.Data.Name}");
                     return;
                 }
             }
@@ -677,29 +677,20 @@ namespace XCOM_3
                     }
                 }
 
-                for (int i = 0; i < backpackCapacity; i++)
+                unit.EnsureBackpackInventoryGrid();
+                Rectangle backpackGridBounds = GetBackpackUtilityGridBounds(unit);
+                if (backpackGridBounds.Contains(mousePosition))
                 {
-                    Rectangle backpackSlot = GetBackpackUtilitySlotByIndex(i);
-                    if (backpackSlot.Contains(mousePosition))
-                    {
-                        if (!isPocketSized)
-                            return false;
+                    Point backpackGridPos = GetBackpackGridPositionFromMouse(mousePosition, unit);
+                    if (!unit.BackpackInventory.CanPlaceItem(backpackGridPos, draggedSize))
+                        return false;
 
-                        var newPocketItem = new Item(item.Data, Point.Zero);
-                        if (i < unit.BackpackInventory.Count)
-                        {
-                            ReturnItemToGrid(unit.BackpackInventory[i]);
-                            unit.BackpackInventory[i] = newPocketItem;
-                        }
-                        else
-                        {
-                            unit.BackpackInventory.Add(newPocketItem);
-                        }
+                    GridItem backpackGridItem = new GridItem(item.Data, backpackGridPos, item.Size, item.IsRotated);
+                    unit.BackpackInventory.PlaceItem(backpackGridItem);
 
-                        unit.RefreshGrenadeInventoryFromEquipment();
-                        Console.WriteLine($"[INVENTORY] ✅ Equipped backpack utility slot {i + 1}: {item.Data.Name}");
-                        return true;
-                    }
+                    unit.RefreshGrenadeInventoryFromEquipment();
+                    Console.WriteLine($"[INVENTORY] ✅ Equipped backpack utility item at {backpackGridPos}: {item.Data.Name}");
+                    return true;
                 }
             }
 
@@ -1025,15 +1016,15 @@ namespace XCOM_3
                         return true;
                     }
                 }
+            }
 
-                for (int i = 0; i < unit.GetBackpackInventoryCapacity(); i++)
-                {
-                    if (i >= unit.BackpackInventory.Count || unit.BackpackInventory[i] == null)
-                    {
-                        target = GetBackpackUtilitySlotByIndex(i).Center;
-                        return true;
-                    }
-                }
+            unit.EnsureBackpackInventoryGrid();
+            ItemSize itemSize = ItemSizeDatabase.GetItemSize(data.Name);
+            Point? freeBackpackPos = unit.BackpackInventory.FindFreePosition(itemSize, true);
+            if (freeBackpackPos.HasValue)
+            {
+                target = GetBackpackGridCellBounds(freeBackpackPos.Value, unit).Center;
+                return true;
             }
 
             target = Point.Zero;
@@ -1075,10 +1066,19 @@ namespace XCOM_3
                     return new ItemContextInfo { Data = unit.ChestRigInventory[i].Data, Source = "rigpocket", Index = i };
             }
 
-            for (int i = 0; i < unit.GetBackpackInventoryCapacity(); i++)
+            unit.EnsureBackpackInventoryGrid();
+            foreach (GridItem backpackItem in unit.BackpackInventory.GetAllItems())
             {
-                if (i < unit.BackpackInventory.Count && unit.BackpackInventory[i] != null && GetBackpackUtilitySlotByIndex(i).Contains(mousePos))
-                    return new ItemContextInfo { Data = unit.BackpackInventory[i].Data, Source = "backpackutility", Index = i };
+                if (GetBackpackItemBounds(backpackItem, unit).Contains(mousePos))
+                {
+                    return new ItemContextInfo
+                    {
+                        Data = backpackItem.Data,
+                        Source = "backpackutility",
+                        GridPosition = backpackItem.GridPosition,
+                        Index = -1
+                    };
+                }
             }
 
             return null;
@@ -1103,7 +1103,12 @@ namespace XCOM_3
                 case "belt": unit.EquippedBelt = null; break;
                 case "pantspocket": if (info.Index >= 0 && info.Index < unit.PantsInventory.Count) unit.PantsInventory.RemoveAt(info.Index); break;
                 case "rigpocket": if (info.Index >= 0 && info.Index < unit.ChestRigInventory.Count) unit.ChestRigInventory.RemoveAt(info.Index); break;
-                case "backpackutility": if (info.Index >= 0 && info.Index < unit.BackpackInventory.Count) unit.BackpackInventory.RemoveAt(info.Index); break;
+                case "backpackutility":
+                    unit.EnsureBackpackInventoryGrid();
+                    var backpackItem = unit.BackpackInventory.GetItemAt(info.GridPosition);
+                    if (backpackItem != null)
+                        unit.BackpackInventory.RemoveItem(backpackItem);
+                    break;
             }
             unit.RefreshGrenadeInventoryFromEquipment();
         }
@@ -1136,7 +1141,12 @@ namespace XCOM_3
                     if (info.Index >= 0 && info.Index <= unit.ChestRigInventory.Count) unit.ChestRigInventory.Insert(info.Index, restored);
                     break;
                 case "backpackutility":
-                    if (info.Index >= 0 && info.Index <= unit.BackpackInventory.Count) unit.BackpackInventory.Insert(info.Index, restored);
+                    unit.EnsureBackpackInventoryGrid();
+                    var restoredBackpackItem = new GridItem(info.Data, info.GridPosition, ItemSizeDatabase.GetItemSize(info.Data.Name), false);
+                    if (unit.BackpackInventory.CanPlaceItem(restoredBackpackItem.GridPosition, restoredBackpackItem.GetCurrentSize()))
+                        unit.BackpackInventory.PlaceItem(restoredBackpackItem);
+                    else
+                        ReturnItemToGrid(restored);
                     break;
             }
             unit.RefreshGrenadeInventoryFromEquipment();
@@ -1401,7 +1411,6 @@ namespace XCOM_3
 
             int pantsCapacity = unit.GetPantsInventoryCapacity();
             int chestRigCapacity = unit.GetChestRigInventoryCapacity();
-            int backpackCapacity = unit.GetBackpackInventoryCapacity();
             bool highlightPocket = isDragging && draggedItem.GetCurrentSize().Width == 1 && draggedItem.GetCurrentSize().Height == 1;
             for (int i = 0; i < pantsCapacity; i++)
             {
@@ -1417,11 +1426,28 @@ namespace XCOM_3
                 DrawEquipmentSlot(rigSlot, $"CR{i + 1}", rigItem, highlightPocket);
             }
 
+            DrawBackpackUtilityGrid(unit, isDragging);
+        }
+
+        private void DrawBackpackUtilityGrid(Unit unit, bool isDragging)
+        {
+            unit.EnsureBackpackInventoryGrid();
+            int backpackCapacity = unit.GetBackpackInventoryCapacity();
+            bool highlightBackpack = isDragging;
+
             for (int i = 0; i < backpackCapacity; i++)
             {
                 Rectangle utilitySlot = GetBackpackUtilitySlotByIndex(i);
-                Item utilityItem = i < unit.BackpackInventory.Count ? unit.BackpackInventory[i] : null;
-                DrawEquipmentSlot(utilitySlot, $"BP{i + 1}", utilityItem, highlightPocket);
+                DrawEquipmentSlot(utilitySlot, string.Empty, null, highlightBackpack);
+            }
+
+            foreach (GridItem backpackItem in unit.BackpackInventory.GetAllItems())
+            {
+                GridItem drawItem = new GridItem(backpackItem.Data, backpackItem.GridPosition, backpackItem.Size, backpackItem.IsRotated);
+                drawItem.UpdatePixelBoundsAbsolute(
+                    GetBackpackGridCellBounds(backpackItem.GridPosition, unit).X,
+                    GetBackpackGridCellBounds(backpackItem.GridPosition, unit).Y);
+                DrawGridItem(drawItem);
             }
         }
 
@@ -1779,6 +1805,53 @@ namespace XCOM_3
                 CELL_SIZE,
                 CELL_SIZE
             );
+        }
+
+        private Rectangle GetBackpackUtilityGridBounds(Unit unit)
+        {
+            int capacity = unit.GetBackpackInventoryCapacity();
+            if (capacity <= 0)
+                return Rectangle.Empty;
+
+            Rectangle firstSlot = GetBackpackUtilitySlotByIndex(0);
+            int rows = (capacity + BACKPACK_UTILITY_COLUMNS - 1) / BACKPACK_UTILITY_COLUMNS;
+            int width = BACKPACK_UTILITY_COLUMNS * CELL_SIZE + (BACKPACK_UTILITY_COLUMNS - 1) * UTILITY_SLOT_GAP;
+            int height = rows * CELL_SIZE + (rows - 1) * UTILITY_SLOT_GAP;
+            return new Rectangle(firstSlot.X, firstSlot.Y, width, height);
+        }
+
+        private Rectangle GetBackpackGridCellBounds(Point gridPosition, Unit unit)
+        {
+            Rectangle firstSlot = GetBackpackUtilitySlotByIndex(0);
+            return new Rectangle(
+                firstSlot.X + gridPosition.X * (CELL_SIZE + UTILITY_SLOT_GAP),
+                firstSlot.Y + gridPosition.Y * (CELL_SIZE + UTILITY_SLOT_GAP),
+                CELL_SIZE,
+                CELL_SIZE);
+        }
+
+        private Point GetBackpackGridPositionFromMouse(Point mousePosition, Unit unit)
+        {
+            unit.EnsureBackpackInventoryGrid();
+            Rectangle bounds = GetBackpackUtilityGridBounds(unit);
+            int localX = Math.Max(0, mousePosition.X - bounds.X);
+            int localY = Math.Max(0, mousePosition.Y - bounds.Y);
+
+            int step = CELL_SIZE + UTILITY_SLOT_GAP;
+            int gridX = Math.Clamp(localX / step, 0, unit.BackpackInventory.Width - 1);
+            int gridY = Math.Clamp(localY / step, 0, unit.BackpackInventory.Height - 1);
+            return new Point(gridX, gridY);
+        }
+
+        private Rectangle GetBackpackItemBounds(GridItem backpackItem, Unit unit)
+        {
+            Rectangle topLeftCell = GetBackpackGridCellBounds(backpackItem.GridPosition, unit);
+            ItemSize size = backpackItem.GetCurrentSize();
+            return new Rectangle(
+                topLeftCell.X,
+                topLeftCell.Y,
+                size.Width * CELL_SIZE,
+                size.Height * CELL_SIZE);
         }
 
         private int GetChestRigPocketBottomY(Unit unit)

@@ -72,7 +72,9 @@ namespace XCOM_3
         public Item EquippedBelt { get; set; }
         public List<Item> PantsInventory { get; set; } = new List<Item>();
         public List<Item> ChestRigInventory { get; set; } = new List<Item>();
-        public List<Item> BackpackInventory { get; set; } = new List<Item>();
+        public const int BackpackGridColumns = 4;
+        private InventoryGrid backpackInventoryGrid;
+        public InventoryGrid BackpackInventory => backpackInventoryGrid;
         public string EquippedBackpack;
 
         // Orientation et animation
@@ -159,8 +161,8 @@ namespace XCOM_3
             EquippedBelt = null;
             PantsInventory = new List<Item>();
             ChestRigInventory = new List<Item>();
-            BackpackInventory = new List<Item>();
             EquippedBackpack = "Backpack XL";
+            EnsureBackpackInventoryGrid();
 
         }
 
@@ -200,8 +202,19 @@ namespace XCOM_3
             EquippedBelt = other.EquippedBelt;
             PantsInventory = new List<Item>(other.PantsInventory);
             ChestRigInventory = new List<Item>(other.ChestRigInventory);
-            BackpackInventory = new List<Item>(other.BackpackInventory);
             EquippedBackpack = other.EquippedBackpack; // ← AJOUTER CETTE LIGNE
+            EnsureBackpackInventoryGrid();
+            if (other.BackpackInventory != null)
+            {
+                foreach (var backpackItem in other.BackpackInventory.GetAllItems())
+                {
+                    BackpackInventory.PlaceItem(new GridItem(
+                        backpackItem.Data,
+                        backpackItem.GridPosition,
+                        backpackItem.Size,
+                        backpackItem.IsRotated));
+                }
+            }
 
             Grenades = new System.Collections.Generic.List<GrenadeData>(other.Grenades);
             MaxGrenades = other.MaxGrenades;
@@ -305,7 +318,8 @@ namespace XCOM_3
                 total += item?.Data?.WeightLbs ?? 0f;
             foreach (var item in ChestRigInventory)
                 total += item?.Data?.WeightLbs ?? 0f;
-            foreach (var item in BackpackInventory)
+            EnsureBackpackInventoryGrid();
+            foreach (var item in BackpackInventory.GetAllItems())
                 total += item?.Data?.WeightLbs ?? 0f;
 
             return total;
@@ -337,11 +351,10 @@ namespace XCOM_3
                     Grenades.Add(item.Data.GrenadeData);
             }
 
-            foreach (var item in BackpackInventory)
-            {
+            EnsureBackpackInventoryGrid();
+            foreach (var item in BackpackInventory.GetAllItems())
                 if (item?.Data?.GrenadeData != null)
                     Grenades.Add(item.Data.GrenadeData);
-            }
 
             MaxGrenades = Grenades.Count;
         }
@@ -359,6 +372,38 @@ namespace XCOM_3
                 return 4;
 
             return 6;
+        }
+
+        public ItemSize GetBackpackGridSize()
+        {
+            int capacity = GetBackpackInventoryCapacity();
+            int rows = Math.Max(1, (int)Math.Ceiling(capacity / (float)BackpackGridColumns));
+            return new ItemSize(BackpackGridColumns, rows);
+        }
+
+        public void EnsureBackpackInventoryGrid()
+        {
+            ItemSize gridSize = GetBackpackGridSize();
+
+            if (backpackInventoryGrid != null &&
+                backpackInventoryGrid.Width == gridSize.Width &&
+                backpackInventoryGrid.Height == gridSize.Height)
+            {
+                return;
+            }
+
+            InventoryGrid resizedGrid = new InventoryGrid(gridSize.Width, gridSize.Height);
+            if (backpackInventoryGrid != null)
+            {
+                foreach (GridItem item in backpackInventoryGrid.GetAllItems())
+                {
+                    GridItem migratedItem = new GridItem(item.Data, item.GridPosition, item.Size, item.IsRotated);
+                    if (resizedGrid.CanPlaceItem(migratedItem.GridPosition, migratedItem.GetCurrentSize()))
+                        resizedGrid.PlaceItem(migratedItem);
+                }
+            }
+
+            backpackInventoryGrid = resizedGrid;
         }
 
         public int GetMaxHealth()
