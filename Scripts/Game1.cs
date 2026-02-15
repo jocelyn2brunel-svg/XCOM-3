@@ -1470,6 +1470,9 @@ namespace XCOM_3
             if (hoveredCell.X < 0 || hoveredCell.Y < 0)
                 return;
 
+            if (!IsHoveredCellBehindWall())
+                return;
+
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
             float floorYOffset = viewedFloor * cellSize;
 
@@ -1488,6 +1491,32 @@ namespace XCOM_3
 
             GraphicsDevice.BlendState = BlendState.Opaque;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+        }
+
+        private bool IsHoveredCellBehindWall()
+        {
+            var wallsForFloor = GetWallsForFloor(viewedFloor);
+            if (wallsForFloor == null || wallsForFloor.Count == 0)
+                return false;
+
+            Vector3 hoverPoint = new Vector3(
+                hoveredCell.X * cellSize + cellSize / 2f,
+                viewedFloor * cellSize + cellSize * 0.35f,
+                hoveredCell.Y * cellSize + cellSize / 2f);
+
+            Vector3 cameraPos = camera.Position;
+            float floorHeightOffset = viewedFloor * cellSize;
+
+            foreach (WallSegment wall in wallsForFloor)
+            {
+                if (wall.Type == WallType.Door)
+                    continue;
+
+                if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, hoverPoint))
+                    return true;
+            }
+
+            return false;
         }
 
 
