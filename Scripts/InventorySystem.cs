@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using XCOM_3.Scripts;
 
@@ -53,6 +54,7 @@ namespace XCOM_3
         private SpriteFont font;
         private Texture2D pixel;
         private GraphicsDevice graphicsDevice;
+        private Texture2D flashlightTexture;
 
         // État des touches
         private KeyboardState previousKeyboardState;
@@ -108,8 +110,35 @@ namespace XCOM_3
             inventoryGrid = new InventoryGrid(GRID_WIDTH, GRID_HEIGHT);
             ItemDatabase = new Dictionary<string, ItemData>();
 
+            flashlightTexture = LoadOptionalTexture("Flashlight32x32.jpg");
+
             InitializeItemDatabase();
             InitializeInventoryItems();
+        }
+
+        private Texture2D LoadOptionalTexture(string fileName)
+        {
+            try
+            {
+                string texturePath = Path.Combine(AppContext.BaseDirectory, fileName);
+                if (!File.Exists(texturePath))
+                    texturePath = Path.Combine(Directory.GetCurrentDirectory(), fileName);
+
+                if (!File.Exists(texturePath))
+                    return null;
+
+                using var stream = File.OpenRead(texturePath);
+                return Texture2D.FromStream(graphicsDevice, stream);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool IsTacticalFlashlight(ItemData data)
+        {
+            return string.Equals(data?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -641,6 +670,19 @@ namespace XCOM_3
                 unit.Weapon = item.Data.Name;
                 unit.WeaponData = item.Data.WeaponData;
                 Console.WriteLine($"[INVENTORY] ✅ Equipped weapon: {item.Data.Name}");
+                return true;
+            }
+
+            if (item.Data.Type == ItemType.Accessory && GetBeltSlotBounds().Contains(mousePosition))
+            {
+                if (unit.EquippedAccessory != null)
+                    ReturnItemToGrid(unit.EquippedAccessory);
+                if (unit.EquippedBelt != null)
+                    ReturnItemToGrid(unit.EquippedBelt);
+
+                unit.EquippedAccessory = new Item(item.Data, Point.Zero);
+                unit.EquippedBelt = null;
+                Console.WriteLine($"[INVENTORY] ✅ Equipped accessory on belt: {item.Data.Name}");
                 return true;
             }
 
@@ -1766,6 +1808,13 @@ namespace XCOM_3
             // Fond du bouton style PE2
             spriteBatch.Draw(pixel, item.PixelBounds, ParasiteEveTheme.ButtonNormal * alpha);
 
+            if (IsTacticalFlashlight(item.Data) && flashlightTexture != null)
+            {
+                Rectangle textureRect = new Rectangle(item.PixelBounds.X + 3, item.PixelBounds.Y + 3,
+                    Math.Max(1, item.PixelBounds.Width - 6), Math.Max(1, item.PixelBounds.Height - 6));
+                spriteBatch.Draw(flashlightTexture, textureRect, Color.White * alpha);
+            }
+
             // Bordure colorée selon le type (via ta DB)
             Color typeColor = ItemSizeDatabase.GetItemColor(item.Data.Type) * alpha;
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, item.PixelBounds, typeColor, 1);
@@ -1806,6 +1855,13 @@ namespace XCOM_3
                 Rectangle inner = new Rectangle(slot.X + 2, slot.Y + 2, slot.Width - 4, slot.Height - 4);
                 spriteBatch.Draw(pixel, inner, Color.Lerp(ParasiteEveTheme.ButtonNormal, Color.LimeGreen, 0.5f) * 0.75f);
                 ParasiteEveTheme.DrawBorder(spriteBatch, pixel, inner, Color.LimeGreen * 0.9f, 1);
+
+                if (IsTacticalFlashlight(equippedItem.Data) && flashlightTexture != null)
+                {
+                    Rectangle textureRect = new Rectangle(inner.X + 3, inner.Y + 3,
+                        Math.Max(1, inner.Width - 6), Math.Max(1, inner.Height - 6));
+                    spriteBatch.Draw(flashlightTexture, textureRect, Color.White);
+                }
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, equippedItem.Data.Name,
                     new Vector2(inner.X + 4, inner.Y + inner.Height / 2 - 5), ParasiteEveTheme.TextNormal, 0.5f);

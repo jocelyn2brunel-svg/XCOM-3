@@ -364,7 +364,7 @@ namespace XCOM_3
             }
 
             // Lampe tactique 1x1 en aluminium (300 g), portée gérée dans le rendu de la scène.
-            if (unit.Team == Team.Player)
+            if (unit.Team == Team.Player && HasEquippedTacticalFlashlight(unit))
             {
                 DrawTacticalFlashlight(device, effect, pos, rot, dims, dominantHand, isAiming, weaponToDraw != null);
             }
@@ -387,6 +387,11 @@ namespace XCOM_3
             {
                 DrawEquippedGrenades(device, effect, pos, unit.Grenades, scale, rot, dims);
             }
+        }
+
+        private static bool HasEquippedTacticalFlashlight(Unit unit)
+        {
+            return string.Equals(unit?.EquippedAccessory?.Data?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase);
         }
 
         private void DrawTacticalFlashlight(GraphicsDevice device, BasicEffect effect, Vector3 pos,
