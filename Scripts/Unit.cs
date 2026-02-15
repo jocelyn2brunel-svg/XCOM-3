@@ -633,8 +633,7 @@ namespace XCOM_3
             }
             else
             {
-                IdleTime += deltaTime;
-                IdleBobOffset = (float)Math.Sin(IdleTime * 2f) * 0.05f;
+                IdleBobOffset = 0f;
             }
 
             UpdateCoverTransition(deltaTime);
