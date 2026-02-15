@@ -1465,19 +1465,19 @@ namespace XCOM_3
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
             float floorYOffset = viewedFloor * cellSize;
-            List<Point> revealCells = GetHoveredAreaCells(HoverRevealRadius);
 
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.None;
 
-            foreach (Point cell in revealCells)
-            {
-                float distance = Vector2.Distance(new Vector2(cell.X, cell.Y), new Vector2(hoveredCell.X, hoveredCell.Y));
-                float intensity = MathHelper.Clamp(1f - (distance / (HoverRevealRadius + 0.75f)), 0.55f, 1f);
-                float pulseBoost = 0.75f + pulse * 0.25f;
-                Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, floorYOffset + 0.12f, cell.Y * cellSize + cellSize / 2f);
-                renderer3D.DrawPlane(position, new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f), new Color(255, 230, 120, 200) * pulseBoost * intensity);
-            }
+            float pulseBoost = 0.75f + pulse * 0.25f;
+            Vector3 position = new Vector3(
+                hoveredCell.X * cellSize + cellSize / 2f,
+                floorYOffset + 0.12f,
+                hoveredCell.Y * cellSize + cellSize / 2f);
+            renderer3D.DrawPlane(
+                position,
+                new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f),
+                new Color(255, 230, 120, 200) * pulseBoost);
 
             GraphicsDevice.BlendState = BlendState.Opaque;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -2181,7 +2181,7 @@ namespace XCOM_3
 
             // 1. Check if we have a valid unit and valid cell
             if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 &&
-                cachedMovableCells.Contains(hoveredCell) && selectedUnit.Team == Team.Player)
+                selectedUnit.Team == Team.Player)
             {
                 // 2. Define maxRange here
                 int maxRange = selectedUnit.CanSprint() ?
