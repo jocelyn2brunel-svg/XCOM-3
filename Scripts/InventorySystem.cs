@@ -23,6 +23,8 @@ namespace XCOM_3
         private const int GRID_WIDTH = 10;
         private const int GRID_HEIGHT = 10;
         private const int CELL_SIZE = 40;
+        private const int EQUIP_SLOT_LEFT_PADDING = 10;
+        private const int EQUIP_LABEL_ROW_HEIGHT = CELL_SIZE;
 
         // ═══════════════════════════════════════════════════════════════════════
         // ÉTAT
@@ -1240,7 +1242,7 @@ namespace XCOM_3
 
             // Label au-dessus du slot
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, label,
-                new Vector2(slot.X, slot.Y - 15), ParasiteEveTheme.TextDim, 0.6f);
+                new Vector2(slot.X, slot.Y - EQUIP_LABEL_ROW_HEIGHT + 10), ParasiteEveTheme.TextDim, 0.6f);
 
             if (equippedItem != null && draggedItem == null)
             {
@@ -1281,51 +1283,50 @@ namespace XCOM_3
 
         private Rectangle GetWeaponSlotBounds()
         {
-            int equipX = GetEquipX();
-            int equipY = GetEquipY();
-            return new Rectangle(equipX + 10, equipY + 40, CELL_SIZE, CELL_SIZE);
+            return GetMainEquipmentSlotBounds(0, 0);
         }
 
         private Rectangle GetHelmetSlotBounds()
         {
-            int equipX = GetEquipX();
-            int equipY = GetEquipY();
-            return new Rectangle(equipX + 10, equipY + 90, CELL_SIZE, CELL_SIZE);
+            return GetMainEquipmentSlotBounds(0, 1);
         }
 
         private Rectangle GetArmorSlotBounds()
         {
-            int equipX = GetEquipX();
-            int equipY = GetEquipY();
-            return new Rectangle(equipX + 10, equipY + 140, CELL_SIZE, CELL_SIZE);
+            return GetMainEquipmentSlotBounds(0, 2);
         }
 
         private Rectangle GetShieldSlotBounds()
         {
-            int equipX = GetEquipX();
-            int equipY = GetEquipY();
-            return new Rectangle(equipX + 10 + CELL_SIZE, equipY + 40, CELL_SIZE, CELL_SIZE);
+            return GetMainEquipmentSlotBounds(1, 0);
         }
 
         private Rectangle GetShirtSlotBounds()
         {
-            int equipX = GetEquipX();
-            int equipY = GetEquipY();
-            return new Rectangle(equipX + 10 + CELL_SIZE, equipY + 90, CELL_SIZE, CELL_SIZE);
+            return GetMainEquipmentSlotBounds(1, 1);
         }
 
         private Rectangle GetPantsSlotBounds()
         {
-            int equipX = GetEquipX();
-            int equipY = GetEquipY();
-            return new Rectangle(equipX + 10 + CELL_SIZE, equipY + 140, CELL_SIZE, CELL_SIZE);
+            return GetMainEquipmentSlotBounds(1, 2);
         }
 
         private Rectangle GetChestRigSlotBounds()
         {
+            return GetMainEquipmentSlotBounds(2, 0);
+        }
+
+        private Rectangle GetMainEquipmentSlotBounds(int column, int row)
+        {
             int equipX = GetEquipX();
             int equipY = GetEquipY();
-            return new Rectangle(equipX + 10 + (CELL_SIZE * 2), equipY + 40, CELL_SIZE, CELL_SIZE);
+
+            return new Rectangle(
+                equipX + EQUIP_SLOT_LEFT_PADDING + column * CELL_SIZE,
+                equipY + EQUIP_LABEL_ROW_HEIGHT + row * (CELL_SIZE * 2),
+                CELL_SIZE,
+                CELL_SIZE
+            );
         }
 
         private int GetUtilityLabelY()
@@ -1335,20 +1336,18 @@ namespace XCOM_3
 
         private Rectangle GetPantsPocketSlotByIndex(int index)
         {
-            int slotSize = CELL_SIZE;
-            int spacing = 6;
             int columns = 3;
 
             int row = index / columns;
             int col = index % columns;
-            int startX = GetEquipX() + 10;
-            int startY = GetUtilityLabelY() + 20;
+            int startX = GetEquipX() + EQUIP_SLOT_LEFT_PADDING;
+            int startY = GetUtilityLabelY() + EQUIP_LABEL_ROW_HEIGHT;
 
             return new Rectangle(
-                startX + col * (slotSize + spacing),
-                startY + row * (slotSize + spacing),
-                slotSize,
-                slotSize
+                startX + col * CELL_SIZE,
+                startY + row * CELL_SIZE,
+                CELL_SIZE,
+                CELL_SIZE
             );
         }
 
@@ -1363,20 +1362,18 @@ namespace XCOM_3
 
         private Rectangle GetChestRigPocketSlotByIndex(int index, Unit unit)
         {
-            int slotSize = CELL_SIZE;
-            int spacing = 6;
             int columns = 3;
 
             int row = index / columns;
             int col = index % columns;
-            int startX = GetEquipX() + 10;
-            int startY = GetPantsPocketBottomY(unit) + 20;
+            int startX = GetEquipX() + EQUIP_SLOT_LEFT_PADDING;
+            int startY = GetPantsPocketBottomY(unit) + EQUIP_LABEL_ROW_HEIGHT;
 
             return new Rectangle(
-                startX + col * (slotSize + spacing),
-                startY + row * (slotSize + spacing),
-                slotSize,
-                slotSize
+                startX + col * CELL_SIZE,
+                startY + row * CELL_SIZE,
+                CELL_SIZE,
+                CELL_SIZE
             );
         }
 
