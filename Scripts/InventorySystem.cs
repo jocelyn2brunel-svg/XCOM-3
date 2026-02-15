@@ -1215,7 +1215,7 @@ namespace XCOM_3
                     Point ghostPos = new Point(ghostGridX, ghostGridY);
 
                     // 2. Définition du rectangle visuel
-                    Rectangle previewRect = new Rectangle(
+                    Rectangle gridPreviewRect = new Rectangle(
                         gridStartX + ghostGridX * CELL_SIZE,
                         gridStartY + ghostGridY * CELL_SIZE,
                         draggedItem.GetCurrentSize().Width * CELL_SIZE,
@@ -1238,8 +1238,8 @@ namespace XCOM_3
                         ParasiteEveTheme.TextDanger * 0.8f;
 
                     // 5. Rendu
-                    spriteBatch.Draw(pixel, previewRect, ghostColor);
-                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
+                    spriteBatch.Draw(pixel, gridPreviewRect, ghostColor);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, gridPreviewRect, borderColor, 1);
                 }
 
                 if (equipmentWindow.Contains(mouse.Position) &&
