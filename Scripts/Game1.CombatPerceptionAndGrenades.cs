@@ -278,12 +278,13 @@ namespace XCOM_3
             if (!throwMode) return;
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.3f + 0.7f;
+            float floorYOffset = viewedFloor * cellSize;
 
-            foreach (var cell in throwableCells)
-            {
-                Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, 0.2f, cell.Y * cellSize + cellSize / 2f);
-                renderer3D.DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), Color.Yellow * 0.3f * pulse);
-            }
+            renderer3D.DrawZoneOutline(
+                throwableCells,
+                cellSize,
+                floorYOffset + 0.05f,
+                new Color(255, 220, 90, 225) * pulse);
 
             bool isMk2 = string.Equals(selectedGrenade?.Name, "MK 2", StringComparison.OrdinalIgnoreCase);
             if (isMk2 && throwTarget.X >= 0 && throwTarget.Y >= 0)
@@ -292,11 +293,11 @@ namespace XCOM_3
                 DrawVolumetricGrenadeGhost(throwTarget, 3f, 9f, new Color(255, 235, 80, 40) * pulse);
             }
 
-            foreach (var cell in explosionPreview)
-            {
-                Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, 0.25f, cell.Y * cellSize + cellSize / 2f);
-                renderer3D.DrawPlane(position, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), Color.Red * 0.5f * pulse);
-            }
+            renderer3D.DrawZoneOutline(
+                explosionPreview,
+                cellSize,
+                floorYOffset + 0.07f,
+                new Color(255, 70, 70, 235) * pulse);
 
             for (int i = 0; i < trajectoryPreview.Count - 1; i++)
             {

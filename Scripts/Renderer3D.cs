@@ -747,6 +747,18 @@ namespace XCOM_3
             }
         }
 
+        public void DrawZoneOutline(IEnumerable<Point> cells, int cellSize, float height, Color color)
+        {
+            if (cells == null)
+                return;
+
+            HashSet<Point> zone = cells.ToHashSet();
+            if (zone.Count == 0)
+                return;
+
+            DrawZonePerimeter(zone, cellSize, height, color);
+        }
+
         /// <summary>
         /// Dessine un indicateur de sprint (petit symbole au centre de la case)
         /// </summary>
