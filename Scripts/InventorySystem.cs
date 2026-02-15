@@ -29,11 +29,12 @@ namespace XCOM_3
         private const int EQUIP_SLOT_VERTICAL_SPACING = 0;
         private const int UTILITY_SLOT_GAP = 0;
         private const int BACKPACK_UTILITY_COLUMNS = 4;
-        private const int PANEL_GAP = 16;
+        private const int PANEL_GAP = 0;
         private const int SECTION_HEADER_HEIGHT = 36;
         private const int SECTION_PADDING = 12;
         private const int CONTEXT_WINDOW_WIDTH = 280;
         private const int CONTEXT_WINDOW_HEIGHT = 190;
+        private const int LOOT_ENTRY_HEIGHT = 22;
 
         // ═══════════════════════════════════════════════════════════════════════
         // ÉTAT
@@ -75,6 +76,7 @@ namespace XCOM_3
         private bool showExaminePopup = false;
         private Rectangle examinePopupRect;
         private ItemData examinedItemData;
+        private readonly List<Rectangle> nearbyLootRowRects = new List<Rectangle>();
 
         private struct ItemContextInfo
         {
@@ -235,6 +237,12 @@ namespace XCOM_3
             // Démarrer le drag
             if (leftClick && draggedItem == null)
             {
+                if (TryPickupNearbyLoot(mouse.Position))
+                {
+                    previousKeyboardState = keyboard;
+                    return;
+                }
+
                 if (!HandleDoubleClick(mouse, selectedUnit, gridStartX, gridStartY))
                     HandleStartDrag(mouse, selectedUnit, gridStartX, gridStartY);
             }
@@ -551,6 +559,37 @@ namespace XCOM_3
             }
 
             draggedItem = null;
+        }
+
+        private bool TryPickupNearbyLoot(Point mousePosition)
+        {
+            if (nearbyLootItems.Count == 0)
+                return false;
+
+            for (int i = 0; i < nearbyLootRowRects.Count; i++)
+            {
+                if (!nearbyLootRowRects[i].Contains(mousePosition))
+                    continue;
+
+                if (i >= nearbyLootItems.Count)
+                    return false;
+
+                ItemData lootData = nearbyLootItems[i];
+                ItemSize lootSize = ItemSizeDatabase.GetItemSize(lootData.Name);
+                Point? freePos = inventoryGrid.FindFreePosition(lootSize, true);
+                if (!freePos.HasValue)
+                {
+                    Console.WriteLine($"[INVENTORY] Cannot pickup nearby loot (inventory full): {lootData.Name}");
+                    return true;
+                }
+
+                inventoryGrid.PlaceItem(new GridItem(lootData, freePos.Value, lootSize, false));
+                nearbyLootItems.RemoveAt(i);
+                Console.WriteLine($"[INVENTORY] Picked nearby loot: {lootData.Name}");
+                return true;
+            }
+
+            return false;
         }
 
         private bool TryEquipInSlot(Point mousePosition, GridItem item, Unit unit)
@@ -1434,6 +1473,8 @@ namespace XCOM_3
                 lootWindow.Width - SECTION_PADDING * 2,
                 lootWindow.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
 
+            nearbyLootRowRects.Clear();
+
             spriteBatch.Draw(pixel, content, ParasiteEveTheme.BackgroundDark * 0.35f);
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, content, ParasiteEveTheme.BorderColor, 1);
 
@@ -1462,9 +1503,20 @@ namespace XCOM_3
             int maxVisible = Math.Min(nearbyLootItems.Count, 10);
             for (int i = 0; i < maxVisible; i++)
             {
+                Rectangle lootRow = new Rectangle(
+                    content.X + 6,
+                    content.Y + 34 + i * LOOT_ENTRY_HEIGHT,
+                    Math.Max(0, content.Width - 12),
+                    LOOT_ENTRY_HEIGHT - 2);
+                nearbyLootRowRects.Add(lootRow);
+
+                bool canPickup = inventoryGrid.FindFreePosition(ItemSizeDatabase.GetItemSize(nearbyLootItems[i].Name), true).HasValue;
+                Color rowColor = canPickup ? ParasiteEveTheme.ButtonNormal * 0.28f : ParasiteEveTheme.TextDanger * 0.2f;
+                spriteBatch.Draw(pixel, lootRow, rowColor);
+
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
                     $"- {nearbyLootItems[i].Name}",
-                    new Vector2(content.X + 8, content.Y + 36 + i * 20),
+                    new Vector2(lootRow.X + 4, lootRow.Y + 3),
                     ParasiteEveTheme.TextNormal,
                     0.55f);
             }
@@ -1477,6 +1529,12 @@ namespace XCOM_3
                     ParasiteEveTheme.TextDim,
                     0.55f);
             }
+
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                "Cliquez un objet pour le ramasser.",
+                new Vector2(content.X + 8, content.Bottom - 22),
+                ParasiteEveTheme.TextDim,
+                0.5f);
         }
 
         private void DrawWindow(Rectangle bounds, string title)
