@@ -116,14 +116,6 @@ namespace XCOM_3
             // ✅ GRENADES
             var grenadeDB = GrenadeDatabase.GetAllGrenades();
 
-            ItemDatabase["Frag Grenade"] = new ItemData("Frag Grenade", grenadeDB["Frag Grenade"]);
-            ItemDatabase["HE Grenade"] = new ItemData("HE Grenade", grenadeDB["HE Grenade"]);
-            ItemDatabase["Plasma Grenade"] = new ItemData("Plasma Grenade", grenadeDB["Plasma Grenade"]);
-            ItemDatabase["Smoke Grenade"] = new ItemData("Smoke Grenade", grenadeDB["Smoke Grenade"]);
-            ItemDatabase["Flashbang"] = new ItemData("Flashbang", grenadeDB["Flashbang"]);
-            ItemDatabase["Incendiary Grenade"] = new ItemData("Incendiary Grenade", grenadeDB["Incendiary Grenade"]);
-            ItemDatabase["EMP Grenade"] = new ItemData("EMP Grenade", grenadeDB["EMP Grenade"]);
-            ItemDatabase["Demolition Charge"] = new ItemData("Demolition Charge", grenadeDB["Demolition Charge"]);
             ItemDatabase["MK 2"] = new ItemData("MK 2", grenadeDB["MK 2"], Mk2WeightLbs, "Grenade MK2 (1x1) - 600g");
             ItemDatabase["Lampe tactique aluminium"] = new ItemData(
                 "Lampe tactique aluminium",
@@ -165,10 +157,6 @@ namespace XCOM_3
                 "Jeans Léger",
                 "Pantalon de Travail",
                 // ✅ Grenades
-                "Frag Grenade",
-                "Smoke Grenade",
-                "HE Grenade",
-                "Plasma Grenade",
                 "MK 2",
                 "Lampe tactique aluminium"
             };

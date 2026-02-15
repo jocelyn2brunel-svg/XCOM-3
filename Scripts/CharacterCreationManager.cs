@@ -47,12 +47,12 @@ namespace XCOM_3
 
         private readonly Dictionary<string, JobLoadout> _jobLoadouts = new Dictionary<string, JobLoadout>
         {
-            ["Cook"] = new JobLoadout { Weapon = "Remington 870", Equipment = new List<string> { "Frag Grenade" } },
-            ["Garbage collector"] = new JobLoadout { Weapon = "PR-24 Tonfa", Equipment = new List<string> { "Flashbang" } },
-            ["Teacher"] = new JobLoadout { Weapon = "M16A1", Equipment = new List<string> { "Smoke Grenade" } },
-            ["Nurse"] = new JobLoadout { Weapon = "Beretta 92FS", Equipment = new List<string> { "Smoke Grenade", "Flashbang" } },
-            ["Mechanic"] = new JobLoadout { Weapon = "H&K MP5", Equipment = new List<string> { "Frag Grenade", "Smoke Grenade" } },
-            ["Firefighter"] = new JobLoadout { Weapon = "Mossberg 590", Equipment = new List<string> { "Smoke Grenade", "Frag Grenade" } }
+            ["Cook"] = new JobLoadout { Weapon = "Remington 870", Equipment = new List<string> { "MK 2" } },
+            ["Garbage collector"] = new JobLoadout { Weapon = "PR-24 Tonfa", Equipment = new List<string> { "MK 2" } },
+            ["Teacher"] = new JobLoadout { Weapon = "M16A1", Equipment = new List<string> { "MK 2" } },
+            ["Nurse"] = new JobLoadout { Weapon = "Beretta 92FS", Equipment = new List<string> { "MK 2" } },
+            ["Mechanic"] = new JobLoadout { Weapon = "H&K MP5", Equipment = new List<string> { "MK 2" } },
+            ["Firefighter"] = new JobLoadout { Weapon = "Mossberg 590", Equipment = new List<string> { "MK 2" } }
         };
 
         private List<CharacterCreationProfile> _profiles = new List<CharacterCreationProfile>();

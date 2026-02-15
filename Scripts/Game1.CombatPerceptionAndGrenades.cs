@@ -79,12 +79,8 @@ namespace XCOM_3
         {
             grenadeDatabase = GrenadeDatabase.GetAllGrenades();
 
-            // Ajouter quelques grenades disponibles dans l'inventaire
-            availableGrenades.Add(new GrenadeItem(grenadeDatabase["Frag Grenade"], new Point(50, 300)));
-            availableGrenades.Add(new GrenadeItem(grenadeDatabase["HE Grenade"], new Point(110, 300)));
-            availableGrenades.Add(new GrenadeItem(grenadeDatabase["Plasma Grenade"], new Point(170, 300)));
-            availableGrenades.Add(new GrenadeItem(grenadeDatabase["Smoke Grenade"], new Point(230, 300)));
-            availableGrenades.Add(new GrenadeItem(grenadeDatabase["Demolition Charge"], new Point(290, 300)));
+            // Garder uniquement la MK 2 dans l'inventaire disponible
+            availableGrenades.Add(new GrenadeItem(grenadeDatabase["MK 2"], new Point(50, 300)));
         }
 
         private int GetUnitThrowRange(Unit unit)
