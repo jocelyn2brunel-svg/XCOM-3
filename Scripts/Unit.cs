@@ -72,6 +72,7 @@ namespace XCOM_3
         public Item EquippedBelt { get; set; }
         public List<Item> PantsInventory { get; set; } = new List<Item>();
         public List<Item> ChestRigInventory { get; set; } = new List<Item>();
+        public List<Item> BackpackInventory { get; set; } = new List<Item>();
         public string EquippedBackpack;
 
         // Orientation et animation
@@ -158,7 +159,8 @@ namespace XCOM_3
             EquippedBelt = null;
             PantsInventory = new List<Item>();
             ChestRigInventory = new List<Item>();
-            EquippedBackpack = "Medium Backpack"; // ← AJOUTER CETTE LIGNE (sac par défaut)
+            BackpackInventory = new List<Item>();
+            EquippedBackpack = "Backpack XL";
 
         }
 
@@ -198,6 +200,7 @@ namespace XCOM_3
             EquippedBelt = other.EquippedBelt;
             PantsInventory = new List<Item>(other.PantsInventory);
             ChestRigInventory = new List<Item>(other.ChestRigInventory);
+            BackpackInventory = new List<Item>(other.BackpackInventory);
             EquippedBackpack = other.EquippedBackpack; // ← AJOUTER CETTE LIGNE
 
             Grenades = new System.Collections.Generic.List<GrenadeData>(other.Grenades);
@@ -302,6 +305,8 @@ namespace XCOM_3
                 total += item?.Data?.WeightLbs ?? 0f;
             foreach (var item in ChestRigInventory)
                 total += item?.Data?.WeightLbs ?? 0f;
+            foreach (var item in BackpackInventory)
+                total += item?.Data?.WeightLbs ?? 0f;
 
             return total;
         }
@@ -332,7 +337,28 @@ namespace XCOM_3
                     Grenades.Add(item.Data.GrenadeData);
             }
 
+            foreach (var item in BackpackInventory)
+            {
+                if (item?.Data?.GrenadeData != null)
+                    Grenades.Add(item.Data.GrenadeData);
+            }
+
             MaxGrenades = Grenades.Count;
+        }
+
+        public int GetBackpackInventoryCapacity()
+        {
+            if (string.IsNullOrWhiteSpace(EquippedBackpack))
+                return 0;
+
+            if (EquippedBackpack.Contains("XL", StringComparison.OrdinalIgnoreCase))
+                return 12;
+            if (EquippedBackpack.Contains("Medium", StringComparison.OrdinalIgnoreCase))
+                return 8;
+            if (EquippedBackpack.Contains("Small", StringComparison.OrdinalIgnoreCase))
+                return 4;
+
+            return 6;
         }
 
         public int GetMaxHealth()
