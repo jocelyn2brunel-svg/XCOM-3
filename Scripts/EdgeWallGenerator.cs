@@ -430,7 +430,12 @@ namespace XCOM_3
                     int y = blockY + offsetY;
 
                     BuildingType type = (BuildingType)random.Next(0, 4);
-                    int buildingFloors = random.Next(2, 6);
+
+                    // Règle métier: 1 étage = 2 cases de haut.
+                    // On convertit donc la hauteur (en cases) du bâtiment en nombre d'étages.
+                    int maxFloorsFromHeight = Math.Max(1, buildingHeight / 2);
+                    int minFloors = Math.Min(2, maxFloorsFromHeight);
+                    int buildingFloors = random.Next(minFloors, maxFloorsFromHeight + 1);
 
                     // Sous-sol plus fréquent sur les grands immeubles urbains
                     int footprint = buildingWidth * buildingHeight;
