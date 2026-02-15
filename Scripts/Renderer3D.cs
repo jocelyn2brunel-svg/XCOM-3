@@ -94,7 +94,16 @@ namespace XCOM_3
         {
             foreach (var e in new[] { basic, textured })
             {
-                e.AmbientLightColor = ambient.ToVector3();
+                bool isTexturedPass = ReferenceEquals(e, textured);
+
+                // Le terrain texturé accumule plus facilement la lumière (diffuse + spéculaire).
+                // On réduit légèrement son exposition globale pour éviter l'effet "sur-éclairé".
+                float ambientScale = isTexturedPass ? 0.78f : 0.9f;
+                float mainLightScale = isTexturedPass ? 0.72f : 0.82f;
+                float fillLight1Scale = isTexturedPass ? 0.22f : 0.30f;
+                float fillLight2Scale = isTexturedPass ? 0.10f : 0.16f;
+
+                e.AmbientLightColor = ambient.ToVector3() * ambientScale;
 
                 // Uniformiser les 3 lumières directionnelles avec la teinte du cycle jour/nuit.
                 // Sans cela, le terrain texturé peut rester trop sombre car il ne reçoit
@@ -102,15 +111,15 @@ namespace XCOM_3
                 Vector3 directionalColor = dir.ToVector3();
 
                 e.DirectionalLight0.Enabled = true;
-                e.DirectionalLight0.DiffuseColor = directionalColor;
+                e.DirectionalLight0.DiffuseColor = directionalColor * mainLightScale;
                 e.DirectionalLight0.Direction = Vector3.Normalize(new Vector3(-0.45f, -1.0f, -0.35f));
 
                 e.DirectionalLight1.Enabled = true;
-                e.DirectionalLight1.DiffuseColor = directionalColor * 0.45f;
+                e.DirectionalLight1.DiffuseColor = directionalColor * fillLight1Scale;
                 e.DirectionalLight1.Direction = Vector3.Normalize(new Vector3(0.55f, -0.85f, 0.15f));
 
                 e.DirectionalLight2.Enabled = true;
-                e.DirectionalLight2.DiffuseColor = directionalColor * 0.25f;
+                e.DirectionalLight2.DiffuseColor = directionalColor * fillLight2Scale;
                 e.DirectionalLight2.Direction = Vector3.Normalize(new Vector3(0.05f, -0.65f, -0.75f));
             }
         }
