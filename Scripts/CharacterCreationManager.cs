@@ -246,8 +246,9 @@ namespace XCOM_3
             for (int i = 0; i < _slotButtons.Count; i++)
             {
                 CharacterCreationProfile p = _profiles[i];
-                string marker = i == _selectedSlot ? ">" : " ";
-                _slotButtons[i].Text = $"{marker} {i + 1}. {p.Name} ({p.Nationality}, {p.Job})";
+                string marker = i == _selectedSlot ? "[Selected]" : "";
+                string separator = string.IsNullOrEmpty(marker) ? string.Empty : " ";
+                _slotButtons[i].Text = $"{marker}{separator}{i + 1}. {p.Name} ({p.Nationality}, {p.Job})";
             }
         }
     }

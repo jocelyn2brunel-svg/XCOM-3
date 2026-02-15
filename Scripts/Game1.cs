@@ -307,7 +307,11 @@ namespace XCOM_3
 
         private void OpenOptionsMenu() => currentState = GameState.OptionsMenu;
 
-        private void ReturnToMainMenu() => currentState = GameState.MainMenu;
+        private void ReturnToMainMenu()
+        {
+            currentState = GameState.MainMenu;
+            mainMenuManager.ResetToRootMenu();
+        }
 
         private void HandleCharacterCreationCompleted(List<CharacterCreationProfile> profiles)
         {
@@ -520,7 +524,7 @@ namespace XCOM_3
             hasSavedGame = true;
             savedPlayerUnits = playerUnits.Select(u => new Unit(u)).ToList();
             savedEnemyUnits = enemyUnits.Select(u => new Unit(u)).ToList();
-            currentState = GameState.MainMenu;
+            ReturnToMainMenu();
 
             // ✅ NOUVEAU : Notifier le manager
             mainMenuManager.SetHasSavedGame(true);

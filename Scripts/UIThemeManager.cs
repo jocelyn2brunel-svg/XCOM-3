@@ -24,18 +24,7 @@ namespace XCOM_3
             }
         }
 
-        public static Color HoverColor
-        {
-            get
-            {
-                // Couleur plus lumineuse au survol.
-                return new Color(
-                    (int)MathHelper.Clamp(PrimaryColor.R + 60, 0, 255),
-                    (int)MathHelper.Clamp(PrimaryColor.G + 60, 0, 255),
-                    (int)MathHelper.Clamp(PrimaryColor.B + 60, 0, 255)
-                );
-            }
-        }
+        public static Color HoverColor => Color.Yellow;
 
         public static void SetPrimaryColor(byte r, byte g, byte b)
         {
