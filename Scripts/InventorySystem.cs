@@ -729,6 +729,8 @@ namespace XCOM_3
 
         private void HandleContextMenus(MouseState mouse, bool leftClick, bool rightClick, Unit unit, int gridStartX, int gridStartY)
         {
+            bool openedExaminePopupThisClick = false;
+
             if (rightClick)
             {
                 var clickedItem = GetItemUnderMouse(mouse.Position, unit, gridStartX, gridStartY);
@@ -766,6 +768,7 @@ namespace XCOM_3
                         width,
                         height);
                     showExaminePopup = true;
+                    openedExaminePopupThisClick = true;
                     showContextMenu = false;
                 }
                 else if (!contextMenuRect.Contains(mouse.Position))
@@ -774,7 +777,7 @@ namespace XCOM_3
                 }
             }
 
-            if (leftClick && showExaminePopup && !examinePopupRect.Contains(mouse.Position))
+            if (leftClick && showExaminePopup && !openedExaminePopupThisClick && !examinePopupRect.Contains(mouse.Position))
             {
                 showExaminePopup = false;
             }
