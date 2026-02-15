@@ -2191,7 +2191,7 @@ namespace XCOM_3
                 if (hoveredCell != lastHoveredCell)
                 {
                     Point previewGoal = hoveredCell;
-                    int previewFloor = selectedUnit.Floor;
+                    int previewFloor = viewedFloor;
                     if (TryResolveVerticalTransition(selectedUnit.Floor, hoveredCell, out Point transitionGoal, out int transitionFloor))
                     {
                         previewGoal = transitionGoal;
