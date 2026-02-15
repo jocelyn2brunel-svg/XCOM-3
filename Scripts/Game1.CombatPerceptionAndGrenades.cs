@@ -324,6 +324,7 @@ namespace XCOM_3
 
             float floorYOffset = viewedFloor * cellSize;
             float ghostHeight = cellSize * 1.35f;
+            HashSet<Point> zoneCells = new HashSet<Point>();
 
             for (int x = minX; x <= maxX; x++)
             {
@@ -333,17 +334,70 @@ namespace XCOM_3
                     if (distance < minRadius || distance > maxRadius)
                         continue;
 
-                    Vector3 center = new Vector3(
-                        x * cellSize + cellSize / 2f,
-                        floorYOffset + ghostHeight / 2f,
-                        y * cellSize + cellSize / 2f);
-
-                    renderer3D.DrawCube(
-                        center,
-                        new Vector3(cellSize * 0.82f, ghostHeight, cellSize * 0.82f),
-                        color);
+                    zoneCells.Add(new Point(x, y));
                 }
             }
+
+            if (zoneCells.Count == 0)
+                return;
+
+            RasterizerState previousRasterizer = GraphicsDevice.RasterizerState;
+            BlendState previousBlend = GraphicsDevice.BlendState;
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.RasterizerState = hoveredCellWireframeState;
+
+            Point[] cardinalDirections =
+            {
+                new Point(0, -1),
+                new Point(1, 0),
+                new Point(0, 1),
+                new Point(-1, 0)
+            };
+
+            foreach (Point cell in zoneCells)
+            {
+                bool isOuterBoundary = false;
+
+                foreach (Point direction in cardinalDirections)
+                {
+                    Point neighbor = new Point(cell.X + direction.X, cell.Y + direction.Y);
+
+                    if (neighbor.X < 0 || neighbor.X >= gridWidth || neighbor.Y < 0 || neighbor.Y >= gridHeight)
+                    {
+                        isOuterBoundary = true;
+                        break;
+                    }
+
+                    if (zoneCells.Contains(neighbor))
+                        continue;
+
+                    float neighborDistance = Vector2.Distance(
+                        new Vector2(centerCell.X, centerCell.Y),
+                        new Vector2(neighbor.X, neighbor.Y));
+
+                    if (neighborDistance > maxRadius)
+                    {
+                        isOuterBoundary = true;
+                        break;
+                    }
+                }
+
+                if (!isOuterBoundary)
+                    continue;
+
+                Vector3 center = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    floorYOffset + ghostHeight / 2f,
+                    cell.Y * cellSize + cellSize / 2f);
+
+                renderer3D.DrawCube(
+                    center,
+                    new Vector3(cellSize * 0.82f, ghostHeight, cellSize * 0.82f),
+                    color);
+            }
+
+            GraphicsDevice.RasterizerState = previousRasterizer;
+            GraphicsDevice.BlendState = previousBlend;
         }
     }
 }
