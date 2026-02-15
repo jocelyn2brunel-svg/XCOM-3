@@ -207,6 +207,46 @@ namespace XCOM_3
 
                     // Le milieu reste vide pour laisser passer la ligne de vue !
                 }
+                else if (s.Type == WallType.Door)
+                {
+                    // Porte ouverte: montants latéraux + linteau en haut.
+                    // L'ouverture centrale évite l'effet "mur traversé" pour les unités.
+                    float frameWidth = s.IsHorizontal ? size * 0.2f : size * 0.2f;
+                    float openingHeight = wallHeight * 0.72f;
+                    float topPartHeight = wallHeight - openingHeight;
+
+                    Vector3 leftCenter = center;
+                    Vector3 rightCenter = center;
+
+                    if (s.IsHorizontal)
+                    {
+                        leftCenter.X -= (size - frameWidth) / 2f;
+                        rightCenter.X += (size - frameWidth) / 2f;
+                    }
+                    else
+                    {
+                        leftCenter.Z -= (size - frameWidth) / 2f;
+                        rightCenter.Z += (size - frameWidth) / 2f;
+                    }
+
+                    leftCenter.Y = floorHeightOffset + openingHeight / 2f;
+                    rightCenter.Y = floorHeightOffset + openingHeight / 2f;
+
+                    Vector3 frameScale = s.IsHorizontal
+                        ? new Vector3(frameWidth, openingHeight, thickness)
+                        : new Vector3(thickness, openingHeight, frameWidth);
+
+                    DrawCube(leftCenter, frameScale, wallColor);
+                    DrawCube(rightCenter, frameScale, wallColor);
+
+                    Vector3 topPartCenter = center;
+                    topPartCenter.Y = floorHeightOffset + openingHeight + (topPartHeight / 2f);
+                    Vector3 topPartScale = s.IsHorizontal
+                        ? new Vector3(size, topPartHeight, thickness)
+                        : new Vector3(thickness, topPartHeight, size);
+
+                    DrawCube(topPartCenter, topPartScale, wallColor);
+                }
                 else
                 {
                     // Mur plein classique (Portes et Murs normaux)
