@@ -42,9 +42,8 @@ namespace XCOM_3
         public Point Start;
         public Point End;
         public bool IsHorizontal;
-        public WallType Type; // NOUVEAU
+        public WallType Type;
 
-        // On ajoute le paramètre optionnel "type"
         public WallSegment(Point start, Point end, bool isHorizontal, WallType type = WallType.Full)
         {
             Start = start;
@@ -53,8 +52,6 @@ namespace XCOM_3
             Type = type;
         }
 
-        // Garde tes méthodes Equals et GetHashCode telles quelles !
-        // On veut toujours identifier un mur par sa position, peu importe s'il se transforme en fenêtre.
         public override bool Equals(object obj)
         {
             if (!(obj is WallSegment)) return false;
@@ -132,22 +129,47 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Ajoute un mur horizontal entre (x,y) et (x+1,y)
+        /// Ajoute un mur horizontal entre (x,y) et (x+1,y) avec type spécifié ou aléatoire
         /// </summary>
-        public void AddHorizontalWall(HashSet<WallSegment> walls, int x, int y)
+        public void AddHorizontalWall(HashSet<WallSegment> walls, int x, int y, WallType type = WallType.Full, bool randomWindows = false, int windowChance = 20)
         {
-            // 20% de chances d'être une fenêtre sur les murs extérieurs par exemple
-            WallType type = (random.Next(100) < 20) ? WallType.Window : WallType.Full;
+            if (type == WallType.Full && randomWindows && random.Next(100) < windowChance)
+            {
+                type = WallType.Window;
+            }
             walls.Add(new WallSegment(new Point(x, y), new Point(x + 1, y), true, type));
         }
 
         /// <summary>
-        /// Ajoute un mur vertical entre (x,y) et (x,y+1)
+        /// Ajoute un mur vertical entre (x,y) et (x,y+1) avec type spécifié ou aléatoire
         /// </summary>
-        private void AddVerticalWall(HashSet<WallSegment> walls, int x, int y)
+        public void AddVerticalWall(HashSet<WallSegment> walls, int x, int y, WallType type = WallType.Full, bool randomWindows = false, int windowChance = 20)
         {
-            WallType type = (random.Next(100) < 20) ? WallType.Window : WallType.Full;
-            walls.Add(new WallSegment(new Point(x, y), new Point(x, y + 1), false));
+            if (type == WallType.Full && randomWindows && random.Next(100) < windowChance)
+            {
+                type = WallType.Window;
+            }
+            walls.Add(new WallSegment(new Point(x, y), new Point(x, y + 1), false, type));
+        }
+
+        /// <summary>
+        /// Ajoute une porte horizontale (supprime le mur et ajoute un segment Door)
+        /// </summary>
+        private void AddHorizontalDoor(HashSet<WallSegment> walls, int x, int y)
+        {
+            var wallToRemove = new WallSegment(new Point(x, y), new Point(x + 1, y), true);
+            walls.Remove(wallToRemove);
+            walls.Add(new WallSegment(new Point(x, y), new Point(x + 1, y), true, WallType.Door));
+        }
+
+        /// <summary>
+        /// Ajoute une porte verticale (supprime le mur et ajoute un segment Door)
+        /// </summary>
+        private void AddVerticalDoor(HashSet<WallSegment> walls, int x, int y)
+        {
+            var wallToRemove = new WallSegment(new Point(x, y), new Point(x, y + 1), false);
+            walls.Remove(wallToRemove);
+            walls.Add(new WallSegment(new Point(x, y), new Point(x, y + 1), false, WallType.Door));
         }
 
         /// <summary>
@@ -166,21 +188,21 @@ namespace XCOM_3
                 int startX = random.Next(3, Math.Max(4, gridWidth - roomWidth - 3));
                 int startY = random.Next(3, Math.Max(4, gridHeight - roomHeight - 3));
 
-                // Murs horizontaux (nord et sud)
+                // Murs horizontaux (nord et sud) - Extérieurs avec fenêtres
                 for (int x = startX; x < startX + roomWidth; x++)
                 {
-                    AddHorizontalWall(walls, x, startY);                    // Mur nord
-                    AddHorizontalWall(walls, x, startY + roomHeight);       // Mur sud
+                    AddHorizontalWall(walls, x, startY, WallType.Full, true, 30);           // Mur nord avec fenêtres
+                    AddHorizontalWall(walls, x, startY + roomHeight, WallType.Full, true, 30); // Mur sud avec fenêtres
                 }
 
-                // Murs verticaux (ouest et est)
+                // Murs verticaux (ouest et est) - Extérieurs avec fenêtres
                 for (int y = startY; y < startY + roomHeight; y++)
                 {
-                    AddVerticalWall(walls, startX, y);                      // Mur ouest
-                    AddVerticalWall(walls, startX + roomWidth, y);          // Mur est
+                    AddVerticalWall(walls, startX, y, WallType.Full, true, 30);                  // Mur ouest avec fenêtres
+                    AddVerticalWall(walls, startX + roomWidth, y, WallType.Full, true, 30);      // Mur est avec fenêtres
                 }
 
-                // Ajouter 1-3 portes (retirer des segments)
+                // Ajouter 1-3 portes
                 int numDoors = random.Next(1, 4);
                 for (int d = 0; d < numDoors; d++)
                 {
@@ -188,32 +210,32 @@ namespace XCOM_3
 
                     switch (side)
                     {
-                        case 0: // Nord - retirer un segment horizontal
+                        case 0: // Nord
                             if (roomWidth > 2)
                             {
                                 int doorX = startX + random.Next(1, roomWidth - 1);
-                                walls.Remove(new WallSegment(new Point(doorX, startY), new Point(doorX + 1, startY), true));
+                                AddHorizontalDoor(walls, doorX, startY);
                             }
                             break;
                         case 1: // Sud
                             if (roomWidth > 2)
                             {
                                 int doorX = startX + random.Next(1, roomWidth - 1);
-                                walls.Remove(new WallSegment(new Point(doorX, startY + roomHeight), new Point(doorX + 1, startY + roomHeight), true));
+                                AddHorizontalDoor(walls, doorX, startY + roomHeight);
                             }
                             break;
-                        case 2: // Ouest - retirer un segment vertical
+                        case 2: // Ouest
                             if (roomHeight > 2)
                             {
                                 int doorY = startY + random.Next(1, roomHeight - 1);
-                                walls.Remove(new WallSegment(new Point(startX, doorY), new Point(startX, doorY + 1), false));
+                                AddVerticalDoor(walls, startX, doorY);
                             }
                             break;
                         case 3: // Est
                             if (roomHeight > 2)
                             {
                                 int doorY = startY + random.Next(1, roomHeight - 1);
-                                walls.Remove(new WallSegment(new Point(startX + roomWidth, doorY), new Point(startX + roomWidth, doorY + 1), false));
+                                AddVerticalDoor(walls, startX + roomWidth, doorY);
                             }
                             break;
                     }
@@ -367,7 +389,7 @@ namespace XCOM_3
         {
             HashSet<WallSegment> walls = new HashSet<WallSegment>();
 
-            int blockSize = 14;     // Taille d’un bloc
+            int blockSize = 14;     // Taille d'un bloc
             int streetWidth = 2;    // Rues fines
 
             int startY = 4;
@@ -387,7 +409,7 @@ namespace XCOM_3
                     int maxOffsetX = Math.Max(0, lotWidth - 6);
                     int maxOffsetY = Math.Max(0, lotHeight - 6);
 
-                    int offsetX = random.Next(0, maxOffsetX / 2 + 1); // décalage max moitié du lot
+                    int offsetX = random.Next(0, maxOffsetX / 2 + 1);
                     int offsetY = random.Next(0, maxOffsetY / 2 + 1);
 
                     // Taille réelle du bâtiment
@@ -401,33 +423,33 @@ namespace XCOM_3
                     BuildingType type = (BuildingType)random.Next(0, 4);
                     int buildingFloors = random.Next(2, 6);
 
-                    // Sous-sol plus fréquent sur les grands immeubles urbains, avec un biais pour du parking.
+                    // Sous-sol plus fréquent sur les grands immeubles urbains
                     int footprint = buildingWidth * buildingHeight;
                     int basementChance = footprint >= 96 ? 65 : footprint >= 72 ? 45 : 20;
                     int basementCount = random.Next(100) < basementChance ? random.Next(1, 3) : 0;
                     LastGeneratedBuildings.Add(new GeneratedBuilding(x, y, buildingWidth, buildingHeight, buildingFloors, basementCount));
 
-                    // Murs extérieurs
+                    // Murs extérieurs avec fenêtres (40% de chance)
                     for (int i = x; i < x + buildingWidth; i++)
                     {
-                        AddHorizontalWall(walls, i, y);
-                        AddHorizontalWall(walls, i, y + buildingHeight);
+                        AddHorizontalWall(walls, i, y, WallType.Full, true, 40);
+                        AddHorizontalWall(walls, i, y + buildingHeight, WallType.Full, true, 40);
                     }
 
                     for (int i = y; i < y + buildingHeight; i++)
                     {
-                        AddVerticalWall(walls, x, i);
-                        AddVerticalWall(walls, x + buildingWidth, i);
+                        AddVerticalWall(walls, x, i, WallType.Full, true, 40);
+                        AddVerticalWall(walls, x + buildingWidth, i, WallType.Full, true, 40);
                     }
 
-                    // Porte
+                    // Porte d'entrée
                     int doorSide = random.Next(4);
                     switch (doorSide)
                     {
-                        case 0: walls.Remove(new WallSegment(new Point(x + buildingWidth / 2, y), new Point(x + buildingWidth / 2 + 1, y), true)); break;
-                        case 1: walls.Remove(new WallSegment(new Point(x + buildingWidth / 2, y + buildingHeight), new Point(x + buildingWidth / 2 + 1, y + buildingHeight), true)); break;
-                        case 2: walls.Remove(new WallSegment(new Point(x, y + buildingHeight / 2), new Point(x, y + buildingHeight / 2 + 1), false)); break;
-                        case 3: walls.Remove(new WallSegment(new Point(x + buildingWidth, y + buildingHeight / 2), new Point(x + buildingWidth, y + buildingHeight / 2 + 1), false)); break;
+                        case 0: AddHorizontalDoor(walls, x + buildingWidth / 2, y); break;
+                        case 1: AddHorizontalDoor(walls, x + buildingWidth / 2, y + buildingHeight); break;
+                        case 2: AddVerticalDoor(walls, x, y + buildingHeight / 2); break;
+                        case 3: AddVerticalDoor(walls, x + buildingWidth, y + buildingHeight / 2); break;
                     }
 
                     GenerateInterior(walls, x, y, buildingWidth, buildingHeight, type);
@@ -436,7 +458,6 @@ namespace XCOM_3
 
             return walls;
         }
-
 
         /// <summary>
         /// Génère des tranchées
@@ -509,70 +530,32 @@ namespace XCOM_3
                 return onTopEdge || onBottomEdge || onLeftEdge || onRightEdge;
             }
 
-            // Zone joueur (bas) : on garde les murs de bordure pour éviter de "supprimer" la carte visuellement.
+            // Zone joueur (bas)
             walls.RemoveWhere(w => !IsPerimeterWall(w) && (w.Start.Y > gridHeight - 4 || w.End.Y > gridHeight - 4));
 
-            // Zone ennemie (haut) : idem, on ne retire que les murs intérieurs.
+            // Zone ennemie (haut)
             walls.RemoveWhere(w => !IsPerimeterWall(w) && (w.Start.Y < 4 || w.End.Y < 4));
         }
 
-        private void GenerateInterior(HashSet<WallSegment> walls,
-                              int x, int y,
-                              int width, int height,
-                              BuildingType type)
+        /// <summary>
+        /// Génère l'intérieur d'un bâtiment selon son type
+        /// </summary>
+        private void GenerateInterior(HashSet<WallSegment> walls, int x, int y, int width, int height, BuildingType type)
         {
-            // --- NOUVEAUTÉ ICI ---
-            // Si c'est une petite maison, on utilise notre nouveau gabarit architectural
-            if (type == BuildingType.SmallHouse)
-            {
-                GenerateModernHouseInterior(walls, x, y, width, height);
-                return; // Très important : on quitte la méthode ici pour ne pas exécuter la découpe aléatoire en dessous !
-            }
-            // ---------------------
-
-            // L'ancien système aléatoire (pour les appartements, bureaux et entrepôts)
-            int roomCount;
-
             switch (type)
             {
+                case BuildingType.SmallHouse:
+                    GenerateModernHouseInterior(walls, x, y, width, height);
+                    break;
                 case BuildingType.Apartment:
-                    roomCount = random.Next(4, 7);
+                    GenerateApartmentInterior(walls, x, y, width, height);
                     break;
                 case BuildingType.Office:
-                    roomCount = random.Next(3, 6);
+                    GenerateOfficeInterior(walls, x, y, width, height);
                     break;
                 case BuildingType.Warehouse:
-                    roomCount = random.Next(1, 3);
+                    GenerateWarehouseInterior(walls, x, y, width, height);
                     break;
-                default:
-                    roomCount = 3;
-                    break;
-            }
-
-            for (int r = 0; r < roomCount; r++)
-            {
-                bool verticalSplit = random.Next(2) == 0;
-
-                if (verticalSplit)
-                {
-                    int splitX = random.Next(x + 2, x + width - 2);
-
-                    for (int i = y + 1; i < y + height - 1; i++)
-                    {
-                        if (i != y + height / 2) // Porte centrale
-                            AddVerticalWall(walls, splitX, i);
-                    }
-                }
-                else
-                {
-                    int splitY = random.Next(y + 2, y + height - 2);
-
-                    for (int i = x + 1; i < x + width - 1; i++)
-                    {
-                        if (i != x + width / 2) // Porte centrale
-                            AddHorizontalWall(walls, i, splitY);
-                    }
-                }
             }
         }
 
@@ -581,58 +564,196 @@ namespace XCOM_3
         /// </summary>
         private void GenerateModernHouseInterior(HashSet<WallSegment> walls, int x, int y, int width, int height)
         {
-            // Sécurité : si le bâtiment est trop petit, on ne fait pas de divisions complexes
             if (width < 6 || height < 6) return;
 
-            // Étape 1 : Le Zonage principal (Séparation Nuit / Jour)
-            // On coupe le bâtiment verticalement à environ 45% de sa largeur
+            // Séparation Nuit / Jour (45% gauche = chambres, 55% droite = living)
             int splitX = x + (int)(width * 0.45f);
 
-            // Mur central (avec une grande ouverture au milieu pour le couloir)
+            // Mur central avec double porte
             int doorY = y + height / 2;
             for (int i = y + 1; i < y + height - 1; i++)
             {
-                if (i != doorY && i != doorY + 1) // On laisse une double porte pour circuler
+                if (i != doorY && i != doorY + 1)
                 {
                     AddVerticalWall(walls, splitX, i);
                 }
             }
 
-            // Étape 2 : Zone Nuit (Côté Gauche) - Très compartimentée
-            // On coupe la zone gauche en 2 chambres horizontalement
+            // ZONE NUIT (Gauche) - Deux chambres
             int roomSplitY = y + height / 2;
             for (int i = x + 1; i < splitX; i++)
             {
                 AddHorizontalWall(walls, i, roomSplitY);
             }
 
-            // Portes pour les chambres (donnant sur le centre)
-            walls.Remove(new WallSegment(new Point(splitX, y + height / 4), new Point(splitX, y + height / 4 + 1), false));
-            walls.Remove(new WallSegment(new Point(splitX, y + 3 * height / 4), new Point(splitX, y + 3 * height / 4 + 1), false));
+            // Portes des chambres vers le couloir central
+            AddVerticalDoor(walls, splitX, y + height / 4);
+            AddVerticalDoor(walls, splitX, y + 3 * height / 4);
 
-            // Étape 3 : Zone Jour (Côté Droit) - Open Space + Bloc utilitaire
+            // ZONE JOUR (Droite) - Open space + salle de bain
             int rightWidth = (x + width) - splitX;
-
-            // On crée juste un petit bloc (Salle de bain / Buanderie) dans le coin en haut à droite
             int bathWidth = Math.Max(2, rightWidth / 3);
             int bathHeight = Math.Max(2, height / 3);
 
             int bathStartX = (x + width) - bathWidth;
             int bathBottomY = y + bathHeight;
 
-            // Mur sud de la salle de bain
-            for (int i = bathStartX; i < x + width; i++)
+            // Murs de la salle de bain
+            for (int i = bathStartX + 1; i < x + width; i++)
             {
-                // On laisse une porte
-                if (i != bathStartX + 1) AddHorizontalWall(walls, i, bathBottomY);
+                AddHorizontalWall(walls, i, bathBottomY);
             }
-            // Mur ouest de la salle de bain
-            for (int i = y; i < bathBottomY; i++)
+            for (int i = y + 1; i < bathBottomY; i++)
             {
                 AddVerticalWall(walls, bathStartX, i);
             }
-            // Le reste du côté droit reste totalement ouvert (Salon, Salle à manger, Cuisine) !
+            
+            // Porte de la salle de bain
+            AddHorizontalDoor(walls, bathStartX + 1, bathBottomY);
         }
 
+        /// <summary>
+        /// Génère l'intérieur d'un appartement avec couloir central et pièces latérales
+        /// </summary>
+        private void GenerateApartmentInterior(HashSet<WallSegment> walls, int x, int y, int width, int height)
+        {
+            if (width < 8 || height < 6) return;
+
+            // Couloir central horizontal (1/3 de la hauteur, au centre)
+            int corridorY = y + height / 3;
+            int corridorHeight = Math.Max(2, height / 3);
+
+            // Pièces au-dessus du couloir
+            int numRoomsTop = random.Next(2, 4);
+            int roomWidthTop = (width - 2) / numRoomsTop;
+
+            for (int i = 0; i < numRoomsTop - 1; i++)
+            {
+                int wallX = x + 1 + (i + 1) * roomWidthTop;
+                for (int yy = y + 1; yy < corridorY; yy++)
+                {
+                    AddVerticalWall(walls, wallX, yy);
+                }
+                // Porte vers le couloir
+                AddHorizontalDoor(walls, wallX - roomWidthTop / 2, corridorY);
+            }
+
+            // Pièces en dessous du couloir
+            int numRoomsBottom = random.Next(2, 4);
+            int roomWidthBottom = (width - 2) / numRoomsBottom;
+
+            for (int i = 0; i < numRoomsBottom - 1; i++)
+            {
+                int wallX = x + 1 + (i + 1) * roomWidthBottom;
+                for (int yy = corridorY + corridorHeight; yy < y + height - 1; yy++)
+                {
+                    AddVerticalWall(walls, wallX, yy);
+                }
+                // Porte vers le couloir
+                AddHorizontalDoor(walls, wallX - roomWidthBottom / 2, corridorY + corridorHeight);
+            }
+        }
+
+        /// <summary>
+        /// Génère l'intérieur d'un bureau avec cubicules
+        /// </summary>
+        private void GenerateOfficeInterior(HashSet<WallSegment> walls, int x, int y, int width, int height)
+        {
+            if (width < 8 || height < 6) return;
+
+            // Couloir principal vertical sur le côté gauche
+            int corridorX = x + width / 4;
+
+            for (int yy = y + 1; yy < y + height - 1; yy++)
+            {
+                AddVerticalWall(walls, corridorX, yy);
+            }
+
+            // Cubicules à droite du couloir (grille 2x2 ou 2x3)
+            int cubicleCols = 2;
+            int cubicleRows = random.Next(2, 4);
+
+            int cubicleWidth = (width - (corridorX - x) - 1) / cubicleCols;
+            int cubicleHeight = (height - 2) / cubicleRows;
+
+            for (int row = 0; row < cubicleRows; row++)
+            {
+                for (int col = 0; col < cubicleCols; col++)
+                {
+                    int cubX = corridorX + 1 + col * cubicleWidth;
+                    int cubY = y + 1 + row * cubicleHeight;
+
+                    // Murs de cubicule (partiels, hauteur 1)
+                    if (col > 0)
+                    {
+                        AddVerticalWall(walls, cubX, cubY, WallType.Full, false, 0);
+                    }
+                    if (row > 0)
+                    {
+                        for (int i = 0; i < cubicleWidth - 1; i++)
+                        {
+                            AddHorizontalWall(walls, cubX + i, cubY, WallType.Full, false, 0);
+                        }
+                    }
+                }
+            }
+
+            // Quelques portes vers le couloir
+            for (int row = 0; row < cubicleRows; row++)
+            {
+                int doorY = y + 1 + row * cubicleHeight + cubicleHeight / 2;
+                AddVerticalDoor(walls, corridorX, doorY);
+            }
+        }
+
+        /// <summary>
+        /// Génère l'intérieur d'un entrepôt (très ouvert avec quelques rayonnages)
+        /// </summary>
+        private void GenerateWarehouseInterior(HashSet<WallSegment> walls, int x, int y, int width, int height)
+        {
+            if (width < 8 || height < 8) return;
+
+            // Quelques rangées de rayonnages (murs courts parallèles)
+            int numRows = random.Next(2, 4);
+            int rowSpacing = (height - 4) / (numRows + 1);
+
+            for (int row = 0; row < numRows; row++)
+            {
+                int rowY = y + 2 + (row + 1) * rowSpacing;
+                int shelfLength = random.Next(3, 6);
+
+                // Plusieurs segments de rayonnage sur cette ligne
+                int numShelves = random.Next(2, 4);
+                for (int shelf = 0; shelf < numShelves; shelf++)
+                {
+                    int startX = x + 2 + shelf * (width / numShelves);
+                    for (int i = 0; i < shelfLength && startX + i < x + width - 2; i++)
+                    {
+                        AddHorizontalWall(walls, startX + i, rowY);
+                    }
+                }
+            }
+
+            // Petit bureau dans un coin (10% de la surface)
+            int officeWidth = Math.Max(3, width / 5);
+            int officeHeight = Math.Max(3, height / 5);
+
+            int officeX = x + width - officeWidth - 1;
+            int officeY = y + 1;
+
+            // Murs du bureau
+            for (int i = officeX; i < officeX + officeWidth; i++)
+            {
+                AddHorizontalWall(walls, i, officeY);
+                AddHorizontalWall(walls, i, officeY + officeHeight);
+            }
+            for (int i = officeY; i < officeY + officeHeight; i++)
+            {
+                AddVerticalWall(walls, officeX, i);
+            }
+
+            // Porte du bureau
+            AddVerticalDoor(walls, officeX, officeY + officeHeight / 2);
+        }
     }
 }
