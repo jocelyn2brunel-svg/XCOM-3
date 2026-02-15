@@ -42,6 +42,7 @@ namespace XCOM_3
         private InventoryGrid inventoryGrid;
         private GridItem draggedItem = null;
         private Point dragGridOffset;
+        private Point dragPixelOffset;
         private readonly List<ItemData> nearbyLootItems = new List<ItemData>();
         public Dictionary<string, ItemData> ItemDatabase { get; private set; }
 
@@ -292,9 +293,13 @@ namespace XCOM_3
 
                 if (clickedItem != null)
                 {
+                    clickedItem.UpdatePixelBounds(gridStartX, gridStartY);
                     draggedItem = clickedItem;
                     dragGridOffset = new Point(gridX - clickedItem.GridPosition.X,
                                               gridY - clickedItem.GridPosition.Y);
+                    dragPixelOffset = new Point(
+                        mouse.X - clickedItem.PixelBounds.X,
+                        mouse.Y - clickedItem.PixelBounds.Y);
                     inventoryGrid.RemoveItem(draggedItem);
                     Console.WriteLine($"[INVENTORY] Drag from grid: {draggedItem.Data.Name}");
                     return;
@@ -306,7 +311,7 @@ namespace XCOM_3
             Rectangle weaponSlot = GetWeaponSlotBounds();
             if (unit.EquippedWeapon != null && weaponSlot.Contains(mouse.Position))
             {
-                StartDragFromEquipment(unit.EquippedWeapon);
+                StartDragFromEquipment(unit.EquippedWeapon, mouse, weaponSlot);
                 unit.EquippedWeapon = null;
                 unit.Weapon = string.Empty;
                 unit.WeaponData = null;
@@ -317,7 +322,7 @@ namespace XCOM_3
             Rectangle helmetSlot = GetHelmetSlotBounds();
             if (unit.EquippedHelmet != null && helmetSlot.Contains(mouse.Position))
             {
-                StartDragFromEquipment(unit.EquippedHelmet);
+                StartDragFromEquipment(unit.EquippedHelmet, mouse, helmetSlot);
                 unit.EquippedHelmet = null;
                 Console.WriteLine($"[INVENTORY] Unequipped helmet: {draggedItem.Data.Name}");
                 return;
@@ -326,7 +331,7 @@ namespace XCOM_3
             Rectangle armorSlot = GetArmorSlotBounds();
             if (unit.EquippedArmor != null && armorSlot.Contains(mouse.Position))
             {
-                StartDragFromEquipment(unit.EquippedArmor);
+                StartDragFromEquipment(unit.EquippedArmor, mouse, armorSlot);
                 unit.EquippedArmor = null;
                 Console.WriteLine($"[INVENTORY] Unequipped armor: {draggedItem.Data.Name}");
                 return;
@@ -335,7 +340,7 @@ namespace XCOM_3
             Rectangle shieldSlot = GetShieldSlotBounds();
             if (unit.EquippedShield != null && shieldSlot.Contains(mouse.Position))
             {
-                StartDragFromEquipment(unit.EquippedShield);
+                StartDragFromEquipment(unit.EquippedShield, mouse, shieldSlot);
                 unit.EquippedShield = null;
                 Console.WriteLine($"[INVENTORY] Unequipped shield: {draggedItem.Data.Name}");
                 return;
@@ -344,7 +349,7 @@ namespace XCOM_3
             Rectangle beltSlot = GetBeltSlotBounds();
             if (unit.EquippedAccessory != null && beltSlot.Contains(mouse.Position))
             {
-                StartDragFromEquipment(unit.EquippedAccessory);
+                StartDragFromEquipment(unit.EquippedAccessory, mouse, beltSlot);
                 unit.EquippedAccessory = null;
                 Console.WriteLine($"[INVENTORY] Unequipped accessory: {draggedItem.Data.Name}");
                 return;
@@ -352,7 +357,7 @@ namespace XCOM_3
 
             if (unit.EquippedBelt != null && beltSlot.Contains(mouse.Position))
             {
-                StartDragFromEquipment(unit.EquippedBelt);
+                StartDragFromEquipment(unit.EquippedBelt, mouse, beltSlot);
                 unit.EquippedBelt = null;
                 Console.WriteLine($"[INVENTORY] Unequipped belt: {draggedItem.Data.Name}");
                 return;
@@ -361,7 +366,7 @@ namespace XCOM_3
             Rectangle shirtSlot = GetShirtSlotBounds();
             if (unit.EquippedShirt != null && shirtSlot.Contains(mouse.Position))
             {
-                StartDragFromEquipment(unit.EquippedShirt);
+                StartDragFromEquipment(unit.EquippedShirt, mouse, shirtSlot);
                 unit.EquippedShirt = null;
                 Console.WriteLine($"[INVENTORY] Unequipped shirt: {draggedItem.Data.Name}");
                 return;
@@ -376,7 +381,7 @@ namespace XCOM_3
                         ReturnItemToGrid(pocketItem);
                 }
 
-                StartDragFromEquipment(unit.EquippedPants);
+                StartDragFromEquipment(unit.EquippedPants, mouse, pantsSlot);
                 unit.EquippedPants = null;
                 unit.PantsInventory.Clear();
                 unit.RefreshGrenadeInventoryFromEquipment();
@@ -390,7 +395,7 @@ namespace XCOM_3
                 Rectangle pocketSlot = GetPantsPocketSlotByIndex(i);
                 if (i < unit.PantsInventory.Count && unit.PantsInventory[i] != null && pocketSlot.Contains(mouse.Position))
                 {
-                    StartDragFromEquipment(unit.PantsInventory[i]);
+                    StartDragFromEquipment(unit.PantsInventory[i], mouse, pocketSlot);
                     unit.PantsInventory.RemoveAt(i);
                     unit.RefreshGrenadeInventoryFromEquipment();
                     Console.WriteLine($"[INVENTORY] Unequipped pants pocket item from slot {i + 1}: {draggedItem.Data.Name}");
@@ -403,7 +408,7 @@ namespace XCOM_3
                 Rectangle chestRigSlot = GetChestRigPocketSlotByIndex(i, unit);
                 if (i < unit.ChestRigInventory.Count && unit.ChestRigInventory[i] != null && chestRigSlot.Contains(mouse.Position))
                 {
-                    StartDragFromEquipment(unit.ChestRigInventory[i]);
+                    StartDragFromEquipment(unit.ChestRigInventory[i], mouse, chestRigSlot);
                     unit.ChestRigInventory.RemoveAt(i);
                     unit.RefreshGrenadeInventoryFromEquipment();
                     Console.WriteLine($"[INVENTORY] Unequipped chest rig item from slot {i + 1}: {draggedItem.Data.Name}");
@@ -417,7 +422,7 @@ namespace XCOM_3
                 Rectangle backpackSlot = GetBackpackUtilitySlotByIndex(i);
                 if (i < unit.BackpackInventory.Count && unit.BackpackInventory[i] != null && backpackSlot.Contains(mouse.Position))
                 {
-                    StartDragFromEquipment(unit.BackpackInventory[i]);
+                    StartDragFromEquipment(unit.BackpackInventory[i], mouse, backpackSlot);
                     unit.BackpackInventory.RemoveAt(i);
                     unit.RefreshGrenadeInventoryFromEquipment();
                     Console.WriteLine($"[INVENTORY] Unequipped backpack utility slot {i + 1}: {draggedItem.Data.Name}");
@@ -434,7 +439,7 @@ namespace XCOM_3
                         ReturnItemToGrid(rigItem);
                 }
 
-                StartDragFromEquipment(unit.EquippedChestRig);
+                StartDragFromEquipment(unit.EquippedChestRig, mouse, chestRigMainSlot);
                 unit.EquippedChestRig = null;
                 unit.ChestRigInventory.Clear();
                 unit.RefreshGrenadeInventoryFromEquipment();
@@ -443,19 +448,26 @@ namespace XCOM_3
             }
         }
 
-        private void StartDragFromEquipment(Item equippedItem)
+        private void StartDragFromEquipment(Item equippedItem, MouseState mouse, Rectangle sourceSlot)
         {
             ItemSize size = ItemSizeDatabase.GetItemSize(equippedItem.Data.Name);
             draggedItem = new GridItem(equippedItem.Data, new Point(0, 0), size, false);
-            dragGridOffset = Point.Zero;
+
+            int maxWidth = size.Width * CELL_SIZE - 1;
+            int maxHeight = size.Height * CELL_SIZE - 1;
+            int offsetX = Math.Clamp(mouse.X - sourceSlot.X, 0, maxWidth);
+            int offsetY = Math.Clamp(mouse.Y - sourceSlot.Y, 0, maxHeight);
+
+            dragPixelOffset = new Point(offsetX, offsetY);
+            dragGridOffset = new Point(offsetX / CELL_SIZE, offsetY / CELL_SIZE);
         }
 
         private void HandleDragUpdate(MouseState mouse, int gridStartX, int gridStartY)
         {
             // ✅ Drag complètement libre - suit exactement la souris
             draggedItem.PixelBounds = new Rectangle(
-                mouse.X - dragGridOffset.X * CELL_SIZE,
-                mouse.Y - dragGridOffset.Y * CELL_SIZE,
+                mouse.X - dragPixelOffset.X,
+                mouse.Y - dragPixelOffset.Y,
                 draggedItem.GetCurrentSize().Width * CELL_SIZE,
                 draggedItem.GetCurrentSize().Height * CELL_SIZE
             );
@@ -465,8 +477,11 @@ namespace XCOM_3
         {
             Rectangle inventoryWindow = GetInventoryPanelBounds();
             Rectangle lootWindow = GetLootPanelBounds();
+            Rectangle equipmentWindow = GetEquipmentPanelBounds(unit);
             bool droppedOutsideInterface =
-                !inventoryWindow.Contains(mouse.Position) && !lootWindow.Contains(mouse.Position);
+                !inventoryWindow.Contains(mouse.Position) &&
+                !lootWindow.Contains(mouse.Position) &&
+                !equipmentWindow.Contains(mouse.Position);
 
             if (droppedOutsideInterface)
             {
