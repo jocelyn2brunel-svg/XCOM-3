@@ -36,6 +36,7 @@ namespace XCOM_3
     /// Représente un segment de mur entre deux cases
     /// </summary>
     public enum WallType { Full, Window, Door }
+    public enum WallMaterial { Standard, Brick }
 
     public struct WallSegment
     {
@@ -43,13 +44,15 @@ namespace XCOM_3
         public Point End;
         public bool IsHorizontal;
         public WallType Type;
+        public WallMaterial Material;
 
-        public WallSegment(Point start, Point end, bool isHorizontal, WallType type = WallType.Full)
+        public WallSegment(Point start, Point end, bool isHorizontal, WallType type = WallType.Full, WallMaterial material = WallMaterial.Standard)
         {
             Start = start;
             End = end;
             IsHorizontal = isHorizontal;
             Type = type;
+            Material = material;
         }
 
         public override bool Equals(object obj)
@@ -131,25 +134,25 @@ namespace XCOM_3
         /// <summary>
         /// Ajoute un mur horizontal entre (x,y) et (x+1,y) avec type spécifié ou aléatoire
         /// </summary>
-        public void AddHorizontalWall(HashSet<WallSegment> walls, int x, int y, WallType type = WallType.Full, bool randomWindows = false, int windowChance = 20)
+        public void AddHorizontalWall(HashSet<WallSegment> walls, int x, int y, WallType type = WallType.Full, bool randomWindows = false, int windowChance = 20, WallMaterial material = WallMaterial.Standard)
         {
             if (type == WallType.Full && randomWindows && random.Next(100) < windowChance)
             {
                 type = WallType.Window;
             }
-            walls.Add(new WallSegment(new Point(x, y), new Point(x + 1, y), true, type));
+            walls.Add(new WallSegment(new Point(x, y), new Point(x + 1, y), true, type, material));
         }
 
         /// <summary>
         /// Ajoute un mur vertical entre (x,y) et (x,y+1) avec type spécifié ou aléatoire
         /// </summary>
-        public void AddVerticalWall(HashSet<WallSegment> walls, int x, int y, WallType type = WallType.Full, bool randomWindows = false, int windowChance = 20)
+        public void AddVerticalWall(HashSet<WallSegment> walls, int x, int y, WallType type = WallType.Full, bool randomWindows = false, int windowChance = 20, WallMaterial material = WallMaterial.Standard)
         {
             if (type == WallType.Full && randomWindows && random.Next(100) < windowChance)
             {
                 type = WallType.Window;
             }
-            walls.Add(new WallSegment(new Point(x, y), new Point(x, y + 1), false, type));
+            walls.Add(new WallSegment(new Point(x, y), new Point(x, y + 1), false, type, material));
         }
 
         /// <summary>
@@ -158,8 +161,11 @@ namespace XCOM_3
         private void AddHorizontalDoor(HashSet<WallSegment> walls, int x, int y)
         {
             var wallToRemove = new WallSegment(new Point(x, y), new Point(x + 1, y), true);
+            WallMaterial material = WallMaterial.Standard;
+            if (walls.TryGetValue(wallToRemove, out var existingWall))
+                material = existingWall.Material;
             walls.Remove(wallToRemove);
-            walls.Add(new WallSegment(new Point(x, y), new Point(x + 1, y), true, WallType.Door));
+            walls.Add(new WallSegment(new Point(x, y), new Point(x + 1, y), true, WallType.Door, material));
         }
 
         /// <summary>
@@ -168,8 +174,11 @@ namespace XCOM_3
         private void AddVerticalDoor(HashSet<WallSegment> walls, int x, int y)
         {
             var wallToRemove = new WallSegment(new Point(x, y), new Point(x, y + 1), false);
+            WallMaterial material = WallMaterial.Standard;
+            if (walls.TryGetValue(wallToRemove, out var existingWall))
+                material = existingWall.Material;
             walls.Remove(wallToRemove);
-            walls.Add(new WallSegment(new Point(x, y), new Point(x, y + 1), false, WallType.Door));
+            walls.Add(new WallSegment(new Point(x, y), new Point(x, y + 1), false, WallType.Door, material));
         }
 
         /// <summary>
@@ -432,14 +441,14 @@ namespace XCOM_3
                     // Murs extérieurs avec fenêtres (40% de chance)
                     for (int i = x; i < x + buildingWidth; i++)
                     {
-                        AddHorizontalWall(walls, i, y, WallType.Full, true, 40);
-                        AddHorizontalWall(walls, i, y + buildingHeight, WallType.Full, true, 40);
+                        AddHorizontalWall(walls, i, y, WallType.Full, true, 40, WallMaterial.Brick);
+                        AddHorizontalWall(walls, i, y + buildingHeight, WallType.Full, true, 40, WallMaterial.Brick);
                     }
 
                     for (int i = y; i < y + buildingHeight; i++)
                     {
-                        AddVerticalWall(walls, x, i, WallType.Full, true, 40);
-                        AddVerticalWall(walls, x + buildingWidth, i, WallType.Full, true, 40);
+                        AddVerticalWall(walls, x, i, WallType.Full, true, 40, WallMaterial.Brick);
+                        AddVerticalWall(walls, x + buildingWidth, i, WallType.Full, true, 40, WallMaterial.Brick);
                     }
 
                     // Porte d'entrée

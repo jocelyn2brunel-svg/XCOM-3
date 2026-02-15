@@ -73,7 +73,8 @@ namespace XCOM_3
                     EndX = wall.End.X,
                     EndY = wall.End.Y,
                     IsHorizontal = wall.IsHorizontal,
-                    Type = (int)wall.Type
+                    Type = (int)wall.Type,
+                    Material = (int)wall.Material
                 });
             }
         }
@@ -104,7 +105,8 @@ namespace XCOM_3
                     start,
                     end,
                     isHorizontal,
-                    (WallType)wallData.Type
+                    (WallType)wallData.Type,
+                    (WallMaterial)wallData.Material
                 ));
             }
             return wallSegments;
@@ -273,7 +275,8 @@ namespace XCOM_3
         public int EndX { get; set; }
         public int EndY { get; set; }
         public bool IsHorizontal { get; set; }
-        public int Type { get; set; } // AJOUTE CETTE LIGNE (0=Full, 1=Window, etc.)
+        public int Type { get; set; } // 0=Full, 1=Window, 2=Door
+        public int Material { get; set; } = (int)WallMaterial.Standard;
     }
 
     /// <summary>

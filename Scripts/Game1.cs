@@ -24,6 +24,7 @@ namespace XCOM_3
 
         // Textures
         private Texture2D tileTexture;
+        private Texture2D brickWallTexture;
 
         // --- Systèmes ---
         private CombatSystem combatSystem;
@@ -181,6 +182,7 @@ namespace XCOM_3
             font = Content.Load<SpriteFont>("Arial");
             pixel = new Texture2D(GraphicsDevice, 1, 1); pixel.SetData(new[] { Color.White });
             tileTexture = LoadTileTexture();
+            brickWallTexture = LoadBrickWallTexture();
             hoveredCellWireframeState = new RasterizerState
             {
                 CullMode = CullMode.None,
@@ -201,20 +203,28 @@ namespace XCOM_3
 
         private Texture2D LoadTileTexture()
         {
-            string[] textureFileNames =
-            {
-                "TileParchment32x32.png",
-                "Crate32x32.jpg"
-            };
+            return LoadFirstAvailableTexture(
+                new[] { "TileParchment32x32.png", "Crate32x32.jpg" },
+                "tile",
+                pixel);
+        }
 
+        private Texture2D LoadBrickWallTexture()
+        {
+            return LoadFirstAvailableTexture(
+                new[] { "BrickWall32x32.jpeg", "BrickWall32x32.jpg", "BrickWall32x32.png" },
+                "brick wall",
+                pixel);
+        }
+
+        private Texture2D LoadFirstAvailableTexture(string[] textureFileNames, string textureLabel, Texture2D fallback)
+        {
             var searchRoots = new List<string>
             {
                 AppContext.BaseDirectory,
                 Directory.GetCurrentDirectory()
             };
 
-            // Remonter quelques niveaux à partir du dossier de build pour retrouver
-            // les assets placés à la racine du repo lors d'un lancement en Debug.
             DirectoryInfo rootProbe = new DirectoryInfo(AppContext.BaseDirectory);
             for (int i = 0; i < 6 && rootProbe.Parent != null; i++)
             {
@@ -231,13 +241,13 @@ namespace XCOM_3
                         continue;
 
                     using var stream = File.OpenRead(path);
-                    Console.WriteLine($"[RENDER] Loaded tile texture: {Path.GetFileName(path)} ({path})");
+                    Console.WriteLine($"[RENDER] Loaded {textureLabel} texture: {Path.GetFileName(path)} ({path})");
                     return Texture2D.FromStream(GraphicsDevice, stream);
                 }
             }
 
-            Console.WriteLine("[RENDER] Tile texture missing, using white fallback texture.");
-            return pixel;
+            Console.WriteLine($"[RENDER] {textureLabel} texture missing, using fallback texture.");
+            return fallback;
         }
 
         private void InitializeMenuManagers()
@@ -1043,7 +1053,7 @@ namespace XCOM_3
 
             var opaqueWalls = new HashSet<WallSegment>(wallsForFloor.Where(w => !fadedWalls.Contains(w)));
             if (opaqueWalls.Count > 0)
-                renderer3D.DrawWalls(opaqueWalls, cellSize, editorMode: false, floorHeightOffset: yOffset);
+                renderer3D.DrawWalls(opaqueWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: brickWallTexture);
 
             if (hoverRevealWalls.Count > 0)
                 DrawWireframeWalls(hoverRevealWalls, yOffset, new Color(255, 235, 130, 64));
@@ -1075,7 +1085,8 @@ namespace XCOM_3
                             cellSize,
                             editorMode: false,
                             floorHeightOffset: upperFloorOffset,
-                            wallOverrideColor: new Color(165, 150, 130));
+                            wallOverrideColor: new Color(165, 150, 130),
+                            brickWallTexture: brickWallTexture);
                     }
 
                     if (fadedUpperWalls.Count > 0)
@@ -1111,7 +1122,8 @@ namespace XCOM_3
                             cellSize,
                             editorMode: false,
                             floorHeightOffset: lowerFloorOffset,
-                            wallOverrideColor: lowerFloor < 0 ? new Color(85, 105, 130) : new Color(95, 140, 170));
+                            wallOverrideColor: lowerFloor < 0 ? new Color(85, 105, 130) : new Color(95, 140, 170),
+                            brickWallTexture: brickWallTexture);
                     }
 
                     if (fadedLowerWalls.Count > 0)
@@ -1543,7 +1555,7 @@ namespace XCOM_3
             GraphicsDevice.DepthStencilState = DepthStencilState.None;
             GraphicsDevice.RasterizerState = hoveredCellWireframeState;
 
-            renderer3D.DrawWalls(walls, cellSize, editorMode: false, floorHeightOffset: floorHeightOffset, wallOverrideColor: wireColor);
+            renderer3D.DrawWalls(walls, cellSize, editorMode: false, floorHeightOffset: floorHeightOffset, wallOverrideColor: wireColor, brickWallTexture: brickWallTexture);
 
             GraphicsDevice.RasterizerState = previousRasterizer;
             GraphicsDevice.BlendState = BlendState.Opaque;
