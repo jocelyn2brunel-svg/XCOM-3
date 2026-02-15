@@ -29,6 +29,9 @@ namespace XCOM_3
         private const int EQUIP_SLOT_VERTICAL_SPACING = 16;
         private const int UTILITY_SLOT_GAP = 6;
         private const int BACKPACK_UTILITY_COLUMNS = 4;
+        private const int PANEL_GAP = 16;
+        private const int SECTION_HEADER_HEIGHT = 36;
+        private const int SECTION_PADDING = 12;
 
         // ═══════════════════════════════════════════════════════════════════════
         // ÉTAT
@@ -1062,19 +1065,13 @@ namespace XCOM_3
             // ✅ AJOUT : Récupérer l'état de la souris pour l'utiliser dans le dessin
             MouseState mouse = Mouse.GetState();
 
-            int panelWidth = GetPanelWidth();
-            int panelHeight = GetPanelHeight();
-            int panelX = GetPanelX();
-            int panelY = GetPanelY();
-            Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
+            Rectangle equipmentWindow = GetEquipmentPanelBounds(selectedUnit);
+            Rectangle inventoryWindow = GetInventoryPanelBounds();
+            Rectangle lootWindow = GetLootPanelBounds();
 
-            // ✅ Fond et Scanlines style PE2
-            ParasiteEveTheme.DrawPanel(spriteBatch, pixel, panel);
-            ParasiteEveTheme.DrawScanlines(spriteBatch, pixel, panel, 0.08f);
-
-            // ✅ Header avec le style spécifique
-            Rectangle headerRect = new Rectangle(panelX, panelY, panelWidth, 40);
-            ParasiteEveTheme.DrawSectionHeader(spriteBatch, pixel, font, headerRect, $"INVENTORY - {selectedUnit.Name.ToUpper()}");
+            DrawWindow(equipmentWindow, "EQUIPEMENT");
+            DrawWindow(inventoryWindow, $"INVENTAIRE - {selectedUnit.Name.ToUpper()}");
+            DrawWindow(lootWindow, "LOOT A PROXIMITE");
 
             int gridStartX = GetGridStartX();
             int gridStartY = GetGridStartY();
@@ -1083,6 +1080,7 @@ namespace XCOM_3
             int equipX = GetEquipX();
             int equipY = GetEquipY();
             DrawEquipmentSlots(equipX, equipY, selectedUnit);
+            DrawNearbyLootPanel(lootWindow);
 
             // ✅ DESSIN DE L'EFFET DE SÉLECTION
             // Si on survole un item et qu'on n'est pas en train d'en déplacer un
@@ -1144,7 +1142,7 @@ namespace XCOM_3
 
             // ✅ Texte d'aide avec ombre
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "DOUBLE CLICK: EQUIP | RIGHT CLICK: ACTIONS | R: ROTATE",
-                new Vector2(panelX + 20, panelY + panelHeight - 40), ParasiteEveTheme.TextWarning, 0.8f);
+                new Vector2(inventoryWindow.X, inventoryWindow.Bottom + 8), ParasiteEveTheme.TextWarning, 0.8f);
 
             DrawContextMenuAndExamine();
         }
@@ -1221,18 +1219,6 @@ namespace XCOM_3
 
         private void DrawEquipmentSlots(int equipX, int equipY, Unit unit)
         {
-            // Zone globale de l'équipement (hauteur dynamique selon le contenu équipé)
-            Rectangle equipArea = new Rectangle(equipX, equipY, EQUIP_PANEL_WIDTH, GetEquipmentPanelHeight(unit));
-
-            // Rendu style Holographique PE2
-            ParasiteEveTheme.DrawPanel(spriteBatch, pixel, equipArea);
-            ParasiteEveTheme.DrawScanlines(spriteBatch, pixel, equipArea, 0.05f);
-            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, equipArea, ParasiteEveTheme.SelectionOutline, 1);
-
-            // Titre de section "TECH-EQUIP"
-            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EQUIPMENT",
-                new Vector2(equipX + 10, equipY + 10), ParasiteEveTheme.TextHighlight, 0.75f);
-
             bool isDragging = draggedItem != null;
 
             // Slots d'équipement principaux (empilés verticalement)
@@ -1304,6 +1290,40 @@ namespace XCOM_3
             }
         }
 
+        private void DrawNearbyLootPanel(Rectangle lootWindow)
+        {
+            Rectangle content = new Rectangle(
+                lootWindow.X + SECTION_PADDING,
+                lootWindow.Y + SECTION_HEADER_HEIGHT + SECTION_PADDING,
+                lootWindow.Width - SECTION_PADDING * 2,
+                lootWindow.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
+
+            spriteBatch.Draw(pixel, content, ParasiteEveTheme.BackgroundDark * 0.35f);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, content, ParasiteEveTheme.BorderColor, 1);
+
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                "Aucun loot detecte a portee.",
+                new Vector2(content.X + 8, content.Y + 10),
+                ParasiteEveTheme.TextDim,
+                0.65f);
+
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                "Approchez-vous d'un conteneur\nou d'un ennemi neutralise\npour afficher les objets ici.",
+                new Vector2(content.X + 8, content.Y + 42),
+                ParasiteEveTheme.TextNormal,
+                0.6f);
+        }
+
+        private void DrawWindow(Rectangle bounds, string title)
+        {
+            ParasiteEveTheme.DrawPanel(spriteBatch, pixel, bounds);
+            ParasiteEveTheme.DrawScanlines(spriteBatch, pixel, bounds, 0.08f);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, bounds, ParasiteEveTheme.SelectionOutline, 1);
+
+            Rectangle headerRect = new Rectangle(bounds.X, bounds.Y, bounds.Width, SECTION_HEADER_HEIGHT);
+            ParasiteEveTheme.DrawSectionHeader(spriteBatch, pixel, font, headerRect, title);
+        }
+
         private void DrawGridItem(GridItem item, float alpha = 1f)
         {
             // Fond du bouton style PE2
@@ -1358,47 +1378,63 @@ namespace XCOM_3
         // CALCUL DES BOUNDS DES SLOTS - Centralisé
         // ═══════════════════════════════════════════════════════════════════════
 
-        private int GetPanelWidth()
+        private int GetMainWindowHeight()
         {
-            return (int)(graphicsDevice.Viewport.Width * 0.75f);
+            return Math.Min(graphicsDevice.Viewport.Height - 140, 560);
         }
 
-        private int GetPanelHeight()
+        private int GetMainWindowY()
         {
-            return (int)(graphicsDevice.Viewport.Height * 0.85f);
+            return graphicsDevice.Viewport.Height / 2 - GetMainWindowHeight() / 2;
         }
 
-        private int GetPanelX()
+        private Rectangle GetInventoryPanelBounds()
         {
-            return graphicsDevice.Viewport.Width / 2 - GetPanelWidth() / 2;
+            int width = GRID_WIDTH * CELL_SIZE + SECTION_PADDING * 2;
+            int x = graphicsDevice.Viewport.Width / 2 - width / 2;
+            return new Rectangle(x, GetMainWindowY(), width, GetMainWindowHeight());
         }
 
-        private int GetPanelY()
+        private Rectangle GetEquipmentPanelBounds(Unit unit)
         {
-            return graphicsDevice.Viewport.Height / 2 - GetPanelHeight() / 2;
+            int width = EQUIP_PANEL_WIDTH;
+            Rectangle inventoryBounds = GetInventoryPanelBounds();
+            int x = inventoryBounds.X - PANEL_GAP - width;
+            int minHeight = unit == null
+                ? GetMainWindowHeight()
+                : GetEquipmentPanelHeight(unit) + SECTION_HEADER_HEIGHT + SECTION_PADDING;
+            int height = Math.Max(GetMainWindowHeight(), minHeight);
+
+            return new Rectangle(x, GetMainWindowY(), width, height);
+        }
+
+        private Rectangle GetLootPanelBounds()
+        {
+            Rectangle inventoryBounds = GetInventoryPanelBounds();
+            int availableWidth = graphicsDevice.Viewport.Width - inventoryBounds.Right - PANEL_GAP - 20;
+            int width = Math.Max(260, availableWidth);
+            return new Rectangle(inventoryBounds.Right + PANEL_GAP, GetMainWindowY(), width, GetMainWindowHeight());
         }
 
         private int GetGridStartX()
         {
-            int gridPixelWidth = GRID_WIDTH * CELL_SIZE;
-            return GetPanelX() + GetPanelWidth() - gridPixelWidth - 20;
+            Rectangle inventoryBounds = GetInventoryPanelBounds();
+            return inventoryBounds.X + (inventoryBounds.Width - GRID_WIDTH * CELL_SIZE) / 2;
         }
 
         private int GetGridStartY()
         {
-            return GetPanelY() + 60;
+            return GetInventoryPanelBounds().Y + SECTION_HEADER_HEIGHT + SECTION_PADDING;
         }
 
         private int GetEquipX()
         {
-            // Le bloc d'équipement est affiché à gauche du panneau
-            return GetPanelX() + 20;
+            return GetEquipmentPanelBounds(null).X + 20;
         }
 
         private int GetEquipY()
         {
-            // Aligné sur le header (40px) + une petite marge de 20px
-            return GetPanelY() + 60;
+            return GetMainWindowY() + SECTION_HEADER_HEIGHT + SECTION_PADDING;
         }
 
 
