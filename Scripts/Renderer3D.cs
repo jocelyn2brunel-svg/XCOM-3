@@ -153,6 +153,24 @@ namespace XCOM_3
             }
         }
 
+        public void DrawGridWithTerrain(int w, int h, int size, Texture2D tex, IReadOnlyDictionary<Point, float> terrainHeights, float floorHeightOffset = 0f)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                for (int z = 0; z < h; z++)
+                {
+                    float localOffset = 0f;
+                    if (terrainHeights != null)
+                        terrainHeights.TryGetValue(new Point(x, z), out localOffset);
+
+                    DrawTexturedPlane(
+                        new Vector3(x * size + size / 2f, floorHeightOffset + localOffset, z * size + size / 2f),
+                        new Vector3(size * 0.95f, 1, size * 0.95f),
+                        tex);
+                }
+            }
+        }
+
         /// <summary>
         /// ? MURS AMÉLIORÉS - Version avec détails, hauteur et ombres
         /// </summary>
