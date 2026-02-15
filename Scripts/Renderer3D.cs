@@ -373,7 +373,6 @@ namespace XCOM_3
                 drawEquipment
             );
 
-            DrawUnitFacingArrow(unit, cellSize);
         }
 
         private void DrawUnitFacingArrow(Unit unit, int cellSize)

@@ -1204,6 +1204,11 @@ namespace XCOM_3
 
         }
 
+        private static bool HasTacticalFlashlightEquipped(Unit unit)
+        {
+            return string.Equals(unit?.EquippedAccessory?.Data?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase);
+        }
+
         private void DrawAlliedTacticalFlashlightBeams(int fromFloor, int floorCount)
         {
             int minFloor = Math.Max(GetMinimumViewFloor(), fromFloor);
@@ -1224,6 +1229,9 @@ namespace XCOM_3
 
                 foreach (var ally in alliedUnitsOnFloor)
                 {
+                    if (!HasTacticalFlashlightEquipped(ally))
+                        continue;
+
                     DrawTacticalFlashlightBeam(ally, floor);
                     if (wallsOnFloor.Count > 0)
                         DrawTacticalFlashlightWallHighlights(ally, floor, wallsOnFloor);
