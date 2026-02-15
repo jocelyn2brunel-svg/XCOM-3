@@ -45,6 +45,7 @@ namespace XCOM_3
         private Point dragGridOffset;
         private Point dragPixelOffset;
         private readonly List<ItemData> nearbyLootItems = new List<ItemData>();
+        private readonly Random random = new Random();
         public Dictionary<string, ItemData> ItemDatabase { get; private set; }
 
         // Ressources graphiques (injectées)
@@ -176,6 +177,16 @@ namespace XCOM_3
                 "MK 2",
                 "Lampe tactique aluminium"
             };
+
+            string[] backpackOptions = { "Backpack Small", "Backpack Medium", "Backpack XL" };
+            int backpacksToSpawn = random.Next(1, 3);
+            var selectedBackpacks = new HashSet<string>();
+            while (selectedBackpacks.Count < backpacksToSpawn)
+            {
+                selectedBackpacks.Add(backpackOptions[random.Next(backpackOptions.Length)]);
+            }
+
+            itemsToAdd.AddRange(selectedBackpacks);
 
             foreach (var itemName in itemsToAdd)
             {
@@ -420,6 +431,20 @@ namespace XCOM_3
                     unit.ChestRigInventory.RemoveAt(i);
                     unit.RefreshGrenadeInventoryFromEquipment();
                     Console.WriteLine($"[INVENTORY] Unequipped chest rig item from slot {i + 1}: {draggedItem.Data.Name}");
+                    return;
+                }
+            }
+
+            Rectangle backpackMainSlot = GetBackpackSlotBounds();
+            if (!string.IsNullOrWhiteSpace(unit.EquippedBackpack) && backpackMainSlot.Contains(mouse.Position))
+            {
+                if (ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData equippedBackpackData))
+                {
+                    StartDragFromEquipment(new Item(equippedBackpackData, Point.Zero), mouse, backpackMainSlot);
+                    unit.EquippedBackpack = null;
+                    unit.EnsureBackpackInventoryGrid();
+                    unit.RefreshGrenadeInventoryFromEquipment();
+                    Console.WriteLine($"[INVENTORY] Drag from backpack slot: {equippedBackpackData.Name}");
                     return;
                 }
             }
@@ -792,6 +817,22 @@ namespace XCOM_3
                     Console.WriteLine($"[INVENTORY] ✅ Equipped belt: {item.Data.Name}");
                     return true;
                 }
+
+                Rectangle backpackSlot = GetBackpackSlotBounds();
+                if (item.Data.ArmorSlot == ArmorSlot.Backpack && backpackSlot.Contains(mousePosition))
+                {
+                    if (!string.IsNullOrWhiteSpace(unit.EquippedBackpack) &&
+                        ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData previousBackpackData))
+                    {
+                        ReturnItemToGrid(new Item(previousBackpackData, Point.Zero));
+                    }
+
+                    unit.EquippedBackpack = item.Data.Name;
+                    unit.EnsureBackpackInventoryGrid();
+                    unit.RefreshGrenadeInventoryFromEquipment();
+                    Console.WriteLine($"[INVENTORY] ✅ Equipped backpack: {item.Data.Name}");
+                    return true;
+                }
             }
 
             if (item.Data.Type == ItemType.Accessory)
@@ -956,6 +997,7 @@ namespace XCOM_3
                 if (info.Data.ArmorSlot == ArmorSlot.Pants && info.Source == "pants") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.ChestRig && info.Source == "chestrig") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Belt && info.Source == "belt") return true;
+                if (info.Data.ArmorSlot == ArmorSlot.Backpack && info.Source == "backpack") return true;
             }
 
             if (info.Data.Type == ItemType.Accessory && info.Source == "accessory")
@@ -987,6 +1029,7 @@ namespace XCOM_3
                     case ArmorSlot.Pants: target = GetPantsSlotBounds().Center; return true;
                     case ArmorSlot.ChestRig: target = GetChestRigSlotBounds().Center; return true;
                     case ArmorSlot.Belt: target = GetBeltSlotBounds().Center; return true;
+                    case ArmorSlot.Backpack: target = GetBackpackSlotBounds().Center; return true;
                 }
             }
 
@@ -1053,6 +1096,8 @@ namespace XCOM_3
             if (unit.EquippedPants != null && GetPantsSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedPants.Data, Source = "pants", Index = -1 };
             if (unit.EquippedChestRig != null && GetChestRigSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedChestRig.Data, Source = "chestrig", Index = -1 };
             if (unit.EquippedBelt != null && GetBeltSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedBelt.Data, Source = "belt", Index = -1 };
+            if (!string.IsNullOrWhiteSpace(unit.EquippedBackpack) && GetBackpackSlotBounds().Contains(mousePos) && ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData backpackData))
+                return new ItemContextInfo { Data = backpackData, Source = "backpack", Index = -1 };
 
             for (int i = 0; i < unit.GetPantsInventoryCapacity(); i++)
             {
@@ -1101,6 +1146,7 @@ namespace XCOM_3
                 case "pants": unit.EquippedPants = null; break;
                 case "chestrig": unit.EquippedChestRig = null; break;
                 case "belt": unit.EquippedBelt = null; break;
+                case "backpack": unit.EquippedBackpack = null; unit.EnsureBackpackInventoryGrid(); break;
                 case "pantspocket": if (info.Index >= 0 && info.Index < unit.PantsInventory.Count) unit.PantsInventory.RemoveAt(info.Index); break;
                 case "rigpocket": if (info.Index >= 0 && info.Index < unit.ChestRigInventory.Count) unit.ChestRigInventory.RemoveAt(info.Index); break;
                 case "backpackutility":
@@ -1134,6 +1180,7 @@ namespace XCOM_3
                 case "pants": unit.EquippedPants = restored; break;
                 case "chestrig": unit.EquippedChestRig = restored; break;
                 case "belt": unit.EquippedBelt = restored; break;
+                case "backpack": unit.EquippedBackpack = info.Data.Name; unit.EnsureBackpackInventoryGrid(); break;
                 case "pantspocket":
                     if (info.Index >= 0 && info.Index <= unit.PantsInventory.Count) unit.PantsInventory.Insert(info.Index, restored);
                     break;
@@ -1538,7 +1585,12 @@ namespace XCOM_3
                 labelOnLeft: true);
 
             Rectangle backpackSlot = GetBackpackSlotBounds();
-            DrawEquipmentSlot(backpackSlot, "BACKPACK", null, false, labelOnLeft: true);
+            Item backpackItem = null;
+            if (!string.IsNullOrWhiteSpace(unit.EquippedBackpack) && ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData backpackData))
+                backpackItem = new Item(backpackData, Point.Zero);
+
+            DrawEquipmentSlot(backpackSlot, "BACKPACK", backpackItem,
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Backpack, labelOnLeft: true);
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
                 string.IsNullOrWhiteSpace(unit.EquippedBackpack) ? "None" : unit.EquippedBackpack,
                 new Vector2(backpackSlot.X + 4, backpackSlot.Y + backpackSlot.Height / 2 - 5),

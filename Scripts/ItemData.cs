@@ -24,7 +24,8 @@ namespace XCOM_3
         Shirt,
         Pants,
         ChestRig,
-        Belt
+        Belt,
+        Backpack
     }
 
     public enum ProtectionLevel

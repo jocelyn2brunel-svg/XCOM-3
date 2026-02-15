@@ -137,6 +137,7 @@ namespace XCOM_3
             if (name.Contains("Shirt")) return new ItemSize(2, 2);
             if (name.Contains("Jeans") || name.Contains("Pantalon")) return new ItemSize(2, 1);
             if (name.Contains("Chest Rig")) return new ItemSize(2, 2);
+            if (name.Contains("Backpack")) return new ItemSize(2, 2);
             if (name.Contains("Grenade") || name.Contains("MK 2") || name.Contains("Lampe tactique")) return new ItemSize(1, 1);
             return new ItemSize(1, 1);
         }
