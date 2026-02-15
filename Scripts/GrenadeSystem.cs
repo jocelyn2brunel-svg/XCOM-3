@@ -57,15 +57,17 @@ namespace XCOM_3
         public Vector3 TargetPosition;
         public float Progress;          // 0.0 à 1.0
         public Unit Thrower;
+        public int TargetFloor;         // Étage ciblé pour l'explosion
         public float ArcHeight;         // Hauteur de l'arc parabolique
 
-        public Grenade(GrenadeData data, Vector3 start, Vector3 target, Unit thrower)
+        public Grenade(GrenadeData data, Vector3 start, Vector3 target, Unit thrower, int targetFloor)
         {
             Data = data;
             Position = start;
             TargetPosition = target;
             Progress = 0f;
             Thrower = thrower;
+            TargetFloor = targetFloor;
 
             // Calculer la hauteur de l'arc selon la distance
             float distance = Vector3.Distance(start, target);
@@ -146,14 +148,22 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Applique les dégâts d'explosion à une unité selon la distance
+        /// Calcule la distance volumétrique (sphère) entre deux cellules en tenant compte des étages.
         /// </summary>
-        public int CalculateExplosionDamage(int baseDamage, Point explosionCenter, Point unitCell, int radius)
+        public float CalculateSphericalDistance(Point center, int centerFloor, Point target, int targetFloor)
         {
-            float distance = Vector2.Distance(
-                new Vector2(explosionCenter.X, explosionCenter.Y),
-                new Vector2(unitCell.X, unitCell.Y)
-            );
+            float dx = target.X - center.X;
+            float dy = target.Y - center.Y;
+            float dz = targetFloor - centerFloor;
+            return MathF.Sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        /// <summary>
+        /// Applique les dégâts d'explosion à une unité selon la distance sphérique
+        /// </summary>
+        public int CalculateExplosionDamage(int baseDamage, Point explosionCenter, int explosionFloor, Point unitCell, int unitFloor, int radius)
+        {
+            float distance = CalculateSphericalDistance(explosionCenter, explosionFloor, unitCell, unitFloor);
 
             // Dégâts dégressifs avec la distance
             float damageMultiplier = 1f - (distance / (radius + 1));

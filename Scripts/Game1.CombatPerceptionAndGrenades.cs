@@ -109,18 +109,18 @@ namespace XCOM_3
             int throwRange = GetUnitThrowRange(selectedUnit);
             if (leftClick && throwTarget.X >= 0 && ThrowTrajectoryCalculator.IsInThrowRange(selectedUnit.Cell, throwTarget, throwRange))
             {
-                LaunchGrenade(selectedUnit, selectedGrenade, throwTarget);
+                LaunchGrenade(selectedUnit, selectedGrenade, throwTarget, viewedFloor);
                 selectedUnit.ActionPoints -= selectedGrenade.AOCost;
                 selectedUnit.RemoveGrenade(selectedGrenade);
                 CancelSelection();
             }
         }
 
-        private void LaunchGrenade(Unit thrower, GrenadeData grenadeData, Point targetCell)
+        private void LaunchGrenade(Unit thrower, GrenadeData grenadeData, Point targetCell, int targetFloor)
         {
             Vector3 startPos = new Vector3(thrower.Cell.X * cellSize + cellSize / 2f, cellSize * 1.5f, thrower.Cell.Y * cellSize + cellSize / 2f);
             Vector3 targetPos = new Vector3(targetCell.X * cellSize + cellSize / 2f, 0, targetCell.Y * cellSize + cellSize / 2f);
-            Grenade grenade = new Grenade(grenadeData, startPos, targetPos, thrower);
+            Grenade grenade = new Grenade(grenadeData, startPos, targetPos, thrower, targetFloor);
             activeGrenades.Add(grenade);
             Console.WriteLine($"{thrower.Name} threw {grenadeData.Name} at {targetCell}");
         }
@@ -135,7 +135,7 @@ namespace XCOM_3
                 if (grenade.Progress >= 1f)
                 {
                     Point explosionCell = new Point((int)(grenade.TargetPosition.X / cellSize), (int)(grenade.TargetPosition.Z / cellSize));
-                    TriggerExplosion(explosionCell, grenade.Data, grenade.Thrower);
+                    TriggerExplosion(explosionCell, grenade.TargetFloor, grenade.Data, grenade.Thrower);
                     activeGrenades.RemoveAt(i);
                 }
                 else grenade.Position = grenade.GetCurrentPosition();
@@ -144,7 +144,7 @@ namespace XCOM_3
             foreach (var crater in craters) crater.Age += (float)gameTime.ElapsedGameTime.TotalSeconds;
         }
 
-        private void TriggerExplosion(Point center, GrenadeData grenadeData, Unit thrower = null)
+        private void TriggerExplosion(Point center, int centerFloor, GrenadeData grenadeData, Unit thrower = null)
         {
             Console.WriteLine($"EXPLOSION at {center} - {grenadeData.Name}");
 
@@ -169,45 +169,42 @@ namespace XCOM_3
                 return;
             }
 
-            List<Point> affectedCells = explosionManager.GetExplosionCells(center, grenadeData.Radius);
+            List<Unit> unitsToEvaluate = new List<Unit>(playerUnits.Count + enemyUnits.Count);
+            unitsToEvaluate.AddRange(playerUnits);
+            unitsToEvaluate.AddRange(enemyUnits);
 
-            foreach (var cell in affectedCells)
+            foreach (var unit in unitsToEvaluate)
             {
-                Unit unit = GetUnitAtCellAnyFloor(cell);
-                if (unit != null)
+                float sphericalDistance = explosionManager.CalculateSphericalDistance(center, centerFloor, unit.Cell, unit.Floor);
+                if (sphericalDistance > grenadeData.Radius)
                 {
-                    int damage = explosionManager.CalculateExplosionDamage(grenadeData.Damage, center, cell, grenadeData.Radius);
-                    unit.Health = Math.Max(0, unit.Health - damage);
-                    Console.WriteLine($"{unit.Name} took {damage} explosion damage! HP: {unit.Health}");
-                    if (unit.Team == Team.Enemy && thrower != null && thrower.Team == Team.Player) { enemiesHit++; totalDamage += damage; }
-                    if (unit.Health <= 0)
-                    {
-                        (unit.Team == Team.Player ? playerUnits : enemyUnits).Remove(unit);
-                        unitManager.OnUnitDied(unit);
-                        Console.WriteLine($"{unit.Name} killed by explosion!");
-                    }
+                    continue;
                 }
 
-                if (grenadeData.DestroyWalls)
+                int damage = explosionManager.CalculateExplosionDamage(grenadeData.Damage, center, centerFloor, unit.Cell, unit.Floor, grenadeData.Radius);
+                unit.Health = Math.Max(0, unit.Health - damage);
+                Console.WriteLine($"{unit.Name} took {damage} explosion damage! HP: {unit.Health}");
+                if (unit.Team == Team.Enemy && thrower != null && thrower.Team == Team.Player) { enemiesHit++; totalDamage += damage; }
+                if (unit.Health <= 0)
                 {
-                    List<WallSegment> destroyedWalls = explosionManager.GetDestroyedWalls(wallSegments, center, grenadeData.Radius);
-                    if (destroyedWalls.Count > 0)
-                    {
-                        foreach (var wall in destroyedWalls) wallSegments.Remove(wall);
-                        unitManager.OnWallsDestroyed();
-                        Console.WriteLine($"Destroyed {destroyedWalls.Count} walls - cache invalidated");
-                    }
+                    (unit.Team == Team.Player ? playerUnits : enemyUnits).Remove(unit);
+                    unitManager.OnUnitDied(unit);
+                    Console.WriteLine($"{unit.Name} killed by explosion!");
                 }
             }
-
-            if (thrower != null && thrower.Team == Team.Player && enemiesHit > 0) thrower.Skills.GainGrenadeXP(enemiesHit, totalDamage);
 
             if (grenadeData.DestroyWalls)
             {
                 List<WallSegment> destroyedWalls = explosionManager.GetDestroyedWalls(wallSegments, center, grenadeData.Radius);
-                foreach (var wall in destroyedWalls) wallSegments.Remove(wall);
-                Console.WriteLine($"Destroyed {destroyedWalls.Count} wall segments");
+                if (destroyedWalls.Count > 0)
+                {
+                    foreach (var wall in destroyedWalls) wallSegments.Remove(wall);
+                    unitManager.OnWallsDestroyed();
+                    Console.WriteLine($"Destroyed {destroyedWalls.Count} walls - cache invalidated");
+                }
             }
+
+            if (thrower != null && thrower.Team == Team.Player && enemiesHit > 0) thrower.Skills.GainGrenadeXP(enemiesHit, totalDamage);
 
             if (grenadeData.DigsTerrain)
             {
