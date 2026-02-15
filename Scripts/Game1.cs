@@ -200,41 +200,26 @@ namespace XCOM_3
             // 1. Main Menu Manager
             mainMenuManager = new MainMenuManager(_graphics.GraphicsDevice, _spriteBatch, font, random);
             mainMenuManager.LoadContent(Content);
-            mainMenuManager.OnNewGameRequested += () => currentState = GameState.CharacterCreation;
+            mainMenuManager.OnNewGameRequested += OpenCharacterCreation;
             mainMenuManager.OnContinueRequested += HandleContinue;
-            mainMenuManager.OnMapEditorRequested += () =>
-            {
-                mapEditor.StartNewMap(50, 50);
-                currentState = GameState.MapEditor;
-            };
-            mainMenuManager.OnEncyclopediaRequested += () =>
-            {
-                currentState = GameState.Encyclopedia;
-            };
-            mainMenuManager.OnOptionsRequested += () => currentState = GameState.OptionsMenu;
+            mainMenuManager.OnMapEditorRequested += OpenMapEditor;
+            mainMenuManager.OnEncyclopediaRequested += OpenEncyclopedia;
+            mainMenuManager.OnOptionsRequested += OpenOptionsMenu;
             mainMenuManager.OnQuitRequested += () => Exit();
 
             characterCreationManager = new CharacterCreationManager(_spriteBatch, font, random);
             characterCreationManager.LoadContent();
-            characterCreationManager.OnCharacterCreationCompleted += (profiles) =>
-            {
-                createdSquadProfiles = profiles;
-                currentState = GameState.MissionSelect;
-            };
-            characterCreationManager.OnBackToMainMenu += () => currentState = GameState.MainMenu;
+            characterCreationManager.OnCharacterCreationCompleted += HandleCharacterCreationCompleted;
+            characterCreationManager.OnBackToMainMenu += ReturnToMainMenu;
 
             // 2. Mission Select Manager
             missionSelectManager = new MissionSelectManager(GraphicsDevice, _spriteBatch, font, pixel);
-            missionSelectManager.OnMissionSelected += (missionType) =>
-            {
-                selectedMission = missionType;
-                StartMission(missionType);
-            };
-            missionSelectManager.OnBackToMainMenu += () => currentState = GameState.MainMenu;
+            missionSelectManager.OnMissionSelected += HandleMissionSelected;
+            missionSelectManager.OnBackToMainMenu += ReturnToMainMenu;
 
             // 3. Options Menu Manager
             optionsMenuManager = new OptionsMenuManager(_graphics.GraphicsDevice, _spriteBatch, font, pixel);
-            optionsMenuManager.OnBackToMainMenu += () => currentState = GameState.MainMenu;
+            optionsMenuManager.OnBackToMainMenu += ReturnToMainMenu;
 
             // 4. Encyclopedia Manager (nécessite weaponDatabase et inventorySystem)
             // On l'initialise APRÈS InitializeWeapons() et la création de inventorySystem
@@ -307,7 +292,33 @@ namespace XCOM_3
                 inventorySystem,
                 enemyPool
             );
-            encyclopediaManager.OnBackToMainMenu += () => currentState = GameState.MainMenu;
+            encyclopediaManager.OnBackToMainMenu += ReturnToMainMenu;
+        }
+
+        private void OpenCharacterCreation() => currentState = GameState.CharacterCreation;
+
+        private void OpenMapEditor()
+        {
+            mapEditor.StartNewMap(50, 50);
+            currentState = GameState.MapEditor;
+        }
+
+        private void OpenEncyclopedia() => currentState = GameState.Encyclopedia;
+
+        private void OpenOptionsMenu() => currentState = GameState.OptionsMenu;
+
+        private void ReturnToMainMenu() => currentState = GameState.MainMenu;
+
+        private void HandleCharacterCreationCompleted(List<CharacterCreationProfile> profiles)
+        {
+            createdSquadProfiles = profiles;
+            currentState = GameState.MissionSelect;
+        }
+
+        private void HandleMissionSelected(string missionType)
+        {
+            selectedMission = missionType;
+            StartMission(missionType);
         }
 
         protected override void Update(GameTime gameTime)
@@ -382,12 +393,12 @@ namespace XCOM_3
 
                 case GameState.CharacterCreation:
                     characterCreationManager.Update(mouse, previousMouseState);
-                    if (escapePressed) currentState = GameState.MainMenu;
+                    if (escapePressed) ReturnToMainMenu();
                     break;
 
                 case GameState.MissionSelect:
                     missionSelectManager.Update(mouse, previousMouseState);
-                    if (escapePressed) currentState = GameState.MainMenu;
+                    if (escapePressed) ReturnToMainMenu();
                     break;
 
                 case GameState.Playing:
@@ -401,16 +412,16 @@ namespace XCOM_3
 
                 case GameState.OptionsMenu:
                     optionsMenuManager.Update(mouse, previousMouseState);
-                    if (escapePressed) currentState = GameState.MainMenu;
+                    if (escapePressed) ReturnToMainMenu();
                     break;
 
                 case GameState.Encyclopedia:
                     encyclopediaManager.Update(mouse, previousMouseState);
-                    if (escapePressed) currentState = GameState.MainMenu;
+                    if (escapePressed) ReturnToMainMenu();
                     break;
 
                 case GameState.GameOver:
-                    if (escapePressed || leftClick) currentState = GameState.MainMenu;
+                    if (escapePressed || leftClick) ReturnToMainMenu();
                     break;
             }
         }
@@ -428,12 +439,12 @@ namespace XCOM_3
             );
 
             if (!mapEditor.IsActive)
-                currentState = GameState.MainMenu;
+                ReturnToMainMenu();
 
             if (escapePressed)
             {
                 mapEditor.Exit();
-                currentState = GameState.MainMenu;
+                ReturnToMainMenu();
             }
         }
 
