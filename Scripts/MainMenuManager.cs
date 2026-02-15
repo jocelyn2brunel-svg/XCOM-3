@@ -15,8 +15,7 @@ namespace XCOM_3
     {
         private enum MenuScreen
         {
-            Main,
-            NewGame
+            Main
         }
 
         // --- Références externes ---
@@ -98,11 +97,6 @@ namespace XCOM_3
             // Titre
             DrawTitle("XCOM 3");
 
-            if (_currentScreen == MenuScreen.NewGame)
-            {
-                _spriteBatch.DrawString(_font, "New Game", new Vector2(0, 66), UIThemeManager.SecondaryColor);
-            }
-
             // Boutons
             DrawButtons(_menuButtons, mouse);
         }
@@ -150,18 +144,7 @@ namespace XCOM_3
 
         private List<Button> CreateMainMenuButtons()
         {
-            string[] labels = { "New Game", "Continue", "Map Editor", "Encyclopedia", "Options", "Quit" };
-            int startY = 100;
-            int step = 28;
-
-            return labels.Select((text, index) =>
-                new Button(text, new Vector2(0, startY + index * step))
-            ).ToList();
-        }
-
-        private List<Button> CreateNewGameButtons()
-        {
-            string[] labels = { "Character Creation", "Back" };
+            string[] labels = { "Continue", "Map Editor", "Character Creation", "Encyclopedia", "Options", "Quit" };
             int startY = 100;
             int step = 28;
 
@@ -175,7 +158,11 @@ namespace XCOM_3
             if (_currentScreen == MenuScreen.Main)
             {
                 // "Continue"
-                _menuButtons[1].IsEnabled = _hasSavedGame;
+                Button continueButton = _menuButtons.FirstOrDefault(button => button.Text == "Continue");
+                if (continueButton != null)
+                {
+                    continueButton.IsEnabled = _hasSavedGame;
+                }
             }
         }
 
@@ -193,20 +180,8 @@ namespace XCOM_3
 
         private void HandleButtonAction(string buttonText)
         {
-            if (_currentScreen == MenuScreen.NewGame)
-            {
-                HandleNewGameButtonAction(buttonText);
-                return;
-            }
-
             switch (buttonText)
             {
-                case "New Game":
-                    Console.WriteLine("[MENU] New Game submenu opened");
-                    _currentScreen = MenuScreen.NewGame;
-                    _menuButtons = CreateNewGameButtons();
-                    break;
-
                 case "Continue":
                     if (_hasSavedGame)
                     {
@@ -224,6 +199,11 @@ namespace XCOM_3
                     OnMapEditorRequested?.Invoke();
                     break;
 
+                case "Character Creation":
+                    Console.WriteLine("[MENU] Character Creation requested");
+                    OnNewGameRequested?.Invoke();
+                    break;
+
                 case "Encyclopedia":
                     Console.WriteLine("[MENU] Encyclopedia requested");
                     OnEncyclopediaRequested?.Invoke();
@@ -237,23 +217,6 @@ namespace XCOM_3
                 case "Quit":
                     Console.WriteLine("[MENU] Quit requested");
                     OnQuitRequested?.Invoke();
-                    break;
-            }
-        }
-
-        private void HandleNewGameButtonAction(string buttonText)
-        {
-            switch (buttonText)
-            {
-                case "Character Creation":
-                    Console.WriteLine("[MENU] Character Creation requested");
-                    OnNewGameRequested?.Invoke();
-                    break;
-
-                case "Back":
-                    Console.WriteLine("[MENU] Back to main menu");
-                    _currentScreen = MenuScreen.Main;
-                    _menuButtons = CreateMainMenuButtons();
                     break;
             }
         }
