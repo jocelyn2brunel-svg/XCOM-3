@@ -277,6 +277,17 @@ namespace XCOM_3
         public bool IsHorizontal { get; set; }
         public int Type { get; set; } // 0=Full, 1=Window, 2=Door
         public int Material { get; set; } = (int)WallMaterial.Standard;
+
+        public WallSegmentData()
+        {
+            StartX = 0;
+            StartY = 0;
+            EndX = 0;
+            EndY = 0;
+            IsHorizontal = false;
+            Type = 0;
+            Material = (int)WallMaterial.Standard;
+        }
     }
 
     /// <summary>
