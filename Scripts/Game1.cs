@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Media;
 using NVorbis.Contracts;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace XCOM_3
@@ -179,6 +180,7 @@ namespace XCOM_3
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             font = Content.Load<SpriteFont>("Arial");
             pixel = new Texture2D(GraphicsDevice, 1, 1); pixel.SetData(new[] { Color.White });
+            tileTexture = LoadTileTexture();
             hoveredCellWireframeState = new RasterizerState
             {
                 CullMode = CullMode.None,
@@ -195,6 +197,28 @@ namespace XCOM_3
             humanoidBatcher = new HumanoidBatchRenderer();
 
             Console.WriteLine("[OPTIMIZATION] Batch renderer and spatial hash initialized");
+        }
+
+        private Texture2D LoadTileTexture()
+        {
+            string[] candidates =
+            {
+                Path.Combine(AppContext.BaseDirectory, "TileParchment32x32.png"),
+                Path.Combine(AppContext.BaseDirectory, "Crate32x32.jpg")
+            };
+
+            foreach (string path in candidates)
+            {
+                if (!File.Exists(path))
+                    continue;
+
+                using var stream = File.OpenRead(path);
+                Console.WriteLine($"[RENDER] Loaded tile texture: {Path.GetFileName(path)}");
+                return Texture2D.FromStream(GraphicsDevice, stream);
+            }
+
+            Console.WriteLine("[RENDER] Tile texture missing, using white fallback texture.");
+            return pixel;
         }
 
         private void InitializeMenuManagers()
