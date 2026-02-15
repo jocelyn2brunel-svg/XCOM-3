@@ -1159,11 +1159,11 @@ namespace XCOM_3
             bool isDragging = draggedItem != null;
 
             // Slots d'équipement principaux (Organisés en 2 colonnes)
-            DrawEquipmentSlot(GetWeaponSlotBounds(), "WEAPON", unit.EquippedWeapon,
+            DrawEquipmentSlot(GetWeaponSlotBounds(), "RIGHT HAND", unit.EquippedWeapon,
                 isDragging && draggedItem.Data.Type == ItemType.Weapon);
 
             Item offHandItem = unit.EquippedShield ?? unit.EquippedAccessory;
-            DrawEquipmentSlot(GetShieldSlotBounds(), "OFF-HAND", offHandItem,
+            DrawEquipmentSlot(GetShieldSlotBounds(), "LEFT HAND", offHandItem,
                 isDragging &&
                 ((draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield) ||
                  draggedItem.Data.Type == ItemType.Accessory));
@@ -1304,28 +1304,28 @@ namespace XCOM_3
         {
             int equipX = GetEquipX();
             int equipY = GetEquipY();
-            return new Rectangle(equipX + 60, equipY + 40, CELL_SIZE, CELL_SIZE);
+            return new Rectangle(equipX + 10 + CELL_SIZE, equipY + 40, CELL_SIZE, CELL_SIZE);
         }
 
         private Rectangle GetShirtSlotBounds()
         {
             int equipX = GetEquipX();
             int equipY = GetEquipY();
-            return new Rectangle(equipX + 60, equipY + 90, CELL_SIZE, CELL_SIZE);
+            return new Rectangle(equipX + 10 + CELL_SIZE, equipY + 90, CELL_SIZE, CELL_SIZE);
         }
 
         private Rectangle GetPantsSlotBounds()
         {
             int equipX = GetEquipX();
             int equipY = GetEquipY();
-            return new Rectangle(equipX + 60, equipY + 140, CELL_SIZE, CELL_SIZE);
+            return new Rectangle(equipX + 10 + CELL_SIZE, equipY + 140, CELL_SIZE, CELL_SIZE);
         }
 
         private Rectangle GetChestRigSlotBounds()
         {
             int equipX = GetEquipX();
             int equipY = GetEquipY();
-            return new Rectangle(equipX + 110, equipY + 40, CELL_SIZE, CELL_SIZE);
+            return new Rectangle(equipX + 10 + (CELL_SIZE * 2), equipY + 40, CELL_SIZE, CELL_SIZE);
         }
 
         private int GetUtilityLabelY()
