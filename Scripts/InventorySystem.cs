@@ -167,7 +167,7 @@ namespace XCOM_3
                 "Lampe tactique aluminium",
                 ItemType.Accessory,
                 armorValue: 0,
-                armorSlot: ArmorSlot.Head,
+                armorSlot: ArmorSlot.None,
                 protectionLevel: ProtectionLevel.None,
                 mobilityPenalty: 0,
                 weightLbs: 0.6614f,
