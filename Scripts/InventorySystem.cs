@@ -1561,14 +1561,15 @@ namespace XCOM_3
                 DrawEquipmentSlot(rigSlot, $"CR{i + 1}", rigItem, highlightPocket);
             }
 
-            DrawBackpackUtilityGrid(unit, isDragging);
+            DrawBackpackUtilityGrid(unit);
         }
 
-        private void DrawBackpackUtilityGrid(Unit unit, bool isDragging)
+        private void DrawBackpackUtilityGrid(Unit unit)
         {
             unit.EnsureBackpackInventoryGrid();
             int backpackCapacity = unit.GetBackpackInventoryCapacity();
-            bool highlightBackpack = isDragging;
+            // Pas de ghost vert sur les emplacements utilitaires du sac à dos.
+            bool highlightBackpack = false;
 
             for (int i = 0; i < backpackCapacity; i++)
             {
