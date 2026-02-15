@@ -27,7 +27,7 @@ namespace XCOM_3
         private const int EQUIP_SLOT_LEFT_PADDING = 120;
         private const int EQUIP_LABEL_ROW_HEIGHT = CELL_SIZE;
         private const int EQUIP_SLOT_VERTICAL_SPACING = 0;
-        private const int UTILITY_SLOT_GAP = 6;
+        private const int UTILITY_SLOT_GAP = 0;
         private const int BACKPACK_UTILITY_COLUMNS = 4;
         private const int PANEL_GAP = 16;
         private const int SECTION_HEADER_HEIGHT = 36;
@@ -1529,7 +1529,7 @@ namespace XCOM_3
 
         private int GetEquipX()
         {
-            return GetEquipmentPanelBounds(null).X + 20;
+            return GetEquipmentPanelBounds(null).X + SECTION_PADDING;
         }
 
         private int GetEquipY()
@@ -1598,7 +1598,7 @@ namespace XCOM_3
 
         private Rectangle GetPantsPocketSlotByIndex(int index)
         {
-            int startX = GetPantsSlotBounds().Right + 12;
+            int startX = GetPantsSlotBounds().Right;
             int startY = GetPantsSlotBounds().Y;
 
             return new Rectangle(
@@ -1620,7 +1620,7 @@ namespace XCOM_3
 
         private Rectangle GetChestRigPocketSlotByIndex(int index, Unit unit)
         {
-            int startX = GetChestRigSlotBounds().Right + 12;
+            int startX = GetChestRigSlotBounds().Right;
             int startY = GetChestRigSlotBounds().Y;
 
             return new Rectangle(
@@ -1636,7 +1636,7 @@ namespace XCOM_3
             int row = index / BACKPACK_UTILITY_COLUMNS;
             int column = index % BACKPACK_UTILITY_COLUMNS;
             Rectangle backpackSlot = GetBackpackSlotBounds();
-            int startX = backpackSlot.Right + 12;
+            int startX = backpackSlot.Right;
             int startY = backpackSlot.Y;
 
             return new Rectangle(
