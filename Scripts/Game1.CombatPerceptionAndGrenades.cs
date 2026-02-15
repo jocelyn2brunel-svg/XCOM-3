@@ -9,6 +9,10 @@ namespace XCOM_3
 {
     public partial class Game1
     {
+        private const float Mk2LethalRadius = 2f;
+        private const float Mk2FragmentationStartRadius = 3f;
+        private const float Mk2FragmentationEndRadius = 9f;
+
         private void UpdateEnemyPerceptionVisibility()
         {
             currentlySpottedEnemies.Clear();
@@ -221,10 +225,6 @@ namespace XCOM_3
 
         private void ApplyMk2Explosion(Point center, int centerFloor, Unit thrower, ref int enemiesHit, ref int totalDamage)
         {
-            const float lethalRadius = 2f;
-            const float fragmentationStart = 3f;
-            const float fragmentationEnd = 9f;
-
             List<Unit> unitsToEvaluate = new List<Unit>(playerUnits.Count + enemyUnits.Count);
             unitsToEvaluate.AddRange(playerUnits);
             unitsToEvaluate.AddRange(enemyUnits);
@@ -236,19 +236,19 @@ namespace XCOM_3
                 if (!IsUnitExposedToExplosion(center, centerFloor, unit))
                     continue;
 
-                if (distance <= lethalRadius)
+                if (distance <= Mk2LethalRadius)
                 {
                     KillUnitFromMk2(unit, "blast radius", thrower, ref enemiesHit, ref totalDamage);
                     continue;
                 }
 
-                if (distance < fragmentationStart || distance > fragmentationEnd)
+                if (distance < Mk2FragmentationStartRadius || distance > Mk2FragmentationEndRadius)
                     continue;
 
                 if (HasMk2FragmentationProtection(unit))
                     continue;
 
-                float hitChance = 0.8f * (fragmentationEnd - distance) / (fragmentationEnd - fragmentationStart);
+                float hitChance = 0.8f * (Mk2FragmentationEndRadius - distance) / (Mk2FragmentationEndRadius - Mk2FragmentationStartRadius);
                 hitChance = MathHelper.Clamp(hitChance, 0f, 0.8f);
 
                 if (random.NextDouble() <= hitChance)
@@ -302,6 +302,12 @@ namespace XCOM_3
         {
             if (!throwMode) return;
 
+            if (selectedUnit != null)
+            {
+                int throwRange = GetUnitThrowRange(selectedUnit);
+                throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
+            }
+
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.3f + 0.7f;
             float floorYOffset = viewedFloor * cellSize;
 
@@ -314,8 +320,8 @@ namespace XCOM_3
             bool isMk2 = string.Equals(selectedGrenade?.Name, "MK 2", StringComparison.OrdinalIgnoreCase);
             if (isMk2 && throwTarget.X >= 0 && throwTarget.Y >= 0)
             {
-                DrawVolumetricGrenadeGhost(throwTarget, 0f, 2f, new Color(255, 40, 40, 60) * pulse);
-                DrawVolumetricGrenadeGhost(throwTarget, 3f, 9f, new Color(255, 235, 80, 40) * pulse);
+                DrawVolumetricGrenadeGhost(throwTarget, 0f, Mk2LethalRadius, new Color(255, 40, 40, 60) * pulse);
+                DrawVolumetricGrenadeGhost(throwTarget, Mk2FragmentationStartRadius, Mk2FragmentationEndRadius, new Color(255, 235, 80, 40) * pulse);
             }
 
             renderer3D.DrawZoneOutline(
