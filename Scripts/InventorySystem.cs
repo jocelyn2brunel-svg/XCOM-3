@@ -23,7 +23,8 @@ namespace XCOM_3
         private const int GRID_WIDTH = 10;
         private const int GRID_HEIGHT = 10;
         private const int CELL_SIZE = 40;
-        private const int EQUIP_SLOT_LEFT_PADDING = 10;
+        private const int EQUIP_PANEL_WIDTH = 420;
+        private const int EQUIP_SLOT_LEFT_PADDING = 120;
         private const int EQUIP_LABEL_ROW_HEIGHT = CELL_SIZE;
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1161,7 +1162,7 @@ namespace XCOM_3
         private void DrawEquipmentSlots(int equipX, int equipY, Unit unit)
         {
             // Zone globale de l'équipement (hauteur dynamique selon le contenu équipé)
-            Rectangle equipArea = new Rectangle(equipX, equipY, 170, GetEquipmentPanelHeight(unit));
+            Rectangle equipArea = new Rectangle(equipX, equipY, EQUIP_PANEL_WIDTH, GetEquipmentPanelHeight(unit));
 
             // Rendu style Holographique PE2
             ParasiteEveTheme.DrawPanel(spriteBatch, pixel, equipArea);
@@ -1173,43 +1174,44 @@ namespace XCOM_3
 
             bool isDragging = draggedItem != null;
 
-            // Slots d'équipement principaux (Organisés en 3 colonnes)
+            // Slots d'équipement principaux (empilés verticalement)
             DrawEquipmentSlot(GetWeaponSlotBounds(), "RIGHT HAND", unit.EquippedWeapon,
-                isDragging && draggedItem.Data.Type == ItemType.Weapon);
+                isDragging && draggedItem.Data.Type == ItemType.Weapon,
+                labelOnLeft: true);
 
             DrawEquipmentSlot(GetShieldSlotBounds(), "LEFT HAND", unit.EquippedShield,
-                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield);
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield,
+                labelOnLeft: true);
 
             DrawEquipmentSlot(GetHelmetSlotBounds(), "HEAD", unit.EquippedHelmet,
-                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Head);
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Head,
+                labelOnLeft: true);
 
             DrawEquipmentSlot(GetShirtSlotBounds(), "SUIT", unit.EquippedShirt,
-                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shirt);
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shirt,
+                labelOnLeft: true);
 
             DrawEquipmentSlot(GetPantsSlotBounds(), "PANTS", unit.EquippedPants,
-                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Pants);
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Pants,
+                labelOnLeft: true);
 
             DrawEquipmentSlot(GetArmorSlotBounds(), "VEST", unit.EquippedArmor,
-                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Torso);
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Torso,
+                labelOnLeft: true);
 
             DrawEquipmentSlot(GetChestRigSlotBounds(), "CHEST RIG", unit.EquippedChestRig,
-                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.ChestRig);
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.ChestRig,
+                labelOnLeft: true);
 
             Item beltItem = unit.EquippedAccessory ?? unit.EquippedBelt;
             DrawEquipmentSlot(GetBeltSlotBounds(), "BELT", beltItem,
                 isDragging &&
                 (draggedItem.Data.Type == ItemType.Accessory ||
-                (draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Belt)));
+                (draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Belt)),
+                labelOnLeft: true);
 
             int pantsCapacity = unit.GetPantsInventoryCapacity();
             int chestRigCapacity = unit.GetChestRigInventoryCapacity();
-            bool hasUtilitySlots = pantsCapacity > 0 || chestRigCapacity > 0;
-            if (hasUtilitySlots)
-            {
-                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "UTILITY SLOTS",
-                    new Vector2(equipX + 10, GetUtilityLabelY()), ParasiteEveTheme.TextHighlight, 0.65f);
-            }
-
             bool highlightPocket = isDragging && draggedItem.GetCurrentSize().Width == 1 && draggedItem.GetCurrentSize().Height == 1;
             for (int i = 0; i < pantsCapacity; i++)
             {
@@ -1247,7 +1249,7 @@ namespace XCOM_3
                 ParasiteEveTheme.TextHighlight * alpha, 0.4f);
         }
 
-        private void DrawEquipmentSlot(Rectangle slot, string label, Item equippedItem, bool highlight = false)
+        private void DrawEquipmentSlot(Rectangle slot, string label, Item equippedItem, bool highlight = false, bool labelOnLeft = false)
         {
             // Fond de slot sombre (ghost vert si item compatible)
             Color slotBackground = highlight
@@ -1259,9 +1261,11 @@ namespace XCOM_3
             Color borderColor = highlight ? Color.LimeGreen : ParasiteEveTheme.BorderColor;
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, slot, borderColor, highlight ? 2 : 1);
 
-            // Label au-dessus du slot
-            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, label,
-                new Vector2(slot.X, slot.Y - EQUIP_LABEL_ROW_HEIGHT + 10), ParasiteEveTheme.TextDim, 0.6f);
+            // Label du slot
+            Vector2 labelPos = labelOnLeft
+                ? new Vector2(slot.X - 105, slot.Y + slot.Height / 2 - 8)
+                : new Vector2(slot.X, slot.Y - EQUIP_LABEL_ROW_HEIGHT + 10);
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, label, labelPos, ParasiteEveTheme.TextDim, 0.6f);
 
             if (equippedItem != null && draggedItem == null)
             {
@@ -1289,8 +1293,7 @@ namespace XCOM_3
             int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
 
             // On place le bloc d'équipement à l'extrémité droite du panel (moins sa propre largeur)
-            // 170 est la largeur du bloc d'équipement définie dans DrawEquipmentSlots
-            return panelX + panelWidth - 170 - 20;
+            return panelX + panelWidth - EQUIP_PANEL_WIDTH - 20;
         }
 
         private int GetEquipY()
@@ -1302,74 +1305,65 @@ namespace XCOM_3
 
         private Rectangle GetWeaponSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(0, 0);
+            return GetMainEquipmentSlotBounds(0);
         }
 
         private Rectangle GetHelmetSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(0, 1);
+            return GetMainEquipmentSlotBounds(1);
         }
 
         private Rectangle GetArmorSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(0, 2);
+            return GetMainEquipmentSlotBounds(2);
         }
 
         private Rectangle GetShieldSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(1, 0);
+            return GetMainEquipmentSlotBounds(3);
         }
 
         private Rectangle GetShirtSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(1, 1);
+            return GetMainEquipmentSlotBounds(4);
         }
 
         private Rectangle GetPantsSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(1, 2);
+            return GetMainEquipmentSlotBounds(5);
         }
 
         private Rectangle GetChestRigSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(2, 0);
+            return GetMainEquipmentSlotBounds(6);
         }
 
         private Rectangle GetBeltSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(2, 1);
+            return GetMainEquipmentSlotBounds(7);
         }
 
-        private Rectangle GetMainEquipmentSlotBounds(int column, int row)
+        private Rectangle GetMainEquipmentSlotBounds(int row)
         {
             int equipX = GetEquipX();
             int equipY = GetEquipY();
 
             return new Rectangle(
-                equipX + EQUIP_SLOT_LEFT_PADDING + column * CELL_SIZE,
-                equipY + EQUIP_LABEL_ROW_HEIGHT + row * (CELL_SIZE * 2),
+                equipX + EQUIP_SLOT_LEFT_PADDING,
+                equipY + EQUIP_LABEL_ROW_HEIGHT + row * (CELL_SIZE + 8),
                 CELL_SIZE,
                 CELL_SIZE
             );
         }
 
-        private int GetUtilityLabelY()
-        {
-            return GetPantsSlotBounds().Bottom + 10;
-        }
-
         private Rectangle GetPantsPocketSlotByIndex(int index)
         {
-            int columns = 3;
-
-            int row = index / columns;
-            int col = index % columns;
-            int startX = GetEquipX() + EQUIP_SLOT_LEFT_PADDING;
-            int startY = GetUtilityLabelY() + EQUIP_LABEL_ROW_HEIGHT;
+            int startX = GetPantsSlotBounds().Right + 12;
+            int startY = GetPantsSlotBounds().Y;
 
             return new Rectangle(
-                startX + col * CELL_SIZE,
-                startY + row * CELL_SIZE,
+                startX + index * CELL_SIZE,
+                startY,
                 CELL_SIZE,
                 CELL_SIZE
             );
@@ -1379,23 +1373,19 @@ namespace XCOM_3
         {
             int pocketsCount = unit.GetPantsInventoryCapacity();
             if (pocketsCount <= 0)
-                return GetUtilityLabelY() + 20;
+                return GetPantsSlotBounds().Bottom;
 
             return GetPantsPocketSlotByIndex(pocketsCount - 1).Bottom;
         }
 
         private Rectangle GetChestRigPocketSlotByIndex(int index, Unit unit)
         {
-            int columns = 3;
-
-            int row = index / columns;
-            int col = index % columns;
-            int startX = GetEquipX() + EQUIP_SLOT_LEFT_PADDING;
-            int startY = GetPantsPocketBottomY(unit) + EQUIP_LABEL_ROW_HEIGHT;
+            int startX = GetChestRigSlotBounds().Right + 12;
+            int startY = GetChestRigSlotBounds().Y;
 
             return new Rectangle(
-                startX + col * CELL_SIZE,
-                startY + row * CELL_SIZE,
+                startX + index * CELL_SIZE,
+                startY,
                 CELL_SIZE,
                 CELL_SIZE
             );
@@ -1405,7 +1395,7 @@ namespace XCOM_3
         {
             int pocketsCount = unit.GetChestRigInventoryCapacity();
             if (pocketsCount <= 0)
-                return GetPantsPocketBottomY(unit) + 20;
+                return GetChestRigSlotBounds().Bottom;
 
             return GetChestRigPocketSlotByIndex(pocketsCount - 1, unit).Bottom;
         }
