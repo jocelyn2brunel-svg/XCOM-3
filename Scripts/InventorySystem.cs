@@ -26,7 +26,7 @@ namespace XCOM_3
         private const int EQUIP_PANEL_WIDTH = 420;
         private const int EQUIP_SLOT_LEFT_PADDING = 120;
         private const int EQUIP_LABEL_ROW_HEIGHT = CELL_SIZE;
-        private const int EQUIP_SLOT_VERTICAL_SPACING = 12;
+        private const int EQUIP_SLOT_VERTICAL_SPACING = 16;
         private const int UTILITY_SLOT_GAP = 6;
         private const int BACKPACK_UTILITY_COLUMNS = 4;
 
@@ -194,10 +194,8 @@ namespace XCOM_3
             // Accumuler le temps pour l'effet Sinus du pulse
             totalElapsedTime += 0.016f; // Environ 60 FPS, ou utilise gameTime.ElapsedGameTime
 
-            int panelX = graphicsDevice.Viewport.Width / 2 - (int)(graphicsDevice.Viewport.Width * 0.75f) / 2;
-            int panelY = graphicsDevice.Viewport.Height / 2 - (int)(graphicsDevice.Viewport.Height * 0.85f) / 2;
-            int gridStartX = panelX + 20;
-            int gridStartY = panelY + 60;
+            int gridStartX = GetGridStartX();
+            int gridStartY = GetGridStartY();
 
             // Détection de l'item survolé dans la grille
             int gridX = (mouse.X - gridStartX) / CELL_SIZE;
@@ -1064,10 +1062,10 @@ namespace XCOM_3
             // ✅ AJOUT : Récupérer l'état de la souris pour l'utiliser dans le dessin
             MouseState mouse = Mouse.GetState();
 
-            int panelWidth = (int)(graphicsDevice.Viewport.Width * 0.75f);
-            int panelHeight = (int)(graphicsDevice.Viewport.Height * 0.85f);
-            int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
-            int panelY = graphicsDevice.Viewport.Height / 2 - panelHeight / 2;
+            int panelWidth = GetPanelWidth();
+            int panelHeight = GetPanelHeight();
+            int panelX = GetPanelX();
+            int panelY = GetPanelY();
             Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
 
             // ✅ Fond et Scanlines style PE2
@@ -1078,8 +1076,8 @@ namespace XCOM_3
             Rectangle headerRect = new Rectangle(panelX, panelY, panelWidth, 40);
             ParasiteEveTheme.DrawSectionHeader(spriteBatch, pixel, font, headerRect, $"INVENTORY - {selectedUnit.Name.ToUpper()}");
 
-            int gridStartX = panelX + 20;
-            int gridStartY = panelY + 60;
+            int gridStartX = GetGridStartX();
+            int gridStartY = GetGridStartY();
             DrawInventoryGrid(gridStartX, gridStartY);
 
             int equipX = GetEquipX();
@@ -1091,7 +1089,7 @@ namespace XCOM_3
             if (hoveredItem != null && draggedItem == null)
             {
                 // On s'assure que les PixelBounds sont à jour pour l'item survolé
-                hoveredItem.UpdatePixelBounds(panelX + 20, panelY + 60);
+                hoveredItem.UpdatePixelBounds(gridStartX, gridStartY);
 
                 // Appel de la méthode de ton thème
                 ParasiteEveTheme.DrawSelectionIndicator(
@@ -1229,6 +1227,7 @@ namespace XCOM_3
             // Rendu style Holographique PE2
             ParasiteEveTheme.DrawPanel(spriteBatch, pixel, equipArea);
             ParasiteEveTheme.DrawScanlines(spriteBatch, pixel, equipArea, 0.05f);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, equipArea, ParasiteEveTheme.SelectionOutline, 1);
 
             // Titre de section "TECH-EQUIP"
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EQUIPMENT",
@@ -1359,18 +1358,41 @@ namespace XCOM_3
         // CALCUL DES BOUNDS DES SLOTS - Centralisé
         // ═══════════════════════════════════════════════════════════════════════
 
+        private int GetPanelWidth()
+        {
+            return (int)(graphicsDevice.Viewport.Width * 0.75f);
+        }
+
+        private int GetPanelHeight()
+        {
+            return (int)(graphicsDevice.Viewport.Height * 0.85f);
+        }
+
+        private int GetPanelX()
+        {
+            return graphicsDevice.Viewport.Width / 2 - GetPanelWidth() / 2;
+        }
+
         private int GetPanelY()
         {
-            return graphicsDevice.Viewport.Height / 2 - 275; // panelHeight / 2
+            return graphicsDevice.Viewport.Height / 2 - GetPanelHeight() / 2;
+        }
+
+        private int GetGridStartX()
+        {
+            int gridPixelWidth = GRID_WIDTH * CELL_SIZE;
+            return GetPanelX() + GetPanelWidth() - gridPixelWidth - 20;
+        }
+
+        private int GetGridStartY()
+        {
+            return GetPanelY() + 60;
         }
 
         private int GetEquipX()
         {
-            int panelWidth = (int)(graphicsDevice.Viewport.Width * 0.75f);
-            int panelX = graphicsDevice.Viewport.Width / 2 - panelWidth / 2;
-
-            // On place le bloc d'équipement à l'extrémité droite du panel (moins sa propre largeur)
-            return panelX + panelWidth - EQUIP_PANEL_WIDTH - 20;
+            // Le bloc d'équipement est affiché à gauche du panneau
+            return GetPanelX() + 20;
         }
 
         private int GetEquipY()
