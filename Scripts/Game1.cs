@@ -1721,8 +1721,7 @@ namespace XCOM_3
                     continue;
                 }
 
-                playerUnits[i].AddGrenade(grenadeDatabase["Frag Grenade"]);
-                if (random.Next(100) < 50) playerUnits[i].AddGrenade(grenadeDatabase["Smoke Grenade"]);
+                playerUnits[i].AddGrenade(grenadeDatabase["MK 2"]);
             }
 
             AssignRandomPants(playerUnits);
@@ -1882,7 +1881,7 @@ namespace XCOM_3
             }
 
             if (unit.Grenades.Count == 0)
-                unit.AddGrenade(grenadeDatabase["Frag Grenade"]);
+                unit.AddGrenade(grenadeDatabase["MK 2"]);
         }
 
         private void DistributeEnemiesAcrossUpperFloors()
