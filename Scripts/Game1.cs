@@ -2324,9 +2324,12 @@ namespace XCOM_3
 
                 // Calculer le chemin
                 Point movementGoal = clickedCell;
-                int goalFloor = selectedUnit.Floor;
+                int goalFloor = viewedFloor;
 
-                if (TryResolveVerticalTransition(selectedUnit.Floor, clickedCell, out Point transitionGoal, out int transitionFloor))
+                // Conserver le comportement existant: cliquer directement sur une rampe/
+                // un escalier depuis l'étage de l'unité déclenche la transition immédiate.
+                if (selectedUnit.Floor == viewedFloor &&
+                    TryResolveVerticalTransition(selectedUnit.Floor, clickedCell, out Point transitionGoal, out int transitionFloor))
                 {
                     movementGoal = transitionGoal;
                     goalFloor = transitionFloor;
