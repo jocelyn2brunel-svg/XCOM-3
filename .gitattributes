@@ -1,0 +1,4 @@
+# Enforce consistent Unix line endings in source files to avoid mixed-EOL warnings
+*.cs text eol=lf
+*.csproj text eol=lf
+*.sln text eol=crlf
