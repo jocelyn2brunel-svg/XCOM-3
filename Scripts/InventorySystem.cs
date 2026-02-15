@@ -1351,13 +1351,24 @@ namespace XCOM_3
                 panelBounds.Width - SECTION_PADDING * 2,
                 panelBounds.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
 
+            int inventoryGridStartX = GetGridStartX();
+            int inventoryGridStartY = GetGridStartY();
+            int alignedStartX = gridArea.X + PositiveModulo(inventoryGridStartX - gridArea.X, CELL_SIZE);
+            int alignedStartY = gridArea.Y + PositiveModulo(inventoryGridStartY - gridArea.Y, CELL_SIZE);
+
             spriteBatch.Draw(pixel, gridArea, ParasiteEveTheme.BackgroundMedium * 0.28f);
 
-            for (int x = gridArea.X; x <= gridArea.Right; x += CELL_SIZE)
+            for (int x = alignedStartX; x <= gridArea.Right; x += CELL_SIZE)
                 spriteBatch.Draw(pixel, new Rectangle(x, gridArea.Y, 1, gridArea.Height), ParasiteEveTheme.TextDim * 0.15f);
 
-            for (int y = gridArea.Y; y <= gridArea.Bottom; y += CELL_SIZE)
+            for (int y = alignedStartY; y <= gridArea.Bottom; y += CELL_SIZE)
                 spriteBatch.Draw(pixel, new Rectangle(gridArea.X, y, gridArea.Width, 1), ParasiteEveTheme.TextDim * 0.15f);
+        }
+
+        private static int PositiveModulo(int value, int modulo)
+        {
+            int remainder = value % modulo;
+            return remainder < 0 ? remainder + modulo : remainder;
         }
 
         private void DrawNearbyLootPanel(Rectangle lootWindow)
