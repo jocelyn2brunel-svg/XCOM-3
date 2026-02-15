@@ -1475,52 +1475,7 @@ namespace XCOM_3
             float floorYOffset = viewedFloor * cellSize;
 
             float pulseBoost = 0.75f + pulse * 0.25f;
-            Vector3 position = new Vector3(
-                hoveredCell.X * cellSize + cellSize / 2f,
-                floorYOffset + 0.12f,
-                hoveredCell.Y * cellSize + cellSize / 2f);
-
             renderer3D.DrawZoneOutline(new[] { hoveredCell }, cellSize, floorYOffset + 0.14f, new Color(255, 220, 90, 230) * pulseBoost);
-
-            if (!IsHoveredCellBehindWall())
-                return;
-
-            GraphicsDevice.BlendState = BlendState.AlphaBlend;
-            GraphicsDevice.DepthStencilState = DepthStencilState.None;
-
-            renderer3D.DrawPlane(
-                position,
-                new Vector3(cellSize * 0.95f, 1, cellSize * 0.95f),
-                new Color(255, 230, 120, 200) * pulseBoost);
-
-            GraphicsDevice.BlendState = BlendState.Opaque;
-            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-        }
-
-        private bool IsHoveredCellBehindWall()
-        {
-            var wallsForFloor = GetWallsForFloor(viewedFloor);
-            if (wallsForFloor == null || wallsForFloor.Count == 0)
-                return false;
-
-            Vector3 hoverPoint = new Vector3(
-                hoveredCell.X * cellSize + cellSize / 2f,
-                viewedFloor * cellSize + cellSize * 0.35f,
-                hoveredCell.Y * cellSize + cellSize / 2f);
-
-            Vector3 cameraPos = camera.Position;
-            float floorHeightOffset = viewedFloor * cellSize;
-
-            foreach (WallSegment wall in wallsForFloor)
-            {
-                if (wall.Type == WallType.Door)
-                    continue;
-
-                if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, hoverPoint))
-                    return true;
-            }
-
-            return false;
         }
 
 
