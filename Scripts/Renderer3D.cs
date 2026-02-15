@@ -930,36 +930,6 @@ namespace XCOM_3
             return false;
         }
 
-        private void DrawTerrainConformingEdge(
-            Vector3 start,
-            Vector3 end,
-            float thickness,
-            Color color)
-        {
-            Vector3 edge = end - start;
-            float edgeLength = edge.Length();
-            if (edgeLength <= 0.0001f)
-                return;
-
-            Vector3 center = (start + end) * 0.5f;
-            float rotationX = 0f;
-            float rotationZ = 0f;
-
-            // Les contours sont toujours alignés sur X ou Z :
-            // - segment Nord/Sud -> variation sur X, inclinaison via Z
-            // - segment Est/Ouest -> variation sur Z, inclinaison via X
-            if (Math.Abs(edge.X) > Math.Abs(edge.Z))
-            {
-                rotationZ = (float)Math.Atan2(edge.Y, edge.X);
-            }
-            else
-            {
-                rotationX = (float)Math.Atan2(-edge.Y, edge.Z);
-            }
-
-            DrawPlane(center, new Vector3(edgeLength, 1f, thickness), color, rotationX, 0f, rotationZ);
-        }
-
         private void DrawZonePerimeter(HashSet<Point> zone, int cellSize, float height, Color color)
         {
             if (zone == null || zone.Count == 0) return;
@@ -995,66 +965,7 @@ namespace XCOM_3
             }
         }
 
-        private void DrawZonePerimeterWithTerrain(
-            HashSet<Point> zone,
-            int cellSize,
-            float floorHeightOffset,
-            float outlineLift,
-            Color color,
-            IReadOnlyDictionary<Point, float> terrainHeights)
-        {
-            if (zone == null || zone.Count == 0) return;
-
-            float edgeThickness = Math.Max(cellSize * 0.09f, 0.06f);
-            float edgeInset = cellSize * (1f - TileFillRatio) * 0.5f;
-
-            float GetVertexHeight(int vx, int vz)
-                => floorHeightOffset + ComputeCornerHeight(terrainHeights, vx, vz) + outlineLift;
-
-            foreach (Point cell in zone)
-            {
-                float xMin = cell.X * cellSize + edgeInset;
-                float xMax = (cell.X + 1) * cellSize - edgeInset;
-                float zMin = cell.Y * cellSize + edgeInset;
-                float zMax = (cell.Y + 1) * cellSize - edgeInset;
-
-                if (!zone.Contains(new Point(cell.X, cell.Y - 1)))
-                {
-                    Vector3 start = new Vector3(xMin, GetVertexHeight(cell.X, cell.Y), zMin);
-                    Vector3 end = new Vector3(xMax, GetVertexHeight(cell.X + 1, cell.Y), zMin);
-                    DrawTerrainConformingEdge(start, end, edgeThickness, color);
-                }
-
-                if (!zone.Contains(new Point(cell.X + 1, cell.Y)))
-                {
-                    Vector3 start = new Vector3(xMax, GetVertexHeight(cell.X + 1, cell.Y), zMin);
-                    Vector3 end = new Vector3(xMax, GetVertexHeight(cell.X + 1, cell.Y + 1), zMax);
-                    DrawTerrainConformingEdge(start, end, edgeThickness, color);
-                }
-
-                if (!zone.Contains(new Point(cell.X, cell.Y + 1)))
-                {
-                    Vector3 start = new Vector3(xMin, GetVertexHeight(cell.X, cell.Y + 1), zMax);
-                    Vector3 end = new Vector3(xMax, GetVertexHeight(cell.X + 1, cell.Y + 1), zMax);
-                    DrawTerrainConformingEdge(start, end, edgeThickness, color);
-                }
-
-                if (!zone.Contains(new Point(cell.X - 1, cell.Y)))
-                {
-                    Vector3 start = new Vector3(xMin, GetVertexHeight(cell.X, cell.Y), zMin);
-                    Vector3 end = new Vector3(xMin, GetVertexHeight(cell.X, cell.Y + 1), zMax);
-                    DrawTerrainConformingEdge(start, end, edgeThickness, color);
-                }
-            }
-        }
-
-        public void DrawZoneOutline(
-            IEnumerable<Point> cells,
-            int cellSize,
-            float height,
-            Color color,
-            IReadOnlyDictionary<Point, float> terrainHeights = null,
-            float floorHeightOffset = 0f)
+        public void DrawZoneOutline(IEnumerable<Point> cells, int cellSize, float height, Color color)
         {
             if (cells == null)
                 return;
@@ -1062,13 +973,6 @@ namespace XCOM_3
             HashSet<Point> zone = cells.ToHashSet();
             if (zone.Count == 0)
                 return;
-
-            if (terrainHeights != null)
-            {
-                float outlineLift = height - floorHeightOffset;
-                DrawZonePerimeterWithTerrain(zone, cellSize, floorHeightOffset, outlineLift, color, terrainHeights);
-                return;
-            }
 
             DrawZonePerimeter(zone, cellSize, height, color);
         }
