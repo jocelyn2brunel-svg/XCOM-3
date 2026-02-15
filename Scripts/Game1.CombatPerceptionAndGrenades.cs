@@ -159,7 +159,7 @@ namespace XCOM_3
 
             if (grenadeData.Name == "MK 2")
             {
-                ApplyMk2Explosion(center, thrower, ref enemiesHit, ref totalDamage);
+                ApplyMk2Explosion(center, centerFloor, thrower, ref enemiesHit, ref totalDamage);
 
                 if (thrower != null && thrower.Team == Team.Player && enemiesHit > 0)
                 {
@@ -177,6 +177,11 @@ namespace XCOM_3
             {
                 float sphericalDistance = explosionManager.CalculateSphericalDistance(center, centerFloor, unit.Cell, unit.Floor);
                 if (sphericalDistance > grenadeData.Radius)
+                {
+                    continue;
+                }
+
+                if (!IsUnitExposedToExplosion(center, centerFloor, unit))
                 {
                     continue;
                 }
@@ -214,7 +219,7 @@ namespace XCOM_3
             }
         }
 
-        private void ApplyMk2Explosion(Point center, Unit thrower, ref int enemiesHit, ref int totalDamage)
+        private void ApplyMk2Explosion(Point center, int centerFloor, Unit thrower, ref int enemiesHit, ref int totalDamage)
         {
             const float lethalRadius = 2f;
             const float fragmentationStart = 3f;
@@ -227,6 +232,9 @@ namespace XCOM_3
             foreach (var unit in unitsToEvaluate)
             {
                 float distance = Vector2.Distance(new Vector2(center.X, center.Y), new Vector2(unit.Cell.X, unit.Cell.Y));
+
+                if (!IsUnitExposedToExplosion(center, centerFloor, unit))
+                    continue;
 
                 if (distance <= lethalRadius)
                 {
@@ -248,6 +256,23 @@ namespace XCOM_3
                     KillUnitFromMk2(unit, $"fragmentation ({hitChance * 100f:0}% chance)", thrower, ref enemiesHit, ref totalDamage);
                 }
             }
+        }
+
+        private bool IsUnitExposedToExplosion(Point explosionCenter, int explosionFloor, Unit unit)
+        {
+            if (unit == null)
+                return false;
+
+            if (unit.Cell == explosionCenter && unit.Floor == explosionFloor)
+                return true;
+
+            if (pathfinding == null)
+                return true;
+
+            if (unit.Floor != explosionFloor)
+                return true;
+
+            return pathfinding.HasLineOfSight(explosionCenter, unit.Cell);
         }
 
         private bool HasMk2FragmentationProtection(Unit unit)
