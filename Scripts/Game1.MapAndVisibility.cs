@@ -26,6 +26,7 @@ namespace XCOM_3
             // Appliquer les données de la carte
             currentMap = map;
             currentMap.RampTiles ??= new List<RampTileData>();
+            currentMap.TerrainHeights ??= new List<TerrainHeightData>();
 
             if (currentMap.RampTiles.Count == 0 && currentMap.StairConnections != null)
             {
@@ -52,6 +53,10 @@ namespace XCOM_3
 
             // Charger les murs
             wallSegments = map.GetWalls();
+            terrainHeights = currentMap.TerrainHeights
+                .Where(t => t.X >= 0 && t.X < gridWidth && t.Y >= 0 && t.Y < gridHeight)
+                .GroupBy(t => new Point(t.X, t.Y))
+                .ToDictionary(g => g.Key, g => g.Last().HeightOffset);
             upperFloorCells = ComputeUpperFloorCells();
 
             Console.WriteLine($"[GAME] Loaded map: {map.Name} ({gridWidth}x{gridHeight})");

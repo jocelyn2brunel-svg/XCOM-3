@@ -74,6 +74,7 @@ namespace XCOM_3
             map.GenerateDefaultSpawnZones();
             map.StairConnections = GenerateDefaultStairs(map.GridWidth, map.GridHeight, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
+            map.TerrainHeights = GenerateTerrainRelief(map.GridWidth, map.GridHeight);
 
             Console.WriteLine($"[MAP GEN] Generated {map.Name}: {map.GridWidth}x{map.GridHeight}, floors={map.FloorCount}, {map.Walls.Count} walls");
 
@@ -102,6 +103,7 @@ namespace XCOM_3
             map.FloorCount = 3;
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
+            map.TerrainHeights = GenerateTerrainRelief(width, height);
 
             Console.WriteLine($"[MAP GEN] Created empty map: {width}x{height}, floors={map.FloorCount}");
 
@@ -148,6 +150,7 @@ namespace XCOM_3
             map.GenerateDefaultSpawnZones();
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
+            map.TerrainHeights = GenerateTerrainRelief(width, height);
 
             Console.WriteLine($"[MAP GEN] Generated {pattern} map: {width}x{height}, floors={map.FloorCount}");
 
@@ -267,6 +270,67 @@ namespace XCOM_3
             }
 
             return ramps;
+        }
+
+        private List<TerrainHeightData> GenerateTerrainRelief(int width, int height)
+        {
+            var heightMap = new float[width, height];
+            int featureCount = Math.Max(3, (width * height) / 420);
+
+            for (int i = 0; i < featureCount; i++)
+            {
+                bool isHill = random.NextDouble() > 0.45;
+                int centerX = random.Next(2, Math.Max(3, width - 2));
+                int centerY = random.Next(2, Math.Max(3, height - 2));
+                float radius = random.Next(2, 7);
+                float amplitude = (float)(random.NextDouble() * 0.75 + 0.25) * (isHill ? 1f : -1f);
+
+                for (int x = 1; x < width - 1; x++)
+                {
+                    for (int y = 1; y < height - 1; y++)
+                    {
+                        float dx = x - centerX;
+                        float dy = y - centerY;
+                        float distance = MathF.Sqrt(dx * dx + dy * dy);
+                        if (distance > radius)
+                            continue;
+
+                        float influence = 1f - (distance / radius);
+                        heightMap[x, y] += amplitude * influence;
+                    }
+                }
+            }
+
+            var terrain = new List<TerrainHeightData>();
+            for (int x = 1; x < width - 1; x++)
+            {
+                for (int y = 1; y < height - 1; y++)
+                {
+                    float smoothed = (
+                        heightMap[x, y] * 0.45f +
+                        heightMap[x - 1, y] * 0.12f +
+                        heightMap[x + 1, y] * 0.12f +
+                        heightMap[x, y - 1] * 0.12f +
+                        heightMap[x, y + 1] * 0.12f +
+                        heightMap[x - 1, y - 1] * 0.035f +
+                        heightMap[x + 1, y - 1] * 0.035f +
+                        heightMap[x - 1, y + 1] * 0.035f +
+                        heightMap[x + 1, y + 1] * 0.035f);
+
+                    float clamped = Math.Clamp(smoothed, -0.75f, 0.9f);
+                    if (MathF.Abs(clamped) < 0.08f)
+                        continue;
+
+                    terrain.Add(new TerrainHeightData
+                    {
+                        X = x,
+                        Y = y,
+                        HeightOffset = clamped
+                    });
+                }
+            }
+
+            return terrain;
         }
 
         /// <summary>

@@ -141,6 +141,7 @@ namespace XCOM_3
         private Point lastHoveredCell = new Point(-1, -1);
         private int viewedFloor = 0;
         private HashSet<Point> upperFloorCells = new();
+        private Dictionary<Point, float> terrainHeights = new Dictionary<Point, float>();
         private Unit movementCinematicUnit = null;
         private HashSet<Unit> currentlySpottedEnemies = new HashSet<Unit>();
 
@@ -967,7 +968,7 @@ namespace XCOM_3
 
             if (floorToRender == 0)
             {
-                renderer3D.DrawGrid(gridWidth, gridHeight, cellSize, tileTexture, yOffset);
+                renderer3D.DrawGridWithTerrain(gridWidth, gridHeight, cellSize, tileTexture, terrainHeights, yOffset);
             }
             else if (floorToRender < 0)
             {
