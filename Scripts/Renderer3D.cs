@@ -93,7 +93,23 @@ namespace XCOM_3
             foreach (var e in new[] { basic, textured })
             {
                 e.AmbientLightColor = ambient.ToVector3();
-                e.DirectionalLight0.DiffuseColor = dir.ToVector3();
+
+                // Uniformiser les 3 lumières directionnelles avec la teinte du cycle jour/nuit.
+                // Sans cela, le terrain texturé peut rester trop sombre car il ne reçoit
+                // effectivement qu'une part de DirectionalLight0 selon ses normales.
+                Vector3 directionalColor = dir.ToVector3();
+
+                e.DirectionalLight0.Enabled = true;
+                e.DirectionalLight0.DiffuseColor = directionalColor;
+                e.DirectionalLight0.Direction = Vector3.Normalize(new Vector3(-0.45f, -1.0f, -0.35f));
+
+                e.DirectionalLight1.Enabled = true;
+                e.DirectionalLight1.DiffuseColor = directionalColor * 0.45f;
+                e.DirectionalLight1.Direction = Vector3.Normalize(new Vector3(0.55f, -0.85f, 0.15f));
+
+                e.DirectionalLight2.Enabled = true;
+                e.DirectionalLight2.DiffuseColor = directionalColor * 0.25f;
+                e.DirectionalLight2.Direction = Vector3.Normalize(new Vector3(0.05f, -0.65f, -0.75f));
             }
         }
 
