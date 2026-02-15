@@ -24,6 +24,7 @@ namespace XCOM_3
     public class PathResult
     {
         public List<Point> Cells { get; set; } = new List<Point>();
+        public List<GridNode> Nodes { get; set; } = new List<GridNode>();
         public int EndFloor { get; set; }
     }
 
@@ -180,6 +181,7 @@ namespace XCOM_3
 
             return new PathResult
             {
+                Nodes = nodes,
                 Cells = nodes.Select(n => n.Cell).ToList(),
                 EndFloor = nodes.Count > 0 ? nodes[^1].Floor : cur.Floor
             };
