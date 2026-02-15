@@ -73,6 +73,7 @@ namespace XCOM_3
         private int gridWidth = 50;
         private int gridHeight = 50;
         private Point hoveredCell = new Point(-1, -1);
+        private bool isHoveringValidCell;
 
         // --- Murs sur les edges des cases ---
         private HashSet<WallSegment> wallSegments = new HashSet<WallSegment>();
@@ -2215,17 +2216,18 @@ namespace XCOM_3
         {
             if (IsTabPressed(keyboard)) SelectNextActiveUnit();
 
-            hoveredCell = camera.GetCellFromMouse(
+            Point rawHoveredCell = camera.GetCellFromMouse(
                 mouse.Position,
                 GraphicsDevice.Viewport.Width,
                 GraphicsDevice.Viewport.Height,
                 viewedFloor * cellSize);
 
-            if (hoveredCell.X != -1 && !IsCellHoverableOnViewedFloor(hoveredCell, viewedFloor))
-                hoveredCell = new Point(-1, -1);
+            isHoveringValidCell = rawHoveredCell.X != -1 && IsCellHoverableOnViewedFloor(rawHoveredCell, viewedFloor);
+            if (isHoveringValidCell)
+                hoveredCell = rawHoveredCell;
 
             // 1. Check if we have a valid unit and valid cell
-            if (selectedUnit != null && selectedUnit.ActionPoints > 0 && hoveredCell.X != -1 &&
+            if (selectedUnit != null && selectedUnit.ActionPoints > 0 && isHoveringValidCell &&
                 selectedUnit.Team == Team.Player)
             {
                 // 2. Define maxRange here
@@ -2266,7 +2268,7 @@ namespace XCOM_3
 
                 // If the mouse isn't on a valid movement cell, update the last hovered cell anyway
                 // so it recalculates correctly when it re-enters a valid cell
-                lastHoveredCell = hoveredCell;
+                lastHoveredCell = isHoveringValidCell ? hoveredCell : new Point(-1, -1);
             }
 
             if (throwMode) HandleGrenadeThrow(mouse, leftClick);
@@ -2278,7 +2280,7 @@ namespace XCOM_3
 
             if (leftClick) HandleUnitActionButtons(mouse);
             if (leftClick && combatUI.ShowFireTargets) combatUI.HandleFireTargetClick(mouse, selectedUnit);
-            if (leftClick && !clickOnUI && hoveredCell.X != -1) HandleGridClick(hoveredCell);
+            if (leftClick && !clickOnUI && isHoveringValidCell) HandleGridClick(hoveredCell);
             if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released) CancelSelection();
 
             if (combatUI.FireButton.Contains(mouse.Position) && leftClick &&

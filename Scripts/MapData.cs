@@ -85,10 +85,24 @@ namespace XCOM_3
             HashSet<WallSegment> wallSegments = new HashSet<WallSegment>();
             foreach (var wallData in Walls)
             {
+                var start = new Point(wallData.StartX, wallData.StartY);
+                var end = new Point(wallData.EndX, wallData.EndY);
+
+                bool isHorizontal = wallData.IsHorizontal;
+                if (start.Y == end.Y)
+                    isHorizontal = true;
+                else if (start.X == end.X)
+                    isHorizontal = false;
+
+                if (isHorizontal && start.X > end.X)
+                    (start, end) = (end, start);
+                else if (!isHorizontal && start.Y > end.Y)
+                    (start, end) = (end, start);
+
                 wallSegments.Add(new WallSegment(
-                    new Point(wallData.StartX, wallData.StartY),
-                    new Point(wallData.EndX, wallData.EndY),
-                    wallData.IsHorizontal,
+                    start,
+                    end,
+                    isHorizontal,
                     (WallType)wallData.Type
                 ));
             }
