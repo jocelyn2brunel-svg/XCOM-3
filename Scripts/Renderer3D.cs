@@ -136,6 +136,85 @@ namespace XCOM_3
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, texturedPlaneVerts, 0, 4, texturedPlaneIdx, 0, 2);
         }
 
+        private static float ComputeCornerHeight(IReadOnlyDictionary<Point, float> terrainHeights, int vertexX, int vertexZ)
+        {
+            float sum = 0f;
+            int count = 0;
+
+            // Les sommets sont partagés entre jusqu'à 4 tuiles ; on moyenne
+            // leurs offsets pour garantir des jonctions propres entre tuiles.
+            foreach (int cellX in new[] { vertexX - 1, vertexX })
+            {
+                foreach (int cellZ in new[] { vertexZ - 1, vertexZ })
+                {
+                    if (terrainHeights != null && terrainHeights.TryGetValue(new Point(cellX, cellZ), out float height))
+                    {
+                        sum += height;
+                        count++;
+                    }
+                }
+            }
+
+            if (count > 0)
+                return sum / count;
+
+            return 0f;
+        }
+
+        private static Vector3 ComputeVertexNormal(Vector3 previous, Vector3 next, Vector3 opposite)
+        {
+            Vector3 edgeA = next - previous;
+            Vector3 edgeB = opposite - previous;
+            Vector3 normal = Vector3.Cross(edgeA, edgeB);
+
+            if (normal.LengthSquared() <= 0.000001f)
+                return Vector3.Up;
+
+            normal.Normalize();
+            if (normal.Y < 0f)
+                normal = -normal;
+            return normal;
+        }
+
+        private void DrawTexturedTerrainTile(int x, int z, int size, Texture2D tex, IReadOnlyDictionary<Point, float> terrainHeights, float floorHeightOffset)
+        {
+            float xMin = x * size;
+            float xMax = (x + 1) * size;
+            float zMin = z * size;
+            float zMax = (z + 1) * size;
+
+            float yNW = floorHeightOffset + ComputeCornerHeight(terrainHeights, x, z);
+            float ySW = floorHeightOffset + ComputeCornerHeight(terrainHeights, x, z + 1);
+            float ySE = floorHeightOffset + ComputeCornerHeight(terrainHeights, x + 1, z + 1);
+            float yNE = floorHeightOffset + ComputeCornerHeight(terrainHeights, x + 1, z);
+
+            Vector3 nw = new Vector3(xMin, yNW, zMin);
+            Vector3 sw = new Vector3(xMin, ySW, zMax);
+            Vector3 se = new Vector3(xMax, ySE, zMax);
+            Vector3 ne = new Vector3(xMax, yNE, zMin);
+
+            // Normales douces calculées par sommet pour mieux éclairer les pentes.
+            Vector3 nNW = ComputeVertexNormal(nw, sw, ne);
+            Vector3 nSW = ComputeVertexNormal(sw, se, nw);
+            Vector3 nSE = ComputeVertexNormal(se, ne, sw);
+            Vector3 nNE = ComputeVertexNormal(ne, nw, se);
+
+            VertexPositionNormalTexture[] verts = new[]
+            {
+                new VertexPositionNormalTexture(nw, nNW, new Vector2(0f, 0f)),
+                new VertexPositionNormalTexture(sw, nSW, new Vector2(0f, 1f)),
+                new VertexPositionNormalTexture(se, nSE, new Vector2(1f, 1f)),
+                new VertexPositionNormalTexture(ne, nNE, new Vector2(1f, 0f))
+            };
+
+            textured.World = Matrix.Identity;
+            textured.Texture = tex;
+            foreach (var pass in textured.CurrentTechnique.Passes)
+                pass.Apply();
+
+            gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, 4, texturedPlaneIdx, 0, 2);
+        }
+
         public void DrawGrid(int w, int h, int size, Texture2D tex, float floorHeightOffset = 0f)
         {
             for (int x = 0; x < w; x++) for (int z = 0; z < h; z++)
@@ -160,14 +239,7 @@ namespace XCOM_3
             {
                 for (int z = 0; z < h; z++)
                 {
-                    float localOffset = 0f;
-                    if (terrainHeights != null)
-                        terrainHeights.TryGetValue(new Point(x, z), out localOffset);
-
-                    DrawTexturedPlane(
-                        new Vector3(x * size + size / 2f, floorHeightOffset + localOffset, z * size + size / 2f),
-                        new Vector3(size * TileFillRatio, 1, size * TileFillRatio),
-                        tex);
+                    DrawTexturedTerrainTile(x, z, size, tex, terrainHeights, floorHeightOffset);
                 }
             }
         }
