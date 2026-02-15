@@ -136,6 +136,7 @@ namespace XCOM_3
         private CharacterInfoPanel characterInfoPanel;
 
         private bool showCoverIndicators = false;
+        private bool premadeMapsChecked = false;
 
         private Point lastHoveredCell = new Point(-1, -1);
         private int viewedFloor = 0;
@@ -265,6 +266,12 @@ namespace XCOM_3
             // ✅ NOUVEAU : Initialiser le système de cartes
             mapGenerator = new MapGenerator(random);
             mapEditor = new MapEditor(camera, renderer3D, font, pixel, _spriteBatch);
+        }
+
+        private void EnsurePremadeMapsGenerated()
+        {
+            if (premadeMapsChecked)
+                return;
 
             // ✅ NOUVEAU : Générer les cartes prédéfinies au premier lancement
             try
@@ -280,6 +287,8 @@ namespace XCOM_3
             {
                 Console.WriteLine($"[GAME] Error checking maps: {ex.Message}");
             }
+
+            premadeMapsChecked = true;
         }
 
         private void InitializeDatabasesAndEncyclopedia()
@@ -309,6 +318,7 @@ namespace XCOM_3
 
         private void OpenMapEditor()
         {
+            EnsurePremadeMapsGenerated();
             mapEditor.StartNewMap(50, 50);
             currentState = GameState.MapEditor;
         }
@@ -2149,6 +2159,7 @@ namespace XCOM_3
 
         private void StartMission(string missionType)
         {
+            EnsurePremadeMapsGenerated();
             MediaPlayer.Stop();
             currentState = GameState.Playing;
 
