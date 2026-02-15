@@ -202,7 +202,8 @@ namespace XCOM_3
             // 1. Main Menu Manager
             mainMenuManager = new MainMenuManager(_graphics.GraphicsDevice, _spriteBatch, font, random);
             mainMenuManager.LoadContent(Content);
-            mainMenuManager.OnNewGameRequested += OpenCharacterCreation;
+            mainMenuManager.OnNewGameRequested += StartNewGame;
+            mainMenuManager.OnCharacterCreationRequested += OpenCharacterCreation;
             mainMenuManager.OnContinueRequested += HandleContinue;
             mainMenuManager.OnMapEditorRequested += OpenMapEditor;
             mainMenuManager.OnEncyclopediaRequested += OpenEncyclopedia;
@@ -298,6 +299,12 @@ namespace XCOM_3
         }
 
         private void OpenCharacterCreation() => currentState = GameState.CharacterCreation;
+
+        private void StartNewGame()
+        {
+            createdSquadProfiles.Clear();
+            currentState = GameState.MissionSelect;
+        }
 
         private void OpenMapEditor()
         {
@@ -1656,6 +1663,17 @@ namespace XCOM_3
             }
         }
 
+        private (string Name, string Job) GenerateRandomRecruitProfile()
+        {
+            string[] firstNames = { "Nadia", "Alex", "Maya", "Victor", "Elena", "Jonas", "Iris", "Noah", "Leila", "Marco", "Sofia", "Ethan" };
+            string[] lastNames = { "Vega", "Mercer", "Khan", "Duval", "Ortega", "Novak", "Sato", "Bauer", "Silva", "Petrov", "Rossi", "Tanaka" };
+            string[] jobs = { "Assault", "Support", "Sniper", "Scout", "Heavy" };
+
+            string name = $"{firstNames[random.Next(firstNames.Length)]} {lastNames[random.Next(lastNames.Length)]}";
+            string job = jobs[random.Next(jobs.Length)];
+            return (name, job);
+        }
+
         private class AStarNode
         {
             public Point Position;
@@ -1686,9 +1704,8 @@ namespace XCOM_3
                 }
                 else
                 {
-                    string[] fallbackNames = { "Nadia", "Alex", "Maya", "Victor", "Elena", "Jonas" };
-                    string callSign = fallbackNames[i % fallbackNames.Length];
-                    playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, callSign, "Assault", string.Empty, null));
+                    (string callSign, string job) = GenerateRandomRecruitProfile();
+                    playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, callSign, job, string.Empty, null));
                 }
             }
 
