@@ -65,6 +65,7 @@ namespace XCOM_3
         public Item EquippedHelmet { get; set; }
         public Item EquippedArmor { get; set; }
         public Item EquippedShield { get; set; }
+        public Item EquippedAccessory { get; set; }
         public Item EquippedShirt { get; set; }
         public Item EquippedPants { get; set; }
         public Item EquippedChestRig { get; set; }
@@ -149,6 +150,7 @@ namespace XCOM_3
             EquippedHelmet = null;
             EquippedArmor = null;
             EquippedShield = null;
+            EquippedAccessory = null;
             EquippedShirt = null;
             EquippedPants = null;
             EquippedChestRig = null;
@@ -187,6 +189,7 @@ namespace XCOM_3
             EquippedHelmet = other.EquippedHelmet;
             EquippedArmor = other.EquippedArmor;
             EquippedShield = other.EquippedShield;  // NOUVEAU
+            EquippedAccessory = other.EquippedAccessory;
             EquippedShirt = other.EquippedShirt;    // NOUVEAU
             EquippedPants = other.EquippedPants;
             EquippedChestRig = other.EquippedChestRig;
@@ -285,6 +288,7 @@ namespace XCOM_3
             total += EquippedHelmet?.Data?.WeightLbs ?? 0f;
             total += EquippedArmor?.Data?.WeightLbs ?? 0f;
             total += EquippedShield?.Data?.WeightLbs ?? 0f;
+            total += EquippedAccessory?.Data?.WeightLbs ?? 0f;
             total += EquippedShirt?.Data?.WeightLbs ?? 0f;
             total += EquippedPants?.Data?.WeightLbs ?? 0f;
             total += EquippedChestRig?.Data?.WeightLbs ?? 0f;
