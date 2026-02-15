@@ -84,30 +84,24 @@ namespace XCOM_3
             }
 
             var open = new List<GridNode> { startNode };
+            var openSet = new HashSet<GridNode> { startNode };
             var came = new Dictionary<GridNode, GridNode>();
             var g = new Dictionary<GridNode, int> { { startNode, 0 } };
             var f = new Dictionary<GridNode, int> { { startNode, Heuristic(startNode, goalNode) } };
 
             while (open.Count > 0)
             {
-                GridNode cur = open.OrderBy(p => f.GetValueOrDefault(p, int.MaxValue)).First();
+                GridNode cur = GetLowestCostNode(open, f);
                 if (cur.Equals(goalNode))
                     return ReconstructPath(came, cur);
 
                 open.Remove(cur);
+                openSet.Remove(cur);
 
                 foreach (var n in GetNeighbors(cur))
                 {
-                    if (n.Floor < 0 || n.Floor >= floorCount) continue;
-
-                    if (n.Floor == cur.Floor && BlocksMovement(cur.Cell, n.Cell))
+                    if (!CanTraverseNeighbor(cur, n, goalNode, movingUnit))
                         continue;
-
-                    if (!n.Equals(goalNode))
-                    {
-                        if (!IsWalkable(n.Cell, n.Floor, movingUnit))
-                            continue;
-                    }
 
                     int tentative = g[cur] + 1;
                     if (tentative > maxCost) continue;
@@ -117,7 +111,8 @@ namespace XCOM_3
                         came[n] = cur;
                         g[n] = tentative;
                         f[n] = tentative + Heuristic(n, goalNode);
-                        if (!open.Contains(n)) open.Add(n);
+                        if (openSet.Add(n))
+                            open.Add(n);
                     }
                 }
             }
@@ -135,6 +130,40 @@ namespace XCOM_3
         private int Heuristic(GridNode a, GridNode b)
         {
             return Math.Abs(a.Cell.X - b.Cell.X) + Math.Abs(a.Cell.Y - b.Cell.Y) + Math.Abs(a.Floor - b.Floor);
+        }
+
+        private GridNode GetLowestCostNode(List<GridNode> openNodes, Dictionary<GridNode, int> fScores)
+        {
+            var bestNode = openNodes[0];
+            var bestScore = fScores.GetValueOrDefault(bestNode, int.MaxValue);
+
+            for (int i = 1; i < openNodes.Count; i++)
+            {
+                var node = openNodes[i];
+                var score = fScores.GetValueOrDefault(node, int.MaxValue);
+
+                if (score < bestScore)
+                {
+                    bestNode = node;
+                    bestScore = score;
+                }
+            }
+
+            return bestNode;
+        }
+
+        private bool CanTraverseNeighbor(GridNode current, GridNode neighbor, GridNode goalNode, Unit movingUnit)
+        {
+            if (neighbor.Floor < 0 || neighbor.Floor >= floorCount)
+                return false;
+
+            if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell))
+                return false;
+
+            if (neighbor.Equals(goalNode))
+                return true;
+
+            return IsWalkable(neighbor.Cell, neighbor.Floor, movingUnit);
         }
 
         private PathResult ReconstructPath(Dictionary<GridNode, GridNode> came, GridNode cur)
