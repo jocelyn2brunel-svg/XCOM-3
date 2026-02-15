@@ -1261,6 +1261,9 @@ namespace XCOM_3
             int gridPixelWidth = GRID_WIDTH * CELL_SIZE;
             int gridPixelHeight = GRID_HEIGHT * CELL_SIZE;
             Rectangle gridArea = new Rectangle(gridStartX, gridStartY, gridPixelWidth, gridPixelHeight);
+            Rectangle inventoryContentBounds = GetInventoryContentBounds();
+
+            DrawInventoryGridBackdrop(inventoryContentBounds, gridArea);
 
             // Fond de grille medium
             spriteBatch.Draw(pixel, gridArea, ParasiteEveTheme.BackgroundMedium * 0.5f);
@@ -1281,6 +1284,21 @@ namespace XCOM_3
                     DrawGridItem(item);
                 }
             }
+        }
+
+        private void DrawInventoryGridBackdrop(Rectangle contentBounds, Rectangle gridArea)
+        {
+            Point alignedGridOrigin = new Point(
+                contentBounds.X + PositiveModulo(gridArea.X - contentBounds.X, CELL_SIZE),
+                contentBounds.Y + PositiveModulo(gridArea.Y - contentBounds.Y, CELL_SIZE));
+
+            spriteBatch.Draw(pixel, contentBounds, ParasiteEveTheme.BackgroundMedium * 0.28f);
+
+            for (int x = alignedGridOrigin.X; x <= contentBounds.Right; x += CELL_SIZE)
+                spriteBatch.Draw(pixel, new Rectangle(x, contentBounds.Y, 1, contentBounds.Height), ParasiteEveTheme.TextDim * 0.12f);
+
+            for (int y = alignedGridOrigin.Y; y <= contentBounds.Bottom; y += CELL_SIZE)
+                spriteBatch.Draw(pixel, new Rectangle(contentBounds.X, y, contentBounds.Width, 1), ParasiteEveTheme.TextDim * 0.12f);
         }
 
         private void DrawEquipmentSlots(int equipX, int equipY, Unit unit)
@@ -1530,6 +1548,16 @@ namespace XCOM_3
             int width = GRID_WIDTH * CELL_SIZE + SECTION_PADDING * 2;
             int x = graphicsDevice.Viewport.Width / 2 - width / 2;
             return new Rectangle(x, GetMainWindowY(), width, GetMainWindowHeight());
+        }
+
+        private Rectangle GetInventoryContentBounds()
+        {
+            Rectangle inventoryBounds = GetInventoryPanelBounds();
+            return new Rectangle(
+                inventoryBounds.X + SECTION_PADDING,
+                inventoryBounds.Y + SECTION_HEADER_HEIGHT + SECTION_PADDING,
+                inventoryBounds.Width - SECTION_PADDING * 2,
+                inventoryBounds.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
         }
 
         private Rectangle GetEquipmentPanelBounds(Unit unit)
