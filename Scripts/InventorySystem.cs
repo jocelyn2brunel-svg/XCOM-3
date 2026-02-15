@@ -673,19 +673,6 @@ namespace XCOM_3
                 return true;
             }
 
-            if (item.Data.Type == ItemType.Accessory && GetBeltSlotBounds().Contains(mousePosition))
-            {
-                if (unit.EquippedAccessory != null)
-                    ReturnItemToGrid(unit.EquippedAccessory);
-                if (unit.EquippedBelt != null)
-                    ReturnItemToGrid(unit.EquippedBelt);
-
-                unit.EquippedAccessory = new Item(item.Data, Point.Zero);
-                unit.EquippedBelt = null;
-                Console.WriteLine($"[INVENTORY] ✅ Equipped accessory on belt: {item.Data.Name}");
-                return true;
-            }
-
             int pantsCapacity = unit.GetPantsInventoryCapacity();
             int chestRigCapacity = unit.GetChestRigInventoryCapacity();
             int backpackCapacity = unit.GetBackpackInventoryCapacity();
@@ -873,23 +860,6 @@ namespace XCOM_3
                     unit.EnsureBackpackInventoryGrid();
                     unit.RefreshGrenadeInventoryFromEquipment();
                     Console.WriteLine($"[INVENTORY] ✅ Equipped backpack: {item.Data.Name}");
-                    return true;
-                }
-            }
-
-            if (item.Data.Type == ItemType.Accessory)
-            {
-                Rectangle beltSlot = GetBeltSlotBounds();
-                if (beltSlot.Contains(mousePosition))
-                {
-                    if (unit.EquippedAccessory != null)
-                        ReturnItemToGrid(unit.EquippedAccessory);
-                    if (unit.EquippedBelt != null)
-                        ReturnItemToGrid(unit.EquippedBelt);
-
-                    unit.EquippedAccessory = new Item(item.Data, Point.Zero);
-                    unit.EquippedBelt = null;
-                    Console.WriteLine($"[INVENTORY] ✅ Equipped accessory on belt: {item.Data.Name}");
                     return true;
                 }
             }
@@ -1490,13 +1460,6 @@ namespace XCOM_3
                 }
             }
 
-            if (item.Data.Type == ItemType.Accessory && GetBeltSlotBounds().Contains(mousePosition))
-            {
-                previewRect = GetBeltSlotBounds();
-                canEquip = true;
-                return true;
-            }
-
             int pantsCapacity = unit.GetPantsInventoryCapacity();
             for (int i = 0; i < pantsCapacity; i++)
             {
@@ -1622,8 +1585,7 @@ namespace XCOM_3
             Item beltItem = unit.EquippedAccessory ?? unit.EquippedBelt;
             DrawEquipmentSlot(GetBeltSlotBounds(), "BELT", beltItem,
                 isDragging &&
-                (draggedItem.Data.Type == ItemType.Accessory ||
-                (draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Belt)),
+                draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Belt,
                 labelOnLeft: true);
 
             Rectangle backpackSlot = GetBackpackSlotBounds();
