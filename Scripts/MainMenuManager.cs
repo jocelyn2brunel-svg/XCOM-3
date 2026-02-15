@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
@@ -29,7 +30,15 @@ namespace XCOM_3
         private MenuScreen _currentScreen = MenuScreen.Main;
 
         // --- Musique de menu ---
-        private List<Song> _menuSongs;
+        private ContentManager _content;
+        private readonly string[] _menuSongAssetNames =
+        {
+            "menu_music_1",
+            "menu_music_2",
+            "menu_music_3",
+            "menu_music_4"
+        };
+        private readonly Dictionary<string, Song> _songCache = new();
         private Song _currentSong;
 
         // --- État de sauvegarde ---
@@ -61,17 +70,10 @@ namespace XCOM_3
         /// </summary>
         public void LoadContent(Microsoft.Xna.Framework.Content.ContentManager content)
         {
+            _content = content;
+
             // Créer les boutons du menu
             _menuButtons = CreateMenuButtons();
-
-            // Charger les musiques de menu
-            _menuSongs = new[]
-            {
-                "menu_music_1",
-                "menu_music_2",
-                "menu_music_3",
-                "menu_music_4"
-            }.Select(content.Load<Song>).ToList();
 
             // Jouer une musique aléatoire
             PlayRandomMenuSong();
@@ -121,7 +123,16 @@ namespace XCOM_3
         /// </summary>
         public void PlayRandomMenuSong()
         {
-            _currentSong = _menuSongs[_random.Next(_menuSongs.Count)];
+            if (_content == null || _menuSongAssetNames.Length == 0)
+                return;
+
+            string songAssetName = _menuSongAssetNames[_random.Next(_menuSongAssetNames.Length)];
+            if (!_songCache.TryGetValue(songAssetName, out _currentSong))
+            {
+                _currentSong = _content.Load<Song>(songAssetName);
+                _songCache[songAssetName] = _currentSong;
+            }
+
             MediaPlayer.Play(_currentSong);
             MediaPlayer.Volume = 0.5f;
             
