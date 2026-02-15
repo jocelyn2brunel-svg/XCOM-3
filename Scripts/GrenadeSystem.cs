@@ -32,8 +32,8 @@ namespace XCOM_3
         public int DigDepth;            // Profondeur du cratère (0-3)
         public int AOCost;              // Coût en points d'action
 
-        public GrenadeData(string name, GrenadeType type, int damage, int radius, 
-                          bool destroyWalls = false, bool digsTerrain = false, 
+        public GrenadeData(string name, GrenadeType type, int damage, int radius,
+                          bool destroyWalls = false, bool digsTerrain = false,
                           int digDepth = 0, int aoCost = 1)
         {
             Name = name;
@@ -66,7 +66,7 @@ namespace XCOM_3
             TargetPosition = target;
             Progress = 0f;
             Thrower = thrower;
-            
+
             // Calculer la hauteur de l'arc selon la distance
             float distance = Vector3.Distance(start, target);
             ArcHeight = Math.Min(distance * 0.5f, 8f);
@@ -82,7 +82,7 @@ namespace XCOM_3
             // Ajouter l'arc parabolique
             float arcProgress = 4f * Progress * (1f - Progress);
             float height = arcProgress * ArcHeight;
-            
+
             return linearPos + new Vector3(0, height, 0);
         }
     }
@@ -128,13 +128,13 @@ namespace XCOM_3
                 for (int y = center.Y - radius; y <= center.Y + radius; y++)
                 {
                     Point cell = new Point(x, y);
-                    
+
                     // Vérifier la distance (cercle, pas carré)
                     float distance = Vector2.Distance(
                         new Vector2(center.X, center.Y),
                         new Vector2(x, y)
                     );
-                    
+
                     if (distance <= radius)
                     {
                         cells.Add(cell);
@@ -186,7 +186,7 @@ namespace XCOM_3
                 {
                     // Chance de destruction selon la distance
                     float destroyChance = 1f - (distance / (radius + 1));
-                    
+
                     if (random.Next(100) < destroyChance * 100)
                     {
                         destroyed.Add(wall);
@@ -211,7 +211,7 @@ namespace XCOM_3
 
             // Cratères secondaires autour
             List<Point> explosionCells = GetExplosionCells(center, radius / 2);
-            
+
             foreach (var cell in explosionCells)
             {
                 if (cell == center) continue;
@@ -223,7 +223,7 @@ namespace XCOM_3
 
                 // Profondeur diminue avec la distance
                 int cellDepth = Math.Max(1, digDepth - (int)distance);
-                
+
                 if (cellDepth > 0 && random.Next(100) < 50)
                 {
                     craters.Add(new Crater(cell, cellDepth));
@@ -254,7 +254,7 @@ namespace XCOM_3
         public static List<Vector3> CalculateArcPoints(Vector3 start, Vector3 end, int numPoints = 20)
         {
             List<Vector3> points = new List<Vector3>();
-            
+
             float distance = Vector3.Distance(start, end);
             float arcHeight = Math.Min(distance * 0.5f, 8f);
 
@@ -266,7 +266,7 @@ namespace XCOM_3
                 // Arc parabolique
                 float arcProgress = 4f * t * (1f - t);
                 float height = arcProgress * arcHeight;
-                
+
                 points.Add(linearPos + new Vector3(0, height, 0));
             }
 
@@ -288,7 +288,7 @@ namespace XCOM_3
                         continue;
 
                     Point cell = new Point(x, y);
-                    
+
                     if (IsInThrowRange(from, cell, maxRange))
                     {
                         cells.Add(cell);

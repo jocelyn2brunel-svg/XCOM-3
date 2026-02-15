@@ -53,7 +53,7 @@ namespace XCOM_3
             Type = type;
         }
 
-        // Garde tes méthodes Equals et GetHashCode telles quelles ! 
+        // Garde tes méthodes Equals et GetHashCode telles quelles !
         // On veut toujours identifier un mur par sa position, peu importe s'il se transforme en fenêtre.
         public override bool Equals(object obj)
         {
