@@ -1345,24 +1345,35 @@ namespace XCOM_3
         private void DrawEquipmentGridBackdrop(Unit unit)
         {
             Rectangle panelBounds = GetEquipmentPanelBounds(unit);
-            Rectangle gridArea = new Rectangle(
+            Rectangle gridArea = GetEquipmentContentBounds(panelBounds);
+            Point alignedGridOrigin = GetEquipmentGridAlignedOrigin(gridArea);
+
+            spriteBatch.Draw(pixel, gridArea, ParasiteEveTheme.BackgroundMedium * 0.28f);
+
+            for (int x = alignedGridOrigin.X; x <= gridArea.Right; x += CELL_SIZE)
+                spriteBatch.Draw(pixel, new Rectangle(x, gridArea.Y, 1, gridArea.Height), ParasiteEveTheme.TextDim * 0.15f);
+
+            for (int y = alignedGridOrigin.Y; y <= gridArea.Bottom; y += CELL_SIZE)
+                spriteBatch.Draw(pixel, new Rectangle(gridArea.X, y, gridArea.Width, 1), ParasiteEveTheme.TextDim * 0.15f);
+        }
+
+        private Rectangle GetEquipmentContentBounds(Rectangle panelBounds)
+        {
+            return new Rectangle(
                 panelBounds.X + SECTION_PADDING,
                 panelBounds.Y + SECTION_HEADER_HEIGHT + SECTION_PADDING,
                 panelBounds.Width - SECTION_PADDING * 2,
                 panelBounds.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
+        }
 
+        private Point GetEquipmentGridAlignedOrigin(Rectangle gridArea)
+        {
             int inventoryGridStartX = GetGridStartX();
             int inventoryGridStartY = GetGridStartY();
-            int alignedStartX = gridArea.X + PositiveModulo(inventoryGridStartX - gridArea.X, CELL_SIZE);
-            int alignedStartY = gridArea.Y + PositiveModulo(inventoryGridStartY - gridArea.Y, CELL_SIZE);
 
-            spriteBatch.Draw(pixel, gridArea, ParasiteEveTheme.BackgroundMedium * 0.28f);
-
-            for (int x = alignedStartX; x <= gridArea.Right; x += CELL_SIZE)
-                spriteBatch.Draw(pixel, new Rectangle(x, gridArea.Y, 1, gridArea.Height), ParasiteEveTheme.TextDim * 0.15f);
-
-            for (int y = alignedStartY; y <= gridArea.Bottom; y += CELL_SIZE)
-                spriteBatch.Draw(pixel, new Rectangle(gridArea.X, y, gridArea.Width, 1), ParasiteEveTheme.TextDim * 0.15f);
+            return new Point(
+                gridArea.X + PositiveModulo(inventoryGridStartX - gridArea.X, CELL_SIZE),
+                gridArea.Y + PositiveModulo(inventoryGridStartY - gridArea.Y, CELL_SIZE));
         }
 
         private static int PositiveModulo(int value, int modulo)
@@ -1596,12 +1607,12 @@ namespace XCOM_3
 
         private Rectangle GetMainEquipmentSlotBounds(int row)
         {
-            int equipX = GetEquipX();
-            int equipY = GetEquipY();
+            Rectangle equipmentContent = GetEquipmentContentBounds(GetEquipmentPanelBounds(null));
+            Point alignedGridOrigin = GetEquipmentGridAlignedOrigin(equipmentContent);
 
             return new Rectangle(
-                equipX + EQUIP_SLOT_LEFT_PADDING,
-                equipY + EQUIP_LABEL_ROW_HEIGHT + row * (CELL_SIZE + EQUIP_SLOT_VERTICAL_SPACING),
+                alignedGridOrigin.X + EQUIP_SLOT_LEFT_PADDING,
+                alignedGridOrigin.Y + EQUIP_LABEL_ROW_HEIGHT + row * (CELL_SIZE + EQUIP_SLOT_VERTICAL_SPACING),
                 CELL_SIZE,
                 CELL_SIZE
             );
