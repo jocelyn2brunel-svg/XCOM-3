@@ -40,6 +40,7 @@ namespace XCOM_3
         private InventoryGrid inventoryGrid;
         private GridItem draggedItem = null;
         private Point dragGridOffset;
+        private readonly List<ItemData> nearbyLootItems = new List<ItemData>();
         public Dictionary<string, ItemData> ItemDatabase { get; private set; }
 
         // Ressources graphiques (injectées)
@@ -457,6 +458,19 @@ namespace XCOM_3
 
         private void HandleEndDrag(MouseState mouse, Unit unit, int gridStartX, int gridStartY)
         {
+            Rectangle inventoryWindow = GetInventoryPanelBounds();
+            Rectangle lootWindow = GetLootPanelBounds();
+            bool droppedOutsideInterface =
+                !inventoryWindow.Contains(mouse.Position) && !lootWindow.Contains(mouse.Position);
+
+            if (droppedOutsideInterface)
+            {
+                nearbyLootItems.Add(draggedItem.Data);
+                Console.WriteLine($"[INVENTORY] Dropped outside interface, sent to nearby loot: {draggedItem.Data.Name}");
+                draggedItem = null;
+                return;
+            }
+
             // ✅ VÉRIFIER D'ABORD L'ÉQUIPEMENT (priorité absolue)
             bool equipped = TryEquipInSlot(mouse.Position, draggedItem, unit);
 
@@ -1301,17 +1315,46 @@ namespace XCOM_3
             spriteBatch.Draw(pixel, content, ParasiteEveTheme.BackgroundDark * 0.35f);
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, content, ParasiteEveTheme.BorderColor, 1);
 
-            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                "Aucun loot detecte a portee.",
-                new Vector2(content.X + 8, content.Y + 10),
-                ParasiteEveTheme.TextDim,
-                0.65f);
+            if (nearbyLootItems.Count == 0)
+            {
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                    "Aucun loot detecte a portee.",
+                    new Vector2(content.X + 8, content.Y + 10),
+                    ParasiteEveTheme.TextDim,
+                    0.65f);
+
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                    "Approchez-vous d'un conteneur\nou d'un ennemi neutralise\npour afficher les objets ici.",
+                    new Vector2(content.X + 8, content.Y + 42),
+                    ParasiteEveTheme.TextNormal,
+                    0.6f);
+                return;
+            }
 
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                "Approchez-vous d'un conteneur\nou d'un ennemi neutralise\npour afficher les objets ici.",
-                new Vector2(content.X + 8, content.Y + 42),
-                ParasiteEveTheme.TextNormal,
-                0.6f);
+                $"Objets au sol: {nearbyLootItems.Count}",
+                new Vector2(content.X + 8, content.Y + 10),
+                ParasiteEveTheme.TextHighlight,
+                0.65f);
+
+            int maxVisible = Math.Min(nearbyLootItems.Count, 10);
+            for (int i = 0; i < maxVisible; i++)
+            {
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                    $"- {nearbyLootItems[i].Name}",
+                    new Vector2(content.X + 8, content.Y + 36 + i * 20),
+                    ParasiteEveTheme.TextNormal,
+                    0.55f);
+            }
+
+            if (nearbyLootItems.Count > maxVisible)
+            {
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                    $"... +{nearbyLootItems.Count - maxVisible} autres",
+                    new Vector2(content.X + 8, content.Y + 36 + maxVisible * 20),
+                    ParasiteEveTheme.TextDim,
+                    0.55f);
+            }
         }
 
         private void DrawWindow(Rectangle bounds, string title)
