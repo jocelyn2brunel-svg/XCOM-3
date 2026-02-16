@@ -66,6 +66,10 @@ namespace XCOM_3
         public Item EquippedArmor { get; set; }
         public Item EquippedShield { get; set; }
         public Item EquippedAccessory { get; set; }
+        public Item EquippedRightHandFlashlight { get; set; }
+        public Item EquippedLeftHandFlashlight { get; set; }
+        public bool IsRightHandFlashlightOn { get; set; } = false;
+        public bool IsLeftHandFlashlightOn { get; set; } = false;
         public Item EquippedShirt { get; set; }
         public Item EquippedPants { get; set; }
         public Item EquippedChestRig { get; set; }
@@ -155,6 +159,10 @@ namespace XCOM_3
             EquippedArmor = null;
             EquippedShield = null;
             EquippedAccessory = null;
+            EquippedRightHandFlashlight = null;
+            EquippedLeftHandFlashlight = null;
+            IsRightHandFlashlightOn = false;
+            IsLeftHandFlashlightOn = false;
             EquippedShirt = null;
             EquippedPants = null;
             EquippedChestRig = null;
@@ -196,6 +204,10 @@ namespace XCOM_3
             EquippedArmor = other.EquippedArmor;
             EquippedShield = other.EquippedShield;  // NOUVEAU
             EquippedAccessory = other.EquippedAccessory;
+            EquippedRightHandFlashlight = other.EquippedRightHandFlashlight;
+            EquippedLeftHandFlashlight = other.EquippedLeftHandFlashlight;
+            IsRightHandFlashlightOn = other.IsRightHandFlashlightOn;
+            IsLeftHandFlashlightOn = other.IsLeftHandFlashlightOn;
             EquippedShirt = other.EquippedShirt;    // NOUVEAU
             EquippedPants = other.EquippedPants;
             EquippedChestRig = other.EquippedChestRig;
@@ -309,6 +321,8 @@ namespace XCOM_3
             total += EquippedArmor?.Data?.WeightLbs ?? 0f;
             total += EquippedShield?.Data?.WeightLbs ?? 0f;
             total += EquippedAccessory?.Data?.WeightLbs ?? 0f;
+            total += EquippedRightHandFlashlight?.Data?.WeightLbs ?? 0f;
+            total += EquippedLeftHandFlashlight?.Data?.WeightLbs ?? 0f;
             total += EquippedShirt?.Data?.WeightLbs ?? 0f;
             total += EquippedPants?.Data?.WeightLbs ?? 0f;
             total += EquippedChestRig?.Data?.WeightLbs ?? 0f;

@@ -391,7 +391,11 @@ namespace XCOM_3
 
         private static bool HasEquippedTacticalFlashlight(Unit unit)
         {
-            return string.Equals(unit?.EquippedAccessory?.Data?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase);
+            bool rightOn = string.Equals(unit?.EquippedRightHandFlashlight?.Data?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase)
+                && unit.IsRightHandFlashlightOn;
+            bool leftOn = string.Equals(unit?.EquippedLeftHandFlashlight?.Data?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase)
+                && unit.IsLeftHandFlashlightOn;
+            return rightOn || leftOn;
         }
 
         private void DrawTacticalFlashlight(GraphicsDevice device, BasicEffect effect, Vector3 pos,
