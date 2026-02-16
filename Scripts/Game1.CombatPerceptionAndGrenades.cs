@@ -15,6 +15,20 @@ namespace XCOM_3
         private const int BaseThrowAccuracyPercent = 92;
         private const int ThrowDistancePenaltyPercentPerCell = 7;
 
+        private readonly struct Mk2FragmentationPreviewInfo
+        {
+            public Unit Unit { get; }
+            public int HitChancePercent { get; }
+            public Vector3 UnitWorldCenter { get; }
+
+            public Mk2FragmentationPreviewInfo(Unit unit, int hitChancePercent, Vector3 unitWorldCenter)
+            {
+                Unit = unit;
+                HitChancePercent = hitChancePercent;
+                UnitWorldCenter = unitWorldCenter;
+            }
+        }
+
         private void UpdateEnemyPerceptionVisibility()
         {
             currentlySpottedEnemies.Clear();
@@ -457,6 +471,7 @@ namespace XCOM_3
             {
                 DrawVolumetricGrenadeGhost(throwTarget, 0f, Mk2LethalRadius, new Color(255, 40, 40, 60) * pulse);
                 DrawVolumetricGrenadeGhost(throwTarget, Mk2FragmentationStartRadius, Mk2FragmentationEndRadius, new Color(255, 235, 80, 40) * pulse);
+                DrawMk2FragmentationDirectionPreview(throwTarget, viewedFloor, pulse);
             }
 
             if (!throwModeUsesFlashlight)
@@ -480,6 +495,152 @@ namespace XCOM_3
                     Vector3 p = Vector3.Lerp(a, b, t);
                     renderer3D.DrawCube(p, new Vector3(cellSize * 0.08f), Color.White * 0.85f);
                 }
+            }
+        }
+
+        private List<Mk2FragmentationPreviewInfo> GetMk2FragmentationPreviewInfos(Point centerCell, int centerFloor)
+        {
+            List<Mk2FragmentationPreviewInfo> result = new List<Mk2FragmentationPreviewInfo>();
+
+            void AddUnits(List<Unit> units)
+            {
+                foreach (Unit unit in units)
+                {
+                    if (unit == null || unit.Health <= 0 || unit.Floor != viewedFloor)
+                        continue;
+
+                    if (unit.Team == Team.Enemy && !IsEnemyVisibleToPlayers(unit))
+                        continue;
+
+                    if (!TryGetMk2FragmentationHitChancePercent(centerCell, centerFloor, unit, out int hitChancePercent))
+                        continue;
+
+                    Vector3 worldCenter = new Vector3(
+                        unit.Cell.X * cellSize + cellSize / 2f,
+                        unit.Floor * cellSize + cellSize * 0.95f,
+                        unit.Cell.Y * cellSize + cellSize / 2f);
+
+                    result.Add(new Mk2FragmentationPreviewInfo(unit, hitChancePercent, worldCenter));
+                }
+            }
+
+            AddUnits(playerUnits);
+            AddUnits(enemyUnits);
+
+            return result;
+        }
+
+        private bool TryGetMk2FragmentationHitChancePercent(Point centerCell, int centerFloor, Unit unit, out int hitChancePercent)
+        {
+            hitChancePercent = 0;
+
+            if (unit == null || unit.Health <= 0)
+                return false;
+
+            float distance = Vector2.Distance(new Vector2(centerCell.X, centerCell.Y), new Vector2(unit.Cell.X, unit.Cell.Y));
+            if (distance < Mk2FragmentationStartRadius || distance > Mk2FragmentationEndRadius)
+                return false;
+
+            if (!IsUnitExposedToExplosion(centerCell, centerFloor, unit))
+                return false;
+
+            if (HasMk2FragmentationProtection(unit))
+                return false;
+
+            float hitChance = 0.8f * (Mk2FragmentationEndRadius - distance) / (Mk2FragmentationEndRadius - Mk2FragmentationStartRadius);
+            hitChance = MathHelper.Clamp(hitChance, 0f, 0.8f);
+
+            hitChancePercent = (int)Math.Round(hitChance * 100f);
+            return hitChancePercent > 0;
+        }
+
+        private void DrawMk2FragmentationDirectionPreview(Point centerCell, int centerFloor, float pulse)
+        {
+            List<Mk2FragmentationPreviewInfo> infos = GetMk2FragmentationPreviewInfos(centerCell, centerFloor);
+            if (infos.Count == 0)
+                return;
+
+            Vector3 blastOrigin = new Vector3(
+                centerCell.X * cellSize + cellSize / 2f,
+                centerFloor * cellSize + cellSize * 0.12f,
+                centerCell.Y * cellSize + cellSize / 2f);
+
+            foreach (Mk2FragmentationPreviewInfo info in infos)
+            {
+                Color rayColor = GetMk2PreviewChanceColor(info.HitChancePercent) * (0.55f + 0.35f * pulse);
+                Vector3 start = blastOrigin;
+                Vector3 end = info.UnitWorldCenter;
+
+                int steps = Math.Max(1, (int)(Vector3.Distance(start, end) / (cellSize * 0.35f)));
+                for (int i = 0; i <= steps; i++)
+                {
+                    float t = i / (float)steps;
+                    Vector3 p = Vector3.Lerp(start, end, t);
+                    renderer3D.DrawCube(p, new Vector3(cellSize * 0.06f), rayColor);
+                }
+
+                Vector3 direction = end - start;
+                if (direction.LengthSquared() > 0.0001f)
+                {
+                    direction.Normalize();
+                    Vector3 arrowHead = end + direction * (cellSize * 0.15f);
+                    renderer3D.DrawCube(arrowHead, new Vector3(cellSize * 0.14f), rayColor);
+                }
+            }
+        }
+
+        private Color GetMk2PreviewChanceColor(int hitChancePercent)
+        {
+            if (hitChancePercent >= 60)
+                return new Color(255, 70, 70, 225);
+
+            if (hitChancePercent >= 35)
+                return new Color(255, 170, 70, 220);
+
+            return new Color(255, 230, 120, 210);
+        }
+
+        private void DrawMk2FragmentationHitChanceLabels()
+        {
+            if (!throwMode || throwModeUsesFlashlight)
+                return;
+
+            bool isMk2 = string.Equals(selectedGrenade?.Name, "MK 2", StringComparison.OrdinalIgnoreCase);
+            if (!isMk2 || throwTarget.X < 0 || throwTarget.Y < 0)
+                return;
+
+            List<Mk2FragmentationPreviewInfo> infos = GetMk2FragmentationPreviewInfos(throwTarget, viewedFloor);
+            if (infos.Count == 0)
+                return;
+
+            foreach (Mk2FragmentationPreviewInfo info in infos)
+            {
+                Vector3 worldTextAnchor = info.UnitWorldCenter + new Vector3(0f, cellSize * 0.95f, 0f);
+                Vector3 projected = GraphicsDevice.Viewport.Project(
+                    worldTextAnchor,
+                    camera.ProjectionMatrix,
+                    camera.ViewMatrix,
+                    Matrix.Identity);
+
+                if (projected.Z <= 0f || projected.Z >= 1f)
+                    continue;
+
+                string label = $"Frag {info.HitChancePercent}%";
+                Vector2 textSize = font.MeasureString(label);
+                Vector2 panelSize = textSize + new Vector2(14f, 8f) * 2f;
+                Vector2 panelPos = new Vector2(
+                    projected.X - panelSize.X / 2f,
+                    projected.Y - panelSize.Y - 10f);
+
+                Rectangle panelRect = new Rectangle(
+                    (int)panelPos.X,
+                    (int)panelPos.Y,
+                    (int)panelSize.X,
+                    (int)panelSize.Y);
+
+                _spriteBatch.Draw(pixel, panelRect, new Color(20, 22, 20, 210));
+                DrawPanelBorder(panelRect, GetMk2PreviewChanceColor(info.HitChancePercent));
+                _spriteBatch.DrawString(font, label, panelPos + new Vector2(14f, 8f), new Color(250, 250, 230));
             }
         }
 
