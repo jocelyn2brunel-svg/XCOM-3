@@ -99,6 +99,13 @@ namespace XCOM_3
             }
         }
 
+        private enum FlashlightHand
+        {
+            None,
+            Right,
+            Left
+        }
+
 
         // ═══════════════════════════════════════════════════════════════════════
         // CONSTRUCTEUR
@@ -173,6 +180,39 @@ namespace XCOM_3
         private static bool IsTacticalFlashlight(ItemData data)
         {
             return string.Equals(data?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsHandFlashlightSource(string source)
+        {
+            return source == "rightflashlight" || source == "leftflashlight";
+        }
+
+        private static FlashlightHand GetFlashlightHandFromSource(string source)
+        {
+            if (source == "rightflashlight") return FlashlightHand.Right;
+            if (source == "leftflashlight") return FlashlightHand.Left;
+            return FlashlightHand.None;
+        }
+
+        private static bool TryToggleFlashlight(ItemContextInfo info, Unit unit)
+        {
+            if (!IsTacticalFlashlight(info.Data) || unit == null)
+                return false;
+
+            FlashlightHand hand = GetFlashlightHandFromSource(info.Source);
+            if (hand == FlashlightHand.Right)
+            {
+                unit.IsRightHandFlashlightOn = !unit.IsRightHandFlashlightOn;
+                return true;
+            }
+
+            if (hand == FlashlightHand.Left)
+            {
+                unit.IsLeftHandFlashlightOn = !unit.IsLeftHandFlashlightOn;
+                return true;
+            }
+
+            return false;
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -395,16 +435,30 @@ namespace XCOM_3
             // ✅ VÉRIFIER ET DÉSÉQUIPER LES SLOTS
             // ✅ VÉRIFIER ET DÉSÉQUIPER LES SLOTS
             Rectangle weaponSlot = GetWeaponSlotBounds();
-            if (unit.EquippedWeapon != null && weaponSlot.Contains(mouse.Position))
+            if (weaponSlot.Contains(mouse.Position))
             {
-                StartDragFromEquipment(unit.EquippedWeapon, mouse, weaponSlot);
-                unit.EquippedWeapon = null;
-                unit.Weapon = string.Empty;
-                unit.WeaponData = null;
-                PlayUiSound(uiClickSound, 0.48f);
+                if (unit.EquippedWeapon != null)
+                {
+                    StartDragFromEquipment(unit.EquippedWeapon, mouse, weaponSlot);
+                    unit.EquippedWeapon = null;
+                    unit.Weapon = string.Empty;
+                    unit.WeaponData = null;
+                    PlayUiSound(uiClickSound, 0.48f);
 
-                Console.WriteLine($"[INVENTORY] Unequipped weapon: {draggedItem.Data.Name}");
-                return;
+                    Console.WriteLine($"[INVENTORY] Unequipped weapon: {draggedItem.Data.Name}");
+                    return;
+                }
+
+                if (unit.EquippedRightHandFlashlight != null)
+                {
+                    StartDragFromEquipment(unit.EquippedRightHandFlashlight, mouse, weaponSlot);
+                    unit.EquippedRightHandFlashlight = null;
+                    unit.IsRightHandFlashlightOn = false;
+                    PlayUiSound(uiClickSound, 0.48f);
+
+                    Console.WriteLine($"[INVENTORY] Unequipped right hand flashlight: {draggedItem.Data.Name}");
+                    return;
+                }
             }
 
             Rectangle helmetSlot = GetHelmetSlotBounds();
@@ -430,14 +484,28 @@ namespace XCOM_3
             }
 
             Rectangle shieldSlot = GetShieldSlotBounds();
-            if (unit.EquippedShield != null && shieldSlot.Contains(mouse.Position))
+            if (shieldSlot.Contains(mouse.Position))
             {
-                StartDragFromEquipment(unit.EquippedShield, mouse, shieldSlot);
-                unit.EquippedShield = null;
-                PlayUiSound(uiClickSound, 0.48f);
+                if (unit.EquippedShield != null)
+                {
+                    StartDragFromEquipment(unit.EquippedShield, mouse, shieldSlot);
+                    unit.EquippedShield = null;
+                    PlayUiSound(uiClickSound, 0.48f);
 
-                Console.WriteLine($"[INVENTORY] Unequipped shield: {draggedItem.Data.Name}");
-                return;
+                    Console.WriteLine($"[INVENTORY] Unequipped shield: {draggedItem.Data.Name}");
+                    return;
+                }
+
+                if (unit.EquippedLeftHandFlashlight != null)
+                {
+                    StartDragFromEquipment(unit.EquippedLeftHandFlashlight, mouse, shieldSlot);
+                    unit.EquippedLeftHandFlashlight = null;
+                    unit.IsLeftHandFlashlightOn = false;
+                    PlayUiSound(uiClickSound, 0.48f);
+
+                    Console.WriteLine($"[INVENTORY] Unequipped left hand flashlight: {draggedItem.Data.Name}");
+                    return;
+                }
             }
 
             Rectangle beltSlot = GetBeltSlotBounds();
@@ -740,6 +808,16 @@ namespace XCOM_3
                     return false;
             }
 
+            FlashlightHand flashlightHand = TryGetFlashlightHandForSlot(mousePosition);
+            if (IsTacticalFlashlight(item.Data) && flashlightHand != FlashlightHand.None)
+            {
+                EquipFlashlightInHand(unit, flashlightHand, item.Data);
+                PlayUiSound(uiEquipSound, 0.6f);
+
+                Console.WriteLine($"[INVENTORY] ✅ Equipped flashlight in {flashlightHand} hand: {item.Data.Name}");
+                return true;
+            }
+
             Rectangle weaponSlot = GetWeaponSlotBounds();
             if (item.Data.Type == ItemType.Weapon && weaponSlot.Contains(mousePosition))
             {
@@ -1018,7 +1096,16 @@ namespace XCOM_3
                 var clickedItem = GetItemUnderMouse(mouse.Position, unit, gridStartX, gridStartY);
                 if (clickedItem.HasValue)
                 {
-                    contextMenuItem = clickedItem.Value;
+                    ItemContextInfo info = clickedItem.Value;
+                    if (TryToggleFlashlight(info, unit))
+                    {
+                        showContextMenu = false;
+                        showExaminePopup = false;
+                        PlayUiSound(uiClickSound, 0.55f);
+                        return;
+                    }
+
+                    contextMenuItem = info;
                     contextMenuRect = BuildContextWindow(mouse.Position);
                     contextEquipButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 76, contextMenuRect.Width - 24, 22);
                     contextExamineButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 50, contextMenuRect.Width - 24, 22);
@@ -1126,7 +1213,7 @@ namespace XCOM_3
                 if (info.Data.ArmorSlot == ArmorSlot.Backpack && info.Source == "backpack") return true;
             }
 
-            if (info.Data.Type == ItemType.Accessory && info.Source == "accessory")
+            if (info.Data.Type == ItemType.Accessory && (info.Source == "accessory" || IsHandFlashlightSource(info.Source)))
                 return true;
 
             bool isPocket = ItemSizeDatabase.IsPocketSized(info.Data.Name);
@@ -1161,6 +1248,21 @@ namespace XCOM_3
 
             if (data.Type == ItemType.Accessory)
             {
+                if (IsTacticalFlashlight(data))
+                {
+                    if (unit.EquippedRightHandFlashlight == null)
+                    {
+                        target = GetWeaponSlotBounds().Center;
+                        return true;
+                    }
+
+                    if (unit.EquippedLeftHandFlashlight == null)
+                    {
+                        target = GetShieldSlotBounds().Center;
+                        return true;
+                    }
+                }
+
                 target = GetBeltSlotBounds().Center;
                 return true;
             }
@@ -1213,10 +1315,18 @@ namespace XCOM_3
                 }
             }
 
-            if (unit.EquippedWeapon != null && GetWeaponSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedWeapon.Data, Source = "weapon", Index = -1 };
+            if (GetWeaponSlotBounds().Contains(mousePos))
+            {
+                if (unit.EquippedWeapon != null) return new ItemContextInfo { Data = unit.EquippedWeapon.Data, Source = "weapon", Index = -1 };
+                if (unit.EquippedRightHandFlashlight != null) return new ItemContextInfo { Data = unit.EquippedRightHandFlashlight.Data, Source = "rightflashlight", Index = -1 };
+            }
             if (unit.EquippedHelmet != null && GetHelmetSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedHelmet.Data, Source = "helmet", Index = -1 };
             if (unit.EquippedArmor != null && GetArmorSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedArmor.Data, Source = "armor", Index = -1 };
-            if (unit.EquippedShield != null && GetShieldSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedShield.Data, Source = "shield", Index = -1 };
+            if (GetShieldSlotBounds().Contains(mousePos))
+            {
+                if (unit.EquippedShield != null) return new ItemContextInfo { Data = unit.EquippedShield.Data, Source = "shield", Index = -1 };
+                if (unit.EquippedLeftHandFlashlight != null) return new ItemContextInfo { Data = unit.EquippedLeftHandFlashlight.Data, Source = "leftflashlight", Index = -1 };
+            }
             if (unit.EquippedAccessory != null && GetBeltSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedAccessory.Data, Source = "accessory", Index = -1 };
             if (unit.EquippedShirt != null && GetShirtSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedShirt.Data, Source = "shirt", Index = -1 };
             if (unit.EquippedPants != null && GetPantsSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedPants.Data, Source = "pants", Index = -1 };
@@ -1268,6 +1378,8 @@ namespace XCOM_3
                 case "armor": unit.EquippedArmor = null; break;
                 case "shield": unit.EquippedShield = null; break;
                 case "accessory": unit.EquippedAccessory = null; break;
+                case "rightflashlight": unit.EquippedRightHandFlashlight = null; unit.IsRightHandFlashlightOn = false; break;
+                case "leftflashlight": unit.EquippedLeftHandFlashlight = null; unit.IsLeftHandFlashlightOn = false; break;
                 case "shirt": unit.EquippedShirt = null; break;
                 case "pants": unit.EquippedPants = null; break;
                 case "chestrig": unit.EquippedChestRig = null; break;
@@ -1302,6 +1414,8 @@ namespace XCOM_3
                 case "armor": unit.EquippedArmor = restored; break;
                 case "shield": unit.EquippedShield = restored; break;
                 case "accessory": unit.EquippedAccessory = restored; break;
+                case "rightflashlight": unit.EquippedRightHandFlashlight = restored; unit.IsRightHandFlashlightOn = true; break;
+                case "leftflashlight": unit.EquippedLeftHandFlashlight = restored; unit.IsLeftHandFlashlightOn = true; break;
                 case "shirt": unit.EquippedShirt = restored; break;
                 case "pants": unit.EquippedPants = restored; break;
                 case "chestrig": unit.EquippedChestRig = restored; break;
@@ -1617,6 +1731,51 @@ namespace XCOM_3
             return false;
         }
 
+        private FlashlightHand TryGetFlashlightHandForSlot(Point mousePosition)
+        {
+            if (GetWeaponSlotBounds().Contains(mousePosition))
+                return FlashlightHand.Right;
+
+            if (GetShieldSlotBounds().Contains(mousePosition))
+                return FlashlightHand.Left;
+
+            return FlashlightHand.None;
+        }
+
+        private void EquipFlashlightInHand(Unit unit, FlashlightHand hand, ItemData data)
+        {
+            Item flashlight = new Item(data, Point.Zero);
+            if (hand == FlashlightHand.Right)
+            {
+                if (unit.EquippedWeapon != null)
+                {
+                    ReturnItemToGrid(unit.EquippedWeapon);
+                    unit.EquippedWeapon = null;
+                    unit.Weapon = string.Empty;
+                    unit.WeaponData = null;
+                }
+
+                if (unit.EquippedRightHandFlashlight != null)
+                    ReturnItemToGrid(unit.EquippedRightHandFlashlight);
+
+                unit.EquippedRightHandFlashlight = flashlight;
+                unit.IsRightHandFlashlightOn = true;
+                return;
+            }
+
+            if (unit.EquippedShield != null)
+            {
+                ReturnItemToGrid(unit.EquippedShield);
+                unit.EquippedShield = null;
+            }
+
+            if (unit.EquippedLeftHandFlashlight != null)
+                ReturnItemToGrid(unit.EquippedLeftHandFlashlight);
+
+            unit.EquippedLeftHandFlashlight = flashlight;
+            unit.IsLeftHandFlashlightOn = true;
+        }
+
         private void DrawInventoryGrid(int gridStartX, int gridStartY)
         {
             int gridPixelWidth = GRID_WIDTH * CELL_SIZE;
@@ -1668,12 +1827,16 @@ namespace XCOM_3
             DrawEquipmentGridBackdrop(unit);
 
             // Slots d'équipement principaux (empilés verticalement)
-            DrawEquipmentSlot(GetWeaponSlotBounds(), "RIGHT HAND", unit.EquippedWeapon,
-                isDragging && draggedItem.Data.Type == ItemType.Weapon,
+            Item rightHandItem = unit.EquippedWeapon ?? unit.EquippedRightHandFlashlight;
+            bool highlightRightHand = isDragging && (draggedItem.Data.Type == ItemType.Weapon || IsTacticalFlashlight(draggedItem.Data));
+            DrawEquipmentSlot(GetWeaponSlotBounds(), "RIGHT HAND", rightHandItem,
+                highlightRightHand,
                 labelOnLeft: true);
 
-            DrawEquipmentSlot(GetShieldSlotBounds(), "LEFT HAND", unit.EquippedShield,
-                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield,
+            Item leftHandItem = unit.EquippedShield ?? unit.EquippedLeftHandFlashlight;
+            bool highlightLeftHand = isDragging && ((draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield) || IsTacticalFlashlight(draggedItem.Data));
+            DrawEquipmentSlot(GetShieldSlotBounds(), "LEFT HAND", leftHandItem,
+                highlightLeftHand,
                 labelOnLeft: true);
 
             DrawEquipmentSlot(GetHelmetSlotBounds(), "HEAD", unit.EquippedHelmet,
