@@ -1545,9 +1545,6 @@ namespace XCOM_3
 
                 foreach (var wall in walls)
                 {
-                    if (wall.Type == WallType.Door)
-                        continue;
-
                     if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, revealPoint))
                         fadedWalls.Add(wall);
                 }
@@ -1580,9 +1577,6 @@ namespace XCOM_3
 
                 foreach (var wall in walls)
                 {
-                    if (wall.Type == WallType.Door)
-                        continue;
-
                     if (IsWallBetweenCameraAndUnit(wall, floorHeightOffset, cameraPos, revealPoint))
                         fadedWalls.Add(wall);
                 }
