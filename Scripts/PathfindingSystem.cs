@@ -325,18 +325,64 @@ namespace XCOM_3
 
         public bool HasLineOfSight(Point from, Point to)
         {
-            int x0 = from.X, y0 = from.Y, x1 = to.X, y1 = to.Y;
-            int dx = Math.Abs(x1 - x0), dy = Math.Abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx - dy;
-            Point cur = from, prev = cur;
+            int x0 = from.X;
+            int y0 = from.Y;
+            int x1 = to.X;
+            int y1 = to.Y;
 
-            while (true)
+            int dx = Math.Abs(x1 - x0);
+            int dy = Math.Abs(y1 - y0);
+            int sx = x0 < x1 ? 1 : -1;
+            int sy = y0 < y1 ? 1 : -1;
+            int err = dx - dy;
+
+            int currentX = x0;
+            int currentY = y0;
+
+            while (currentX != x1 || currentY != y1)
             {
-                if (cur != from && BlocksSight(prev, cur)) return false;
-                if (cur.X == x1 && cur.Y == y1) break;
-                prev = cur; int e2 = 2 * err;
-                if (e2 > -dy) { err -= dy; cur.X += sx; }
-                if (e2 < dx) { err += dx; cur.Y += sy; }
+                int previousX = currentX;
+                int previousY = currentY;
+                int e2 = 2 * err;
+
+                bool stepX = false;
+                bool stepY = false;
+
+                if (e2 > -dy)
+                {
+                    err -= dy;
+                    currentX += sx;
+                    stepX = true;
+                }
+
+                if (e2 < dx)
+                {
+                    err += dx;
+                    currentY += sy;
+                    stepY = true;
+                }
+
+                // Déplacement orthogonal : un seul segment à vérifier.
+                if (stepX ^ stepY)
+                {
+                    if (BlocksSight(new Point(previousX, previousY), new Point(currentX, currentY)))
+                        return false;
+
+                    continue;
+                }
+
+                // Déplacement diagonal : vérifier les deux arêtes traversées pour éviter
+                // qu'une ligne de vue "passe à travers" un mur placé sur un coin.
+                Point horizontalCell = new Point(previousX + (stepX ? sx : 0), previousY);
+                Point verticalCell = new Point(previousX, previousY + (stepY ? sy : 0));
+
+                bool blockedHorizontally = stepX && BlocksSight(new Point(previousX, previousY), horizontalCell);
+                bool blockedVertically = stepY && BlocksSight(new Point(previousX, previousY), verticalCell);
+
+                if (blockedHorizontally || blockedVertically)
+                    return false;
             }
+
             return true;
         }
 
