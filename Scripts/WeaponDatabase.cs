@@ -356,6 +356,7 @@ namespace XCOM_3
         public WeaponType Type;
         public string Caliber;
         public string Reference;
+        public float WeightLbs;
 
         // Constructeur de base (pour vos armes existantes - compatibilité totale)
         public WeaponData(string name, int damage, int accuracy, int range)
@@ -369,11 +370,12 @@ namespace XCOM_3
             Type = WeaponType.AssaultRifle;
             Caliber = "Unknown";
             Reference = "";
+            WeightLbs = GetDefaultWeightLbs(Type);
         }
 
         // ✅ NOUVEAU : Constructeur étendu (pour les nouvelles armes)
         public WeaponData(string name, int damage, int accuracy, int range,
-                         WeaponType weaponType, string caliber, string reference = "")
+                         WeaponType weaponType, string caliber, string reference = "", float weightLbs = 0f)
         {
             Name = name;
             Damage = damage;
@@ -382,6 +384,28 @@ namespace XCOM_3
             Type = weaponType;
             Caliber = caliber;
             Reference = reference;
+            WeightLbs = weightLbs > 0f ? weightLbs : GetDefaultWeightLbs(Type);
+        }
+
+        private static float GetDefaultWeightLbs(WeaponType weaponType)
+        {
+            return weaponType switch
+            {
+                WeaponType.Melee => 2.0f,
+                WeaponType.Pistol => 2.2f,
+                WeaponType.Revolver => 2.7f,
+                WeaponType.SMG => 6.5f,
+                WeaponType.AssaultRifle => 7.8f,
+                WeaponType.Carbine => 7.1f,
+                WeaponType.BattleRifle => 9.3f,
+                WeaponType.Shotgun => 8.0f,
+                WeaponType.MachineGun => 18.0f,
+                WeaponType.DMR => 10.5f,
+                WeaponType.SniperRifle => 12.8f,
+                WeaponType.GrenadeLauncher => 13.5f,
+                WeaponType.RocketLauncher => 20.0f,
+                _ => 7.5f
+            };
         }
     }
 

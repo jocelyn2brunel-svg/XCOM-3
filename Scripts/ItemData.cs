@@ -72,7 +72,7 @@ namespace XCOM_3
             ArmorSlot = ArmorSlot.None;
             ProtectionLevel = ProtectionLevel.None;
             MobilityPenalty = 0;
-            WeightLbs = 0f;
+            WeightLbs = weaponData?.WeightLbs ?? 0f;
             BonusInventorySlots = 0;
             Description = "";
         }
