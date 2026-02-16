@@ -943,7 +943,7 @@ namespace XCOM_3
 
             Vector3 destinationCenter = new Vector3(
                 destinationCell.X * cellSize + cellSize / 2f,
-                currentPathEndFloor * cellSize,
+                WorldMetrics.FloorToWorldY(currentPathEndFloor, cellSize),
                 destinationCell.Y * cellSize + cellSize / 2f
             );
 
@@ -1062,7 +1062,7 @@ namespace XCOM_3
 
             for (int floor = minFloor; floor < floorCount; floor++)
             {
-                float yOffset = floor * cellSize;
+                float yOffset = WorldMetrics.FloorToWorldY(floor, cellSize);
 
                 if (floor == 0)
                 {
@@ -1421,7 +1421,7 @@ namespace XCOM_3
 
                 foreach (var cell in cachedMovableCells)
                 {
-                    Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, viewedFloor * cellSize + 0.05f, cell.Y * cellSize + cellSize / 2f);
+                    Vector3 position = new Vector3(cell.X * cellSize + cellSize / 2f, WorldMetrics.FloorToWorldY(viewedFloor, cellSize) + 0.05f, cell.Y * cellSize + cellSize / 2f);
                     renderer3D.DrawPlane(position, new Vector3(cellSize * 0.9f, 1, cellSize * 0.9f), Color.Green * pulse);
                 }
             }
@@ -1443,7 +1443,7 @@ namespace XCOM_3
                     continue;
 
                 Point cell = node.Cell;
-                Vector3 pos = new Vector3(cell.X * cellSize + cellSize / 2f, node.Floor * cellSize + 0.1f, cell.Y * cellSize + cellSize / 2f);
+                Vector3 pos = new Vector3(cell.X * cellSize + cellSize / 2f, WorldMetrics.FloorToWorldY(node.Floor, cellSize) + 0.1f, cell.Y * cellSize + cellSize / 2f);
                 float intensity = 1f - (visibleIndex / (float)Math.Max(1, visibleNodeCount)) * 0.5f;
                 visibleIndex++;
                 renderer3D.DrawPlane(pos, new Vector3(cellSize * 0.8f, 1, cellSize * 0.8f), new Color(100, 150, 255) * pulse * intensity);
@@ -1456,7 +1456,7 @@ namespace XCOM_3
                 return;
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
-            float floorYOffset = viewedFloor * cellSize;
+            float floorYOffset = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
 
             float pulseBoost = 0.75f + pulse * 0.25f;
             renderer3D.DrawZoneOutline(new[] { hoveredCell }, cellSize, floorYOffset + 0.14f, new Color(255, 220, 90, 230) * pulseBoost);
@@ -1489,7 +1489,7 @@ namespace XCOM_3
                 return;
 
             Vector3 cameraPos = camera.Position;
-            float hoverY = viewedFloor * cellSize + cellSize * 0.35f;
+            float hoverY = WorldMetrics.FloorToWorldY(viewedFloor, cellSize) + cellSize * 0.35f;
             List<Point> revealCells = GetHoveredAreaCells(HoverRevealRadius);
 
             foreach (Point cell in revealCells)
@@ -1522,7 +1522,7 @@ namespace XCOM_3
                 return;
 
             Vector3 cameraPos = camera.Position;
-            float pathY = viewedFloor * cellSize + cellSize * 0.25f;
+            float pathY = WorldMetrics.FloorToWorldY(viewedFloor, cellSize) + cellSize * 0.25f;
 
             foreach (GridNode node in currentPathNodes)
             {
@@ -2149,7 +2149,7 @@ namespace XCOM_3
                 mouse.Position,
                 GraphicsDevice.Viewport.Width,
                 GraphicsDevice.Viewport.Height,
-                viewedFloor * cellSize);
+                WorldMetrics.FloorToWorldY(viewedFloor, cellSize));
 
             isHoveringValidCell = rawHoveredCell.X != -1 && IsCellHoverableOnViewedFloor(rawHoveredCell, viewedFloor);
             if (isHoveringValidCell)

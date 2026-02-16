@@ -530,7 +530,7 @@ namespace XCOM_3
             if (ramps == null)
                 return;
 
-            float floorYOffset = floorToRender * cellSize;
+            float floorYOffset = WorldMetrics.FloorToWorldY(floorToRender, cellSize);
             foreach (var ramp in ramps)
             {
                 if (ramp.Floor != floorToRender)
@@ -565,7 +565,7 @@ namespace XCOM_3
         {
             if (stairs == null) return;
 
-            float floorYOffset = floorToRender * cellSize;
+            float floorYOffset = WorldMetrics.FloorToWorldY(floorToRender, cellSize);
             float pulse = 0.8f + 0.2f * (float)Math.Sin(globalAnimationTime * 4f);
 
             foreach (var stair in stairs)
@@ -922,7 +922,7 @@ namespace XCOM_3
             if (zones == null) return;
 
             float pulse = (float)Math.Sin(gameTime * 3f) * 0.15f + 0.85f;
-            float floorYOffset = viewedFloor * cellSize;
+            float floorYOffset = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
 
             HashSet<Point> shortZone = zones.ShortMove != null
                 ? zones.ShortMove.Where(node => node.Floor == viewedFloor).Select(node => node.Cell).ToHashSet()
@@ -1080,7 +1080,7 @@ namespace XCOM_3
 
                 Vector3 pos = new Vector3(
                     cell.X * cellSize + cellSize / 2f,
-                    node.Floor * cellSize + 0.09f,
+                    WorldMetrics.FloorToWorldY(node.Floor, cellSize) + 0.09f,
                     cell.Y * cellSize + cellSize / 2f
                 );
 
@@ -1096,7 +1096,7 @@ namespace XCOM_3
                     Point nextCell = nextNode.Cell;
                     Vector3 nextPos = new Vector3(
                         nextCell.X * cellSize + cellSize / 2f,
-                        nextNode.Floor * cellSize + 0.09f,
+                        WorldMetrics.FloorToWorldY(nextNode.Floor, cellSize) + 0.09f,
                         nextCell.Y * cellSize + cellSize / 2f
                     );
 
