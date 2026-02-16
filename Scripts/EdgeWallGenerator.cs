@@ -403,16 +403,22 @@ namespace XCOM_3
             int blockSize = 14;     // Taille d'un bloc
             int streetWidth = 2;    // Rues fines
             int sidewalkWidth = 1;  // Trottoirs en bord de lot
+            int startX = 2;
+            int endX = gridWidth - 2;
 
             int startY = 4;
             int endY = gridHeight - 4;
 
+            // Pipeline explicite: routes -> sidewalks -> bâtiments.
+            HashSet<Point> roadCells = GenerateUrbanRoadCells(gridWidth, gridHeight, blockSize, streetWidth, startX, endX, startY, endY);
+            HashSet<Point> sidewalkCells = GenerateUrbanSidewalkCells(gridWidth, gridHeight, roadCells);
+
             for (int blockY = startY; blockY < endY; blockY += blockSize + streetWidth)
             {
-                for (int blockX = 2; blockX < gridWidth - 2; blockX += blockSize + streetWidth)
+                for (int blockX = startX; blockX < endX; blockX += blockSize + streetWidth)
                 {
-                    int lotWidth = Math.Min(blockSize, gridWidth - blockX - 2);
-                    int lotHeight = Math.Min(blockSize, gridHeight - blockY - 2);
+                    int lotWidth = Math.Min(blockSize, endX - blockX);
+                    int lotHeight = Math.Min(blockSize, endY - blockY);
 
                     if (lotWidth < 6 || lotHeight < 6)
                         continue;
@@ -433,7 +439,15 @@ namespace XCOM_3
 
                     for (int index = 0; index < buildingCount; index++)
                     {
-                        if (!TryPlaceUrbanBuildingInLot(lotMinX, lotMinY, innerWidth, innerHeight, lotBuildings, out GeneratedBuilding building))
+                        if (!TryPlaceUrbanBuildingInLot(
+                            lotMinX,
+                            lotMinY,
+                            innerWidth,
+                            innerHeight,
+                            lotBuildings,
+                            roadCells,
+                            sidewalkCells,
+                            out GeneratedBuilding building))
                             continue;
 
                         lotBuildings.Add(building);
@@ -447,12 +461,71 @@ namespace XCOM_3
             return walls;
         }
 
+        private static HashSet<Point> GenerateUrbanRoadCells(
+            int gridWidth,
+            int gridHeight,
+            int blockSize,
+            int streetWidth,
+            int startX,
+            int endX,
+            int startY,
+            int endY)
+        {
+            var roads = new HashSet<Point>();
+            int stride = blockSize + streetWidth;
+
+            for (int y = startY; y < endY; y++)
+            {
+                for (int x = startX; x < endX; x++)
+                {
+                    if ((x - startX) % stride >= blockSize || (y - startY) % stride >= blockSize)
+                    {
+                        roads.Add(new Point(x, y));
+                    }
+                }
+            }
+
+            return roads;
+        }
+
+        private static HashSet<Point> GenerateUrbanSidewalkCells(int gridWidth, int gridHeight, HashSet<Point> roads)
+        {
+            var sidewalks = new HashSet<Point>();
+
+            foreach (Point road in roads)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        if (dx == 0 && dy == 0)
+                            continue;
+
+                        int x = road.X + dx;
+                        int y = road.Y + dy;
+                        if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight)
+                            continue;
+
+                        Point cell = new Point(x, y);
+                        if (roads.Contains(cell))
+                            continue;
+
+                        sidewalks.Add(cell);
+                    }
+                }
+            }
+
+            return sidewalks;
+        }
+
         private bool TryPlaceUrbanBuildingInLot(
             int lotMinX,
             int lotMinY,
             int lotWidth,
             int lotHeight,
             List<GeneratedBuilding> existingBuildings,
+            HashSet<Point> roads,
+            HashSet<Point> sidewalks,
             out GeneratedBuilding result)
         {
             result = default;
@@ -513,6 +586,8 @@ namespace XCOM_3
 
                 if (!HasMinimumOneCellGap(x, y, buildingWidth, buildingHeight, existingBuildings))
                     continue;
+                if (OverlapsRoadOrSidewalk(x, y, buildingWidth, buildingHeight, roads, sidewalks))
+                    continue;
 
                 int floors = random.Next(1, 9);
                 int footprint = buildingWidth * buildingHeight;
@@ -521,6 +596,27 @@ namespace XCOM_3
 
                 result = new GeneratedBuilding(x, y, buildingWidth, buildingHeight, floors, basementCount);
                 return true;
+            }
+
+            return false;
+        }
+
+        private static bool OverlapsRoadOrSidewalk(
+            int x,
+            int y,
+            int width,
+            int height,
+            HashSet<Point> roads,
+            HashSet<Point> sidewalks)
+        {
+            for (int cx = x; cx < x + width; cx++)
+            {
+                for (int cy = y; cy < y + height; cy++)
+                {
+                    Point cell = new Point(cx, cy);
+                    if (roads.Contains(cell) || sidewalks.Contains(cell))
+                        return true;
+                }
             }
 
             return false;
