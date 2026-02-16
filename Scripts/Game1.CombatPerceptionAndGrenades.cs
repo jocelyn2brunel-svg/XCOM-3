@@ -114,7 +114,7 @@ namespace XCOM_3
                 mouse.Position,
                 GraphicsDevice.Viewport.Width,
                 GraphicsDevice.Viewport.Height,
-                viewedFloor * cellSize);
+                WorldMetrics.FloorToWorldY(viewedFloor, cellSize));
             if (throwTarget.X >= 0)
             {
                 if (throwModeUsesFlashlight)
@@ -281,7 +281,7 @@ namespace XCOM_3
                 return;
 
             float gameSeconds = (float)gameTime.TotalGameTime.TotalSeconds;
-            float floorYOffset = viewedFloor * cellSize;
+            float floorYOffset = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
 
             foreach (FlashlightLootMarker marker in flashlightLootMarkers)
             {
@@ -458,7 +458,7 @@ namespace XCOM_3
             }
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.3f + 0.7f;
-            float floorYOffset = viewedFloor * cellSize;
+            float floorYOffset = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
 
             renderer3D.DrawZoneOutline(
                 throwableCells,
@@ -517,7 +517,7 @@ namespace XCOM_3
 
                     Vector3 worldCenter = new Vector3(
                         unit.Cell.X * cellSize + cellSize / 2f,
-                        unit.Floor * cellSize + cellSize * 0.95f,
+                        WorldMetrics.FloorToWorldY(unit.Floor, cellSize) + cellSize * 0.95f,
                         unit.Cell.Y * cellSize + cellSize / 2f);
 
                     result.Add(new Mk2FragmentationPreviewInfo(unit, hitChancePercent, worldCenter));
@@ -562,7 +562,7 @@ namespace XCOM_3
 
             Vector3 blastOrigin = new Vector3(
                 centerCell.X * cellSize + cellSize / 2f,
-                centerFloor * cellSize + cellSize * 0.12f,
+                WorldMetrics.FloorToWorldY(centerFloor, cellSize) + cellSize * 0.12f,
                 centerCell.Y * cellSize + cellSize / 2f);
 
             foreach (Mk2FragmentationPreviewInfo info in infos)
@@ -680,7 +680,7 @@ namespace XCOM_3
 
             foreach (Unit unit in unitsInZone)
             {
-                float floorYOffset = unit.Floor * cellSize;
+                float floorYOffset = WorldMetrics.FloorToWorldY(unit.Floor, cellSize);
 
                 Vector3 center = new Vector3(
                     unit.Cell.X * cellSize + cellSize / 2f,

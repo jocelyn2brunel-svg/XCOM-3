@@ -443,7 +443,7 @@ namespace XCOM_3
         {
             VisualPosition = new Vector3(
                 Cell.X * cellSize + cellSize / 2f,
-                Floor * cellSize,
+                WorldMetrics.FloorToWorldY(Floor, cellSize),
                 Cell.Y * cellSize + cellSize / 2f
             );
         }
@@ -476,7 +476,7 @@ namespace XCOM_3
             {
                 movementWaypoints.Enqueue(new Vector3(
                     cell.X * cellSize + cellSize / 2f,
-                    Floor * cellSize,
+                    WorldMetrics.FloorToWorldY(Floor, cellSize),
                     cell.Y * cellSize + cellSize / 2f
                 ));
             }
@@ -507,7 +507,7 @@ namespace XCOM_3
             {
                 movementWaypoints.Enqueue(new Vector3(
                     node.Cell.X * cellSize + cellSize / 2f,
-                    node.Floor * cellSize,
+                    WorldMetrics.FloorToWorldY(node.Floor, cellSize),
                     node.Cell.Y * cellSize + cellSize / 2f
                 ));
             }
