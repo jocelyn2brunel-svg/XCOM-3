@@ -402,6 +402,7 @@ namespace XCOM_3
 
             int blockSize = 14;     // Taille d'un bloc
             int streetWidth = 2;    // Rues fines
+            int sidewalkWidth = 1;  // Trottoirs en bord de lot
 
             int startY = 4;
             int endY = gridHeight - 4;
@@ -416,63 +417,169 @@ namespace XCOM_3
                     if (lotWidth < 6 || lotHeight < 6)
                         continue;
 
-                    // Décalage aléatoire dans le lot pour casser la régularité
-                    int maxOffsetX = Math.Max(0, lotWidth - 6);
-                    int maxOffsetY = Math.Max(0, lotHeight - 6);
+                    int lotMinX = blockX + sidewalkWidth;
+                    int lotMinY = blockY + sidewalkWidth;
+                    int lotMaxX = blockX + lotWidth - sidewalkWidth;
+                    int lotMaxY = blockY + lotHeight - sidewalkWidth;
+                    int innerWidth = lotMaxX - lotMinX;
+                    int innerHeight = lotMaxY - lotMinY;
 
-                    int offsetX = random.Next(0, maxOffsetX / 2 + 1);
-                    int offsetY = random.Next(0, maxOffsetY / 2 + 1);
+                    if (innerWidth < 6 || innerHeight < 6)
+                        continue;
 
-                    // Taille réelle du bâtiment
-                    int buildingWidth = random.Next(6, lotWidth - offsetX + 1);
-                    int buildingHeight = random.Next(6, lotHeight - offsetY + 1);
+                    int buildingCount = (innerWidth >= 13 && innerHeight >= 8 && random.Next(100) < 40) ? 2 : 1;
 
-                    // Position finale du bâtiment
-                    int x = blockX + offsetX;
-                    int y = blockY + offsetY;
+                    var lotBuildings = new List<GeneratedBuilding>();
 
-                    BuildingType type = (BuildingType)random.Next(0, 4);
-
-                    // Règle gameplay: les bâtiments urbains varient toujours entre 1 et 8 étages.
-                    // La hauteur visuelle reste gérée par la règle globale 1 étage = 2 cases.
-                    int buildingFloors = random.Next(1, 9);
-
-                    // Sous-sol plus fréquent sur les grands immeubles urbains
-                    int footprint = buildingWidth * buildingHeight;
-                    int basementChance = footprint >= 96 ? 65 : footprint >= 72 ? 45 : 20;
-                    int basementCount = random.Next(100) < basementChance ? random.Next(1, 3) : 0;
-                    LastGeneratedBuildings.Add(new GeneratedBuilding(x, y, buildingWidth, buildingHeight, buildingFloors, basementCount));
-
-                    // Murs extérieurs avec fenêtres (40% de chance)
-                    for (int i = x; i < x + buildingWidth; i++)
+                    for (int index = 0; index < buildingCount; index++)
                     {
-                        AddHorizontalWall(walls, i, y, WallType.Full, true, 40, WallMaterial.Brick);
-                        AddHorizontalWall(walls, i, y + buildingHeight, WallType.Full, true, 40, WallMaterial.Brick);
-                    }
+                        if (!TryPlaceUrbanBuildingInLot(lotMinX, lotMinY, innerWidth, innerHeight, lotBuildings, out GeneratedBuilding building))
+                            continue;
 
-                    for (int i = y; i < y + buildingHeight; i++)
-                    {
-                        AddVerticalWall(walls, x, i, WallType.Full, true, 40, WallMaterial.Brick);
-                        AddVerticalWall(walls, x + buildingWidth, i, WallType.Full, true, 40, WallMaterial.Brick);
+                        lotBuildings.Add(building);
+                        AddUrbanBuilding(walls, building);
                     }
-
-                    // Porte d'entrée
-                    int doorSide = random.Next(4);
-                    switch (doorSide)
-                    {
-                        case 0: AddHorizontalDoor(walls, x + buildingWidth / 2, y); break;
-                        case 1: AddHorizontalDoor(walls, x + buildingWidth / 2, y + buildingHeight); break;
-                        case 2: AddVerticalDoor(walls, x, y + buildingHeight / 2); break;
-                        case 3: AddVerticalDoor(walls, x + buildingWidth, y + buildingHeight / 2); break;
-                    }
-
-                    GenerateInterior(walls, x, y, buildingWidth, buildingHeight, type);
                 }
             }
 
             AddUrbanHescoFortifications(gridWidth, gridHeight);
 
             return walls;
+        }
+
+        private bool TryPlaceUrbanBuildingInLot(
+            int lotMinX,
+            int lotMinY,
+            int lotWidth,
+            int lotHeight,
+            List<GeneratedBuilding> existingBuildings,
+            out GeneratedBuilding result)
+        {
+            result = default;
+
+            int maxWidth = Math.Min(11, lotWidth);
+            int maxHeight = Math.Min(11, lotHeight);
+            if (maxWidth < 6 || maxHeight < 6)
+                return false;
+
+            for (int attempt = 0; attempt < 30; attempt++)
+            {
+                int buildingWidth = random.Next(6, maxWidth + 1);
+                int buildingHeight = random.Next(6, maxHeight + 1);
+
+                int xMin = lotMinX;
+                int yMin = lotMinY;
+                int xMax = lotMinX + lotWidth - buildingWidth;
+                int yMax = lotMinY + lotHeight - buildingHeight;
+
+                if (xMin > xMax || yMin > yMax)
+                    continue;
+
+                // Priorité aux coins pour avoir des façades collées aux trottoirs.
+                // Les rectangles restent dans la zone interne du lot (pas sur trottoir/route).
+                int anchorCorner = random.Next(100) < 80 ? random.Next(4) : -1;
+
+                int x;
+                switch (anchorCorner)
+                {
+                    case 0:
+                    case 2:
+                        x = xMin;
+                        break;
+                    case 1:
+                    case 3:
+                        x = xMax;
+                        break;
+                    default:
+                        x = random.Next(xMin, xMax + 1);
+                        break;
+                }
+
+                int y;
+                switch (anchorCorner)
+                {
+                    case 0:
+                    case 1:
+                        y = yMin;
+                        break;
+                    case 2:
+                    case 3:
+                        y = yMax;
+                        break;
+                    default:
+                        y = random.Next(yMin, yMax + 1);
+                        break;
+                }
+
+                if (!HasMinimumOneCellGap(x, y, buildingWidth, buildingHeight, existingBuildings))
+                    continue;
+
+                int floors = random.Next(1, 9);
+                int footprint = buildingWidth * buildingHeight;
+                int basementChance = footprint >= 96 ? 65 : footprint >= 72 ? 45 : 20;
+                int basementCount = random.Next(100) < basementChance ? random.Next(1, 3) : 0;
+
+                result = new GeneratedBuilding(x, y, buildingWidth, buildingHeight, floors, basementCount);
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool HasMinimumOneCellGap(int x, int y, int width, int height, List<GeneratedBuilding> existingBuildings)
+        {
+            foreach (var other in existingBuildings)
+            {
+                int expandedMinX = other.X - 1;
+                int expandedMinY = other.Y - 1;
+                int expandedMaxX = other.X + other.Width;
+                int expandedMaxY = other.Y + other.Height;
+
+                bool overlapsExpandedX = x <= expandedMaxX && x + width - 1 >= expandedMinX;
+                bool overlapsExpandedY = y <= expandedMaxY && y + height - 1 >= expandedMinY;
+
+                if (overlapsExpandedX && overlapsExpandedY)
+                    return false;
+            }
+
+            return true;
+        }
+
+        private void AddUrbanBuilding(HashSet<WallSegment> walls, GeneratedBuilding building)
+        {
+            int x = building.X;
+            int y = building.Y;
+            int buildingWidth = building.Width;
+            int buildingHeight = building.Height;
+
+            LastGeneratedBuildings.Add(building);
+
+            BuildingType type = (BuildingType)random.Next(0, 4);
+
+            // Murs extérieurs avec fenêtres (40% de chance)
+            for (int i = x; i < x + buildingWidth; i++)
+            {
+                AddHorizontalWall(walls, i, y, WallType.Full, true, 40, WallMaterial.Brick);
+                AddHorizontalWall(walls, i, y + buildingHeight, WallType.Full, true, 40, WallMaterial.Brick);
+            }
+
+            for (int i = y; i < y + buildingHeight; i++)
+            {
+                AddVerticalWall(walls, x, i, WallType.Full, true, 40, WallMaterial.Brick);
+                AddVerticalWall(walls, x + buildingWidth, i, WallType.Full, true, 40, WallMaterial.Brick);
+            }
+
+            // Porte d'entrée
+            int doorSide = random.Next(4);
+            switch (doorSide)
+            {
+                case 0: AddHorizontalDoor(walls, x + buildingWidth / 2, y); break;
+                case 1: AddHorizontalDoor(walls, x + buildingWidth / 2, y + buildingHeight); break;
+                case 2: AddVerticalDoor(walls, x, y + buildingHeight / 2); break;
+                case 3: AddVerticalDoor(walls, x + buildingWidth, y + buildingHeight / 2); break;
+            }
+
+            GenerateInterior(walls, x, y, buildingWidth, buildingHeight, type);
         }
 
         private void AddUrbanHescoFortifications(int gridWidth, int gridHeight)
