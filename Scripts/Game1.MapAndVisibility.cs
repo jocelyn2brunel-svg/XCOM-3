@@ -59,8 +59,9 @@ namespace XCOM_3
                 .GroupBy(t => new Point(t.X, t.Y))
                 .ToDictionary(g => g.Key, g => g.Last().HeightOffset);
             upperFloorCells = ComputeUpperFloorCells();
+            roadCells = GenerateRoadCells();
 
-            Console.WriteLine($"[GAME] Loaded map: {map.Name} ({gridWidth}x{gridHeight})");
+            Console.WriteLine($"[GAME] Loaded map: {map.Name} ({gridWidth}x{gridHeight}), roads={roadCells.Count}");
 
             // Réinitialiser la caméra
             if (camera != null)
@@ -104,6 +105,85 @@ namespace XCOM_3
             // Réinitialiser spatial hash
             if (unitManager != null)
                 unitManager.InitializeForMission(playerUnits, enemyUnits);
+        }
+
+
+        private HashSet<Point> GenerateRoadCells()
+        {
+            HashSet<Point> roads = new HashSet<Point>();
+            if (gridWidth <= 0 || gridHeight <= 0)
+                return roads;
+
+            int centerX = gridWidth / 2;
+            int centerY = gridHeight / 2;
+            int roadHalfWidth = 1; // Route de 3 cases de large
+
+            // Axe principal horizontal
+            for (int y = centerY - roadHalfWidth; y <= centerY + roadHalfWidth; y++)
+            {
+                for (int x = 0; x < gridWidth; x++)
+                    TryAddRoadCell(roads, x, y);
+            }
+
+            // Axe principal vertical
+            for (int x = centerX - roadHalfWidth; x <= centerX + roadHalfWidth; x++)
+            {
+                for (int y = 0; y < gridHeight; y++)
+                    TryAddRoadCell(roads, x, y);
+            }
+
+            // Connexions secondaires vers les zones de spawn
+            foreach (var zone in (currentMap?.PlayerSpawnZones ?? Enumerable.Empty<SpawnZone>())
+                .Concat(currentMap?.EnemySpawnZones ?? Enumerable.Empty<SpawnZone>()))
+            {
+                Point spawnCenter = new Point((zone.MinX + zone.MaxX) / 2, (zone.MinY + zone.MaxY) / 2);
+                CarveRoadCorridor(roads, spawnCenter.X, spawnCenter.Y, centerX, spawnCenter.Y, roadHalfWidth);
+                CarveRoadCorridor(roads, centerX, spawnCenter.Y, centerX, centerY, roadHalfWidth);
+            }
+
+            return roads;
+        }
+
+        private void CarveRoadCorridor(HashSet<Point> roads, int startX, int startY, int endX, int endY, int halfWidth)
+        {
+            int x = startX;
+            int y = startY;
+            while (x != endX)
+            {
+                AddRoadBand(roads, x, y, halfWidth);
+                x += Math.Sign(endX - x);
+            }
+
+            while (y != endY)
+            {
+                AddRoadBand(roads, x, y, halfWidth);
+                y += Math.Sign(endY - y);
+            }
+
+            AddRoadBand(roads, endX, endY, halfWidth);
+        }
+
+        private void AddRoadBand(HashSet<Point> roads, int centerX, int centerY, int halfWidth)
+        {
+            for (int dx = -halfWidth; dx <= halfWidth; dx++)
+            {
+                for (int dy = -halfWidth; dy <= halfWidth; dy++)
+                {
+                    TryAddRoadCell(roads, centerX + dx, centerY + dy);
+                }
+            }
+        }
+
+        private void TryAddRoadCell(HashSet<Point> roads, int x, int y)
+        {
+            if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight)
+                return;
+
+            var cell = new Point(x, y);
+            if (upperFloorCells.Contains(cell))
+                return;
+
+            roads.Add(cell);
         }
 
         private static (int MinSize, int MaxSize) GetMissionMapSizeRange(string missionType)
