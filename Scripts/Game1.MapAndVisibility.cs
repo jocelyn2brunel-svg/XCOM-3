@@ -247,13 +247,14 @@ namespace XCOM_3
             if (floor <= 0)
                 return 0;
 
-            int seed = building.X * 73856093 ^ building.Y * 19349663 ^ floor * 83492791;
-            int roll = Math.Abs(seed % 100);
+            // Nouvelle règle : chaque étage se retire de 2 cases par rapport au précédent.
+            // Ex: +1 => retrait 2, +2 => retrait 4, etc.
+            const int separationPerFloor = 2;
+            int requestedSetback = floor * separationPerFloor;
 
-            // Évite les copies exactes du RDC sur les étages supérieurs :
-            // dès le 1er étage, appliquer ponctuellement un retrait.
-            int setbackChance = Math.Min(75, 40 + floor * 15);
-            return roll < setbackChance ? 1 : 0;
+            // Clamp pour éviter des dimensions négatives sur les petits bâtiments.
+            int maxAllowedSetback = Math.Max(0, (Math.Min(building.Width, building.Height) - 1) / 2);
+            return Math.Min(requestedSetback, maxAllowedSetback);
         }
 
         private bool ShouldSkipWallForFloor(BuildingFootprintData building, WallSegment wall, int floor)
