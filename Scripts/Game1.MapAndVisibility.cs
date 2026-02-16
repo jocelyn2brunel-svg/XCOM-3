@@ -60,8 +60,9 @@ namespace XCOM_3
                 .ToDictionary(g => g.Key, g => g.Last().HeightOffset);
             upperFloorCells = ComputeUpperFloorCells();
             roadCells = GenerateRoadCells();
+            sidewalkCells = GenerateSidewalkCells(roadCells);
 
-            Console.WriteLine($"[GAME] Loaded map: {map.Name} ({gridWidth}x{gridHeight}), roads={roadCells.Count}");
+            Console.WriteLine($"[GAME] Loaded map: {map.Name} ({gridWidth}x{gridHeight}), roads={roadCells.Count}, sidewalks={sidewalkCells.Count}");
 
             // Réinitialiser la caméra
             if (camera != null)
@@ -142,6 +143,42 @@ namespace XCOM_3
             }
 
             return roads;
+        }
+
+        private HashSet<Point> GenerateSidewalkCells(HashSet<Point> roads)
+        {
+            HashSet<Point> sidewalks = new HashSet<Point>();
+            if (roads == null || roads.Count == 0)
+                return sidewalks;
+
+            foreach (Point road in roads)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        if (dx == 0 && dy == 0)
+                            continue;
+
+                        int x = road.X + dx;
+                        int y = road.Y + dy;
+                        if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight)
+                            continue;
+
+                        Point sidewalk = new Point(x, y);
+                        if (roads.Contains(sidewalk))
+                            continue;
+                        if (IsInsideBuildingFootprint(sidewalk))
+                            continue;
+                        if (upperFloorCells.Contains(sidewalk))
+                            continue;
+
+                        sidewalks.Add(sidewalk);
+                    }
+                }
+            }
+
+            return sidewalks;
         }
 
         private void CarveRoadCorridor(HashSet<Point> roads, int startX, int startY, int endX, int endY, int halfWidth)

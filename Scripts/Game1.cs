@@ -25,6 +25,7 @@ namespace XCOM_3
         // Textures
         private Texture2D tileTexture;
         private Texture2D asphaltTexture;
+        private Texture2D sidewalkTexture;
         private Texture2D brickWallTexture;
         private Texture2D hescoWallTexture;
 
@@ -152,6 +153,7 @@ namespace XCOM_3
         private int viewedFloor = 0;
         private HashSet<Point> upperFloorCells = new();
         private HashSet<Point> roadCells = new();
+        private HashSet<Point> sidewalkCells = new();
         private Dictionary<Point, float> terrainHeights = new Dictionary<Point, float>();
         private Unit movementCinematicUnit = null;
         private HashSet<Unit> currentlySpottedEnemies = new HashSet<Unit>();
@@ -198,6 +200,7 @@ namespace XCOM_3
             pixel = new Texture2D(GraphicsDevice, 1, 1); pixel.SetData(new[] { Color.White });
             tileTexture = LoadTileTexture();
             asphaltTexture = LoadAsphaltTexture();
+            sidewalkTexture = LoadSidewalkTexture();
             brickWallTexture = LoadBrickWallTexture();
             hescoWallTexture = LoadHescoWallTexture();
             hoveredCellWireframeState = new RasterizerState
@@ -240,6 +243,14 @@ namespace XCOM_3
                 new[] { "Asphalt32x32.jpg", "Asphalt32x32.jpeg", "Asphalt32x32.png" },
                 "asphalt",
                 tileTexture ?? pixel);
+        }
+
+        private Texture2D LoadSidewalkTexture()
+        {
+            return LoadFirstAvailableTexture(
+                new[] { "Sidewalk32x32.jpg", "Sidewalk32x32.jpeg", "Sidewalk32x32.png" },
+                "sidewalk",
+                asphaltTexture ?? tileTexture ?? pixel);
         }
 
         private Texture2D LoadHescoWallTexture()
@@ -1078,6 +1089,9 @@ namespace XCOM_3
                 if (floor == 0)
                 {
                     renderer3D.DrawGridWithTerrain(gridWidth, gridHeight, cellSize, tileTexture, terrainHeights, yOffset);
+
+                    if (sidewalkCells.Count > 0)
+                        renderer3D.DrawTerrainCells(sidewalkCells, cellSize, sidewalkTexture, terrainHeights, yOffset + 0.005f);
 
                     if (roadCells.Count > 0)
                         renderer3D.DrawTerrainCells(roadCells, cellSize, asphaltTexture, terrainHeights, yOffset + 0.01f);
