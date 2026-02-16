@@ -1120,22 +1120,38 @@ namespace XCOM_3
                 var wallsForFloor = GetWallsForFloor(floor);
                 if (wallsForFloor.Count > 0)
                 {
-                    HashSet<WallSegment> renderedWalls = wallsForFloor;
+                    HashSet<WallSegment> renderedWalls = new HashSet<WallSegment>(wallsForFloor);
 
                     if (floor > viewedFloor)
                         renderedWalls = FilterUpperFloorWallsForLowerView(floor, viewedFloor, renderedWalls);
 
-                    // TEMPORAIRE: ne pas masquer de murs.
-                    // On désactive le filtrage face caméra + l'occlusion/fondu,
-                    // afin de conserver tous les murs visibles pendant la rotation.
-
                     if (renderedWalls.Count > 0)
                     {
+                        HashSet<WallSegment> fadedWalls = new HashSet<WallSegment>();
+
+                        List<Unit> unitsOnFloor = playerUnits.Where(u => u.Health > 0 && u.Floor == floor)
+                            .Concat(enemyUnits.Where(u => u.Health > 0 && u.Floor == floor && IsEnemyVisibleToPlayers(u)))
+                            .ToList();
+
+                        ComputeOcclusionFromWalls(renderedWalls, unitsOnFloor, yOffset, fadedWalls, new HashSet<Unit>());
+
+                        if (floor == viewedFloor)
+                        {
+                            ComputeOcclusionFromHoveredArea(renderedWalls, yOffset, fadedWalls);
+                            ComputeOcclusionFromPathArea(renderedWalls, yOffset, fadedWalls);
+                        }
+
+                        if (fadedWalls.Count > 0)
+                            renderedWalls.ExceptWith(fadedWalls);
+
                         Texture2D wallTextureForFloor = floor > 0
                             ? upperWallTexture ?? brickWallTexture
                             : brickWallTexture;
 
                         renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture);
+
+                        if (fadedWalls.Count > 0)
+                            DrawWireframeWalls(fadedWalls, yOffset, new Color(245, 225, 140, 170));
                     }
                 }
 
