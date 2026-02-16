@@ -6,7 +6,7 @@ La génération des bâtiments est gérée dans `EdgeWallGenerator` quand le pat
 Pipeline simplifié :
 1. Découpage de la carte en blocs réguliers + rues.
 2. Placement d'un bâtiment aléatoire dans chaque lot valide.
-3. Calcul des étages/sous-sols à partir des dimensions.
+3. Calcul des étages/sous-sols (étages aléatoires de 1 à 8).
 4. Génération des murs extérieurs (avec fenêtres), puis d'une porte.
 5. Génération de l'intérieur selon un type de bâtiment.
 6. Ajout optionnel de fortifications Hesco entre bâtiments proches.
@@ -14,7 +14,7 @@ Pipeline simplifié :
 ## Règles clés
 - Un bâtiment est au minimum `6x6` cases.
 - Les étages suivent la règle métier : **1 étage = 2 cases de hauteur**.
-- Le nombre d'étages est borné par la hauteur du bâtiment.
+- Le nombre d'étages des bâtiments urbains est fixé aléatoirement entre `1` et `8`.
 - Les sous-sols sont plus probables pour les grandes empreintes.
 
 ## Types d'intérieurs

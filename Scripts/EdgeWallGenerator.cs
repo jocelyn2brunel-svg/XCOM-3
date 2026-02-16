@@ -433,11 +433,9 @@ namespace XCOM_3
 
                     BuildingType type = (BuildingType)random.Next(0, 4);
 
-                    // Règle métier: 1 étage = 2 cases de haut.
-                    // On convertit donc la hauteur (en cases) du bâtiment en nombre d'étages.
-                    int maxFloorsFromHeight = Math.Max(1, buildingHeight / 2);
-                    int minFloors = Math.Min(2, maxFloorsFromHeight);
-                    int buildingFloors = random.Next(minFloors, maxFloorsFromHeight + 1);
+                    // Règle gameplay: les bâtiments urbains varient toujours entre 1 et 8 étages.
+                    // La hauteur visuelle reste gérée par la règle globale 1 étage = 2 cases.
+                    int buildingFloors = random.Next(1, 9);
 
                     // Sous-sol plus fréquent sur les grands immeubles urbains
                     int footprint = buildingWidth * buildingHeight;
