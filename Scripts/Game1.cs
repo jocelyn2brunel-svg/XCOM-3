@@ -2209,7 +2209,7 @@ namespace XCOM_3
 
             if (leftClick) HandleUnitActionButtons(mouse);
             if (leftClick && combatUI.ShowFireTargets) combatUI.HandleFireTargetClick(mouse, selectedUnit);
-            if (leftClick && !clickOnUI && isHoveringValidCell) HandleGridClick(hoveredCell);
+            if (leftClick && !clickOnUI && !throwMode && isHoveringValidCell) HandleGridClick(hoveredCell);
             if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released) CancelSelection();
 
             if (combatUI.FireButton.Contains(mouse.Position) && leftClick &&
@@ -2288,6 +2288,7 @@ namespace XCOM_3
 
             if (clickedUnit != null)
             {
+                ExitThrowMode();
                 selectedUnit = clickedUnit;
                 if (selectedUnit.Team == Team.Player)
                 {
@@ -2488,7 +2489,11 @@ namespace XCOM_3
             currentPathEndFloor = viewedFloor;
             pathCosts.Clear();
 
-            // Grenade - reste identique
+            ExitThrowMode();
+        }
+
+        private void ExitThrowMode()
+        {
             throwMode = false;
             selectedGrenade = null;
             throwModeUsesFlashlight = false;
