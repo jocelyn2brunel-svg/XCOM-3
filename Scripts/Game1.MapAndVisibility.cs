@@ -244,17 +244,9 @@ namespace XCOM_3
 
         private int GetFloorSetback(BuildingFootprintData building, int floor)
         {
-            if (floor <= 0)
-                return 0;
-
-            // Nouvelle règle : chaque étage se retire de 2 cases par rapport au précédent.
-            // Ex: +1 => retrait 2, +2 => retrait 4, etc.
-            const int separationPerFloor = 2;
-            int requestedSetback = floor * separationPerFloor;
-
-            // Clamp pour éviter des dimensions négatives sur les petits bâtiments.
-            int maxAllowedSetback = Math.Max(0, (Math.Min(building.Width, building.Height) - 1) / 2);
-            return Math.Min(requestedSetback, maxAllowedSetback);
+            // Les étages doivent conserver la même empreinte que le périmètre du bâtiment.
+            // Aucun retrait n'est appliqué.
+            return 0;
         }
 
         private bool ShouldSkipWallForFloor(BuildingFootprintData building, WallSegment wall, int floor)

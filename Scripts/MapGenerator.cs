@@ -206,8 +206,7 @@ namespace XCOM_3
             }
 
             // Ajouter des cages d'escaliers internes sur chaque bâtiment multi-étage.
-            // Cela garantit une circulation verticale cohérente même quand les étages
-            // supérieurs ont un retrait (setback) et deviennent plus petits.
+            // Cela garantit une circulation verticale cohérente dans les bâtiments urbains.
             if (buildings != null && floorCount > 1)
             {
                 foreach (var building in buildings)
