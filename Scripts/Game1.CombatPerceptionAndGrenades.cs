@@ -113,9 +113,11 @@ namespace XCOM_3
             int throwRange = GetUnitThrowRange(selectedUnit);
             if (leftClick && throwTarget.X >= 0 && ThrowTrajectoryCalculator.IsInThrowRange(selectedUnit.Cell, throwTarget, throwRange))
             {
+                LaunchGrenade(selectedUnit, selectedGrenade, throwTarget, viewedFloor);
+                selectedUnit.ActionPoints -= selectedGrenade.AOCost;
+
                 if (throwModeUsesFlashlight)
                 {
-                    selectedUnit.ActionPoints -= selectedGrenade.AOCost;
                     if (throwFlashlightFromRightHand)
                     {
                         selectedUnit.EquippedRightHandFlashlight = null;
@@ -131,8 +133,6 @@ namespace XCOM_3
                 }
                 else
                 {
-                    LaunchGrenade(selectedUnit, selectedGrenade, throwTarget, viewedFloor);
-                    selectedUnit.ActionPoints -= selectedGrenade.AOCost;
                     selectedUnit.RemoveGrenade(selectedGrenade);
                 }
 
@@ -159,6 +159,12 @@ namespace XCOM_3
                 if (grenade.Progress >= 1f)
                 {
                     Point explosionCell = new Point((int)(grenade.TargetPosition.X / cellSize), (int)(grenade.TargetPosition.Z / cellSize));
+
+                    if (string.Equals(grenade.Data?.Name, TacticalFlashlightItemName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        RegisterFlashlightLoot(explosionCell, grenade.TargetFloor);
+                    }
+
                     TriggerExplosion(explosionCell, grenade.TargetFloor, grenade.Data, grenade.Thrower);
                     activeGrenades.RemoveAt(i);
                 }
@@ -168,9 +174,63 @@ namespace XCOM_3
             foreach (var crater in craters) crater.Age += (float)gameTime.ElapsedGameTime.TotalSeconds;
         }
 
+
+        private void RegisterFlashlightLoot(Point lootCell, int lootFloor)
+        {
+            bool mergedWithExistingCell = false;
+
+            for (int i = 0; i < flashlightLootMarkers.Count; i++)
+            {
+                FlashlightLootMarker marker = flashlightLootMarkers[i];
+                if (marker.Cell != lootCell || marker.Floor != lootFloor)
+                    continue;
+
+                marker.Quantity += 1;
+                marker.PulseSeed = (float)(random.NextDouble() * MathHelper.TwoPi);
+                flashlightLootMarkers[i] = marker;
+                mergedWithExistingCell = true;
+                break;
+            }
+
+            if (!mergedWithExistingCell)
+            {
+                flashlightLootMarkers.Add(new FlashlightLootMarker
+                {
+                    Cell = lootCell,
+                    Floor = lootFloor,
+                    Quantity = 1,
+                    PulseSeed = (float)(random.NextDouble() * MathHelper.TwoPi)
+                });
+            }
+
+            bool addedToNearbyLoot = inventorySystem.TryAddNearbyLootByName(TacticalFlashlightItemName);
+            Console.WriteLine(addedToNearbyLoot
+                ? $"Flashlight landed at {lootCell} (floor {lootFloor}) and added to nearby loot."
+                : $"Flashlight landed at {lootCell} (floor {lootFloor}) but could not be added to nearby loot.");
+        }
+
+        private void DrawFlashlightLootHighlights(GameTime gameTime)
+        {
+            if (flashlightLootMarkers.Count == 0)
+                return;
+
+            float gameSeconds = (float)gameTime.TotalGameTime.TotalSeconds;
+            float floorYOffset = viewedFloor * cellSize;
+
+            foreach (FlashlightLootMarker marker in flashlightLootMarkers)
+            {
+                if (marker.Floor != viewedFloor || marker.Quantity <= 0)
+                    continue;
+
+                float pulse = 0.58f + 0.42f * (float)Math.Sin(gameSeconds * 6f + marker.PulseSeed);
+                Color pulseColor = new Color(255, 230, 80, 235) * pulse;
+
+                renderer3D.DrawZoneOutline(new[] { marker.Cell }, cellSize, floorYOffset + 0.09f, pulseColor);
+            }
+        }
         private void TriggerExplosion(Point center, int centerFloor, GrenadeData grenadeData, Unit thrower = null)
         {
-            if (string.Equals(grenadeData?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(grenadeData?.Name, TacticalFlashlightItemName, StringComparison.OrdinalIgnoreCase))
                 return;
 
             Console.WriteLine($"EXPLOSION at {center} - {grenadeData.Name}");

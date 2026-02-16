@@ -58,11 +58,13 @@ namespace XCOM_3
         private List<Point> throwableCells = new List<Point>();
         private List<Point> explosionPreview = new List<Point>();
         private List<Vector3> trajectoryPreview = new List<Vector3>();
+        private readonly List<FlashlightLootMarker> flashlightLootMarkers = new List<FlashlightLootMarker>();
 
         // Constantes
         private const int BaseThrowRange = 20;
         private const int TacticalFlashlightRangeCells = 40;
         private const int TacticalFlashlightThrowApCost = 1;
+        private const string TacticalFlashlightItemName = "Lampe tactique aluminium";
         private const float Mk2WeightLbs = 1.3228f; // 600 grammes
 
         // --- Système de cartes ---
@@ -161,6 +163,13 @@ namespace XCOM_3
         private const int HoverRevealRadius = 2;
         private RasterizerState hoveredCellWireframeState;
 
+        private struct FlashlightLootMarker
+        {
+            public Point Cell;
+            public int Floor;
+            public int Quantity;
+            public float PulseSeed;
+        }
 
         public Game1()
         {
@@ -1266,6 +1275,7 @@ namespace XCOM_3
 
             renderer3D.DrawCraters(craters, cellSize);
             renderer3D.DrawGrenades(activeGrenades, cellSize);
+            DrawFlashlightLootHighlights(gameTime);
 
             DrawHoveredCell3D(gameTime);
             DrawThrowMode3D(gameTime);
@@ -1331,9 +1341,9 @@ namespace XCOM_3
 
         private static bool HasTacticalFlashlightEquipped(Unit unit)
         {
-            bool rightOn = string.Equals(unit?.EquippedRightHandFlashlight?.Data?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase)
+            bool rightOn = string.Equals(unit?.EquippedRightHandFlashlight?.Data?.Name, TacticalFlashlightItemName, StringComparison.OrdinalIgnoreCase)
                 && unit.IsRightHandFlashlightOn;
-            bool leftOn = string.Equals(unit?.EquippedLeftHandFlashlight?.Data?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase)
+            bool leftOn = string.Equals(unit?.EquippedLeftHandFlashlight?.Data?.Name, TacticalFlashlightItemName, StringComparison.OrdinalIgnoreCase)
                 && unit.IsLeftHandFlashlightOn;
             return rightOn || leftOn;
         }
@@ -2647,7 +2657,7 @@ namespace XCOM_3
             throwMode = true;
             throwModeUsesFlashlight = true;
             throwFlashlightFromRightHand = fromRightHand;
-            selectedGrenade = new GrenadeData("Lampe tactique aluminium", GrenadeType.Flashbang, 0, 0, aoCost: TacticalFlashlightThrowApCost);
+            selectedGrenade = new GrenadeData(TacticalFlashlightItemName, GrenadeType.Flashbang, 0, 0, aoCost: TacticalFlashlightThrowApCost);
 
             int throwRange = GetUnitThrowRange(selectedUnit);
             throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);

@@ -126,6 +126,18 @@ namespace XCOM_3
             return true;
         }
 
+        public bool TryAddNearbyLootByName(string itemName)
+        {
+            if (string.IsNullOrWhiteSpace(itemName))
+                return false;
+
+            if (!ItemDatabase.TryGetValue(itemName, out ItemData lootData) || lootData == null)
+                return false;
+
+            nearbyLootItems.Add(lootData);
+            return true;
+        }
+
 
         // ═══════════════════════════════════════════════════════════════════════
         // CONSTRUCTEUR
