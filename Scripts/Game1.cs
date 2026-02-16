@@ -1081,7 +1081,35 @@ namespace XCOM_3
 
                 var wallsForFloor = GetWallsForFloor(floor);
                 if (wallsForFloor.Count > 0)
-                    renderer3D.DrawWalls(wallsForFloor, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: brickWallTexture, hescoWallTexture: hescoWallTexture);
+                {
+                    HashSet<WallSegment> renderedWalls = wallsForFloor;
+
+                    if (floor > viewedFloor)
+                        renderedWalls = FilterUpperFloorWallsForLowerView(floor, viewedFloor, renderedWalls);
+
+                    if (floor != viewedFloor)
+                        renderedWalls = FilterCameraFacingWallsForNonViewedFloor(renderedWalls);
+
+                    HashSet<WallSegment> fadedWalls = new HashSet<WallSegment>();
+                    if (floor == viewedFloor)
+                    {
+                        HashSet<Unit> occludedUnits = new HashSet<Unit>();
+                        ComputeOcclusionFromWalls(renderedWalls, GetVisibleUnitsForFloor(floor), yOffset, fadedWalls, occludedUnits);
+                        ComputeOcclusionFromHoveredArea(renderedWalls, yOffset, fadedWalls);
+                        ComputeOcclusionFromPathArea(renderedWalls, yOffset, fadedWalls);
+                    }
+
+                    if (fadedWalls.Count > 0)
+                    {
+                        renderedWalls = new HashSet<WallSegment>(renderedWalls.Except(fadedWalls));
+                        DrawWireframeWalls(fadedWalls, yOffset, new Color(255, 210, 120, 95));
+                    }
+
+                    if (renderedWalls.Count > 0)
+                    {
+                        renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: brickWallTexture, hescoWallTexture: hescoWallTexture);
+                    }
+                }
 
                 renderer3D.DrawRampTiles(currentMap?.RampTiles, floor, cellSize);
                 renderer3D.DrawStairConnections(currentMap?.StairConnections, floor, cellSize);
