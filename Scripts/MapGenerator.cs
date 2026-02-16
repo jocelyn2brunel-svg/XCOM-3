@@ -136,7 +136,7 @@ namespace XCOM_3
                 GridWidth = width,
                 GridHeight = height,
                 CellSize = 2,
-                FloorCount = 3,
+                FloorCount = pattern == EdgeWallGenerator.WallPattern.Urban ? 8 : 3,
                 TimeOfDay = 0.5f
             };
 
@@ -374,7 +374,8 @@ namespace XCOM_3
         {
             return missionType switch
             {
-                "Centre-Ville" => random.Next(3, 6),
+                "Assault" => 8,
+                "Centre-Ville" => 8,
                 "Blackout" => random.Next(2, 4),
                 _ => random.Next(2, 4)
             };
