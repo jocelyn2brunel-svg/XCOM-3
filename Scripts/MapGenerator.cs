@@ -44,6 +44,9 @@ namespace XCOM_3
                 TimeOfDay = (float)random.NextDouble()
             };
 
+            // Générer les zones de spawn avant les bâtiments/murs.
+            map.GenerateDefaultSpawnZones();
+
             // Choisir le pattern de murs selon la mission
             EdgeWallGenerator.WallPattern pattern = GetPatternForMission(missionType);
             int density = map.GridWidth * map.GridHeight / 10;
@@ -78,8 +81,6 @@ namespace XCOM_3
                     Floor = 0
                 });
 
-            // Générer les zones de spawn
-            map.GenerateDefaultSpawnZones();
             map.StairConnections = GenerateDefaultStairs(map.GridWidth, map.GridHeight, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
             map.TerrainHeights = GenerateTerrainRelief(map.GridWidth, map.GridHeight);
@@ -140,6 +141,9 @@ namespace XCOM_3
                 TimeOfDay = 0.5f
             };
 
+            // Générer les zones de spawn avant les bâtiments/murs.
+            map.GenerateDefaultSpawnZones();
+
             int density = width * height / 10;
             HashSet<WallSegment> walls = wallGenerator.GenerateWalls(width, height, pattern, density);
             wallGenerator.ClearSpawnZones(walls, width, height);
@@ -162,7 +166,6 @@ namespace XCOM_3
                     Y = p.Y,
                     Floor = 0
                 });
-            map.GenerateDefaultSpawnZones();
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
             map.TerrainHeights = GenerateTerrainRelief(width, height);
