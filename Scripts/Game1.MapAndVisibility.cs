@@ -289,7 +289,7 @@ namespace XCOM_3
                 if (maxX - minX < 3 || maxY - minY < 3)
                     continue;
 
-                AddExteriorWallsForFloor(filteredWalls, minX, minY, maxX, maxY);
+                AddExteriorWallsForFloor(filteredWalls, minX, minY, maxX, maxY, floor);
 
                 foreach (var wall in wallSegments)
                 {
@@ -303,14 +303,38 @@ namespace XCOM_3
                     if (ShouldSkipWallForFloor(building, wall, floor))
                         continue;
 
-                    filteredWalls.Add(wall);
+                    if (floor > 0 && wall.Type == WallType.Door)
+                        continue;
+
+                    WallSegment wallForFloor = wall;
+                    if (floor > 0 && wall.Type == WallType.Full && IsPerimeterWall(wall, minX, minY, maxX, maxY))
+                    {
+                        int roll = Math.Abs((
+                            floor * 16057 +
+                            wall.Start.X * 92821 +
+                            wall.Start.Y * 68917 +
+                            wall.End.X * 5171 +
+                            wall.End.Y * 3463) % 100);
+
+                        if (roll < 65)
+                            wallForFloor = new WallSegment(wall.Start, wall.End, wall.IsHorizontal, WallType.Window, wall.Material);
+                    }
+
+                    filteredWalls.Add(wallForFloor);
                 }
             }
 
             return filteredWalls;
         }
 
-        private static void AddExteriorWallsForFloor(HashSet<WallSegment> target, int minX, int minY, int maxX, int maxY)
+        private static bool IsPerimeterWall(WallSegment wall, int minX, int minY, int maxX, int maxY)
+        {
+            return wall.IsHorizontal
+                ? (wall.Start.Y == minY || wall.Start.Y == maxY)
+                : (wall.Start.X == minX || wall.Start.X == maxX);
+        }
+
+        private static void AddExteriorWallsForFloor(HashSet<WallSegment> target, int minX, int minY, int maxX, int maxY, int floor)
         {
             if (target == null)
                 return;
@@ -318,10 +342,45 @@ namespace XCOM_3
             if (maxX - minX < 2 || maxY - minY < 2)
                 return;
 
-            target.Add(new WallSegment(new Point(minX, minY), new Point(maxX, minY), true, WallType.Full));
-            target.Add(new WallSegment(new Point(minX, maxY), new Point(maxX, maxY), true, WallType.Full));
-            target.Add(new WallSegment(new Point(minX, minY), new Point(minX, maxY), false, WallType.Full));
-            target.Add(new WallSegment(new Point(maxX, minY), new Point(maxX, maxY), false, WallType.Full));
+            for (int x = minX; x < maxX; x++)
+            {
+                WallType northType = WallType.Full;
+                WallType southType = WallType.Full;
+
+                if (floor > 0)
+                {
+                    int northRoll = Math.Abs((floor * 16057 + x * 92821 + minY * 68917 + 11) % 100);
+                    int southRoll = Math.Abs((floor * 16057 + x * 92821 + maxY * 68917 + 17) % 100);
+
+                    if (northRoll < 65)
+                        northType = WallType.Window;
+                    if (southRoll < 65)
+                        southType = WallType.Window;
+                }
+
+                target.Add(new WallSegment(new Point(x, minY), new Point(x + 1, minY), true, northType));
+                target.Add(new WallSegment(new Point(x, maxY), new Point(x + 1, maxY), true, southType));
+            }
+
+            for (int y = minY; y < maxY; y++)
+            {
+                WallType westType = WallType.Full;
+                WallType eastType = WallType.Full;
+
+                if (floor > 0)
+                {
+                    int westRoll = Math.Abs((floor * 16057 + minX * 92821 + y * 68917 + 23) % 100);
+                    int eastRoll = Math.Abs((floor * 16057 + maxX * 92821 + y * 68917 + 29) % 100);
+
+                    if (westRoll < 65)
+                        westType = WallType.Window;
+                    if (eastRoll < 65)
+                        eastType = WallType.Window;
+                }
+
+                target.Add(new WallSegment(new Point(minX, y), new Point(minX, y + 1), false, westType));
+                target.Add(new WallSegment(new Point(maxX, y), new Point(maxX, y + 1), false, eastType));
+            }
         }
 
         private HashSet<WallSegment> FilterUpperFloorWallsForLowerView(int sourceFloor, int viewedFloor, HashSet<WallSegment> walls)
