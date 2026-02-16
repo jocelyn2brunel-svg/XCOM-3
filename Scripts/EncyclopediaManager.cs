@@ -90,7 +90,7 @@ namespace XCOM_3
             switch (_currentCategory)
             {
                 case "Weapons":
-                    y = _weaponDatabase.Count * (LineHeight * 4 + 10) + 60;
+                    y = _weaponDatabase.Count * (LineHeight * 5 + 10) + 60;
                     break;
                 case "Armor":
                     y = _inventorySystem.ItemDatabase.Values.Count(i => i.Type == ItemType.Armor) * (LineHeight * 3 + 10) + 60;
@@ -269,6 +269,9 @@ namespace XCOM_3
                 y += LineHeight;
 
                 _spriteBatch.DrawString(_font, $"  Portée: {weapon.Range} cases", new Vector2(ContentX + 20, y), Color.White);
+                y += LineHeight;
+
+                _spriteBatch.DrawString(_font, $"  Poids: {weapon.WeightLbs:0.0} lbs", new Vector2(ContentX + 20, y), Color.White);
                 y += LineHeight + 10;
             }
         }

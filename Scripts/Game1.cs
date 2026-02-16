@@ -1701,6 +1701,39 @@ namespace XCOM_3
             return (name, job);
         }
 
+        private void AssignWeaponToUnit(Unit unit, WeaponData weaponData)
+        {
+            if (unit == null)
+                return;
+
+            if (weaponData == null)
+            {
+                unit.Weapon = string.Empty;
+                unit.WeaponData = null;
+                unit.EquippedWeapon = null;
+                return;
+            }
+
+            unit.Weapon = weaponData.Name;
+            unit.WeaponData = weaponData;
+            unit.EquippedWeapon = new Item(new ItemData(weaponData.Name, ItemType.Weapon, weaponData), Point.Zero);
+        }
+
+        private WeaponData GetRandomWeaponData(string preferredWeaponName = null, bool enforcePreferred = false)
+        {
+            if (weaponDatabase == null || weaponDatabase.Count == 0)
+                return null;
+
+            if (!string.IsNullOrWhiteSpace(preferredWeaponName) &&
+                weaponDatabase.TryGetValue(preferredWeaponName, out WeaponData preferredWeapon) &&
+                (enforcePreferred || random.Next(100) < 65))
+            {
+                return preferredWeapon;
+            }
+
+            return weaponDatabase.Values.ElementAt(random.Next(weaponDatabase.Count));
+        }
+
         private class AStarNode
         {
             public Point Position;
@@ -1726,13 +1759,17 @@ namespace XCOM_3
 
                 if (profile != null)
                 {
-                    WeaponData weaponData = weaponDatabase.TryGetValue(profile.Weapon, out var data) ? data : null;
-                    playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, profile.Name, profile.Job, profile.Weapon, weaponData));
+                    WeaponData weaponData = weaponDatabase.TryGetValue(profile.Weapon, out var data)
+                        ? data
+                        : GetRandomWeaponData();
+                    string weaponName = weaponData?.Name ?? profile.Weapon;
+                    playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, profile.Name, profile.Job, weaponName, weaponData));
                 }
                 else
                 {
                     (string callSign, string job) = GenerateRandomRecruitProfile();
-                    playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, callSign, job, string.Empty, null));
+                    var randomWeapon = GetRandomWeaponData();
+                    playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, callSign, job, randomWeapon?.Name ?? string.Empty, randomWeapon));
                 }
             }
 
@@ -1760,7 +1797,9 @@ namespace XCOM_3
                     for (int i = 0; i < 6; i++)
                     {
                         var t = enemyPool[random.Next(enemyPool.Count)];
-                        enemyUnits.Add(new Unit(new Point(2 + i, 1), Team.Enemy, t.Name, t.Class, string.Empty, null) { ActionPoints = t.ActionPoints });
+                        var enemy = new Unit(new Point(2 + i, 1), Team.Enemy, t.Name, t.Class, string.Empty, null) { ActionPoints = t.ActionPoints };
+                        AssignWeaponToUnit(enemy, GetRandomWeaponData(t.Weapon));
+                        enemyUnits.Add(enemy);
                     }
                     break;
 
@@ -1768,7 +1807,9 @@ namespace XCOM_3
                     for (int i = 0; i < 10; i++)
                     {
                         var t = enemyPool[random.Next(enemyPool.Count)];
-                        enemyUnits.Add(new Unit(new Point(2 + (i % 8), i < 8 ? 1 : 2), Team.Enemy, t.Name, t.Class, string.Empty, null) { ActionPoints = t.ActionPoints });
+                        var enemy = new Unit(new Point(2 + (i % 8), i < 8 ? 1 : 2), Team.Enemy, t.Name, t.Class, string.Empty, null) { ActionPoints = t.ActionPoints };
+                        AssignWeaponToUnit(enemy, GetRandomWeaponData(t.Weapon));
+                        enemyUnits.Add(enemy);
                     }
                     break;
 
@@ -1777,7 +1818,9 @@ namespace XCOM_3
                     for (int i = 0; i < 8; i++)
                     {
                         var t = aliens[random.Next(aliens.Count)];
-                        enemyUnits.Add(new Unit(new Point(2 + i, 1), Team.Enemy, t.Name, t.Class, string.Empty, null) { ActionPoints = t.ActionPoints });
+                        var enemy = new Unit(new Point(2 + i, 1), Team.Enemy, t.Name, t.Class, string.Empty, null) { ActionPoints = t.ActionPoints };
+                        AssignWeaponToUnit(enemy, GetRandomWeaponData(t.Weapon));
+                        enemyUnits.Add(enemy);
                     }
                     break;
 
@@ -1806,14 +1849,16 @@ namespace XCOM_3
                             (availableCells[i], availableCells[swapIndex]) = (availableCells[swapIndex], availableCells[i]);
 
                             var spawn = availableCells[i];
-                            enemyUnits.Add(new Unit(
+                            var enemy = new Unit(
                                 spawn,
                                 Team.Enemy,
                                 zombie.Name,
                                 zombie.Class,
                                 string.Empty,
                                 null)
-                            { ActionPoints = zombie.ActionPoints });
+                            { ActionPoints = zombie.ActionPoints };
+                            AssignWeaponToUnit(enemy, GetRandomWeaponData(zombie.Weapon, enforcePreferred: true));
+                            enemyUnits.Add(enemy);
                         }
 
                         break;
@@ -1826,14 +1871,16 @@ namespace XCOM_3
 
                         foreach (var spawn in edgeSpawns)
                         {
-                            enemyUnits.Add(new Unit(
+                            var enemy = new Unit(
                                 spawn,
                                 Team.Enemy,
                                 zombie.Name,
                                 zombie.Class,
                                 string.Empty,
                                 null)
-                            { ActionPoints = zombie.ActionPoints });
+                            { ActionPoints = zombie.ActionPoints };
+                            AssignWeaponToUnit(enemy, GetRandomWeaponData(zombie.Weapon, enforcePreferred: true));
+                            enemyUnits.Add(enemy);
                         }
 
                         break;
@@ -1847,8 +1894,10 @@ namespace XCOM_3
                         foreach (var spawn in edgeSpawns)
                         {
                             var t = hostiles[random.Next(hostiles.Count)];
-                            enemyUnits.Add(new Unit(spawn, Team.Enemy, t.Name, t.Class, string.Empty, null)
-                            { ActionPoints = t.ActionPoints });
+                            var enemy = new Unit(spawn, Team.Enemy, t.Name, t.Class, string.Empty, null)
+                            { ActionPoints = t.ActionPoints };
+                            AssignWeaponToUnit(enemy, GetRandomWeaponData(t.Weapon));
+                            enemyUnits.Add(enemy);
                         }
 
                         break;
@@ -1862,8 +1911,10 @@ namespace XCOM_3
                         foreach (var spawn in centerSpawns)
                         {
                             var t = hostiles[random.Next(hostiles.Count)];
-                            enemyUnits.Add(new Unit(spawn, Team.Enemy, t.Name, t.Class, string.Empty, null)
-                            { ActionPoints = t.ActionPoints });
+                            var enemy = new Unit(spawn, Team.Enemy, t.Name, t.Class, string.Empty, null)
+                            { ActionPoints = t.ActionPoints };
+                            AssignWeaponToUnit(enemy, GetRandomWeaponData(t.Weapon));
+                            enemyUnits.Add(enemy);
                         }
 
                         break;
@@ -1876,8 +1927,10 @@ namespace XCOM_3
 
                         foreach (var spawn in edgeSpawns)
                         {
-                            enemyUnits.Add(new Unit(spawn, Team.Enemy, zombie.Name, zombie.Class, string.Empty, null)
-                            { ActionPoints = zombie.ActionPoints });
+                            var enemy = new Unit(spawn, Team.Enemy, zombie.Name, zombie.Class, string.Empty, null)
+                            { ActionPoints = zombie.ActionPoints };
+                            AssignWeaponToUnit(enemy, GetRandomWeaponData(zombie.Weapon, enforcePreferred: true));
+                            enemyUnits.Add(enemy);
                         }
 
                         break;
