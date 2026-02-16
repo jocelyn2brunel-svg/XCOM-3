@@ -1012,14 +1012,25 @@ namespace XCOM_3
                 }
             };
 
+            if (type == UnitType.Soldier)
+            {
+                baseDimensions.head *= HumanBodyMorphSettings.HeadScale;
+                baseDimensions.tw *= HumanBodyMorphSettings.TorsoWidthScale;
+                baseDimensions.th *= HumanBodyMorphSettings.TorsoHeightScale;
+                baseDimensions.td *= HumanBodyMorphSettings.TorsoDepthScale;
+                baseDimensions.lw *= HumanBodyMorphSettings.LimbWidthScale;
+                baseDimensions.al *= HumanBodyMorphSettings.ArmLengthScale;
+                baseDimensions.ll *= HumanBodyMorphSettings.LegLengthScale;
+            }
+
             if (type == UnitType.Soldier && bodyType == Unit.HumanBodyType.Feminine)
             {
-                baseDimensions.head *= 0.98f;
-                baseDimensions.tw *= 0.90f;
-                baseDimensions.td *= 0.85f;
-                baseDimensions.lw *= 0.9f;
-                baseDimensions.th *= 0.95f;
-                baseDimensions.ll *= 1.05f;
+                baseDimensions.head *= HumanBodyMorphSettings.FeminineHeadScale;
+                baseDimensions.tw *= HumanBodyMorphSettings.FeminineTorsoWidthScale;
+                baseDimensions.td *= HumanBodyMorphSettings.FeminineTorsoDepthScale;
+                baseDimensions.lw *= HumanBodyMorphSettings.FeminineLimbWidthScale;
+                baseDimensions.th *= HumanBodyMorphSettings.FeminineTorsoHeightScale;
+                baseDimensions.ll *= HumanBodyMorphSettings.FeminineLegLengthScale;
             }
 
             return baseDimensions;
@@ -1320,9 +1331,9 @@ namespace XCOM_3
 
             // Structure de tronc en 3 blocs (1 : 0.8 : 1), avec axe vertical stabilisé.
             // On évite ainsi les ventres projetés et la "posture en banane".
-            float ribRatio = 1f;
-            float abdomenRatio = 0.8f;
-            float pelvisRatio = 1f;
+            float ribRatio = HumanBodyMorphSettings.RibRatio;
+            float abdomenRatio = HumanBodyMorphSettings.AbdomenRatio;
+            float pelvisRatio = HumanBodyMorphSettings.PelvisRatio;
             float ratioSum = ribRatio + abdomenRatio + pelvisRatio;
 
             float ribHeight = dims.th * (ribRatio / ratioSum);
@@ -1337,8 +1348,8 @@ namespace XCOM_3
             float trunkCenterZ = 0f;
 
             // 1) Cage thoracique
-            float ribTopWidth = dims.tw * (feminine ? 1.0f : 1.08f);
-            float ribBottomWidth = dims.tw * (feminine ? 0.9f : 0.84f);
+            float ribTopWidth = dims.tw * (feminine ? HumanBodyMorphSettings.FeminineRibTopWidthFactor : HumanBodyMorphSettings.MasculineRibTopWidthFactor);
+            float ribBottomWidth = dims.tw * (feminine ? HumanBodyMorphSettings.FeminineRibBottomWidthFactor : HumanBodyMorphSettings.MasculineRibBottomWidthFactor);
             float chestDepth = dims.td;
             Matrix ribRot = Matrix.CreateRotationX(MathHelper.ToRadians(-2f)) * r;
             DrawTorsoPolygon(d, e, p, new Vector3(0, ribCenterY, trunkCenterZ),
@@ -1347,8 +1358,8 @@ namespace XCOM_3
             // 2) Abdomen-pont : capsule continue + bloc de soutien
             // pour relier visuellement la sortie de cage et l'entrée de bassin.
             float abdomenDepth = chestDepth * 0.8f;
-            float pelvisTopWidth = dims.tw * (feminine ? 1.06f : 1.02f);
-            float pelvisBottomWidth = dims.tw * (feminine ? 0.9f : 0.84f);
+            float pelvisTopWidth = dims.tw * (feminine ? HumanBodyMorphSettings.FemininePelvisTopWidthFactor : HumanBodyMorphSettings.MasculinePelvisTopWidthFactor);
+            float pelvisBottomWidth = dims.tw * (feminine ? HumanBodyMorphSettings.FemininePelvisBottomWidthFactor : HumanBodyMorphSettings.MasculinePelvisBottomWidthFactor);
             float abdomenStartY = ribCenterY - ribHeight * 0.45f;
             float abdomenEndY = pelvisCenterY + pelvisHeight * 0.45f;
             float abdomenRadius = MathHelper.Lerp(ribBottomWidth, pelvisTopWidth, 0.5f) * 0.36f;
