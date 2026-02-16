@@ -918,6 +918,8 @@ namespace XCOM_3
                 DrawMovementDestinationInfoBillboard();
             }
 
+            DrawMk2FragmentationHitChanceLabels();
+
             _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | PgUp/PgDn: Etage | I: Inventaire | C: Fiche perso", new Vector2(10, 10), Color.White);
             _spriteBatch.DrawString(font, "Escaliers: balises orange/bleu sur la grille", new Vector2(10, 70), new Color(255, 190, 90));
 
