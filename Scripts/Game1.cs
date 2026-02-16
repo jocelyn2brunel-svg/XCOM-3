@@ -27,6 +27,7 @@ namespace XCOM_3
         private Texture2D asphaltTexture;
         private Texture2D sidewalkTexture;
         private Texture2D brickWallTexture;
+        private Texture2D upperWallTexture;
         private Texture2D hescoWallTexture;
 
         // --- Systèmes ---
@@ -202,6 +203,7 @@ namespace XCOM_3
             asphaltTexture = LoadAsphaltTexture();
             sidewalkTexture = LoadSidewalkTexture();
             brickWallTexture = LoadBrickWallTexture();
+            upperWallTexture = LoadUpperWallTexture();
             hescoWallTexture = LoadHescoWallTexture();
             hoveredCellWireframeState = new RasterizerState
             {
@@ -235,6 +237,14 @@ namespace XCOM_3
                 new[] { "BrickWall32x32.jpeg", "BrickWall32x32.jpg", "BrickWall32x32.png" },
                 "brick wall",
                 pixel);
+        }
+
+        private Texture2D LoadUpperWallTexture()
+        {
+            return LoadFirstAvailableTexture(
+                new[] { "BrickWall32x32.jpeg", "BrickWall32x32.jpg", "BrickWall32x32.png" },
+                "upper wall",
+                brickWallTexture ?? pixel);
         }
 
         private Texture2D LoadAsphaltTexture()
@@ -1121,7 +1131,11 @@ namespace XCOM_3
 
                     if (renderedWalls.Count > 0)
                     {
-                        renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: brickWallTexture, hescoWallTexture: hescoWallTexture);
+                        Texture2D wallTextureForFloor = floor > 0
+                            ? upperWallTexture ?? brickWallTexture
+                            : brickWallTexture;
+
+                        renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture);
                     }
                 }
 
