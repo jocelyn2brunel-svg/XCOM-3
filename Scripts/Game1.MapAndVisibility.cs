@@ -180,10 +180,30 @@ namespace XCOM_3
                 return;
 
             var cell = new Point(x, y);
+            if (IsInsideBuildingFootprint(cell))
+                return;
+
             if (upperFloorCells.Contains(cell))
                 return;
 
             roads.Add(cell);
+        }
+
+        private bool IsInsideBuildingFootprint(Point cell)
+        {
+            if (currentMap?.Buildings == null)
+                return false;
+
+            foreach (var building in currentMap.Buildings)
+            {
+                if (cell.X >= building.X && cell.X < building.X + building.Width &&
+                    cell.Y >= building.Y && cell.Y < building.Y + building.Height)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static (int MinSize, int MaxSize) GetMissionMapSizeRange(string missionType)
