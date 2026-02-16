@@ -12,6 +12,8 @@ namespace XCOM_3
         private const float Mk2LethalRadius = 2f;
         private const float Mk2FragmentationStartRadius = 3f;
         private const float Mk2FragmentationEndRadius = 9f;
+        private const int BaseThrowAccuracyPercent = 92;
+        private const int ThrowDistancePenaltyPercentPerCell = 7;
 
         private void UpdateEnemyPerceptionVisibility()
         {
@@ -142,11 +144,61 @@ namespace XCOM_3
 
         private void LaunchGrenade(Unit thrower, GrenadeData grenadeData, Point targetCell, int targetFloor)
         {
+            Point actualLandingCell = ResolveThrowLandingCell(thrower, targetCell);
+
             Vector3 startPos = new Vector3(thrower.Cell.X * cellSize + cellSize / 2f, cellSize * 1.5f, thrower.Cell.Y * cellSize + cellSize / 2f);
-            Vector3 targetPos = new Vector3(targetCell.X * cellSize + cellSize / 2f, 0, targetCell.Y * cellSize + cellSize / 2f);
+            Vector3 targetPos = new Vector3(actualLandingCell.X * cellSize + cellSize / 2f, 0, actualLandingCell.Y * cellSize + cellSize / 2f);
             Grenade grenade = new Grenade(grenadeData, startPos, targetPos, thrower, targetFloor);
             activeGrenades.Add(grenade);
-            Console.WriteLine($"{thrower.Name} threw {grenadeData.Name} at {targetCell}");
+            if (actualLandingCell != targetCell)
+            {
+                Console.WriteLine($"{thrower.Name} missed throw target {targetCell}, {grenadeData.Name} landed at {actualLandingCell}.");
+            }
+            else
+            {
+                Console.WriteLine($"{thrower.Name} threw {grenadeData.Name} at {targetCell}");
+            }
+        }
+
+        private Point ResolveThrowLandingCell(Unit thrower, Point desiredTargetCell)
+        {
+            if (thrower == null)
+                return desiredTargetCell;
+
+            int throwDistance = Math.Abs(desiredTargetCell.X - thrower.Cell.X) + Math.Abs(desiredTargetCell.Y - thrower.Cell.Y);
+            int distancePenalty = Math.Max(0, throwDistance - 1) * ThrowDistancePenaltyPercentPerCell;
+            int throwSkillBonus = thrower.Skills?.GetThrowAccuracyBonus() ?? 0;
+
+            int hitChance = Math.Clamp(BaseThrowAccuracyPercent - distancePenalty + throwSkillBonus, 10, 98);
+            int roll = random.Next(100);
+
+            if (roll < hitChance)
+                return desiredTargetCell;
+
+            List<Point> adjacentCells = new List<Point>();
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0)
+                        continue;
+
+                    int x = desiredTargetCell.X + dx;
+                    int y = desiredTargetCell.Y + dy;
+
+                    if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight)
+                        continue;
+
+                    adjacentCells.Add(new Point(x, y));
+                }
+            }
+
+            if (adjacentCells.Count == 0)
+                return desiredTargetCell;
+
+            Point scatteredCell = adjacentCells[random.Next(adjacentCells.Count)];
+            Console.WriteLine($"Throw deviation: distance={throwDistance}, chance={hitChance}%, roll={roll} -> {scatteredCell}");
+            return scatteredCell;
         }
 
         private void UpdateGrenades(GameTime gameTime)

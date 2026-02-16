@@ -186,6 +186,8 @@ namespace XCOM_3
             _skills[SkillType.Demolitions].Level / 3;
         public int GetGrenadeThrowRangeBonus() =>
             _skills[SkillType.Strength].Level / 2;
+        public int GetThrowAccuracyBonus() =>
+            _skills[SkillType.Strength].Level * 4;
         public int GetCarryBonus() =>
             _skills[SkillType.Strength].Level * 2;
         public int GetMeleeHitBonus() =>
