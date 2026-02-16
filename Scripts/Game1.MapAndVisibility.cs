@@ -358,8 +358,8 @@ namespace XCOM_3
                         southType = WallType.Window;
                 }
 
-                target.Add(new WallSegment(new Point(x, minY), new Point(x + 1, minY), true, northType));
-                target.Add(new WallSegment(new Point(x, maxY), new Point(x + 1, maxY), true, southType));
+                target.Add(new WallSegment(new Point(x, minY), new Point(x + 1, minY), true, northType, WallMaterial.Brick));
+                target.Add(new WallSegment(new Point(x, maxY), new Point(x + 1, maxY), true, southType, WallMaterial.Brick));
             }
 
             for (int y = minY; y < maxY; y++)
@@ -378,8 +378,8 @@ namespace XCOM_3
                         eastType = WallType.Window;
                 }
 
-                target.Add(new WallSegment(new Point(minX, y), new Point(minX, y + 1), false, westType));
-                target.Add(new WallSegment(new Point(maxX, y), new Point(maxX, y + 1), false, eastType));
+                target.Add(new WallSegment(new Point(minX, y), new Point(minX, y + 1), false, westType, WallMaterial.Brick));
+                target.Add(new WallSegment(new Point(maxX, y), new Point(maxX, y + 1), false, eastType, WallMaterial.Brick));
             }
         }
 
