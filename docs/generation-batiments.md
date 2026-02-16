@@ -4,9 +4,9 @@
 La génération des bâtiments est gérée dans `EdgeWallGenerator` quand le pattern `Urban` est sélectionné.
 
 Pipeline simplifié :
-1. Découpage de la carte en blocs réguliers + rues.
-2. Réservation d'un anneau de **sidewalk** (1 case) à l'intérieur de chaque lot.
-3. Placement d'un ou deux bâtiments par lot, avec priorité aux coins des lots (façades collées aux sidewalks).
+1. Génération des **routes** urbaines à partir d'une grille régulière (blocs + rues).
+2. Génération des **sidewalks** autour des routes (anneau de 1 case hors route).
+3. Placement d'un ou deux **bâtiments** par lot, avec priorité aux coins des lots (façades collées aux sidewalks).
 4. Calcul des étages/sous-sols (étages aléatoires de 1 à 8).
 5. Génération des murs extérieurs (avec fenêtres), puis d'une porte.
 6. Génération de l'intérieur selon un type de bâtiment.
