@@ -1058,222 +1058,49 @@ namespace XCOM_3
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
             int floorCount = Math.Max(1, currentMap?.FloorCount ?? 1);
-            int floorToRender = Math.Clamp(viewedFloor, GetMinimumViewFloor(), floorCount - 1);
-            float yOffset = floorToRender * cellSize;
+            int minFloor = GetMinimumViewFloor();
 
-            List<Unit> unitsOnFloor = playerUnits.Where(u => u.Floor == viewedFloor)
-                .Concat(enemyUnits.Where(u => u.Floor == viewedFloor && IsEnemyVisibleToPlayers(u)))
+            for (int floor = minFloor; floor < floorCount; floor++)
+            {
+                float yOffset = floor * cellSize;
+
+                if (floor == 0)
+                {
+                    renderer3D.DrawGridWithTerrain(gridWidth, gridHeight, cellSize, tileTexture, terrainHeights, yOffset);
+                }
+                else
+                {
+                    var floorCells = GetCellsForFloor(floor);
+                    if (floorCells.Count > 0)
+                        renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, yOffset);
+                }
+
+                var hescoBarriersForFloor = GetHescoBarriersForFloor(floor);
+                if (hescoBarriersForFloor.Count > 0)
+                    renderer3D.DrawHescoBarriers(hescoBarriersForFloor, cellSize, yOffset, hescoWallTexture);
+
+                var wallsForFloor = GetWallsForFloor(floor);
+                if (wallsForFloor.Count > 0)
+                    renderer3D.DrawWalls(wallsForFloor, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: brickWallTexture, hescoWallTexture: hescoWallTexture);
+
+                renderer3D.DrawRampTiles(currentMap?.RampTiles, floor, cellSize);
+                renderer3D.DrawStairConnections(currentMap?.StairConnections, floor, cellSize);
+            }
+
+            var visibleUnits = playerUnits.Where(u => u.Health > 0)
+                .Concat(enemyUnits.Where(u => u.Health > 0 && IsEnemyVisibleToPlayers(u)))
                 .ToList();
 
-            var wallsForFloor = GetWallsForFloor(floorToRender);
-            HashSet<WallSegment> fadedWalls = new HashSet<WallSegment>();
-            HashSet<WallSegment> hoverRevealWalls = new HashSet<WallSegment>();
-            HashSet<Unit> occludedUnits = new HashSet<Unit>();
-            ComputeOcclusionFromWalls(wallsForFloor, unitsOnFloor, yOffset, fadedWalls, occludedUnits);
-            ComputeOcclusionFromHoveredArea(wallsForFloor, yOffset, hoverRevealWalls);
-            ComputeOcclusionFromPathArea(wallsForFloor, yOffset, hoverRevealWalls);
-            fadedWalls.UnionWith(hoverRevealWalls);
-
-            if (floorToRender == 0)
-            {
-                renderer3D.DrawGridWithTerrain(gridWidth, gridHeight, cellSize, tileTexture, terrainHeights, yOffset);
-            }
-            else if (floorToRender < 0)
-            {
-                var basementCells = GetCellsForFloor(floorToRender);
-
-                if (basementCells.Count > 0)
-                {
-                    // Conserver le sol du RDC visible quand on explore les sous-sols,
-                    // sauf au-dessus des cases qui correspondent au sous-sol affiché.
-                    var groundVisibleCells = GetExteriorCells(basementCells);
-                    if (groundVisibleCells.Count > 0)
-                        renderer3D.DrawGridCells(groundVisibleCells, cellSize, tileTexture, 0f);
-                }
-
-                if (basementCells.Count > 0)
-                    renderer3D.DrawGridCells(basementCells, cellSize, tileTexture, yOffset);
-            }
-            else
-            {
-                var floorCells = GetCellsForFloor(floorToRender);
-                var exteriorCells = GetExteriorCells(floorCells);
-
-                if (exteriorCells.Count > 0)
-                    renderer3D.DrawGridCells(exteriorCells, cellSize, tileTexture, 0f);
-
-                if (floorCells.Count > 0)
-                    renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, yOffset);
-            }
-
-            var hescoBarriersForFloor = GetHescoBarriersForFloor(floorToRender);
-            if (hescoBarriersForFloor.Count > 0)
-                renderer3D.DrawHescoBarriers(hescoBarriersForFloor, cellSize, yOffset, hescoWallTexture);
-
-            var opaqueWalls = new HashSet<WallSegment>(wallsForFloor.Where(w => !fadedWalls.Contains(w)));
-            if (opaqueWalls.Count > 0)
-                renderer3D.DrawWalls(opaqueWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: brickWallTexture, hescoWallTexture: hescoWallTexture);
-
-            if (hoverRevealWalls.Count > 0)
-                DrawWireframeWalls(hoverRevealWalls, yOffset, new Color(255, 235, 130, 64));
-
-            if (floorToRender < floorCount - 1)
-            {
-                for (int upperFloor = floorToRender + 1; upperFloor < floorCount; upperFloor++)
-                {
-                    float upperFloorOffset = upperFloor * cellSize;
-                    var wallsForUpperFloor = FilterUpperFloorWallsForLowerView(
-                        upperFloor,
-                        floorToRender,
-                        GetWallsForFloor(upperFloor));
-                    var fadedUpperWalls = new HashSet<WallSegment>();
-
-                    if (unitsOnFloor.Count > 0)
-                    {
-                        ComputeOcclusionFromWalls(wallsForUpperFloor, unitsOnFloor, upperFloorOffset, fadedUpperWalls, new HashSet<Unit>());
-                    }
-                    ComputeOcclusionFromHoveredArea(wallsForUpperFloor, upperFloorOffset, fadedUpperWalls);
-                    ComputeOcclusionFromPathArea(wallsForUpperFloor, upperFloorOffset, fadedUpperWalls);
-
-                    var opaqueUpperWalls = new HashSet<WallSegment>(wallsForUpperFloor.Where(w => !fadedUpperWalls.Contains(w)));
-                    if (opaqueUpperWalls.Count > 0)
-                    {
-                        renderer3D.DrawWalls(
-                            opaqueUpperWalls,
-                            cellSize,
-                            editorMode: false,
-                            floorHeightOffset: upperFloorOffset,
-                            wallOverrideColor: new Color(165, 150, 130),
-                            brickWallTexture: brickWallTexture,
-                            hescoWallTexture: hescoWallTexture);
-                    }
-
-                    if (fadedUpperWalls.Count > 0)
-                    {
-                        DrawWireframeWalls(fadedUpperWalls, upperFloorOffset, new Color(205, 190, 170, 64));
-                    }
-                }
-            }
-
-            if (floorToRender > GetMinimumViewFloor())
-            {
-                for (int lowerFloor = GetMinimumViewFloor(); lowerFloor < floorToRender; lowerFloor++)
-                {
-                    float lowerFloorOffset = lowerFloor * cellSize;
-                    var wallsForLowerFloor = GetWallsForFloor(lowerFloor);
-                    var lowerFloorUnits = GetVisibleUnitsForFloor(lowerFloor);
-                    var fadedLowerWalls = new HashSet<WallSegment>();
-
-                    if (lowerFloorUnits.Count > 0)
-                    {
-                        ComputeOcclusionFromWalls(wallsForLowerFloor, lowerFloorUnits, lowerFloorOffset, fadedLowerWalls, new HashSet<Unit>());
-                    }
-                    ComputeOcclusionFromHoveredArea(wallsForLowerFloor, lowerFloorOffset, fadedLowerWalls);
-                    ComputeOcclusionFromPathArea(wallsForLowerFloor, lowerFloorOffset, fadedLowerWalls);
-
-                    var opaqueLowerWalls = new HashSet<WallSegment>(wallsForLowerFloor.Where(w => !fadedLowerWalls.Contains(w)));
-                    opaqueLowerWalls = FilterCameraFacingWallsForNonViewedFloor(opaqueLowerWalls);
-                    if (opaqueLowerWalls.Count > 0)
-                    {
-                        renderer3D.DrawWalls(
-                            opaqueLowerWalls,
-                            cellSize,
-                            editorMode: false,
-                            floorHeightOffset: lowerFloorOffset,
-                            wallOverrideColor: lowerFloor < 0 ? new Color(85, 105, 130) : new Color(95, 140, 170),
-                            brickWallTexture: brickWallTexture,
-                            hescoWallTexture: hescoWallTexture);
-                    }
-
-                    if (fadedLowerWalls.Count > 0)
-                    {
-                        Color lowerWireColor = lowerFloor < 0
-                            ? new Color(105, 140, 180, 64)
-                            : new Color(120, 180, 215, 64);
-                        DrawWireframeWalls(fadedLowerWalls, lowerFloorOffset, lowerWireColor);
-                    }
-                }
-            }
-
-            renderer3D.DrawRampTiles(currentMap?.RampTiles, floorToRender, cellSize);
-            renderer3D.DrawStairConnections(currentMap?.StairConnections, floorToRender, cellSize);
-
-            foreach (var unit in unitsOnFloor)
+            foreach (var unit in visibleUnits)
                 renderer3D.DrawUnit(unit, cellSize);
 
-            DrawAlliedTacticalFlashlightBeams(floorToRender, floorCount);
+            DrawAlliedTacticalFlashlightBeams(minFloor, floorCount);
 
-            var unitsBelowViewedFloor = playerUnits.Where(u => u.Floor < viewedFloor)
-                .Concat(enemyUnits.Where(u => u.Floor < viewedFloor && IsEnemyVisibleToPlayers(u)))
-                .Where(u => u.Health > 0)
-                .ToList();
-
-            var unitsAboveViewedFloor = playerUnits.Where(u => u.Floor > viewedFloor)
-                .Concat(enemyUnits.Where(u => u.Floor > viewedFloor && IsEnemyVisibleToPlayers(u)))
-                .Where(u => u.Health > 0)
-                .ToList();
-
-            if (unitsBelowViewedFloor.Count > 0)
-            {
-                GraphicsDevice.BlendState = BlendState.AlphaBlend;
-                GraphicsDevice.DepthStencilState = DepthStencilState.None;
-
-                foreach (var unit in unitsBelowViewedFloor)
-                {
-                    Color belowFloorColor = unit.Team == Team.Player
-                        ? new Color(80, 200, 255, 135)
-                        : new Color(255, 120, 90, 115);
-
-                    renderer3D.DrawUnitGhost(unit, cellSize, belowFloorColor);
-                }
-
-                GraphicsDevice.BlendState = BlendState.Opaque;
-                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            }
-
-            if (unitsAboveViewedFloor.Count > 0)
-            {
-                GraphicsDevice.BlendState = BlendState.AlphaBlend;
-                GraphicsDevice.DepthStencilState = DepthStencilState.None;
-
-                foreach (var unit in unitsAboveViewedFloor)
-                {
-                    Color aboveFloorColor = unit.Team == Team.Player
-                        ? new Color(80, 200, 255, 135)
-                        : new Color(255, 120, 90, 115);
-
-                    renderer3D.DrawUnitGhost(unit, cellSize, aboveFloorColor);
-                }
-
-                GraphicsDevice.BlendState = BlendState.Opaque;
-                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            }
-
-            var occlusionWireWalls = new HashSet<WallSegment>(fadedWalls);
-            occlusionWireWalls.ExceptWith(hoverRevealWalls);
-            if (occlusionWireWalls.Count > 0)
-            {
-                DrawWireframeWalls(occlusionWireWalls, yOffset, new Color(120, 190, 240, 64));
-            }
-
-            if (occludedUnits.Count > 0)
-            {
-                GraphicsDevice.BlendState = BlendState.AlphaBlend;
-                GraphicsDevice.DepthStencilState = DepthStencilState.None;
-
-                foreach (var unit in occludedUnits)
-                {
-                    renderer3D.DrawUnitSilhouette(unit, cellSize, new Color(70, 220, 255, 150));
-                }
-
-                GraphicsDevice.BlendState = BlendState.Opaque;
-                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            }
-
-            if (selectedUnit != null && selectedUnit.Floor == viewedFloor) renderer3D.DrawSelectionIndicator(selectedUnit, cellSize, new Color(0, 255, 255, 128));
+            if (selectedUnit != null)
+                renderer3D.DrawSelectionIndicator(selectedUnit, cellSize, new Color(0, 255, 255, 128));
 
             Unit target = combatUI.SelectedFireTarget ?? combatUI.HoveredFireTarget;
-            if (target != null && target.Floor == viewedFloor && (target.Team != Team.Enemy || IsEnemyVisibleToPlayers(target))) renderer3D.DrawSelectionIndicator(target, cellSize, new Color(255, 0, 0, 128), 1.2f);
+            if (target != null && (target.Team != Team.Enemy || IsEnemyVisibleToPlayers(target))) renderer3D.DrawSelectionIndicator(target, cellSize, new Color(255, 0, 0, 128), 1.2f);
 
             renderer3D.DrawCraters(craters, cellSize);
             renderer3D.DrawGrenades(activeGrenades, cellSize);
@@ -1293,7 +1120,7 @@ namespace XCOM_3
                 );
             }
 
-            foreach (var unit in playerUnits.Where(u => u.Floor == viewedFloor))
+            foreach (var unit in playerUnits.Where(u => u.Health > 0))
             {
                 if (unit.CoverType != CoverType.None)
                 {
@@ -1302,7 +1129,7 @@ namespace XCOM_3
                 }
             }
 
-            foreach (var unit in enemyUnits.Where(u => u.Floor == viewedFloor && IsEnemyVisibleToPlayers(u)))
+            foreach (var unit in enemyUnits.Where(u => u.Health > 0 && IsEnemyVisibleToPlayers(u)))
             {
                 if (unit.CoverType != CoverType.None)
                 {
@@ -1311,8 +1138,7 @@ namespace XCOM_3
                 }
             }
 
-            if (selectedUnit != null && combatUI.SelectedFireTarget != null &&
-                selectedUnit.Floor == viewedFloor && combatUI.SelectedFireTarget.Floor == viewedFloor)
+            if (selectedUnit != null && combatUI.SelectedFireTarget != null)
             {
                 var coverSystem = combatSystem.GetCoverSystem();
                 if (coverSystem.IsUnitFlanked(combatUI.SelectedFireTarget, selectedUnit))
