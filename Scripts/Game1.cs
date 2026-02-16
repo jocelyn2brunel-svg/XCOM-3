@@ -1272,6 +1272,7 @@ namespace XCOM_3
                     if (!HasTacticalFlashlightEquipped(ally))
                         continue;
 
+                    DrawTacticalFlashlightVolume(ally, floor);
                     DrawTacticalFlashlightBeam(ally, floor);
                     if (wallsOnFloor.Count > 0)
                         DrawTacticalFlashlightWallHighlights(ally, floor, wallsOnFloor);
@@ -1333,6 +1334,54 @@ namespace XCOM_3
                         new Vector3(cellSize * 0.9f, 1f, cellSize * 0.9f),
                         beamColor * (0.35f + intensity * 0.65f));
                 }
+            }
+        }
+
+        private void DrawTacticalFlashlightVolume(Unit ally, int floorToRender)
+        {
+            if (ally == null)
+                return;
+
+            const float halfConeAngleRadians = MathHelper.Pi / 9f; // 20°
+            const int slices = 9;
+
+            Vector2 forward2D = new Vector2((float)Math.Sin(ally.Orientation), (float)Math.Cos(ally.Orientation));
+            if (forward2D.LengthSquared() < 0.0001f)
+                return;
+
+            forward2D.Normalize();
+
+            float originY = floorToRender * cellSize + cellSize * 0.52f;
+            Vector3 origin = new Vector3(ally.VisualPosition.X, originY, ally.VisualPosition.Z);
+
+            float minDistance = cellSize * 0.65f;
+            float maxDistance = TacticalFlashlightRangeCells * cellSize * 0.58f;
+            float tanHalfCone = (float)Math.Tan(halfConeAngleRadians);
+
+            for (int i = 0; i < slices; i++)
+            {
+                float t = (i + 1f) / slices;
+                float distance = MathHelper.Lerp(minDistance, maxDistance, t);
+                float width = Math.Max(cellSize * 0.35f, 2f * tanHalfCone * distance);
+                float height = MathHelper.Lerp(cellSize * 0.36f, cellSize * 1.25f, t);
+
+                Vector3 sliceCenter = origin + new Vector3(forward2D.X * distance, 0f, forward2D.Y * distance);
+
+                float alphaLerp = 1f - Math.Abs(0.55f - t) / 0.55f;
+                float alpha = MathHelper.Clamp(0.06f + alphaLerp * 0.17f, 0.04f, 0.23f);
+
+                Color volumeColor = Color.Lerp(
+                    new Color(255, 225, 130, 24),
+                    new Color(255, 248, 212, 74),
+                    t);
+
+                renderer3D.DrawPlane(
+                    sliceCenter,
+                    new Vector3(width, height, 1f),
+                    volumeColor * alpha,
+                    rotationX: MathHelper.PiOver2,
+                    rotationY: ally.Orientation,
+                    rotationZ: 0f);
             }
         }
 
