@@ -35,7 +35,7 @@ namespace XCOM_3
         private const int SECTION_HEADER_HEIGHT = 36;
         private const int SECTION_PADDING = 12;
         private const int CONTEXT_WINDOW_WIDTH = 280;
-        private const int CONTEXT_WINDOW_HEIGHT = 190;
+        private const int CONTEXT_WINDOW_HEIGHT = 220;
         private const int LOOT_ENTRY_HEIGHT = 22;
         private const int UiSoundSampleRate = 22050;
 
@@ -79,7 +79,12 @@ namespace XCOM_3
         private ItemContextInfo contextMenuItem;
         private Rectangle contextEquipButtonRect;
         private Rectangle contextExamineButtonRect;
+        private Rectangle contextThrowButtonRect;
+        private Rectangle contextToggleFlashlightButtonRect;
+        private Rectangle contextUnequipButtonRect;
         private Rectangle contextCloseButtonRect;
+        private bool contextMenuForEquippedFlashlight = false;
+        private string contextFlashlightToggleLabel = "ALLUMER/ETEINDRE";
 
         private bool showExaminePopup = false;
         private Rectangle examinePopupRect;
@@ -213,6 +218,22 @@ namespace XCOM_3
             }
 
             return false;
+        }
+
+        private static bool IsEquippedTacticalFlashlight(ItemContextInfo info)
+        {
+            return IsTacticalFlashlight(info.Data) && IsHandFlashlightSource(info.Source);
+        }
+
+        private static string GetFlashlightToggleLabel(ItemContextInfo info, Unit unit)
+        {
+            if (GetFlashlightHandFromSource(info.Source) == FlashlightHand.Right)
+                return unit?.IsRightHandFlashlightOn == true ? "ETEINDRE" : "ALLUMER";
+
+            if (GetFlashlightHandFromSource(info.Source) == FlashlightHand.Left)
+                return unit?.IsLeftHandFlashlightOn == true ? "ETEINDRE" : "ALLUMER";
+
+            return "ALLUMER/ETEINDRE";
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1097,19 +1118,26 @@ namespace XCOM_3
                 if (clickedItem.HasValue)
                 {
                     ItemContextInfo info = clickedItem.Value;
-                    if (TryToggleFlashlight(info, unit))
+                    contextMenuItem = info;
+                    contextMenuForEquippedFlashlight = IsEquippedTacticalFlashlight(info);
+                    contextMenuRect = BuildContextWindow(mouse.Position);
+
+                    if (contextMenuForEquippedFlashlight)
                     {
-                        showContextMenu = false;
-                        showExaminePopup = false;
-                        PlayUiSound(uiClickSound, 0.55f);
-                        return;
+                        contextFlashlightToggleLabel = GetFlashlightToggleLabel(info, unit);
+                        contextThrowButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Y + 98, contextMenuRect.Width - 24, 22);
+                        contextToggleFlashlightButtonRect = new Rectangle(contextMenuRect.X + 12, contextThrowButtonRect.Bottom + 4, contextMenuRect.Width - 24, 22);
+                        contextUnequipButtonRect = new Rectangle(contextMenuRect.X + 12, contextToggleFlashlightButtonRect.Bottom + 4, contextMenuRect.Width - 24, 22);
+                        contextExamineButtonRect = new Rectangle(contextMenuRect.X + 12, contextUnequipButtonRect.Bottom + 4, contextMenuRect.Width - 24, 22);
+                        contextCloseButtonRect = new Rectangle(contextMenuRect.X + 12, contextExamineButtonRect.Bottom + 4, contextMenuRect.Width - 24, 16);
+                    }
+                    else
+                    {
+                        contextEquipButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 76, contextMenuRect.Width - 24, 22);
+                        contextExamineButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 50, contextMenuRect.Width - 24, 22);
+                        contextCloseButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 24, contextMenuRect.Width - 24, 16);
                     }
 
-                    contextMenuItem = info;
-                    contextMenuRect = BuildContextWindow(mouse.Position);
-                    contextEquipButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 76, contextMenuRect.Width - 24, 22);
-                    contextExamineButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 50, contextMenuRect.Width - 24, 22);
-                    contextCloseButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 24, contextMenuRect.Width - 24, 16);
                     showContextMenu = true;
                     showExaminePopup = false;
                     PlayUiSound(uiClickSound, 0.45f);
@@ -1117,12 +1145,44 @@ namespace XCOM_3
                 else
                 {
                     showContextMenu = false;
+                    contextMenuForEquippedFlashlight = false;
                 }
             }
 
             if (leftClick && showContextMenu)
             {
-                if (contextEquipButtonRect.Contains(mouse.Position))
+                if (contextMenuForEquippedFlashlight && contextThrowButtonRect.Contains(mouse.Position))
+                {
+                    RemoveItemFromSource(contextMenuItem, unit);
+                    nearbyLootItems.Add(contextMenuItem.Data);
+                    showContextMenu = false;
+                    PlayUiSound(uiClickSound, 0.42f);
+                }
+                else if (contextMenuForEquippedFlashlight && contextToggleFlashlightButtonRect.Contains(mouse.Position))
+                {
+                    TryToggleFlashlight(contextMenuItem, unit);
+                    showContextMenu = false;
+                    PlayUiSound(uiClickSound, 0.5f);
+                }
+                else if (contextMenuForEquippedFlashlight && contextUnequipButtonRect.Contains(mouse.Position))
+                {
+                    RemoveItemFromSource(contextMenuItem, unit);
+
+                    ItemSize size = ItemSizeDatabase.GetItemSize(contextMenuItem.Data.Name);
+                    Point? freePos = inventoryGrid.FindFreePosition(size, true);
+                    if (freePos.HasValue)
+                    {
+                        inventoryGrid.PlaceItem(new GridItem(contextMenuItem.Data, freePos.Value, size, false));
+                    }
+                    else
+                    {
+                        nearbyLootItems.Add(contextMenuItem.Data);
+                    }
+
+                    showContextMenu = false;
+                    PlayUiSound(uiClickSound, 0.4f);
+                }
+                else if (!contextMenuForEquippedFlashlight && contextEquipButtonRect.Contains(mouse.Position))
                 {
                     TryEquipByContext(contextMenuItem, unit);
                     showContextMenu = false;
@@ -1146,11 +1206,13 @@ namespace XCOM_3
                 else if (contextCloseButtonRect.Contains(mouse.Position))
                 {
                     showContextMenu = false;
+                    contextMenuForEquippedFlashlight = false;
                     PlayUiSound(uiClickSound, 0.4f);
                 }
                 else if (!contextMenuRect.Contains(mouse.Position))
                 {
                     showContextMenu = false;
+                    contextMenuForEquippedFlashlight = false;
                 }
             }
 
@@ -1582,13 +1644,34 @@ namespace XCOM_3
                         new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 82), ParasiteEveTheme.TextDim, 0.58f);
                 }
 
-                spriteBatch.Draw(pixel, contextEquipButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
-                spriteBatch.Draw(pixel, contextExamineButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
-                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextEquipButtonRect, ParasiteEveTheme.BorderColor, 1);
-                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextExamineButtonRect, ParasiteEveTheme.BorderColor, 1);
+                if (contextMenuForEquippedFlashlight)
+                {
+                    spriteBatch.Draw(pixel, contextThrowButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                    spriteBatch.Draw(pixel, contextToggleFlashlightButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                    spriteBatch.Draw(pixel, contextUnequipButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                    spriteBatch.Draw(pixel, contextExamineButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
 
-                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EQUIPER", new Vector2(contextEquipButtonRect.X + 8, contextEquipButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
-                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EXAMINER", new Vector2(contextExamineButtonRect.X + 8, contextExamineButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextThrowButtonRect, ParasiteEveTheme.BorderColor, 1);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextToggleFlashlightButtonRect, ParasiteEveTheme.BorderColor, 1);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextUnequipButtonRect, ParasiteEveTheme.BorderColor, 1);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextExamineButtonRect, ParasiteEveTheme.BorderColor, 1);
+
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "LANCER", new Vector2(contextThrowButtonRect.X + 8, contextThrowButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, contextFlashlightToggleLabel, new Vector2(contextToggleFlashlightButtonRect.X + 8, contextToggleFlashlightButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "DESEQUIPER", new Vector2(contextUnequipButtonRect.X + 8, contextUnequipButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EXAMINER", new Vector2(contextExamineButtonRect.X + 8, contextExamineButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                }
+                else
+                {
+                    spriteBatch.Draw(pixel, contextEquipButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                    spriteBatch.Draw(pixel, contextExamineButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextEquipButtonRect, ParasiteEveTheme.BorderColor, 1);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextExamineButtonRect, ParasiteEveTheme.BorderColor, 1);
+
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EQUIPER", new Vector2(contextEquipButtonRect.X + 8, contextEquipButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EXAMINER", new Vector2(contextExamineButtonRect.X + 8, contextExamineButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                }
+
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "Fermer", new Vector2(contextCloseButtonRect.X, contextCloseButtonRect.Y - 2), ParasiteEveTheme.TextWarning, 0.58f);
             }
 
