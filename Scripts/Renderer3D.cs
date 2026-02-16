@@ -373,6 +373,17 @@ namespace XCOM_3
             }
         }
 
+        public void DrawTerrainCells(IEnumerable<Point> cells, int size, Texture2D tex, IReadOnlyDictionary<Point, float> terrainHeights, float floorHeightOffset = 0f)
+        {
+            if (cells == null)
+                return;
+
+            foreach (Point cell in cells)
+            {
+                DrawTexturedTerrainTile(cell.X, cell.Y, size, tex, terrainHeights, floorHeightOffset);
+            }
+        }
+
         /// <summary>
         /// ? MURS AMÉLIORÉS - Version avec détails, hauteur et ombres
         /// </summary>
