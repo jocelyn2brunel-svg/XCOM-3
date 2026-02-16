@@ -85,6 +85,8 @@ namespace XCOM_3
         private Rectangle contextCloseButtonRect;
         private bool contextMenuForEquippedFlashlight = false;
         private string contextFlashlightToggleLabel = "ALLUMER/ETEINDRE";
+        private bool pendingFlashlightThrowRequest = false;
+        private FlashlightHand pendingFlashlightThrowHand = FlashlightHand.None;
 
         private bool showExaminePopup = false;
         private Rectangle examinePopupRect;
@@ -109,6 +111,19 @@ namespace XCOM_3
             None,
             Right,
             Left
+        }
+
+        public bool TryConsumeFlashlightThrowRequest(out bool isRightHand)
+        {
+            isRightHand = false;
+
+            if (!pendingFlashlightThrowRequest || pendingFlashlightThrowHand == FlashlightHand.None)
+                return false;
+
+            isRightHand = pendingFlashlightThrowHand == FlashlightHand.Right;
+            pendingFlashlightThrowRequest = false;
+            pendingFlashlightThrowHand = FlashlightHand.None;
+            return true;
         }
 
 
@@ -1153,8 +1168,13 @@ namespace XCOM_3
             {
                 if (contextMenuForEquippedFlashlight && contextThrowButtonRect.Contains(mouse.Position))
                 {
-                    RemoveItemFromSource(contextMenuItem, unit);
-                    nearbyLootItems.Add(contextMenuItem.Data);
+                    FlashlightHand requestedHand = GetFlashlightHandFromSource(contextMenuItem.Source);
+                    if (requestedHand != FlashlightHand.None)
+                    {
+                        pendingFlashlightThrowRequest = true;
+                        pendingFlashlightThrowHand = requestedHand;
+                        Console.WriteLine($"[INVENTORY] Flashlight throw requested ({requestedHand}).");
+                    }
                     showContextMenu = false;
                     PlayUiSound(uiClickSound, 0.42f);
                 }

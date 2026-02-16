@@ -101,7 +101,11 @@ namespace XCOM_3
                 viewedFloor * cellSize);
             if (throwTarget.X >= 0)
             {
-                explosionPreview = ThrowTrajectoryCalculator.GetExplosionPreview(throwTarget, selectedGrenade.Radius, gridWidth, gridHeight);
+                if (throwModeUsesFlashlight)
+                    explosionPreview.Clear();
+                else
+                    explosionPreview = ThrowTrajectoryCalculator.GetExplosionPreview(throwTarget, selectedGrenade.Radius, gridWidth, gridHeight);
+
                 Vector3 startPos = new Vector3(selectedUnit.Cell.X * cellSize + cellSize / 2f, cellSize * 1.5f, selectedUnit.Cell.Y * cellSize + cellSize / 2f);
                 Vector3 targetPos = new Vector3(throwTarget.X * cellSize + cellSize / 2f, 0, throwTarget.Y * cellSize + cellSize / 2f);
                 trajectoryPreview = ThrowTrajectoryCalculator.CalculateArcPoints(startPos, targetPos);
@@ -109,9 +113,29 @@ namespace XCOM_3
             int throwRange = GetUnitThrowRange(selectedUnit);
             if (leftClick && throwTarget.X >= 0 && ThrowTrajectoryCalculator.IsInThrowRange(selectedUnit.Cell, throwTarget, throwRange))
             {
-                LaunchGrenade(selectedUnit, selectedGrenade, throwTarget, viewedFloor);
-                selectedUnit.ActionPoints -= selectedGrenade.AOCost;
-                selectedUnit.RemoveGrenade(selectedGrenade);
+                if (throwModeUsesFlashlight)
+                {
+                    selectedUnit.ActionPoints -= selectedGrenade.AOCost;
+                    if (throwFlashlightFromRightHand)
+                    {
+                        selectedUnit.EquippedRightHandFlashlight = null;
+                        selectedUnit.IsRightHandFlashlightOn = false;
+                    }
+                    else
+                    {
+                        selectedUnit.EquippedLeftHandFlashlight = null;
+                        selectedUnit.IsLeftHandFlashlightOn = false;
+                    }
+
+                    Console.WriteLine($"{selectedUnit.Name} threw tactical flashlight at {throwTarget}");
+                }
+                else
+                {
+                    LaunchGrenade(selectedUnit, selectedGrenade, throwTarget, viewedFloor);
+                    selectedUnit.ActionPoints -= selectedGrenade.AOCost;
+                    selectedUnit.RemoveGrenade(selectedGrenade);
+                }
+
                 CancelSelection();
             }
         }
@@ -146,6 +170,9 @@ namespace XCOM_3
 
         private void TriggerExplosion(Point center, int centerFloor, GrenadeData grenadeData, Unit thrower = null)
         {
+            if (string.Equals(grenadeData?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase))
+                return;
+
             Console.WriteLine($"EXPLOSION at {center} - {grenadeData.Name}");
 
             Vector3 explosionPos = new Vector3(
@@ -320,11 +347,14 @@ namespace XCOM_3
                 DrawVolumetricGrenadeGhost(throwTarget, Mk2FragmentationStartRadius, Mk2FragmentationEndRadius, new Color(255, 235, 80, 40) * pulse);
             }
 
-            renderer3D.DrawZoneOutline(
-                explosionPreview,
-                cellSize,
-                floorYOffset + 0.07f,
-                new Color(255, 70, 70, 235) * pulse);
+            if (!throwModeUsesFlashlight)
+            {
+                renderer3D.DrawZoneOutline(
+                    explosionPreview,
+                    cellSize,
+                    floorYOffset + 0.07f,
+                    new Color(255, 70, 70, 235) * pulse);
+            }
 
             for (int i = 0; i < trajectoryPreview.Count - 1; i++)
             {
