@@ -1087,23 +1087,9 @@ namespace XCOM_3
                     if (floor > viewedFloor)
                         renderedWalls = FilterUpperFloorWallsForLowerView(floor, viewedFloor, renderedWalls);
 
-                    if (floor != viewedFloor)
-                        renderedWalls = FilterCameraFacingWallsForNonViewedFloor(renderedWalls);
-
-                    HashSet<WallSegment> fadedWalls = new HashSet<WallSegment>();
-                    if (floor == viewedFloor)
-                    {
-                        HashSet<Unit> occludedUnits = new HashSet<Unit>();
-                        ComputeOcclusionFromWalls(renderedWalls, GetVisibleUnitsForFloor(floor), yOffset, fadedWalls, occludedUnits);
-                        ComputeOcclusionFromHoveredArea(renderedWalls, yOffset, fadedWalls);
-                        ComputeOcclusionFromPathArea(renderedWalls, yOffset, fadedWalls);
-                    }
-
-                    if (fadedWalls.Count > 0)
-                    {
-                        renderedWalls = new HashSet<WallSegment>(renderedWalls.Except(fadedWalls));
-                        DrawWireframeWalls(fadedWalls, yOffset, new Color(255, 210, 120, 95));
-                    }
+                    // TEMPORAIRE: ne pas masquer de murs.
+                    // On désactive le filtrage face caméra + l'occlusion/fondu,
+                    // afin de conserver tous les murs visibles pendant la rotation.
 
                     if (renderedWalls.Count > 0)
                     {
