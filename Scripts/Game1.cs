@@ -833,11 +833,12 @@ namespace XCOM_3
             int minFloor = GetMinimumViewFloor();
             int maxFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
 
-            if (keyboard.IsKeyDown(Keys.PageUp) && previousKeyboardState.IsKeyUp(Keys.PageUp))
-                viewedFloor = Math.Min(viewedFloor + 1, maxFloor);
+            // Désactive le mode de navigation manuelle des étages pour l'instant.
+            // L'étage affiché suit automatiquement l'unité sélectionnée côté joueur.
+            if (selectedUnit != null)
+                viewedFloor = selectedUnit.Floor;
 
-            if (keyboard.IsKeyDown(Keys.PageDown) && previousKeyboardState.IsKeyUp(Keys.PageDown))
-                viewedFloor = Math.Max(viewedFloor - 1, minFloor);
+            viewedFloor = Math.Clamp(viewedFloor, minFloor, maxFloor);
         }
 
         private void ReadInputs(out bool leftClick, out bool escapePressed, out bool iPressed,
