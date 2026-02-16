@@ -52,6 +52,8 @@ namespace XCOM_3
         // Mode lancer de grenade
         private bool throwMode = false;
         private GrenadeData selectedGrenade = null;
+        private bool throwModeUsesFlashlight = false;
+        private bool throwFlashlightFromRightHand = false;
         private Point throwTarget = new Point(-1, -1);
         private List<Point> throwableCells = new List<Point>();
         private List<Point> explosionPreview = new List<Point>();
@@ -60,6 +62,7 @@ namespace XCOM_3
         // Constantes
         private const int BaseThrowRange = 20;
         private const int TacticalFlashlightRangeCells = 40;
+        private const int TacticalFlashlightThrowApCost = 1;
         private const float Mk2WeightLbs = 1.3228f; // 600 grammes
 
         // --- Système de cartes ---
@@ -647,6 +650,11 @@ namespace XCOM_3
             if (showInventory)
             {
                 inventorySystem.Update(mouse, previousMouseState, leftClick, keyboard, selectedUnit);
+                if (inventorySystem.TryConsumeFlashlightThrowRequest(out bool isRightHand))
+                {
+                    ActivateFlashlightThrowMode(isRightHand);
+                    showInventory = false;
+                }
                 if (escapePressed) showInventory = false;
                 return;
             }
@@ -2567,6 +2575,8 @@ namespace XCOM_3
                         if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
                         {
                             throwMode = true;
+                            throwModeUsesFlashlight = false;
+                            throwFlashlightFromRightHand = false;
                             selectedGrenade = selectedUnit.Grenades[0];
                             int throwRange = GetUnitThrowRange(selectedUnit);
                             throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
@@ -2615,9 +2625,33 @@ namespace XCOM_3
             // Grenade - reste identique
             throwMode = false;
             selectedGrenade = null;
+            throwModeUsesFlashlight = false;
+            throwFlashlightFromRightHand = false;
             throwableCells.Clear();
             explosionPreview.Clear();
             trajectoryPreview.Clear();
+        }
+
+        private void ActivateFlashlightThrowMode(bool fromRightHand)
+        {
+            if (selectedUnit == null || selectedUnit.Team != Team.Player)
+                return;
+
+            Item equippedFlashlight = fromRightHand ? selectedUnit.EquippedRightHandFlashlight : selectedUnit.EquippedLeftHandFlashlight;
+            if (equippedFlashlight?.Data == null)
+                return;
+
+            if (selectedUnit.ActionPoints < TacticalFlashlightThrowApCost)
+                return;
+
+            throwMode = true;
+            throwModeUsesFlashlight = true;
+            throwFlashlightFromRightHand = fromRightHand;
+            selectedGrenade = new GrenadeData("Lampe tactique aluminium", GrenadeType.Flashbang, 0, 0, aoCost: TacticalFlashlightThrowApCost);
+
+            int throwRange = GetUnitThrowRange(selectedUnit);
+            throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
+            Console.WriteLine($"Mode lancer lampe activé ({(fromRightHand ? "main droite" : "main gauche")}).");
         }
     }
 
