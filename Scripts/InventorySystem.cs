@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Audio;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -36,6 +37,7 @@ namespace XCOM_3
         private const int CONTEXT_WINDOW_WIDTH = 280;
         private const int CONTEXT_WINDOW_HEIGHT = 190;
         private const int LOOT_ENTRY_HEIGHT = 22;
+        private const int UiSoundSampleRate = 22050;
 
         // ═══════════════════════════════════════════════════════════════════════
         // ÉTAT
@@ -47,6 +49,9 @@ namespace XCOM_3
         private Point dragPixelOffset;
         private readonly List<ItemData> nearbyLootItems = new List<ItemData>();
         private readonly Random random = new Random();
+        private readonly SoundEffect uiClickSound;
+        private readonly SoundEffect uiEquipSound;
+        private readonly SoundEffect uiErrorSound;
         public Dictionary<string, ItemData> ItemDatabase { get; private set; }
 
         // Ressources graphiques (injectées)
@@ -112,6 +117,10 @@ namespace XCOM_3
 
             flashlightTexture = LoadOptionalTexture("Flashlight32x32.jpg");
 
+            uiClickSound = CreateUiTone(760f, 46, 0.15f);
+            uiEquipSound = CreateUiTone(980f, 58, 0.2f);
+            uiErrorSound = CreateUiTone(220f, 90, 0.2f);
+
             InitializeItemDatabase();
             InitializeInventoryItems();
         }
@@ -134,6 +143,31 @@ namespace XCOM_3
             {
                 return null;
             }
+        }
+
+
+        private SoundEffect CreateUiTone(float frequencyHz, int durationMs, float baseVolume)
+        {
+            int sampleCount = Math.Max(1, UiSoundSampleRate * durationMs / 1000);
+            byte[] samples = new byte[sampleCount * 2];
+
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float t = i / (float)UiSoundSampleRate;
+                float envelope = 1f - (i / (float)sampleCount);
+                float wave = (float)Math.Sin(MathHelper.TwoPi * frequencyHz * t);
+                short sample = (short)(wave * envelope * baseVolume * short.MaxValue);
+
+                samples[i * 2] = (byte)(sample & 0xFF);
+                samples[i * 2 + 1] = (byte)((sample >> 8) & 0xFF);
+            }
+
+            return new SoundEffect(samples, UiSoundSampleRate, AudioChannels.Mono);
+        }
+
+        private static void PlayUiSound(SoundEffect sound, float volume = 1f)
+        {
+            sound?.Play(Math.Clamp(volume, 0f, 1f), 0f, 0f);
         }
 
         private static bool IsTacticalFlashlight(ItemData data)
@@ -271,6 +305,8 @@ namespace XCOM_3
             if (rPressed && draggedItem != null)
             {
                 draggedItem.Rotate();
+                PlayUiSound(uiClickSound, 0.55f);
+
                 Console.WriteLine($"[INVENTORY] Item tourné: {draggedItem.Data.Name}");
             }
 
@@ -349,6 +385,8 @@ namespace XCOM_3
                         mouse.X - clickedItem.PixelBounds.X,
                         mouse.Y - clickedItem.PixelBounds.Y);
                     inventoryGrid.RemoveItem(draggedItem);
+                    PlayUiSound(uiClickSound, 0.45f);
+
                     Console.WriteLine($"[INVENTORY] Drag from grid: {draggedItem.Data.Name}");
                     return;
                 }
@@ -363,6 +401,8 @@ namespace XCOM_3
                 unit.EquippedWeapon = null;
                 unit.Weapon = string.Empty;
                 unit.WeaponData = null;
+                PlayUiSound(uiClickSound, 0.48f);
+
                 Console.WriteLine($"[INVENTORY] Unequipped weapon: {draggedItem.Data.Name}");
                 return;
             }
@@ -372,6 +412,8 @@ namespace XCOM_3
             {
                 StartDragFromEquipment(unit.EquippedHelmet, mouse, helmetSlot);
                 unit.EquippedHelmet = null;
+                PlayUiSound(uiClickSound, 0.48f);
+
                 Console.WriteLine($"[INVENTORY] Unequipped helmet: {draggedItem.Data.Name}");
                 return;
             }
@@ -381,6 +423,8 @@ namespace XCOM_3
             {
                 StartDragFromEquipment(unit.EquippedArmor, mouse, armorSlot);
                 unit.EquippedArmor = null;
+                PlayUiSound(uiClickSound, 0.48f);
+
                 Console.WriteLine($"[INVENTORY] Unequipped armor: {draggedItem.Data.Name}");
                 return;
             }
@@ -390,6 +434,8 @@ namespace XCOM_3
             {
                 StartDragFromEquipment(unit.EquippedShield, mouse, shieldSlot);
                 unit.EquippedShield = null;
+                PlayUiSound(uiClickSound, 0.48f);
+
                 Console.WriteLine($"[INVENTORY] Unequipped shield: {draggedItem.Data.Name}");
                 return;
             }
@@ -399,6 +445,8 @@ namespace XCOM_3
             {
                 StartDragFromEquipment(unit.EquippedAccessory, mouse, beltSlot);
                 unit.EquippedAccessory = null;
+                PlayUiSound(uiClickSound, 0.48f);
+
                 Console.WriteLine($"[INVENTORY] Unequipped accessory: {draggedItem.Data.Name}");
                 return;
             }
@@ -407,6 +455,8 @@ namespace XCOM_3
             {
                 StartDragFromEquipment(unit.EquippedBelt, mouse, beltSlot);
                 unit.EquippedBelt = null;
+                PlayUiSound(uiClickSound, 0.48f);
+
                 Console.WriteLine($"[INVENTORY] Unequipped belt: {draggedItem.Data.Name}");
                 return;
             }
@@ -416,6 +466,8 @@ namespace XCOM_3
             {
                 StartDragFromEquipment(unit.EquippedShirt, mouse, shirtSlot);
                 unit.EquippedShirt = null;
+                PlayUiSound(uiClickSound, 0.48f);
+
                 Console.WriteLine($"[INVENTORY] Unequipped shirt: {draggedItem.Data.Name}");
                 return;
             }
@@ -433,6 +485,8 @@ namespace XCOM_3
                 unit.EquippedPants = null;
                 unit.PantsInventory.Clear();
                 unit.RefreshGrenadeInventoryFromEquipment();
+                PlayUiSound(uiClickSound, 0.48f);
+
                 Console.WriteLine($"[INVENTORY] Unequipped pants: {draggedItem.Data.Name}");
                 return;
             }
@@ -446,6 +500,8 @@ namespace XCOM_3
                     StartDragFromEquipment(unit.PantsInventory[i], mouse, pocketSlot);
                     unit.PantsInventory.RemoveAt(i);
                     unit.RefreshGrenadeInventoryFromEquipment();
+                    PlayUiSound(uiClickSound, 0.48f);
+
                     Console.WriteLine($"[INVENTORY] Unequipped pants pocket item from slot {i + 1}: {draggedItem.Data.Name}");
                     return;
                 }
@@ -459,6 +515,8 @@ namespace XCOM_3
                     StartDragFromEquipment(unit.ChestRigInventory[i], mouse, chestRigSlot);
                     unit.ChestRigInventory.RemoveAt(i);
                     unit.RefreshGrenadeInventoryFromEquipment();
+                    PlayUiSound(uiClickSound, 0.48f);
+
                     Console.WriteLine($"[INVENTORY] Unequipped chest rig item from slot {i + 1}: {draggedItem.Data.Name}");
                     return;
                 }
@@ -473,6 +531,8 @@ namespace XCOM_3
                     unit.EquippedBackpack = null;
                     unit.EnsureBackpackInventoryGrid();
                     unit.RefreshGrenadeInventoryFromEquipment();
+                    PlayUiSound(uiClickSound, 0.48f);
+
                     Console.WriteLine($"[INVENTORY] Drag from backpack slot: {equippedBackpackData.Name}");
                     return;
                 }
@@ -487,6 +547,8 @@ namespace XCOM_3
                     StartDragFromEquipment(new Item(backpackItem.Data, Point.Zero), mouse, backpackItemBounds);
                     unit.BackpackInventory.RemoveItem(backpackItem);
                     unit.RefreshGrenadeInventoryFromEquipment();
+                    PlayUiSound(uiClickSound, 0.48f);
+
                     Console.WriteLine($"[INVENTORY] Unequipped backpack utility item: {draggedItem.Data.Name}");
                     return;
                 }
@@ -505,6 +567,8 @@ namespace XCOM_3
                 unit.EquippedChestRig = null;
                 unit.ChestRigInventory.Clear();
                 unit.RefreshGrenadeInventoryFromEquipment();
+                PlayUiSound(uiClickSound, 0.48f);
+
                 Console.WriteLine($"[INVENTORY] Unequipped chest rig: {draggedItem.Data.Name}");
                 return;
             }
@@ -548,6 +612,8 @@ namespace XCOM_3
             if (droppedOutsideInterface)
             {
                 nearbyLootItems.Add(draggedItem.Data);
+                PlayUiSound(uiClickSound, 0.5f);
+
                 Console.WriteLine($"[INVENTORY] Dropped outside interface, sent to nearby loot: {draggedItem.Data.Name}");
                 draggedItem = null;
                 return;
@@ -575,6 +641,8 @@ namespace XCOM_3
                     {
                         draggedItem.UpdatePixelBounds(gridStartX, gridStartY);
                         inventoryGrid.PlaceItem(draggedItem);
+                        PlayUiSound(uiClickSound, 0.5f);
+
                         Console.WriteLine($"[INVENTORY] Placed at grid {draggedItem.GridPosition}: {draggedItem.Data.Name}");
                     }
                     else
@@ -586,10 +654,14 @@ namespace XCOM_3
                             draggedItem.GridPosition = freePos.Value;
                             draggedItem.UpdatePixelBounds(gridStartX, gridStartY);
                             inventoryGrid.PlaceItem(draggedItem);
+                            PlayUiSound(uiClickSound, 0.5f);
+
                             Console.WriteLine($"[INVENTORY] Auto-placed at {freePos.Value}: {draggedItem.Data.Name}");
                         }
                         else
                         {
+                            PlayUiSound(uiErrorSound, 0.65f);
+
                             Console.WriteLine($"[INVENTORY] WARNING: No space! Item lost: {draggedItem.Data.Name}");
                         }
                     }
@@ -603,10 +675,14 @@ namespace XCOM_3
                         draggedItem.GridPosition = freePos.Value;
                         draggedItem.UpdatePixelBounds(gridStartX, gridStartY);
                         inventoryGrid.PlaceItem(draggedItem);
+                        PlayUiSound(uiClickSound, 0.5f);
+
                         Console.WriteLine($"[INVENTORY] Dropped outside, auto-placed at {freePos.Value}: {draggedItem.Data.Name}");
                     }
                     else
                     {
+                        PlayUiSound(uiErrorSound, 0.65f);
+
                         Console.WriteLine($"[INVENTORY] WARNING: No space! Item lost: {draggedItem.Data.Name}");
                     }
                 }
@@ -633,12 +709,16 @@ namespace XCOM_3
                 Point? freePos = inventoryGrid.FindFreePosition(lootSize, true);
                 if (!freePos.HasValue)
                 {
+                    PlayUiSound(uiErrorSound, 0.65f);
+
                     Console.WriteLine($"[INVENTORY] Cannot pickup nearby loot (inventory full): {lootData.Name}");
                     return true;
                 }
 
                 inventoryGrid.PlaceItem(new GridItem(lootData, freePos.Value, lootSize, false));
                 nearbyLootItems.RemoveAt(i);
+                PlayUiSound(uiEquipSound, 0.58f);
+
                 Console.WriteLine($"[INVENTORY] Picked nearby loot: {lootData.Name}");
                 return true;
             }
@@ -669,6 +749,8 @@ namespace XCOM_3
                 unit.EquippedWeapon = new Item(item.Data, Point.Zero);
                 unit.Weapon = item.Data.Name;
                 unit.WeaponData = item.Data.WeaponData;
+                PlayUiSound(uiEquipSound, 0.6f);
+
                 Console.WriteLine($"[INVENTORY] ✅ Equipped weapon: {item.Data.Name}");
                 return true;
             }
@@ -701,6 +783,8 @@ namespace XCOM_3
                         }
 
                         unit.RefreshGrenadeInventoryFromEquipment();
+                        PlayUiSound(uiEquipSound, 0.6f);
+
                         Console.WriteLine($"[INVENTORY] ✅ Equipped pants pocket slot {i + 1}: {item.Data.Name}");
                         return true;
                     }
@@ -726,6 +810,8 @@ namespace XCOM_3
                         }
 
                         unit.RefreshGrenadeInventoryFromEquipment();
+                        PlayUiSound(uiEquipSound, 0.6f);
+
                         Console.WriteLine($"[INVENTORY] ✅ Equipped chest rig slot {i + 1}: {item.Data.Name}");
                         return true;
                     }
@@ -743,6 +829,8 @@ namespace XCOM_3
                     unit.BackpackInventory.PlaceItem(backpackGridItem);
 
                     unit.RefreshGrenadeInventoryFromEquipment();
+                    PlayUiSound(uiEquipSound, 0.6f);
+
                     Console.WriteLine($"[INVENTORY] ✅ Equipped backpack utility item at {backpackGridPos}: {item.Data.Name}");
                     return true;
                 }
@@ -757,6 +845,8 @@ namespace XCOM_3
                     if (unit.EquippedHelmet != null)
                         ReturnItemToGrid(unit.EquippedHelmet);
                     unit.EquippedHelmet = new Item(item.Data, Point.Zero);
+                    PlayUiSound(uiEquipSound, 0.6f);
+
                     Console.WriteLine($"[INVENTORY] ✅ Equipped helmet: {item.Data.Name}");
                     return true;
                 }
@@ -767,6 +857,8 @@ namespace XCOM_3
                     if (unit.EquippedArmor != null)
                         ReturnItemToGrid(unit.EquippedArmor);
                     unit.EquippedArmor = new Item(item.Data, Point.Zero);
+                    PlayUiSound(uiEquipSound, 0.6f);
+
                     Console.WriteLine($"[INVENTORY] ✅ Equipped armor: {item.Data.Name}");
                     return true;
                 }
@@ -777,6 +869,8 @@ namespace XCOM_3
                     if (unit.EquippedShield != null)
                         ReturnItemToGrid(unit.EquippedShield);
                     unit.EquippedShield = new Item(item.Data, Point.Zero);
+                    PlayUiSound(uiEquipSound, 0.6f);
+
                     Console.WriteLine($"[INVENTORY] ✅ Equipped shield: {item.Data.Name}");
                     return true;
                 }
@@ -787,6 +881,8 @@ namespace XCOM_3
                     if (unit.EquippedShirt != null)
                         ReturnItemToGrid(unit.EquippedShirt);
                     unit.EquippedShirt = new Item(item.Data, Point.Zero);
+                    PlayUiSound(uiEquipSound, 0.6f);
+
                     Console.WriteLine($"[INVENTORY] ✅ Equipped shirt: {item.Data.Name}");
                     return true;
                 }
@@ -808,6 +904,8 @@ namespace XCOM_3
                     unit.EquippedPants = new Item(item.Data, Point.Zero);
                     unit.PantsInventory = new List<Item>();
                     unit.RefreshGrenadeInventoryFromEquipment();
+                    PlayUiSound(uiEquipSound, 0.6f);
+
                     Console.WriteLine($"[INVENTORY] ✅ Equipped pants: {item.Data.Name}");
                     return true;
                 }
@@ -829,6 +927,8 @@ namespace XCOM_3
                     unit.EquippedChestRig = new Item(item.Data, Point.Zero);
                     unit.ChestRigInventory = new List<Item>();
                     unit.RefreshGrenadeInventoryFromEquipment();
+                    PlayUiSound(uiEquipSound, 0.6f);
+
                     Console.WriteLine($"[INVENTORY] ✅ Equipped chest rig: {item.Data.Name}");
                     return true;
                 }
@@ -843,6 +943,8 @@ namespace XCOM_3
 
                     unit.EquippedAccessory = null;
                     unit.EquippedBelt = new Item(item.Data, Point.Zero);
+                    PlayUiSound(uiEquipSound, 0.6f);
+
                     Console.WriteLine($"[INVENTORY] ✅ Equipped belt: {item.Data.Name}");
                     return true;
                 }
@@ -859,10 +961,15 @@ namespace XCOM_3
                     unit.EquippedBackpack = item.Data.Name;
                     unit.EnsureBackpackInventoryGrid();
                     unit.RefreshGrenadeInventoryFromEquipment();
+                    PlayUiSound(uiEquipSound, 0.6f);
+
                     Console.WriteLine($"[INVENTORY] ✅ Equipped backpack: {item.Data.Name}");
                     return true;
                 }
             }
+
+            PlayUiSound(uiErrorSound, 0.62f);
+
 
             Console.WriteLine($"[INVENTORY] ❌ Not equipped (no matching slot)");
             return false;
@@ -877,6 +984,8 @@ namespace XCOM_3
             {
                 GridItem gridItem = new GridItem(item.Data, freePos.Value, size, false);
                 inventoryGrid.PlaceItem(gridItem);
+                PlayUiSound(uiClickSound, 0.42f);
+
                 Console.WriteLine($"[INVENTORY] Returned old item to grid: {item.Data.Name}");
             }
         }
@@ -916,6 +1025,7 @@ namespace XCOM_3
                     contextCloseButtonRect = new Rectangle(contextMenuRect.X + 12, contextMenuRect.Bottom - 24, contextMenuRect.Width - 24, 16);
                     showContextMenu = true;
                     showExaminePopup = false;
+                    PlayUiSound(uiClickSound, 0.45f);
                 }
                 else
                 {
@@ -929,6 +1039,7 @@ namespace XCOM_3
                 {
                     TryEquipByContext(contextMenuItem, unit);
                     showContextMenu = false;
+                    PlayUiSound(uiClickSound, 0.4f);
                 }
                 else if (contextExamineButtonRect.Contains(mouse.Position))
                 {
@@ -943,10 +1054,12 @@ namespace XCOM_3
                     showExaminePopup = true;
                     openedExaminePopupThisClick = true;
                     showContextMenu = false;
+                    PlayUiSound(uiClickSound, 0.5f);
                 }
                 else if (contextCloseButtonRect.Contains(mouse.Position))
                 {
                     showContextMenu = false;
+                    PlayUiSound(uiClickSound, 0.4f);
                 }
                 else if (!contextMenuRect.Contains(mouse.Position))
                 {
@@ -957,6 +1070,7 @@ namespace XCOM_3
             if (leftClick && showExaminePopup && !openedExaminePopupThisClick && !examinePopupRect.Contains(mouse.Position))
             {
                 showExaminePopup = false;
+                PlayUiSound(uiClickSound, 0.4f);
             }
         }
 
@@ -1753,6 +1867,7 @@ namespace XCOM_3
                 new Vector2(content.X + 8, content.Bottom - 22),
                 ParasiteEveTheme.TextDim,
                 0.5f);
+
         }
 
         private void DrawWindow(Rectangle bounds, string title)
