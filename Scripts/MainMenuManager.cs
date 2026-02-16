@@ -50,6 +50,7 @@ namespace XCOM_3
         public event Action OnContinueRequested;
         public event Action OnMapEditorRequested;
         public event Action OnEncyclopediaRequested;
+        public event Action OnBodyEditorRequested;
         public event Action OnOptionsRequested;
         public event Action OnQuitRequested;
 
@@ -156,7 +157,7 @@ namespace XCOM_3
 
         private List<Button> CreateMainMenuButtons()
         {
-            string[] labels = { "New Game", "Continue", "Map Editor", "Character Creation", "Encyclopedia", "Options", "Quit" };
+            string[] labels = { "New Game", "Continue", "Map Editor", "Character Creation", "Encyclopedia", "Body Editor", "Options", "Quit" };
             int startY = 100;
             int step = 28;
 
@@ -224,6 +225,11 @@ namespace XCOM_3
                 case "Encyclopedia":
                     Console.WriteLine("[MENU] Encyclopedia requested");
                     OnEncyclopediaRequested?.Invoke();
+                    break;
+
+                case "Body Editor":
+                    Console.WriteLine("[MENU] Body editor requested");
+                    OnBodyEditorRequested?.Invoke();
                     break;
 
                 case "Options":

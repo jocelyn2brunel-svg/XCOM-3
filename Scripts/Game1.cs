@@ -68,7 +68,7 @@ namespace XCOM_3
         private MapEditor mapEditor;
 
         // --- États du jeu ---
-        enum GameState { MainMenu, CharacterCreation, MissionSelect, Playing, OptionsMenu, GameOver, Encyclopedia, MapEditor }
+        enum GameState { MainMenu, CharacterCreation, MissionSelect, Playing, HumanBodyEditor, OptionsMenu, GameOver, Encyclopedia, MapEditor }
         private GameState currentState = GameState.MainMenu;
 
         // --- Grille 3D ---
@@ -127,6 +127,7 @@ namespace XCOM_3
         private CharacterCreationManager characterCreationManager;
         private MissionSelectManager missionSelectManager;
         private OptionsMenuManager optionsMenuManager;
+        private HumanBodyEditorManager humanBodyEditorManager;
         private EncyclopediaManager encyclopediaManager;
 
         // Garder ces champs (toujours utilisés ailleurs)
@@ -284,6 +285,7 @@ namespace XCOM_3
             mainMenuManager.OnContinueRequested += HandleContinue;
             mainMenuManager.OnMapEditorRequested += OpenMapEditor;
             mainMenuManager.OnEncyclopediaRequested += OpenEncyclopedia;
+            mainMenuManager.OnBodyEditorRequested += OpenHumanBodyEditor;
             mainMenuManager.OnOptionsRequested += OpenOptionsMenu;
             mainMenuManager.OnQuitRequested += () => Exit();
 
@@ -300,6 +302,9 @@ namespace XCOM_3
             // 3. Options Menu Manager
             optionsMenuManager = new OptionsMenuManager(_graphics.GraphicsDevice, _spriteBatch, font, pixel);
             optionsMenuManager.OnBackToMainMenu += ReturnToMainMenu;
+
+            humanBodyEditorManager = new HumanBodyEditorManager(_graphics.GraphicsDevice, _spriteBatch, font, pixel);
+            humanBodyEditorManager.OnBackToMainMenu += ReturnToMainMenu;
 
             // 4. Encyclopedia Manager (nécessite weaponDatabase et inventorySystem)
             // On l'initialise APRÈS InitializeWeapons() et la création de inventorySystem
@@ -399,6 +404,8 @@ namespace XCOM_3
         }
 
         private void OpenEncyclopedia() => currentState = GameState.Encyclopedia;
+
+        private void OpenHumanBodyEditor() => currentState = GameState.HumanBodyEditor;
 
         private void OpenOptionsMenu() => currentState = GameState.OptionsMenu;
 
@@ -509,6 +516,11 @@ namespace XCOM_3
                     UpdateMapEditorState(gameTime, mouse, keyboard, escapePressed);
                     break;
 
+                case GameState.HumanBodyEditor:
+                    humanBodyEditorManager.Update(mouse, previousMouseState);
+                    if (escapePressed) ReturnToMainMenu();
+                    break;
+
                 case GameState.OptionsMenu:
                     optionsMenuManager.Update(mouse, previousMouseState);
                     if (escapePressed) ReturnToMainMenu();
@@ -572,6 +584,10 @@ namespace XCOM_3
 
                 case GameState.MapEditor:
                     mapEditor.DrawUI(Mouse.GetState());
+                    break;
+
+                case GameState.HumanBodyEditor:
+                    humanBodyEditorManager.Draw();
                     break;
 
                 case GameState.OptionsMenu:
