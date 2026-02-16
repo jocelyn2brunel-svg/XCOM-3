@@ -33,7 +33,7 @@ namespace XCOM_3.Scripts
         // Fond principal (dégradé optimisé)
         public static Color BackgroundDark => ScaleRgb(UIThemeManager.PrimaryColor, 0.10f, 235);
         public static Color BackgroundMedium => ScaleRgb(UIThemeManager.PrimaryColor, 0.14f, 220);
-        
+
         // Bordures et panels (vert moyen)
         public static Color BorderColor => WithAlpha(UIThemeManager.PrimaryColor, 255);
         public static Color BorderDark => ScaleRgb(UIThemeManager.PrimaryColor, 0.45f, 255);
@@ -43,35 +43,35 @@ namespace XCOM_3.Scripts
         public static Color PanelBackgroundDark => ScaleRgb(UIThemeManager.PrimaryColor, 0.10f, 235);
         public static Color PanelBackgroundMid => ScaleRgb(UIThemeManager.PrimaryColor, 0.14f, 220);
         public static Color PanelBackgroundLight => ScaleRgb(UIThemeManager.PrimaryColor, 0.18f, 210);
-        
+
         // Texte
-        public static readonly Color TextNormal = new Color(180, 255, 180, 255);  // Vert clair standard
-        public static readonly Color TextHighlight = new Color(220, 255, 100, 255); // Jaune-vert (sélection)
+        public static readonly Color TextNormal = new Color(180, 255, 180, 255);
+        public static readonly Color TextHighlight = new Color(220, 255, 100, 255);
         public static readonly Color TextSelected = new Color(220, 255, 100, 255);
         public static readonly Color TextWhite = new Color(240, 255, 240, 255);
-        public static readonly Color TextDim = new Color(80, 130, 90, 200);     // Vert sombre
-        public static readonly Color TextWarning = new Color(255, 200, 100, 255); // Orange
-        public static readonly Color TextDanger = new Color(255, 100, 100, 255);  // Rouge
-        
+        public static readonly Color TextDim = new Color(80, 130, 90, 200);
+        public static readonly Color TextWarning = new Color(255, 200, 100, 255);
+        public static readonly Color TextDanger = new Color(255, 100, 100, 255);
+
         // Boutons
         public static readonly Color ButtonNormal = new Color(40, 80, 50, 220);
         public static readonly Color ButtonHover = new Color(60, 120, 70, 240);
         public static readonly Color ButtonPressed = new Color(80, 160, 90, 255);
         public static readonly Color ButtonDisabled = new Color(30, 50, 35, 150);
-        
+
         // Barres de vie/stats
         public static readonly Color BarBackground = new Color(20, 40, 25, 200);
-        public static readonly Color BarHealth = new Color(80, 200, 100, 255);    // Vert santé
-        public static readonly Color BarHealthLow = new Color(200, 100, 50, 255); // Orange danger
-        public static readonly Color BarMP = new Color(100, 150, 255, 255);       // Bleu MP
-        public static readonly Color BarXP = new Color(150, 200, 255, 255);       // Bleu clair XP
-        
+        public static readonly Color BarHealth = new Color(80, 200, 100, 255);
+        public static readonly Color BarHealthLow = new Color(200, 100, 50, 255);
+        public static readonly Color BarMP = new Color(100, 150, 255, 255);
+        public static readonly Color BarXP = new Color(150, 200, 255, 255);
+
         // Icônes d'éléments (PE2)
         public static readonly Color ElementFire = new Color(255, 100, 50, 255);
         public static readonly Color ElementWind = new Color(150, 200, 255, 255);
         public static readonly Color ElementWater = new Color(100, 150, 255, 255);
         public static readonly Color ElementEarth = new Color(180, 140, 80, 255);
-        
+
         // Sélection et hover
         public static readonly Color SelectionOutline = new Color(80, 255, 180, 255);
         public static readonly Color HoverOverlay = new Color(60, 140, 80, 100);
@@ -87,7 +87,7 @@ namespace XCOM_3.Scripts
         {
             // Fond dégradé
             DrawGradientBackground(sb, pixel, bounds);
-            
+
             // Overlay semi-transparent pour effet de profondeur
             Rectangle innerBounds = new Rectangle(
                 bounds.X + 2,
@@ -99,7 +99,7 @@ namespace XCOM_3.Scripts
 
             // Grain subtil pour casser l'aspect trop lisse
             DrawGrainEffect(sb, pixel, innerBounds);
-            
+
             if (drawBorder)
             {
                 DrawDoubleBorder(sb, pixel, bounds, cornerCut: 8);
@@ -219,96 +219,22 @@ namespace XCOM_3.Scripts
         }
 
         /// <summary>
-        /// Dessine un bouton style PE2
-        /// </summary>
-        public static void DrawButton(SpriteBatch sb, Texture2D pixel, SpriteFont font, 
-                                      Rectangle bounds, string text, bool isHovered, bool isPressed, bool isEnabled = true)
-        {
-            string safeText = SanitizeForSpriteFont(font, text);
-
-            Color bgColor = !isEnabled ? ButtonDisabled :
-                           isPressed ? ButtonPressed :
-                           isHovered ? ButtonHover : ButtonNormal;
-            
-            // Fond du bouton
-            sb.Draw(pixel, bounds, bgColor);
-            
-            // Bordure
-            Color borderColor = isHovered ? SelectionOutline : BorderColor;
-            DrawCutCornerBorder(sb, pixel, bounds, borderColor, isHovered ? 2 : 1, cornerCut: 6);
-            
-            // Texte centré
-            Vector2 textSize = font.MeasureString(safeText);
-            Vector2 textPos = new Vector2(
-                bounds.X + (bounds.Width - textSize.X) / 2,
-                bounds.Y + (bounds.Height - textSize.Y) / 2
-            );
-            
-            Color textColor = !isEnabled ? TextDim :
-                             isHovered ? TextHighlight : TextNormal;
-            
-            sb.DrawString(font, safeText, textPos, textColor);
-        }
-
-        /// <summary>
-        /// Dessine une barre de progression style PE2
-        /// </summary>
-        public static void DrawProgressBar(SpriteBatch sb, Texture2D pixel, Rectangle bounds, 
-                                           float currentValue, float maxValue, Color fillColor)
-        {
-            // Fond
-            sb.Draw(pixel, bounds, BarBackground);
-            
-            // Remplissage
-            float ratio = maxValue > 0 ? currentValue / maxValue : 0f;
-            ratio = MathHelper.Clamp(ratio, 0f, 1f);
-            
-            Rectangle fillRect = new Rectangle(
-                bounds.X + 1,
-                bounds.Y + 1,
-                (int)((bounds.Width - 2) * ratio),
-                bounds.Height - 2
-            );
-            
-            if (fillRect.Width > 0)
-            {
-                sb.Draw(pixel, fillRect, fillColor);
-            }
-            
-            // Bordure
-            DrawCutCornerBorder(sb, pixel, bounds, BorderMain, 1, cornerCut: 4);
-        }
-
-        /// <summary>
-        /// Dessine une barre de santé avec changement de couleur selon le niveau
-        /// </summary>
-        public static void DrawHealthBar(SpriteBatch sb, Texture2D pixel, Rectangle bounds, 
-                                         int currentHP, int maxHP)
-        {
-            float ratio = maxHP > 0 ? (float)currentHP / maxHP : 0f;
-            
-            // Couleur change selon le niveau de santé
-            Color fillColor = ratio > 0.5f ? BarHealth :
-                             ratio > 0.25f ? new Color(200, 200, 100, 255) :
-                             BarHealthLow;
-            
-            DrawProgressBar(sb, pixel, bounds, currentHP, maxHP, fillColor);
-        }
-
-        /// <summary>
         /// Dessine un header de section style PE2
         /// </summary>
-        public static void DrawSectionHeader(SpriteBatch sb, Texture2D pixel, SpriteFont font, 
-                                             Rectangle bounds, string title)
+        public static void DrawSectionHeader(SpriteBatch sb, Texture2D pixel, SpriteFont font,
+                                            Rectangle bounds, string title, int cornerCut = 4)
         {
+            if (string.IsNullOrEmpty(title) || bounds.Width <= 0 || bounds.Height <= 0)
+                return;
+
             string safeTitle = SanitizeForSpriteFont(font, title);
 
-            // Fond du header (plus clair)
+            // Fond du header
             sb.Draw(pixel, bounds, new Color(40, 90, 55, 240));
-            
+
             // Ligne décorative en haut
             sb.Draw(pixel, new Rectangle(bounds.X, bounds.Y, bounds.Width, 2), SelectionOutline);
-            
+
             // Titre
             Vector2 titleSize = font.MeasureString(safeTitle);
             DrawTextWithGlow(
@@ -317,9 +243,9 @@ namespace XCOM_3.Scripts
                 safeTitle,
                 new Vector2(bounds.X + 10, bounds.Y + (bounds.Height - titleSize.Y) / 2),
                 TextHighlight);
-            
+
             // Bordure
-            DrawCutCornerBorder(sb, pixel, bounds, BorderMain, 1, cornerCut: 4);
+            DrawCutCornerBorder(sb, pixel, bounds, BorderMain, 1, cornerCut: cornerCut);
         }
 
         /// <summary>
@@ -328,7 +254,7 @@ namespace XCOM_3.Scripts
         public static void DrawScanlines(SpriteBatch sb, Texture2D pixel, Rectangle area, float opacity = 0.05f)
         {
             Color scanlineColor = new Color(0, 0, 0, (int)(255 * opacity));
-            
+
             for (int y = area.Top; y < area.Bottom; y += 3)
             {
                 Rectangle line = new Rectangle(area.X, y, area.Width, 1);
@@ -366,32 +292,65 @@ namespace XCOM_3.Scripts
         }
 
         /// <summary>
+        /// Dessine une barre de progression style PE2 (VERSION AVEC CURRENT/TOTAL)
+        /// </summary>
+        public static void DrawProgressBar(SpriteBatch sb, Texture2D pixel, Rectangle bounds,
+                                          int current, int total, Color fillColor)
+        {
+            float ratio = total == 0 ? 0 : current / (float)total;
+
+            // Fond
+            sb.Draw(pixel, bounds, BarBackground);
+
+            // Bordure
+            DrawBorder(sb, pixel, bounds, BorderMain, 1);
+
+            // Remplissage avec gradient
+            int fillWidth = (int)((bounds.Width - 4) * MathHelper.Clamp(ratio, 0f, 1f));
+            if (fillWidth > 0)
+            {
+                Rectangle fillRect = new Rectangle(bounds.X + 2, bounds.Y + 2, fillWidth, bounds.Height - 4);
+
+                for (int i = 0; i < fillRect.Width; i++)
+                {
+                    float t = i / (float)fillRect.Width;
+                    Color gradColor = Color.Lerp(fillColor, fillColor * 0.7f, t);
+                    sb.Draw(pixel, new Rectangle(fillRect.X + i, fillRect.Y, 1, fillRect.Height), gradColor);
+                }
+
+                // Reflet en haut
+                Color highlight = new Color(255, 255, 255, 60);
+                sb.Draw(pixel, new Rectangle(fillRect.X, fillRect.Y, fillRect.Width, 1), highlight);
+            }
+        }
+
+        /// <summary>
         /// Dessine un indicateur de sélection style PE2
         /// </summary>
-        public static void DrawSelectionIndicator(SpriteBatch sb, Texture2D pixel, Rectangle bounds, 
+        public static void DrawSelectionIndicator(SpriteBatch sb, Texture2D pixel, Rectangle bounds,
                                                   float pulseTime)
         {
             float pulse = (float)System.Math.Sin(pulseTime * 4f) * 0.3f + 0.7f;
             Color glowColor = SelectionOutline * pulse;
-            
+
             // Bordure qui pulse
             DrawBorder(sb, pixel, bounds, glowColor, 3);
-            
+
             // Coins accentués (style PE2)
             int cornerSize = 8;
-            
+
             // Coin haut-gauche
             sb.Draw(pixel, new Rectangle(bounds.Left - 2, bounds.Top - 2, cornerSize, 2), TextHighlight);
             sb.Draw(pixel, new Rectangle(bounds.Left - 2, bounds.Top - 2, 2, cornerSize), TextHighlight);
-            
+
             // Coin haut-droite
             sb.Draw(pixel, new Rectangle(bounds.Right - cornerSize + 2, bounds.Top - 2, cornerSize, 2), TextHighlight);
             sb.Draw(pixel, new Rectangle(bounds.Right, bounds.Top - 2, 2, cornerSize), TextHighlight);
-            
+
             // Coin bas-gauche
             sb.Draw(pixel, new Rectangle(bounds.Left - 2, bounds.Bottom, cornerSize, 2), TextHighlight);
             sb.Draw(pixel, new Rectangle(bounds.Left - 2, bounds.Bottom - cornerSize + 2, 2, cornerSize), TextHighlight);
-            
+
             // Coin bas-droite
             sb.Draw(pixel, new Rectangle(bounds.Right - cornerSize + 2, bounds.Bottom, cornerSize, 2), TextHighlight);
             sb.Draw(pixel, new Rectangle(bounds.Right, bounds.Bottom - cornerSize + 2, 2, cornerSize), TextHighlight);
@@ -403,7 +362,7 @@ namespace XCOM_3.Scripts
         public static void DrawVignetteOverlay(SpriteBatch sb, Texture2D pixel, int screenWidth, int screenHeight)
         {
             int vignetteSize = 100;
-            
+
             // Haut
             for (int y = 0; y < vignetteSize; y++)
             {
@@ -411,7 +370,7 @@ namespace XCOM_3.Scripts
                 Color color = BackgroundDark * (alpha * 0.5f);
                 sb.Draw(pixel, new Rectangle(0, y, screenWidth, 1), color);
             }
-            
+
             // Bas
             for (int y = 0; y < vignetteSize; y++)
             {
@@ -424,17 +383,17 @@ namespace XCOM_3.Scripts
         /// <summary>
         /// Dessine un texte avec ombre pour meilleure lisibilité
         /// </summary>
-        public static void DrawTextWithShadow(SpriteBatch sb, SpriteFont font, string text, 
+        public static void DrawTextWithShadow(SpriteBatch sb, SpriteFont font, string text,
                                               Vector2 position, Color color, float scale = 1f)
         {
             string safeText = SanitizeForSpriteFont(font, text);
 
             // Ombre
-            sb.DrawString(font, safeText, position + new Vector2(1, 1), Color.Black * 0.7f, 
+            sb.DrawString(font, safeText, position + new Vector2(1, 1), Color.Black * 0.7f,
                          0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
-            
+
             // Texte principal
-            sb.DrawString(font, safeText, position, color, 
+            sb.DrawString(font, safeText, position, color,
                          0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
         }
 
@@ -466,6 +425,76 @@ namespace XCOM_3.Scripts
             // Texte principal par-dessus
             sb.DrawString(font, safeText, position, color,
                          0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+        }
+
+        /// <summary>
+        /// Dessine une barre de santé style PE2
+        /// </summary>
+        public static void DrawHealthBar(SpriteBatch sb, Texture2D pixel, Rectangle bounds,
+                                        int currentHealth, int maxHealth)
+        {
+            float ratio = maxHealth == 0 ? 0 : currentHealth / (float)maxHealth;
+
+            // Choisir la couleur selon le niveau de santé
+            Color fillColor = ratio > 0.5f ? BarHealth :
+                             ratio > 0.25f ? new Color(200, 180, 50, 255) :
+                             BarHealthLow;
+
+            // Fond
+            sb.Draw(pixel, bounds, BarBackground);
+
+            // Bordure
+            DrawBorder(sb, pixel, bounds, BorderMain, 1);
+
+            // Remplissage avec gradient
+            int fillWidth = (int)((bounds.Width - 4) * MathHelper.Clamp(ratio, 0f, 1f));
+            if (fillWidth > 0)
+            {
+                Rectangle fillRect = new Rectangle(bounds.X + 2, bounds.Y + 2, fillWidth, bounds.Height - 4);
+
+                for (int i = 0; i < fillRect.Width; i++)
+                {
+                    float t = i / (float)fillRect.Width;
+                    Color gradColor = Color.Lerp(fillColor, fillColor * 0.7f, t);
+                    sb.Draw(pixel, new Rectangle(fillRect.X + i, fillRect.Y, 1, fillRect.Height), gradColor);
+                }
+
+                // Reflet en haut
+                Color highlight = new Color(255, 255, 255, 60);
+                sb.Draw(pixel, new Rectangle(fillRect.X, fillRect.Y, fillRect.Width, 1), highlight);
+            }
+        }
+
+        /// <summary>
+        /// Dessine un bouton style PE2
+        /// </summary>
+        public static void DrawButton(SpriteBatch sb, Texture2D pixel, SpriteFont font,
+                                      Rectangle bounds, string text, bool isHovered, bool isPressed, bool isEnabled = true)
+        {
+            string safeText = SanitizeForSpriteFont(font, text);
+
+            Color bgColor = !isEnabled ? ButtonDisabled :
+                           isPressed ? ButtonPressed :
+                           isHovered ? ButtonHover : ButtonNormal;
+
+            // Fond du bouton
+            sb.Draw(pixel, bounds, bgColor);
+
+            // Bordure
+            Color borderColor = isHovered ? SelectionOutline : BorderColor;
+            DrawCutCornerBorder(sb, pixel, bounds, borderColor, isHovered ? 2 : 1, cornerCut: 6);
+
+            // Texte centré
+            Vector2 textSize = font.MeasureString(safeText);
+            Vector2 textPos = new Vector2(
+                bounds.X + (bounds.Width - textSize.X) / 2,
+                bounds.Y + (bounds.Height - textSize.Y) / 2
+            );
+
+            Color textColor = !isEnabled ? TextDim :
+                             isHovered ? TextHighlight : TextNormal;
+
+            sb.DrawString(font, safeText, textPos, textColor);
         }
 
         /// <summary>
