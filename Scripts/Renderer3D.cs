@@ -8,7 +8,10 @@ namespace XCOM_3
 {
     public class Renderer3D
     {
-        private const float WallHeightRatio = 0.92f;
+        // Mur de 2 cases de haut (par rapport à la taille d'une cellule de grille).
+        // NB: cela peut provoquer un recouvrement visuel entre étages si l'espacement
+        // vertical des floors reste à 1 * cellSize dans certaines vues.
+        private const float WallHeightRatio = 2.0f;
         private const float TileFillRatio = 1.0f;
         private GraphicsDevice gd;
         private BasicEffect basic, textured;
@@ -381,9 +384,7 @@ namespace XCOM_3
                 Vector3 end = new(s.End.X * size, floorHeightOffset, s.End.Y * size);
                 Vector3 center = (start + end) / 2f;
 
-                // ? Hauteur du mur augmentée
-                // Conserver une hauteur de mur légèrement inférieure à l'écart entre étages
-                // pour éviter les recouvrements visuels (z-fighting) entre niveaux.
+                // Hauteur de mur pilotée par WallHeightRatio (2.0f = 2 cases de haut).
                 float wallHeight = size * WallHeightRatio;
                 center.Y = floorHeightOffset + wallHeight / 2f;
 
