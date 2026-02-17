@@ -219,11 +219,11 @@ namespace XCOM_3
             }
 
 
-            // Armure
+            // Protection balistique
             p.Y += 28;
-            int totalArmor = selectedUnit.GetTotalArmor();
+            string protectionLabel = Unit.GetProtectionLabel(selectedUnit.GetBestProtectionLevel());
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                $"ARMOR: +{totalArmor}", p, ParasiteEveTheme.BarXP);
+                $"PROTECTION: {protectionLabel}", p, ParasiteEveTheme.BarXP);
 
             // Niveau
             p.Y += 22;

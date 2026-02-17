@@ -525,7 +525,7 @@ namespace XCOM_3
         private void ApplyDamage(Unit shooter, Unit target)
         {
             int baseDamage = GetWeaponDamage(shooter) + shooter.Skills.GetDamageBonus();
-            int damage = Math.Max(baseDamage - target.GetTotalArmor(), 1);
+            int damage = Math.Max(baseDamage - target.GetBallisticDamageReduction(), 1);
 
             target.Health = Math.Max(target.Health - damage, 0);
 
@@ -563,7 +563,7 @@ namespace XCOM_3
 
             if (shooter.WillHit)
             {
-                int damage = Math.Max(GetWeaponDamage(shooter) - target.GetTotalArmor(), 1);
+                int damage = Math.Max(GetWeaponDamage(shooter) - target.GetBallisticDamageReduction(), 1);
                 shooter.Skills.GainShootingXP(true, distance, damage);
             }
             else
