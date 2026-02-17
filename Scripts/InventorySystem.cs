@@ -3083,6 +3083,8 @@ namespace XCOM_3
                     spriteBatch.Draw(pixel, itemRect, ParasiteEveTheme.ButtonNormal * 0.72f);
                     ParasiteEveTheme.DrawBorder(spriteBatch, pixel, itemRect, ParasiteEveTheme.SelectionOutline * 0.85f, 1);
 
+                    DrawItemPreviewImage(popupItem.Data, itemRect);
+
                     string itemName = popupItem.Data.Name;
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, itemName,
                         new Vector2(itemRect.X + 4, itemRect.Y + 6), ParasiteEveTheme.TextNormal, 0.5f);
