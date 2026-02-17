@@ -3425,6 +3425,14 @@ namespace XCOM_3
                     string line4 = contextMenuItem.Data.Type == ItemType.Armor
                         ? $"Résistance éclats: {contextMenuItem.Data.FragmentationProtectionPercent}%"
                         : string.Empty;
+                    string advantagesLine = string.Empty;
+                    string drawbacksLine = string.Empty;
+
+                    if (TryGetArmorComparisonSummary(contextMenuItem.Data, out string advantages, out string drawbacks))
+                    {
+                        advantagesLine = $"Avantages: {advantages}";
+                        drawbacksLine = $"Inconvénients: {drawbacks}";
+                    }
 
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line1,
                         new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 40), ParasiteEveTheme.TextHighlight, 0.68f);
@@ -3432,6 +3440,13 @@ namespace XCOM_3
                         new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 62), ParasiteEveTheme.TextNormal, 0.62f);
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line3,
                         new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 82), ParasiteEveTheme.TextDim, 0.58f);
+
+                    if (TryGetWeightDeltaText(contextMenuItem.Data, out string weightDeltaText, out Color weightDeltaColor))
+                    {
+                        float weightWidth = font.MeasureString(line3).X * 0.58f;
+                        Vector2 weightDeltaPos = new Vector2(contextMenuRect.X + 12 + weightWidth + 6f, contextMenuRect.Y + 82);
+                        ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, weightDeltaText, weightDeltaPos, weightDeltaColor, 0.58f);
+                    }
 
                     if (!string.IsNullOrEmpty(line4))
                     {
@@ -3445,6 +3460,14 @@ namespace XCOM_3
                             Vector2 deltaPos = new Vector2(fragPos.X + line4Width + 6f, fragPos.Y);
                             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, fragDeltaText, deltaPos, fragDeltaColor, fragScale);
                         }
+
+                        if (!string.IsNullOrEmpty(advantagesLine))
+                            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, advantagesLine,
+                                new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 122), Color.LimeGreen, 0.5f);
+
+                        if (!string.IsNullOrEmpty(drawbacksLine))
+                            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, drawbacksLine,
+                                new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 138), Color.Red, 0.5f);
                     }
                 }
 
@@ -3554,7 +3577,15 @@ namespace XCOM_3
                 float textY = examinePopupRect.Y + 52;
                 float textX = imageRect.Right + 16;
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Type: {examinedItemData.Type}", new Vector2(textX, textY), ParasiteEveTheme.TextNormal, 0.7f);
-                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Poids: {examinedItemData.WeightLbs:0.##} lbs", new Vector2(textX, textY + 24), ParasiteEveTheme.TextNormal, 0.7f);
+                string weightText = $"Poids: {examinedItemData.WeightLbs:0.##} lbs";
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, weightText, new Vector2(textX, textY + 24), ParasiteEveTheme.TextNormal, 0.7f);
+                if (TryGetWeightDeltaText(examinedItemData, out string weightDeltaText, out Color weightDeltaColor))
+                {
+                    float weightWidth = font.MeasureString(weightText).X * 0.7f;
+                    Vector2 weightDeltaPos = new Vector2(textX + weightWidth + 6f, textY + 24);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, weightDeltaText, weightDeltaPos, weightDeltaColor, 0.7f);
+                }
+
                 string slotBonusText = examinedItemData.BonusInventorySlots > 0
                     ? $"+{examinedItemData.BonusInventorySlots}"
                     : examinedItemData.BonusInventorySlots < 0
@@ -3566,6 +3597,13 @@ namespace XCOM_3
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Slots bonus: {slotBonusText}", new Vector2(textX, textY + 48), ParasiteEveTheme.TextNormal, 0.7f);
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Mobilite: {mobilityText}", new Vector2(textX, textY + 72), ParasiteEveTheme.TextNormal, 0.7f);
+
+                if (TryGetArmorComparisonSummary(examinedItemData, out string advantages, out string drawbacks))
+                {
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Avantages: {advantages}", new Vector2(textX, textY + 120), Color.LimeGreen, 0.62f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Inconvénients: {drawbacks}", new Vector2(textX, textY + 140), Color.Red, 0.62f);
+                }
+
                 if (examinedItemData.Type == ItemType.Armor)
                 {
                     string fragText = $"Résistance éclats: {examinedItemData.FragmentationProtectionPercent}%";
@@ -4303,6 +4341,71 @@ namespace XCOM_3
             bool positive = delta > 0;
             deltaText = positive ? $"(+{delta}%)" : $"({delta}%)";
             deltaColor = positive ? Color.LimeGreen : Color.Red;
+            return true;
+        }
+
+        private bool TryGetWeightDeltaText(ItemData candidateData, out string deltaText, out Color deltaColor)
+        {
+            deltaText = string.Empty;
+            deltaColor = ParasiteEveTheme.TextDim;
+
+            if (activeUnit == null || candidateData == null || candidateData.Type != ItemType.Armor)
+                return false;
+
+            ItemData equippedData = GetComparableEquippedItemData(activeUnit, candidateData);
+            if (equippedData == null)
+                return false;
+
+            float delta = candidateData.WeightLbs - equippedData.WeightLbs;
+            if (Math.Abs(delta) < 0.01f)
+                return false;
+
+            bool lighter = delta < 0f;
+            string signedDelta = lighter
+                ? $"-{Math.Abs(delta):0.##} lbs"
+                : $"+{delta:0.##} lbs";
+
+            deltaText = $"({signedDelta})";
+            deltaColor = lighter ? Color.LimeGreen : Color.Red;
+            return true;
+        }
+
+        private bool TryGetArmorComparisonSummary(ItemData candidateData, out string advantages, out string drawbacks)
+        {
+            advantages = "-";
+            drawbacks = "-";
+
+            if (activeUnit == null || candidateData == null || candidateData.Type != ItemType.Armor)
+                return false;
+
+            ItemData equippedData = GetComparableEquippedItemData(activeUnit, candidateData);
+            if (equippedData == null)
+                return false;
+
+            List<string> advantageList = new List<string>();
+            List<string> drawbackList = new List<string>();
+
+            int fragDelta = Math.Max(0, candidateData.FragmentationProtectionPercent) - Math.Max(0, equippedData.FragmentationProtectionPercent);
+            if (fragDelta > 0)
+                advantageList.Add($"+{fragDelta}% éclats");
+            else if (fragDelta < 0)
+                drawbackList.Add($"{fragDelta}% éclats");
+
+            float weightDelta = candidateData.WeightLbs - equippedData.WeightLbs;
+            if (weightDelta < -0.01f)
+                advantageList.Add($"-{Math.Abs(weightDelta):0.##} lbs");
+            else if (weightDelta > 0.01f)
+                drawbackList.Add($"+{weightDelta:0.##} lbs");
+
+            if (advantageList.Count == 0 && drawbackList.Count == 0)
+                return false;
+
+            if (advantageList.Count > 0)
+                advantages = string.Join(", ", advantageList);
+
+            if (drawbackList.Count > 0)
+                drawbacks = string.Join(", ", drawbackList);
+
             return true;
         }
 
