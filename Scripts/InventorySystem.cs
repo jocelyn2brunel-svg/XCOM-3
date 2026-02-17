@@ -1667,6 +1667,9 @@ namespace XCOM_3
                     string line1 = contextMenuItem.Data.Name;
                     string line2 = $"Type: {contextMenuItem.Data.Type}";
                     string line3 = $"Poids: {contextMenuItem.Data.WeightLbs:0.##} lbs";
+                    string line4 = contextMenuItem.Data.Type == ItemType.Armor
+                        ? $"Résistance éclats: {contextMenuItem.Data.FragmentationProtectionPercent}%"
+                        : string.Empty;
 
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line1,
                         new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 40), ParasiteEveTheme.TextHighlight, 0.68f);
@@ -1674,6 +1677,12 @@ namespace XCOM_3
                         new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 62), ParasiteEveTheme.TextNormal, 0.62f);
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line3,
                         new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 82), ParasiteEveTheme.TextDim, 0.58f);
+
+                    if (!string.IsNullOrEmpty(line4))
+                    {
+                        ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line4,
+                            new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 102), ParasiteEveTheme.TextDim, 0.56f);
+                    }
                 }
 
                 if (contextMenuForEquippedFlashlight)
@@ -1725,9 +1734,11 @@ namespace XCOM_3
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Poids: {examinedItemData.WeightLbs:0.##} lbs", new Vector2(textX, textY + 24), ParasiteEveTheme.TextNormal, 0.7f);
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Slots bonus: {examinedItemData.BonusInventorySlots}", new Vector2(textX, textY + 48), ParasiteEveTheme.TextNormal, 0.7f);
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Mobilite: -{examinedItemData.MobilityPenalty}", new Vector2(textX, textY + 72), ParasiteEveTheme.TextNormal, 0.7f);
+                if (examinedItemData.Type == ItemType.Armor)
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Résistance éclats: {examinedItemData.FragmentationProtectionPercent}%", new Vector2(textX, textY + 96), ParasiteEveTheme.TextNormal, 0.7f);
 
                 if (!string.IsNullOrWhiteSpace(examinedItemData.Description))
-                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, examinedItemData.Description, new Vector2(examinePopupRect.X + 16, examinePopupRect.Y + 164), ParasiteEveTheme.TextDim, 0.6f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, examinedItemData.Description, new Vector2(examinePopupRect.X + 16, examinePopupRect.Y + 190), ParasiteEveTheme.TextDim, 0.6f);
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "Click outside to close", new Vector2(examinePopupRect.X + 16, examinePopupRect.Bottom - 26), ParasiteEveTheme.TextWarning, 0.6f);
             }

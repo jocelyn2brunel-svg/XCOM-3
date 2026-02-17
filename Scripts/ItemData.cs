@@ -57,6 +57,7 @@ namespace XCOM_3
         public int MobilityPenalty;
         public float WeightLbs;
         public int BonusInventorySlots;
+        public int FragmentationProtectionPercent;
         public string Description;
 
         // Données de grenades
@@ -74,6 +75,7 @@ namespace XCOM_3
             MobilityPenalty = 0;
             WeightLbs = weaponData?.WeightLbs ?? 0f;
             BonusInventorySlots = 0;
+            FragmentationProtectionPercent = 0;
             Description = "";
         }
 
@@ -84,7 +86,8 @@ namespace XCOM_3
                        int mobilityPenalty = 0,
                        float weightLbs = 0f,
                        int bonusInventorySlots = 0,
-                       string description = "")
+                       string description = "",
+                       int fragmentationProtectionPercent = 0)
         {
             Name = name;
             Type = type;
@@ -95,6 +98,7 @@ namespace XCOM_3
             MobilityPenalty = mobilityPenalty;
             WeightLbs = weightLbs;
             BonusInventorySlots = bonusInventorySlots;
+            FragmentationProtectionPercent = Math.Clamp(fragmentationProtectionPercent, 0, 95);
             Description = description;
         }
 
@@ -106,6 +110,7 @@ namespace XCOM_3
             GrenadeData = grenadeData;
             WeightLbs = weightLbs;
             BonusInventorySlots = 0;
+            FragmentationProtectionPercent = 0;
             Description = description;
         }
 

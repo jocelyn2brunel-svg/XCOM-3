@@ -59,12 +59,12 @@ namespace XCOM_3
         {
             list.AddRange(new[]
             {
-                Helmet("M1 Helmet", 8, ProtectionLevel.Fragmentation, 2.9f, "WWII. Protection contre éclats."),
-                Helmet("PASGT Helmet", 12, ProtectionLevel.NIJ_IIIA, 3.1f, "NIJ IIIA."),
-                Helmet("Lightweight Helmet", 13, ProtectionLevel.NIJ_IIIA, 2.4f, "Version allégée."),
-                Helmet("MICH", 14, ProtectionLevel.NIJ_IIIA, 3.0f, "Modular Integrated Communications Helmet."),
-                Helmet("ACH", 15, ProtectionLevel.NIJ_IIIA, 3.3f, "Advanced Combat Helmet."),
-                Helmet("ECH", 16, ProtectionLevel.NIJ_IIIA, 3.6f, "Enhanced Combat Helmet."),
+                Helmet("M1 Helmet", 8, ProtectionLevel.Fragmentation, 2.9f, "Casque acier WWII. Bonne protection contre les éclats.", 18),
+                Helmet("PASGT Helmet", 12, ProtectionLevel.NIJ_IIIA, 3.1f, "Kevlar balistique NIJ IIIA, couvre mieux nuque et tempes.", 24),
+                Helmet("Lightweight Helmet", 13, ProtectionLevel.NIJ_IIIA, 2.4f, "Version allégée du PASGT, mobilité améliorée.", 20),
+                Helmet("MICH", 14, ProtectionLevel.NIJ_IIIA, 3.0f, "Casque modulaire MICH compatible communications.", 23),
+                Helmet("ACH", 15, ProtectionLevel.NIJ_IIIA, 3.3f, "Advanced Combat Helmet avec meilleur amorti d'impact.", 26),
+                Helmet("ECH", 16, ProtectionLevel.NIJ_IIIA, 3.6f, "Enhanced Combat Helmet, excellente tenue face aux éclats.", 30),
             });
         }
 
@@ -75,10 +75,10 @@ namespace XCOM_3
         {
             list.AddRange(new[]
             {
-                Vest("M-1952 Flak Jacket", 10, ProtectionLevel.Fragmentation, 8.5f, "Guerre de Corée."),
-                Vest("M-69 Vest", 12, ProtectionLevel.Fragmentation, 6.8f, "Vietnam."),
-                Vest("M-1955 Vest", 14, ProtectionLevel.Fragmentation, 9.7f, "Plaques Doron."),
-                Vest("PASGT Vest", 18, ProtectionLevel.NIJ_II, 7.8f, "Kevlar standard."),
+                Vest("M-1952 Flak Jacket", 10, ProtectionLevel.Fragmentation, 8.5f, "Flak Jacket guerre de Corée, optimisé anti-fragments.", 36),
+                Vest("M-69 Vest", 12, ProtectionLevel.Fragmentation, 6.8f, "Gilet M-69 Vietnam, compromis protection/poids.", 30),
+                Vest("M-1955 Vest", 14, ProtectionLevel.Fragmentation, 9.7f, "Gilet M-1955 à plaques Doron, très bon contre éclats.", 34),
+                Vest("PASGT Vest", 18, ProtectionLevel.NIJ_II, 7.8f, "Gilet Kevlar PASGT standard, bonne couverture torse.", 28),
             });
         }
 
@@ -100,9 +100,9 @@ namespace XCOM_3
         {
             list.AddRange(new[]
             {
-                Shield("Riot Shield", 15, ProtectionLevel.None, 1, 7.5f, "Anti-émeute."),
-                Shield("Ballistic Shield", 30, ProtectionLevel.NIJ_IIIA, 2, 12.5f, "NIJ IIIA."),
-                Shield("Heavy Ballistic Shield", 45, ProtectionLevel.NIJ_III, 2, 19.0f, "NIJ III."),
+                Shield("Riot Shield", 15, ProtectionLevel.None, 1, 7.5f, "Bouclier anti-émeute, utile en protection de proximité.", 12),
+                Shield("Ballistic Shield", 30, ProtectionLevel.NIJ_IIIA, 2, 12.5f, "Bouclier balistique NIJ IIIA, forte absorption des éclats.", 35),
+                Shield("Heavy Ballistic Shield", 45, ProtectionLevel.NIJ_III, 2, 19.0f, "Bouclier lourd NIJ III, protection maximale mais encombrant.", 45),
             });
         }
 
@@ -120,7 +120,8 @@ namespace XCOM_3
                 0,
                 0.8f,
                 0,
-                "Protection feu / confort thermique."
+                "Protection feu / confort thermique.",
+                4
             ));
 
             list.AddRange(new[]
@@ -194,7 +195,8 @@ namespace XCOM_3
                 0,
                 1.8f,
                 4,
-                "Chest rig assaut renforcé. Ajoute 4 emplacements utilitaires 1x1."
+                "Chest rig assaut renforcé, protection limitée contre éclats. Ajoute 4 emplacements utilitaires 1x1.",
+                8
             ));
         }
 
@@ -241,18 +243,18 @@ namespace XCOM_3
         // HELPERS
         // ─────────────────────────────────────────────
 
-        private static ItemData Helmet(string name, int armor, ProtectionLevel level, float weightLbs, string desc)
-            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Head, level, 0, weightLbs, 0, desc);
+        private static ItemData Helmet(string name, int armor, ProtectionLevel level, float weightLbs, string desc, int fragResistPercent)
+            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Head, level, 0, weightLbs, 0, desc, fragResistPercent);
 
-        private static ItemData Vest(string name, int armor, ProtectionLevel level, float weightLbs, string desc)
-            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Torso, level, 0, weightLbs, 0, desc);
+        private static ItemData Vest(string name, int armor, ProtectionLevel level, float weightLbs, string desc, int fragResistPercent)
+            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Torso, level, 0, weightLbs, 0, desc, fragResistPercent);
 
-        private static ItemData Shield(string name, int armor, ProtectionLevel level, int apPenalty, float weightLbs, string desc)
-            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Shield, level, apPenalty, weightLbs, 0, desc);
+        private static ItemData Shield(string name, int armor, ProtectionLevel level, int apPenalty, float weightLbs, string desc, int fragResistPercent)
+            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Shield, level, apPenalty, weightLbs, 0, desc, fragResistPercent);
 
         private static void AddPlateVariants(List<ItemData> list, string baseName, int baseArmor)
         {
-            list.Add(Vest(baseName, baseArmor, ProtectionLevel.NIJ_IIIA, 16.0f, "Base NIJ IIIA"));
+            list.Add(Vest(baseName, baseArmor, ProtectionLevel.NIJ_IIIA, 16.0f, "Porte-plaques de base NIJ IIIA.", 18));
             list.Add(new ItemData(
                 $"{baseName} + SAPI",
                 ItemType.Armor,
@@ -262,7 +264,8 @@ namespace XCOM_3
                 1,
                 21.0f,
                 0,
-                "Plaques SAPI. -1 PM."
+                "Plaques SAPI. -1 PM. Meilleure tenue aux éclats secondaires.",
+                26
             ));
             list.Add(new ItemData(
                 $"{baseName} + ESAPI",
@@ -273,7 +276,8 @@ namespace XCOM_3
                 1,
                 24.0f,
                 0,
-                "Plaques ESAPI. -1 PM."
+                "Plaques ESAPI. -1 PM. Excellente résistance multi-menaces.",
+                32
             ));
         }
 
