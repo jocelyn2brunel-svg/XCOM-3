@@ -230,6 +230,69 @@ namespace XCOM_3
             }
         }
 
+        private void DrawHemisphere(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
+                                    Vector3 radii, Color color, Matrix rot, int latSegments = 6, int lonSegments = 12)
+        {
+            int lat = Math.Max(3, latSegments);
+            int lon = Math.Max(6, lonSegments);
+
+            var verts = new List<VertexPositionColor>((lat + 1) * (lon + 1));
+            var indices = new List<short>(lat * lon * 6);
+
+            for (int y = 0; y <= lat; y++)
+            {
+                float v = y / (float)lat;
+                float phi = v * MathHelper.PiOver2;
+                float sinPhi = MathF.Sin(phi);
+                float cosPhi = MathF.Cos(phi);
+
+                for (int x = 0; x <= lon; x++)
+                {
+                    float u = x / (float)lon;
+                    float theta = u * MathF.Tau;
+                    float sinTheta = MathF.Sin(theta);
+                    float cosTheta = MathF.Cos(theta);
+
+                    Vector3 local = new(
+                        radii.X * sinPhi * cosTheta,
+                        radii.Y * cosPhi,
+                        radii.Z * sinPhi * sinTheta);
+
+                    verts.Add(new VertexPositionColor(local, color));
+                }
+            }
+
+            for (int y = 0; y < lat; y++)
+            {
+                for (int x = 0; x < lon; x++)
+                {
+                    short i0 = (short)(y * (lon + 1) + x);
+                    short i1 = (short)(i0 + 1);
+                    short i2 = (short)(i0 + lon + 1);
+                    short i3 = (short)(i2 + 1);
+
+                    indices.Add(i0); indices.Add(i2); indices.Add(i1);
+                    indices.Add(i1); indices.Add(i2); indices.Add(i3);
+                }
+            }
+
+            Vector3 finalPos = center + Vector3.Transform(relative, rot);
+            effect.World = rot * Matrix.CreateTranslation(finalPos);
+
+            foreach (var pass in effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                device.DrawUserIndexedPrimitives(
+                    PrimitiveType.TriangleList,
+                    verts.ToArray(),
+                    0,
+                    verts.Count,
+                    indices.ToArray(),
+                    0,
+                    indices.Count / 3);
+            }
+        }
+
         private void DrawFrustumBetween(GraphicsDevice device, BasicEffect effect, Vector3 center,
                                         Vector3 start, Vector3 end, float startRadius, float endRadius,
                                         Color color, Matrix modelRot, int segments = 5)
@@ -581,15 +644,13 @@ namespace XCOM_3
             float headCenterY = dims.ll + dims.th + dims.head * 0.6f;
             float headRadius = dims.head * 0.52f;
 
-            // Position sur la tête
-            Vector3 helmetPos = new Vector3(0, headCenterY + headRadius * 0.16f, 0);
-
             // ✅ AMÉLIORÉ : Forme plus réaliste du casque PASGT
             if (helmet.Data.Name.Contains("PASGT"))
             {
-                // Corps principal du casque (forme ovoïde arrondie)
-                Vector3 helmetScale = new Vector3(dims.head * 1.28f, dims.head * 1.2f, dims.head * 1.38f);
-                DrawBodyPart(device, effect, pos, helmetPos, helmetScale, helmetColor, rot);
+                // Corps principal du casque : demi-sphère qui recouvre le dessus du crâne.
+                Vector3 shellPos = new Vector3(0, headCenterY + headRadius * 0.32f, 0);
+                Vector3 shellRadii = new Vector3(dims.head * 0.64f, dims.head * 0.58f, dims.head * 0.7f);
+                DrawHemisphere(device, effect, pos, shellPos, shellRadii, helmetColor, rot);
 
                 // Bord avant du casque (visière/front)
                 Vector3 frontRimPos = new Vector3(0, headCenterY - headRadius * 0.18f, dims.head * 0.76f);
@@ -625,9 +686,10 @@ namespace XCOM_3
             // Casques ACH/ECH/MICH (modernes)
             else if (helmet.Data.Name.Contains("ACH") || helmet.Data.Name.Contains("ECH") || helmet.Data.Name.Contains("MICH"))
             {
-                // Taille légèrement plus grande que la tête
-                Vector3 helmetScale = new Vector3(dims.head * 1.24f, dims.head * 1.34f, dims.head * 1.24f);
-                DrawBodyPart(device, effect, pos, helmetPos, helmetScale, helmetColor, rot);
+                // Coque principale : demi-sphère moderne haute.
+                Vector3 shellPos = new Vector3(0, headCenterY + headRadius * 0.35f, 0);
+                Vector3 shellRadii = new Vector3(dims.head * 0.62f, dims.head * 0.62f, dims.head * 0.64f);
+                DrawHemisphere(device, effect, pos, shellPos, shellRadii, helmetColor, rot);
 
                 // Visière NVG mount (caractéristique des casques modernes)
                 Vector3 mountPos = new Vector3(0, headCenterY + headRadius * 0.34f, dims.head * 0.66f);
@@ -650,8 +712,9 @@ namespace XCOM_3
             // Casque basique (fallback)
             else
             {
-                Vector3 helmetScale = new Vector3(dims.head * 1.24f, dims.head * 1.34f, dims.head * 1.24f);
-                DrawBodyPart(device, effect, pos, helmetPos, helmetScale, helmetColor, rot);
+                Vector3 shellPos = new Vector3(0, headCenterY + headRadius * 0.3f, 0);
+                Vector3 shellRadii = new Vector3(dims.head * 0.62f, dims.head * 0.58f, dims.head * 0.62f);
+                DrawHemisphere(device, effect, pos, shellPos, shellRadii, helmetColor, rot);
             }
         }
 
