@@ -164,8 +164,16 @@ namespace XCOM_3
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
                 $"WEAPON: {selectedUnit.Weapon}", p + new Vector2(0, 22), ParasiteEveTheme.TextNormal);
 
+            if (selectedUnit.WeaponData != null && selectedUnit.WeaponData.UsesAmmo)
+            {
+                selectedUnit.EnsureAmmoState();
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                    $"AMMO: {selectedUnit.CurrentAmmoInMagazine}/{selectedUnit.WeaponData.MagazineCapacity}",
+                    p + new Vector2(0, 44), ParasiteEveTheme.TextDim, 0.8f);
+            }
+
             // Barre de santé
-            p.Y += 52;
+            p.Y += 72;
             spriteBatch.DrawString(font, "HP", p, ParasiteEveTheme.TextHighlight);
             int barX = innerLeft + 40; // espace pour le texte "HP"
             int barWidth = innerRight - barX;

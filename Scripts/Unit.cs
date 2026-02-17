@@ -49,6 +49,9 @@ namespace XCOM_3
         private int phosphocreatineRegenRound = 0;
 
         public WeaponData WeaponData;
+
+        public int CurrentAmmoInMagazine { get; private set; } = 0;
+        private string ammoTrackedWeaponName = string.Empty;
         public bool IsFiring = false, WillHit = false;
         public bool IsAiming = false;
         public Point? FireTarget = null;
@@ -180,6 +183,7 @@ namespace XCOM_3
             ChestRigInventory = new List<Item>();
             EquippedBackpack = "Backpack XL";
             EnsureBackpackInventoryGrid();
+            EnsureAmmoState();
 
         }
 
@@ -194,6 +198,8 @@ namespace XCOM_3
             DominantHand = other.DominantHand;
             Weapon = other.Weapon;
             WeaponData = other.WeaponData;
+            CurrentAmmoInMagazine = other.CurrentAmmoInMagazine;
+            ammoTrackedWeaponName = other.ammoTrackedWeaponName;
             ActionPoints = other.ActionPoints;
             MaxActionPoints = other.MaxActionPoints;
             Phosphocreatine = other.Phosphocreatine;
@@ -257,6 +263,61 @@ namespace XCOM_3
             IsCrouched = other.IsCrouched;
             CoverTransitionProgress = other.CoverTransitionProgress;
 
+        }
+
+
+        public void EnsureAmmoState()
+        {
+            if (WeaponData == null)
+            {
+                CurrentAmmoInMagazine = 0;
+                ammoTrackedWeaponName = string.Empty;
+                return;
+            }
+
+            string currentWeaponName = WeaponData.Name ?? string.Empty;
+            if (!string.Equals(ammoTrackedWeaponName, currentWeaponName, StringComparison.Ordinal))
+            {
+                ammoTrackedWeaponName = currentWeaponName;
+                CurrentAmmoInMagazine = WeaponData.UsesAmmo ? WeaponData.MagazineCapacity : 0;
+            }
+
+            if (!WeaponData.UsesAmmo)
+                CurrentAmmoInMagazine = 0;
+            else
+                CurrentAmmoInMagazine = Math.Clamp(CurrentAmmoInMagazine, 0, WeaponData.MagazineCapacity);
+        }
+
+        public bool NeedsReloadForFireAction()
+        {
+            EnsureAmmoState();
+            if (WeaponData == null || !WeaponData.UsesAmmo)
+                return false;
+
+            int roundsNeeded = WeaponData.GetRoundsConsumedPerActionPoint();
+            return CurrentAmmoInMagazine < roundsNeeded;
+        }
+
+        public bool ReloadWeapon()
+        {
+            EnsureAmmoState();
+            if (WeaponData == null || !WeaponData.UsesAmmo)
+                return false;
+
+            CurrentAmmoInMagazine = WeaponData.MagazineCapacity;
+            return true;
+        }
+
+        public int ConsumeRoundsForFireAction()
+        {
+            EnsureAmmoState();
+            if (WeaponData == null || !WeaponData.UsesAmmo)
+                return 0;
+
+            int roundsNeeded = WeaponData.GetRoundsConsumedPerActionPoint();
+            int roundsConsumed = Math.Min(roundsNeeded, CurrentAmmoInMagazine);
+            CurrentAmmoInMagazine -= roundsConsumed;
+            return roundsConsumed;
         }
 
         public int GetTotalArmor()

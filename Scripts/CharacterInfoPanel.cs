@@ -181,6 +181,11 @@ namespace XCOM_3
             DrawPair(spriteBatch, ref cursor, "Points d'action", $"{unit.ActionPoints}/{unit.MaxActionPoints}");
             DrawPair(spriteBatch, ref cursor, "Sante", $"{unit.Health}/{unit.GetMaxHealth()}");
             DrawPair(spriteBatch, ref cursor, "Phosphocreatine", $"{unit.Phosphocreatine}/{unit.MaxPhosphocreatine}");
+            if (unit.WeaponData != null && unit.WeaponData.UsesAmmo)
+            {
+                unit.EnsureAmmoState();
+                DrawPair(spriteBatch, ref cursor, "Munitions", $"{unit.CurrentAmmoInMagazine}/{unit.WeaponData.MagazineCapacity}");
+            }
 
             // Ne pas recouvrir l'aperçu 3D avec un fond opaque : on dessine seulement un cadre
             // et des bandeaux d'UI pour conserver la lisibilité du texte.
