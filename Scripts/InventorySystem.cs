@@ -3879,7 +3879,7 @@ namespace XCOM_3
 
             for (int i = 0; i < backpackCapacity; i++)
             {
-                Rectangle utilitySlot = GetBackpackUtilitySlotByIndex(i);
+                Rectangle utilitySlot = GetBackpackUtilitySlotByIndex(i, unit);
                 DrawEquipmentSlot(utilitySlot, string.Empty, null, highlightBackpack);
             }
 
@@ -4417,13 +4417,15 @@ namespace XCOM_3
             );
         }
 
-        private Rectangle GetBackpackUtilitySlotByIndex(int index)
+        private Rectangle GetBackpackUtilitySlotByIndex(int index, Unit unit)
         {
             int row = index / BACKPACK_UTILITY_COLUMNS;
             int column = index % BACKPACK_UTILITY_COLUMNS;
             Rectangle backpackSlot = GetBackpackSlotBounds();
+            int capacity = unit.GetBackpackInventoryCapacity();
+            int totalRows = Math.Max(1, (capacity + BACKPACK_UTILITY_COLUMNS - 1) / BACKPACK_UTILITY_COLUMNS);
             int startX = backpackSlot.Right;
-            int startY = backpackSlot.Y;
+            int startY = backpackSlot.Bottom - totalRows * CELL_SIZE - (totalRows - 1) * UTILITY_SLOT_GAP;
 
             return new Rectangle(
                 startX + column * (CELL_SIZE + UTILITY_SLOT_GAP),
@@ -4439,7 +4441,7 @@ namespace XCOM_3
             if (capacity <= 0)
                 return Rectangle.Empty;
 
-            Rectangle firstSlot = GetBackpackUtilitySlotByIndex(0);
+            Rectangle firstSlot = GetBackpackUtilitySlotByIndex(0, unit);
             int rows = (capacity + BACKPACK_UTILITY_COLUMNS - 1) / BACKPACK_UTILITY_COLUMNS;
             int width = BACKPACK_UTILITY_COLUMNS * CELL_SIZE + (BACKPACK_UTILITY_COLUMNS - 1) * UTILITY_SLOT_GAP;
             int height = rows * CELL_SIZE + (rows - 1) * UTILITY_SLOT_GAP;
@@ -4448,7 +4450,7 @@ namespace XCOM_3
 
         private Rectangle GetBackpackGridCellBounds(Point gridPosition, Unit unit)
         {
-            Rectangle firstSlot = GetBackpackUtilitySlotByIndex(0);
+            Rectangle firstSlot = GetBackpackUtilitySlotByIndex(0, unit);
             return new Rectangle(
                 firstSlot.X + gridPosition.X * (CELL_SIZE + UTILITY_SLOT_GAP),
                 firstSlot.Y + gridPosition.Y * (CELL_SIZE + UTILITY_SLOT_GAP),
@@ -4508,7 +4510,7 @@ namespace XCOM_3
             if (utilityCount <= 0)
                 return GetBackpackSlotBounds().Bottom;
 
-            return GetBackpackUtilitySlotByIndex(utilityCount - 1).Bottom;
+            return GetBackpackUtilitySlotByIndex(utilityCount - 1, unit).Bottom;
         }
 
         private int GetEquipmentPanelHeight(Unit unit)
