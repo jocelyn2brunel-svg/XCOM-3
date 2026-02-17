@@ -430,7 +430,13 @@ namespace XCOM_3
             totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedPants);
             totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedChestRig);
             totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedBelt);
-            totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedBackpack);
+
+            if (!string.IsNullOrWhiteSpace(unit.EquippedBackpack) &&
+                inventorySystem?.ItemDatabase != null &&
+                inventorySystem.ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData backpackData))
+            {
+                totalReduction += GetItemFragmentationProtectionPercent(new Item(backpackData, Point.Zero));
+            }
 
             return Math.Clamp(totalReduction, 0, 95);
         }
