@@ -385,20 +385,13 @@ namespace XCOM_3
                 if (!IsUnitExposedToExplosion(center, centerFloor, unit))
                     continue;
 
-                if (distance <= Mk2LethalRadius)
-                {
-                    KillUnitFromMk2(unit, "blast radius", thrower, ref enemiesHit, ref totalDamage);
-                    continue;
-                }
-
-                if (distance < Mk2FragmentationStartRadius || distance > Mk2FragmentationEndRadius)
+                if (distance > Mk2FragmentationEndRadius)
                     continue;
 
-                if (HasMk2FragmentationProtection(unit))
+                if (!TryGetMk2FragmentHitChancePercent(center, centerFloor, unit, out int hitChancePercent))
                     continue;
 
-                float hitChance = 0.8f * (Mk2FragmentationEndRadius - distance) / (Mk2FragmentationEndRadius - Mk2FragmentationStartRadius);
-                hitChance = MathHelper.Clamp(hitChance, 0f, 0.8f);
+                float hitChance = hitChancePercent / 100f;
 
                 if (random.NextDouble() <= hitChance)
                 {
@@ -424,11 +417,50 @@ namespace XCOM_3
             return pathfinding.HasLineOfSight(explosionCenter, unit.Cell);
         }
 
-        private bool HasMk2FragmentationProtection(Unit unit)
+        private int GetMk2FragmentationProtectionReductionPercent(Unit unit)
         {
-            bool hasFragmentationHelmet = unit.EquippedHelmet?.Data?.ProtectionLevel >= ProtectionLevel.Fragmentation;
-            bool hasFragmentationSuit = unit.EquippedArmor?.Data?.ProtectionLevel >= ProtectionLevel.Fragmentation;
-            return hasFragmentationHelmet && hasFragmentationSuit;
+            if (unit == null)
+                return 0;
+
+            int totalReduction = 0;
+            string helmetName = unit.EquippedHelmet?.Data?.Name ?? string.Empty;
+            string armorName = unit.EquippedArmor?.Data?.Name ?? string.Empty;
+
+            if (helmetName.IndexOf("PASGT", StringComparison.OrdinalIgnoreCase) >= 0)
+                totalReduction += 9;
+
+            if (armorName.IndexOf("Flak Jacket", StringComparison.OrdinalIgnoreCase) >= 0)
+                totalReduction += 36;
+
+            return Math.Clamp(totalReduction, 0, 95);
+        }
+
+        private bool TryGetMk2FragmentHitChancePercent(Point centerCell, int centerFloor, Unit unit, out int hitChancePercent)
+        {
+            hitChancePercent = 0;
+
+            if (unit == null || unit.Health <= 0)
+                return false;
+
+            float distance = Vector2.Distance(new Vector2(centerCell.X, centerCell.Y), new Vector2(unit.Cell.X, unit.Cell.Y));
+            if (distance > Mk2FragmentationEndRadius)
+                return false;
+
+            if (!IsUnitExposedToExplosion(centerCell, centerFloor, unit))
+                return false;
+
+            float baseHitChance = distance <= Mk2LethalRadius
+                ? 1f
+                : 0.8f * (Mk2FragmentationEndRadius - distance) / (Mk2FragmentationEndRadius - Mk2FragmentationStartRadius);
+
+            baseHitChance = MathHelper.Clamp(baseHitChance, 0f, 1f);
+
+            float protectionMultiplier = 1f - (GetMk2FragmentationProtectionReductionPercent(unit) / 100f);
+            protectionMultiplier = MathHelper.Clamp(protectionMultiplier, 0.05f, 1f);
+
+            float finalHitChance = MathHelper.Clamp(baseHitChance * protectionMultiplier, 0f, 1f);
+            hitChancePercent = (int)Math.Round(finalHitChance * 100f);
+            return hitChancePercent > 0;
         }
 
         private void KillUnitFromMk2(Unit unit, string reason, Unit thrower, ref int enemiesHit, ref int totalDamage)
@@ -512,7 +544,7 @@ namespace XCOM_3
                     if (unit.Team == Team.Enemy && !IsEnemyVisibleToPlayers(unit))
                         continue;
 
-                    if (!TryGetMk2FragmentationHitChancePercent(centerCell, centerFloor, unit, out int hitChancePercent))
+                    if (!TryGetMk2FragmentHitChancePercent(centerCell, centerFloor, unit, out int hitChancePercent))
                         continue;
 
                     Vector3 worldCenter = new Vector3(
@@ -528,30 +560,6 @@ namespace XCOM_3
             AddUnits(enemyUnits);
 
             return result;
-        }
-
-        private bool TryGetMk2FragmentationHitChancePercent(Point centerCell, int centerFloor, Unit unit, out int hitChancePercent)
-        {
-            hitChancePercent = 0;
-
-            if (unit == null || unit.Health <= 0)
-                return false;
-
-            float distance = Vector2.Distance(new Vector2(centerCell.X, centerCell.Y), new Vector2(unit.Cell.X, unit.Cell.Y));
-            if (distance < Mk2FragmentationStartRadius || distance > Mk2FragmentationEndRadius)
-                return false;
-
-            if (!IsUnitExposedToExplosion(centerCell, centerFloor, unit))
-                return false;
-
-            if (HasMk2FragmentationProtection(unit))
-                return false;
-
-            float hitChance = 0.8f * (Mk2FragmentationEndRadius - distance) / (Mk2FragmentationEndRadius - Mk2FragmentationStartRadius);
-            hitChance = MathHelper.Clamp(hitChance, 0f, 0.8f);
-
-            hitChancePercent = (int)Math.Round(hitChance * 100f);
-            return hitChancePercent > 0;
         }
 
         private void DrawMk2FragmentationDirectionPreview(Point centerCell, int centerFloor, float pulse)
