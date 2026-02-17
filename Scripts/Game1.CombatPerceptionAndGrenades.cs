@@ -243,6 +243,14 @@ namespace XCOM_3
 
         private void RegisterFlashlightLoot(Point lootCell, int lootFloor)
         {
+            bool addedToNearbyLoot = RegisterGroundLoot(TacticalFlashlightItemName, lootCell, lootFloor);
+            Console.WriteLine(addedToNearbyLoot
+                ? $"Flashlight landed at {lootCell} (floor {lootFloor}) and added to nearby loot."
+                : $"Flashlight landed at {lootCell} (floor {lootFloor}) but could not be added to nearby loot.");
+        }
+
+        private bool RegisterGroundLoot(string itemName, Point lootCell, int lootFloor)
+        {
             bool mergedWithExistingCell = false;
 
             for (int i = 0; i < flashlightLootMarkers.Count; i++)
@@ -269,10 +277,7 @@ namespace XCOM_3
                 });
             }
 
-            bool addedToNearbyLoot = inventorySystem.TryAddNearbyLootByName(TacticalFlashlightItemName);
-            Console.WriteLine(addedToNearbyLoot
-                ? $"Flashlight landed at {lootCell} (floor {lootFloor}) and added to nearby loot."
-                : $"Flashlight landed at {lootCell} (floor {lootFloor}) but could not be added to nearby loot.");
+            return inventorySystem.TryAddNearbyLootByName(itemName);
         }
 
         private void DrawFlashlightLootHighlights(GameTime gameTime)
@@ -346,8 +351,7 @@ namespace XCOM_3
                 if (unit.Health <= 0)
                 {
                     PlayGrenadeFatalityEffect(unit, grenadeData);
-                    (unit.Team == Team.Player ? playerUnits : enemyUnits).Remove(unit);
-                    unitManager.OnUnitDied(unit);
+                    HandleUnitKilled(unit);
                     Console.WriteLine($"{unit.Name} killed by explosion!");
                 }
             }
@@ -505,8 +509,7 @@ namespace XCOM_3
                 totalDamage += hpBefore;
             }
 
-            (unit.Team == Team.Player ? playerUnits : enemyUnits).Remove(unit);
-            unitManager.OnUnitDied(unit);
+            HandleUnitKilled(unit);
         }
 
         private void PlayGrenadeFatalityEffect(Unit unit, GrenadeData grenadeData)
