@@ -1798,7 +1798,7 @@ namespace XCOM_3
                     ItemContextInfo info = clickedItem.Value;
                     contextMenuItem = info;
                     contextMenuForEquippedFlashlight = IsEquippedTacticalFlashlight(info);
-                    contextMenuHasOpenAction = TryBuildContainerPopupContent(info, unit, out _, out _);
+                    contextMenuHasOpenAction = TryBuildContainerPopupContent(info, unit, out _, out _, out _);
                     contextMenuRect = BuildContextWindow(mouse.Position);
 
                     if (contextMenuForEquippedFlashlight)
