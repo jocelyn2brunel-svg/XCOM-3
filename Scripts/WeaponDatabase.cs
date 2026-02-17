@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 
 namespace XCOM_3
 {
@@ -359,6 +360,8 @@ namespace XCOM_3
         public string Caliber;
         public string Reference;
         public float WeightLbs;
+        public int RoundsPerMinute;
+        public int MagazineCapacity;
 
         // Constructeur de base (pour vos armes existantes - compatibilité totale)
         public WeaponData(string name, int damage, int accuracy, int range)
@@ -373,11 +376,14 @@ namespace XCOM_3
             Caliber = "Unknown";
             Reference = "";
             WeightLbs = GetDefaultWeightLbs(Type);
+            RoundsPerMinute = GetDefaultRoundsPerMinute(Type);
+            MagazineCapacity = GetDefaultMagazineCapacity(Type);
         }
 
         // ✅ NOUVEAU : Constructeur étendu (pour les nouvelles armes)
         public WeaponData(string name, int damage, int accuracy, int range,
-                         WeaponType weaponType, string caliber, string reference = "", float weightLbs = 0f)
+                         WeaponType weaponType, string caliber, string reference = "", float weightLbs = 0f,
+                         int roundsPerMinute = 0, int magazineCapacity = 0)
         {
             Name = name;
             Damage = damage;
@@ -387,6 +393,19 @@ namespace XCOM_3
             Caliber = caliber;
             Reference = reference;
             WeightLbs = weightLbs > 0f ? weightLbs : GetDefaultWeightLbs(Type);
+            RoundsPerMinute = roundsPerMinute > 0 ? roundsPerMinute : GetDefaultRoundsPerMinute(Type);
+            MagazineCapacity = magazineCapacity > 0 ? magazineCapacity : GetDefaultMagazineCapacity(Type);
+        }
+
+        public bool UsesAmmo => Type != WeaponType.Melee;
+
+        public int GetRoundsConsumedPerActionPoint()
+        {
+            if (!UsesAmmo)
+                return 0;
+
+            // 1 PA = 3 secondes. 3 / 60 = 0.05 minute.
+            return Math.Max(1, (int)Math.Ceiling(RoundsPerMinute * 0.05f));
         }
 
         private static float GetDefaultWeightLbs(WeaponType weaponType)
@@ -407,6 +426,48 @@ namespace XCOM_3
                 WeaponType.GrenadeLauncher => 13.5f,
                 WeaponType.RocketLauncher => 20.0f,
                 _ => 7.5f
+            };
+        }
+
+        private static int GetDefaultRoundsPerMinute(WeaponType weaponType)
+        {
+            return weaponType switch
+            {
+                WeaponType.Melee => 0,
+                WeaponType.Pistol => 300,
+                WeaponType.Revolver => 120,
+                WeaponType.SMG => 750,
+                WeaponType.AssaultRifle => 700,
+                WeaponType.Carbine => 700,
+                WeaponType.BattleRifle => 650,
+                WeaponType.Shotgun => 80,
+                WeaponType.MachineGun => 850,
+                WeaponType.DMR => 180,
+                WeaponType.SniperRifle => 60,
+                WeaponType.GrenadeLauncher => 30,
+                WeaponType.RocketLauncher => 10,
+                _ => 300
+            };
+        }
+
+        private static int GetDefaultMagazineCapacity(WeaponType weaponType)
+        {
+            return weaponType switch
+            {
+                WeaponType.Melee => 0,
+                WeaponType.Pistol => 17,
+                WeaponType.Revolver => 6,
+                WeaponType.SMG => 30,
+                WeaponType.AssaultRifle => 30,
+                WeaponType.Carbine => 30,
+                WeaponType.BattleRifle => 20,
+                WeaponType.Shotgun => 8,
+                WeaponType.MachineGun => 100,
+                WeaponType.DMR => 20,
+                WeaponType.SniperRifle => 10,
+                WeaponType.GrenadeLauncher => 1,
+                WeaponType.RocketLauncher => 1,
+                _ => 30
             };
         }
     }

@@ -377,6 +377,22 @@ namespace XCOM_3
             if (!HasUsableWeapon(shooter))
                 return;
 
+            shooter.EnsureAmmoState();
+            if (shooter.NeedsReloadForFireAction())
+            {
+                if (shooter.ActionPoints <= 0)
+                    return;
+
+                bool reloaded = shooter.ReloadWeapon();
+                if (reloaded)
+                {
+                    shooter.ActionPoints--;
+                    Console.WriteLine($"[COMBAT] {shooter.Name} recharge {shooter.WeaponData.Name} ({shooter.CurrentAmmoInMagazine}/{shooter.WeaponData.MagazineCapacity})");
+                }
+
+                return;
+            }
+
             int distance = Math.Abs(target.Cell.X - shooter.Cell.X) +
                           Math.Abs(target.Cell.Y - shooter.Cell.Y);
 
@@ -425,8 +441,16 @@ namespace XCOM_3
             shooter.WillHit = random.Next(100) < effectiveAccuracy;
             shooter.PendingTarget = target;
             shooter.ActionPoints--;
+            int roundsConsumed = shooter.ConsumeRoundsForFireAction();
 
-            Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance, range penalty: -{rangePenalty}%)");
+            if (shooter.WeaponData != null && shooter.WeaponData.UsesAmmo)
+            {
+                Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance, range penalty: -{rangePenalty}%, ammo -{roundsConsumed}, left {shooter.CurrentAmmoInMagazine}/{shooter.WeaponData.MagazineCapacity})");
+            }
+            else
+            {
+                Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance, range penalty: -{rangePenalty}%)");
+            }
         }
 
         /// <summary>
