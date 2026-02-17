@@ -3994,6 +3994,7 @@ namespace XCOM_3
 
                 DrawItemPreviewImage(entry.Data, lootSlot);
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, entry.Data.Name, new Vector2(lootSlot.X + 4, lootSlot.Y + 4), ParasiteEveTheme.TextNormal, 0.4f);
+                DrawItemComparisonIndicators(entry.Data, lootSlot);
             }
 
             if (maxScrollRows > 0)
@@ -4186,16 +4187,21 @@ namespace XCOM_3
 
         private void DrawItemComparisonIndicators(GridItem item, float alpha)
         {
-            if (activeUnit == null || item?.Data == null || item.Data.Type != ItemType.Armor)
+            DrawItemComparisonIndicators(item?.Data, item?.PixelBounds ?? Rectangle.Empty, alpha);
+        }
+
+        private void DrawItemComparisonIndicators(ItemData itemData, Rectangle bounds, float alpha = 1f)
+        {
+            if (activeUnit == null || itemData == null || itemData.Type != ItemType.Armor || bounds.Width <= 0 || bounds.Height <= 0)
                 return;
 
-            ItemData equippedData = GetComparableEquippedItemData(activeUnit, item.Data);
+            ItemData equippedData = GetComparableEquippedItemData(activeUnit, itemData);
             if (equippedData == null)
                 return;
 
-            int candidateFrag = Math.Max(0, item.Data.FragmentationProtectionPercent);
+            int candidateFrag = Math.Max(0, itemData.FragmentationProtectionPercent);
             int equippedFrag = Math.Max(0, equippedData.FragmentationProtectionPercent);
-            float candidateWeight = Math.Max(0f, item.Data.WeightLbs);
+            float candidateWeight = Math.Max(0f, itemData.WeightLbs);
             float equippedWeight = Math.Max(0f, equippedData.WeightLbs);
 
             bool hasAdvantage = candidateFrag > equippedFrag || candidateWeight < equippedWeight;
@@ -4206,13 +4212,13 @@ namespace XCOM_3
 
             if (hasDrawback)
             {
-                Vector2 minusPos = new Vector2(item.PixelBounds.X + 4, item.PixelBounds.Bottom - 16);
+                Vector2 minusPos = new Vector2(bounds.X + 4, bounds.Bottom - 16);
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "-", minusPos, Color.Red * alpha, 0.8f);
             }
 
             if (hasAdvantage)
             {
-                Vector2 plusPos = new Vector2(item.PixelBounds.Right - 12, item.PixelBounds.Bottom - 16);
+                Vector2 plusPos = new Vector2(bounds.Right - 12, bounds.Bottom - 16);
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "+", plusPos, Color.LimeGreen * alpha, 0.8f);
             }
         }
