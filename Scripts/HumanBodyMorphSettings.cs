@@ -16,6 +16,8 @@ namespace XCOM_3
         public static float LimbWidthScale = 1f;
         public static float ArmLengthScale = 1f;
         public static float LegLengthScale = 1f;
+        public static float ShoulderWidthScale = 1f;
+        public static float ShoulderHeightScale = 1f;
 
         // Ajustements du profil féminin
         public static float FeminineHeadScale = 0.98f;
@@ -49,6 +51,8 @@ namespace XCOM_3
             LimbWidthScale = 1f;
             ArmLengthScale = 1f;
             LegLengthScale = 1f;
+            ShoulderWidthScale = 1f;
+            ShoulderHeightScale = 1f;
 
             FeminineHeadScale = 0.98f;
             FeminineTorsoWidthScale = 0.90f;

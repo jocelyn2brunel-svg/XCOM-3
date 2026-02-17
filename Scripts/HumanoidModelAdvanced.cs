@@ -582,8 +582,10 @@ namespace XCOM_3
                                                              out Vector3 shoulder, out Vector3 elbow, out Vector3 wrist)
         {
             float dominantSign = GetHandSideSign(dominantHand);
-            float shoulderY = dims.ll + dims.th * 0.86f;
-            float shoulderX = dominantSign * dims.tw * 0.58f;
+            float shoulderHeightScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderHeightScale, 0.7f, 1.3f);
+            float shoulderWidthScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
+            float shoulderY = dims.ll + dims.th * (0.86f * shoulderHeightScale);
+            float shoulderX = dominantSign * dims.tw * 0.58f * shoulderWidthScale;
 
             shoulder = new Vector3(shoulderX, shoulderY, 0f);
             elbow = new Vector3(shoulderX, shoulderY - dims.al * 0.06f, dims.al * 0.48f);
@@ -1219,8 +1221,10 @@ namespace XCOM_3
             Color jointColor = bodyColor * 0.62f;
 
             float dominantSign = GetHandSideSign(dominantHand);
-            float shoulderY = dims.ll + dims.th * 0.86f;
-            float shoulderX = dominantSign * dims.tw * 0.58f;
+            float shoulderHeightScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderHeightScale, 0.7f, 1.3f);
+            float shoulderWidthScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
+            float shoulderY = dims.ll + dims.th * (0.86f * shoulderHeightScale);
+            float shoulderX = dominantSign * dims.tw * 0.58f * shoulderWidthScale;
 
             Vector3 shoulder = new Vector3(shoulderX, shoulderY, 0f);
             Vector3 elbow = new Vector3(shoulderX, shoulderY - dims.al * 0.06f, dims.al * 0.48f);
@@ -1267,19 +1271,21 @@ namespace XCOM_3
                                         Matrix r, Color bodyColor, bool isAiming, Unit.Handedness dominantHand)
         {
             Color armColor = bodyColor * 0.9f;
-            float shoulderY = dims.ll + dims.th * 0.9f;
+            float shoulderHeightScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderHeightScale, 0.7f, 1.3f);
+            float shoulderWidthScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
+            float shoulderY = dims.ll + dims.th * (0.9f * shoulderHeightScale);
             float elbowY = dims.ll + dims.th * (isAiming ? 0.82f : 0.72f);
             float handY = dims.ll + dims.th * (isAiming ? 0.76f : 0.64f);
             float handZ = dims.td * (isAiming ? 0.95f : 0.45f);
             float handSign = GetHandSideSign(dominantHand);
             float supportSign = -handSign;
 
-            DrawRoundedCapsuleY(d, e, p, new Vector3(handSign * dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.35f),
+            DrawRoundedCapsuleY(d, e, p, new Vector3(handSign * dims.tw * 0.58f * shoulderWidthScale, (shoulderY + elbowY) * 0.5f, handZ * 0.35f),
                 dims.al * 0.52f, dims.lw * 0.5f, armColor, r, 6);
             DrawRoundedCapsuleY(d, e, p, new Vector3(handSign * dims.tw * 0.62f, (elbowY + handY) * 0.5f, handZ * 0.7f),
                 dims.al * 0.48f, dims.lw * 0.46f, armColor * 0.95f, r, 6);
 
-            DrawRoundedCapsuleY(d, e, p, new Vector3(supportSign * dims.tw * 0.58f, (shoulderY + elbowY) * 0.5f, handZ * 0.45f),
+            DrawRoundedCapsuleY(d, e, p, new Vector3(supportSign * dims.tw * 0.58f * shoulderWidthScale, (shoulderY + elbowY) * 0.5f, handZ * 0.45f),
                 dims.al * 0.46f, dims.lw * 0.5f, armColor * 0.95f, r, 6);
             DrawRoundedCapsuleY(d, e, p, new Vector3(supportSign * dims.tw * 0.42f, (elbowY + handY) * 0.5f, handZ * 0.85f),
                 dims.al * 0.42f, dims.lw * 0.46f, armColor * 0.9f, r, 6);
@@ -1303,8 +1309,11 @@ namespace XCOM_3
                                          float shoulderSpread, float shoulderHeight,
                                          float bendBias, float radiusScale, Color armColor)
         {
-            DrawSwingingArm(d, e, p, r, dims, armSwing, -dims.tw * shoulderSpread, shoulderHeight, bendBias, radiusScale, armColor);
-            DrawSwingingArm(d, e, p, r, dims, -armSwing, dims.tw * shoulderSpread, shoulderHeight, bendBias, radiusScale, armColor);
+            float shoulderWidthScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
+            float shoulderHeightScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderHeightScale, 0.7f, 1.3f);
+
+            DrawSwingingArm(d, e, p, r, dims, armSwing, -dims.tw * shoulderSpread * shoulderWidthScale, shoulderHeight * shoulderHeightScale, bendBias, radiusScale, armColor);
+            DrawSwingingArm(d, e, p, r, dims, -armSwing, dims.tw * shoulderSpread * shoulderWidthScale, shoulderHeight * shoulderHeightScale, bendBias, radiusScale, armColor);
         }
 
         private void DrawSwingingArm(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
@@ -1696,15 +1705,17 @@ namespace XCOM_3
         {
             Color forearmColor = armColor * 0.95f;
 
-            float shoulderY = dims.ll + dims.th * 0.9f;
-            float armReach = dims.tw * 1.55f;
+            float shoulderHeightScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderHeightScale, 0.7f, 1.3f);
+            float shoulderWidthScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
+            float shoulderY = dims.ll + dims.th * (0.9f * shoulderHeightScale);
+            float armReach = dims.tw * 1.55f * shoulderWidthScale;
             float elbowDrop = dims.lw * 0.06f;
 
-            Vector3 leftShoulder = new Vector3(-dims.tw * 0.62f, shoulderY, 0f);
+            Vector3 leftShoulder = new Vector3(-dims.tw * 0.62f * shoulderWidthScale, shoulderY, 0f);
             Vector3 leftElbow = new Vector3(-armReach, shoulderY - elbowDrop, 0f);
             Vector3 leftWrist = new Vector3(-armReach - dims.al * 0.55f, shoulderY - elbowDrop, 0f);
 
-            Vector3 rightShoulder = new Vector3(dims.tw * 0.62f, shoulderY, 0f);
+            Vector3 rightShoulder = new Vector3(dims.tw * 0.62f * shoulderWidthScale, shoulderY, 0f);
             Vector3 rightElbow = new Vector3(armReach, shoulderY - elbowDrop, 0f);
             Vector3 rightWrist = new Vector3(armReach + dims.al * 0.55f, shoulderY - elbowDrop, 0f);
 
