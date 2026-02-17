@@ -35,9 +35,9 @@ namespace XCOM_3
         private readonly Dictionary<Unit, float> postHitPauseTimers = new Dictionary<Unit, float>();
         private const float HitConfirmPauseSeconds = 0.5f;
 
-        private static int GetWeaponRange(Unit unit) => unit?.WeaponData?.Range ?? 0;
-        private static int GetWeaponAccuracy(Unit unit) => unit?.WeaponData?.Accuracy ?? 0;
-        private static int GetWeaponDamage(Unit unit) => unit?.WeaponData?.Damage ?? 0;
+        private static int GetWeaponRange(Unit unit) => unit?.WeaponData?.EffectiveRange ?? 0;
+        private static int GetWeaponAccuracy(Unit unit) => unit?.WeaponData?.EffectiveAccuracy ?? 0;
+        private static int GetWeaponDamage(Unit unit) => unit?.WeaponData?.EffectiveDamage ?? 0;
         private static bool HasUsableWeapon(Unit unit) => unit?.WeaponData != null;
 
         private static int GetRangeBasedAccuracyPenalty(int distance, int weaponRange)
@@ -387,7 +387,7 @@ namespace XCOM_3
                 if (reloaded)
                 {
                     shooter.ActionPoints--;
-                    Console.WriteLine($"[COMBAT] {shooter.Name} recharge {shooter.WeaponData.Name} ({shooter.CurrentAmmoInMagazine}/{shooter.WeaponData.MagazineCapacity})");
+                    Console.WriteLine($"[COMBAT] {shooter.Name} recharge {shooter.WeaponData.Name} ({shooter.CurrentAmmoInMagazine}/{shooter.WeaponData.EffectiveMagazineCapacity})");
                 }
 
                 return;
@@ -445,7 +445,7 @@ namespace XCOM_3
 
             if (shooter.WeaponData != null && shooter.WeaponData.UsesAmmo)
             {
-                Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance, range penalty: -{rangePenalty}%, ammo -{roundsConsumed}, left {shooter.CurrentAmmoInMagazine}/{shooter.WeaponData.MagazineCapacity})");
+                Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance, range penalty: -{rangePenalty}%, ammo -{roundsConsumed}, left {shooter.CurrentAmmoInMagazine}/{shooter.WeaponData.EffectiveMagazineCapacity})");
             }
             else
             {

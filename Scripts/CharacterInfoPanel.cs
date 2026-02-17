@@ -184,7 +184,7 @@ namespace XCOM_3
             if (unit.WeaponData != null && unit.WeaponData.UsesAmmo)
             {
                 unit.EnsureAmmoState();
-                DrawPair(spriteBatch, ref cursor, "Munitions", $"{unit.CurrentAmmoInMagazine}/{unit.WeaponData.MagazineCapacity}");
+                DrawPair(spriteBatch, ref cursor, "Munitions", $"{unit.CurrentAmmoInMagazine}/{unit.WeaponData.EffectiveMagazineCapacity}");
             }
 
             // Ne pas recouvrir l'aperçu 3D avec un fond opaque : on dessine seulement un cadre

@@ -349,6 +349,48 @@ namespace XCOM_3
         RocketLauncher
     }
 
+    public enum WeaponUpgradeSlotType
+    {
+        Magazine,
+        Optic,
+        Underbarrel
+    }
+
+    public class WeaponUpgradeData
+    {
+        public string Name;
+        public WeaponUpgradeSlotType SlotType;
+        public int DamageBonus;
+        public int AccuracyBonus;
+        public int RangeBonus;
+        public int MagazineCapacityBonus;
+
+        public WeaponUpgradeData(
+            string name,
+            WeaponUpgradeSlotType slotType,
+            int damageBonus = 0,
+            int accuracyBonus = 0,
+            int rangeBonus = 0,
+            int magazineCapacityBonus = 0)
+        {
+            Name = name;
+            SlotType = slotType;
+            DamageBonus = damageBonus;
+            AccuracyBonus = accuracyBonus;
+            RangeBonus = rangeBonus;
+            MagazineCapacityBonus = magazineCapacityBonus;
+        }
+
+        public static WeaponUpgradeData ExtendedMagazine(int extraRounds)
+            => new WeaponUpgradeData($"Chargeur +{extraRounds}", WeaponUpgradeSlotType.Magazine, magazineCapacityBonus: Math.Max(1, extraRounds));
+
+        public static WeaponUpgradeData RedDotSight(int accuracyBonus = 8)
+            => new WeaponUpgradeData("Viseur point rouge", WeaponUpgradeSlotType.Optic, accuracyBonus: Math.Max(1, accuracyBonus));
+
+        public static WeaponUpgradeData LaserSight(int accuracyBonus = 5)
+            => new WeaponUpgradeData("Laser", WeaponUpgradeSlotType.Underbarrel, accuracyBonus: Math.Max(1, accuracyBonus));
+    }
+
 
     public class WeaponData
     {
@@ -362,6 +404,7 @@ namespace XCOM_3
         public float WeightLbs;
         public int RoundsPerMinute;
         public int MagazineCapacity;
+        public Dictionary<WeaponUpgradeSlotType, WeaponUpgradeData> UpgradeSlots;
 
         // Constructeur de base (pour vos armes existantes - compatibilité totale)
         public WeaponData(string name, int damage, int accuracy, int range)
@@ -378,6 +421,7 @@ namespace XCOM_3
             WeightLbs = GetDefaultWeightLbs(Type);
             RoundsPerMinute = GetDefaultRoundsPerMinute(Type);
             MagazineCapacity = GetDefaultMagazineCapacity(Type);
+            UpgradeSlots = CreateDefaultUpgradeSlots();
         }
 
         // ✅ NOUVEAU : Constructeur étendu (pour les nouvelles armes)
@@ -395,9 +439,76 @@ namespace XCOM_3
             WeightLbs = weightLbs > 0f ? weightLbs : GetDefaultWeightLbs(Type);
             RoundsPerMinute = roundsPerMinute > 0 ? roundsPerMinute : GetDefaultRoundsPerMinute(Type);
             MagazineCapacity = magazineCapacity > 0 ? magazineCapacity : GetDefaultMagazineCapacity(Type);
+            UpgradeSlots = CreateDefaultUpgradeSlots();
         }
 
         public bool UsesAmmo => Type != WeaponType.Melee;
+
+        public int EffectiveDamage => Math.Max(1, Damage + GetTotalUpgradeBonus(upg => upg.DamageBonus));
+        public int EffectiveAccuracy => Math.Clamp(Accuracy + GetTotalUpgradeBonus(upg => upg.AccuracyBonus), 0, 100);
+        public int EffectiveRange => Math.Max(1, Range + GetTotalUpgradeBonus(upg => upg.RangeBonus));
+        public int EffectiveMagazineCapacity
+        {
+            get
+            {
+                if (!UsesAmmo)
+                    return 0;
+
+                return Math.Max(1, MagazineCapacity + GetTotalUpgradeBonus(upg => upg.MagazineCapacityBonus));
+            }
+        }
+
+        public bool TryInstallUpgrade(WeaponUpgradeData upgrade)
+        {
+            if (upgrade == null)
+                return false;
+
+            if (!UpgradeSlots.ContainsKey(upgrade.SlotType))
+                return false;
+
+            UpgradeSlots[upgrade.SlotType] = upgrade;
+            return true;
+        }
+
+        public WeaponUpgradeData RemoveUpgrade(WeaponUpgradeSlotType slotType)
+        {
+            if (!UpgradeSlots.TryGetValue(slotType, out WeaponUpgradeData installed))
+                return null;
+
+            UpgradeSlots[slotType] = null;
+            return installed;
+        }
+
+        public WeaponData Clone()
+        {
+            var clone = new WeaponData(Name, Damage, Accuracy, Range, Type, Caliber, Reference, WeightLbs, RoundsPerMinute, MagazineCapacity);
+            foreach (var kv in UpgradeSlots)
+                clone.UpgradeSlots[kv.Key] = kv.Value;
+
+            return clone;
+        }
+
+        private static Dictionary<WeaponUpgradeSlotType, WeaponUpgradeData> CreateDefaultUpgradeSlots()
+        {
+            return new Dictionary<WeaponUpgradeSlotType, WeaponUpgradeData>
+            {
+                [WeaponUpgradeSlotType.Magazine] = null,
+                [WeaponUpgradeSlotType.Optic] = null,
+                [WeaponUpgradeSlotType.Underbarrel] = null
+            };
+        }
+
+        private int GetTotalUpgradeBonus(Func<WeaponUpgradeData, int> selector)
+        {
+            int total = 0;
+            foreach (var installedUpgrade in UpgradeSlots.Values)
+            {
+                if (installedUpgrade != null)
+                    total += selector(installedUpgrade);
+            }
+
+            return total;
+        }
 
         public int GetRoundsConsumedPerActionPoint()
         {

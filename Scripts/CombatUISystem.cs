@@ -168,7 +168,7 @@ namespace XCOM_3
             {
                 selectedUnit.EnsureAmmoState();
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                    $"AMMO: {selectedUnit.CurrentAmmoInMagazine}/{selectedUnit.WeaponData.MagazineCapacity}",
+                    $"AMMO: {selectedUnit.CurrentAmmoInMagazine}/{selectedUnit.WeaponData.EffectiveMagazineCapacity}",
                     p + new Vector2(0, 44), ParasiteEveTheme.TextDim, 0.8f);
             }
 

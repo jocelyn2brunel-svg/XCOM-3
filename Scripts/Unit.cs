@@ -279,13 +279,13 @@ namespace XCOM_3
             if (!string.Equals(ammoTrackedWeaponName, currentWeaponName, StringComparison.Ordinal))
             {
                 ammoTrackedWeaponName = currentWeaponName;
-                CurrentAmmoInMagazine = WeaponData.UsesAmmo ? WeaponData.MagazineCapacity : 0;
+                CurrentAmmoInMagazine = WeaponData.UsesAmmo ? WeaponData.EffectiveMagazineCapacity : 0;
             }
 
             if (!WeaponData.UsesAmmo)
                 CurrentAmmoInMagazine = 0;
             else
-                CurrentAmmoInMagazine = Math.Clamp(CurrentAmmoInMagazine, 0, WeaponData.MagazineCapacity);
+                CurrentAmmoInMagazine = Math.Clamp(CurrentAmmoInMagazine, 0, WeaponData.EffectiveMagazineCapacity);
         }
 
         public bool NeedsReloadForFireAction()
@@ -304,7 +304,7 @@ namespace XCOM_3
             if (WeaponData == null || !WeaponData.UsesAmmo)
                 return false;
 
-            CurrentAmmoInMagazine = WeaponData.MagazineCapacity;
+            CurrentAmmoInMagazine = WeaponData.EffectiveMagazineCapacity;
             return true;
         }
 

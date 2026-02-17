@@ -1762,9 +1762,10 @@ namespace XCOM_3
                 return;
             }
 
-            unit.Weapon = weaponData.Name;
-            unit.WeaponData = weaponData;
-            unit.EquippedWeapon = new Item(new ItemData(weaponData.Name, ItemType.Weapon, weaponData), Point.Zero);
+            WeaponData weaponInstance = weaponData.Clone();
+            unit.Weapon = weaponInstance.Name;
+            unit.WeaponData = weaponInstance;
+            unit.EquippedWeapon = new Item(new ItemData(weaponInstance.Name, ItemType.Weapon, weaponInstance), Point.Zero);
         }
 
         private WeaponData GetRandomWeaponData(string preferredWeaponName = null, bool enforcePreferred = false)
@@ -1776,10 +1777,10 @@ namespace XCOM_3
                 weaponDatabase.TryGetValue(preferredWeaponName, out WeaponData preferredWeapon) &&
                 (enforcePreferred || random.Next(100) < 65))
             {
-                return preferredWeapon;
+                return preferredWeapon.Clone();
             }
 
-            return weaponDatabase.Values.ElementAt(random.Next(weaponDatabase.Count));
+            return weaponDatabase.Values.ElementAt(random.Next(weaponDatabase.Count)).Clone();
         }
 
         private class AStarNode
