@@ -67,6 +67,7 @@ namespace XCOM_3
                 IsAiming = false,
                 IsFiring = false
             };
+            StripPreviewUnitInventoryState();
 
             _backButton = new Button("Back", new Vector2(0, 695));
             _resetButton = new Button("Reset Defaults", new Vector2(0, 655));
@@ -151,7 +152,8 @@ namespace XCOM_3
                 _previewEffect,
                 _previewUnit,
                 PreviewModelScale,
-                _previewRotation);
+                _previewRotation,
+                drawEquipment: false);
 
             _graphicsDevice.SetRenderTargets(originalRenderTargets);
             _graphicsDevice.Viewport = originalViewport;
@@ -239,6 +241,30 @@ namespace XCOM_3
             {
                 _draggedSlider = null;
             }
+        }
+
+        private void StripPreviewUnitInventoryState()
+        {
+            _previewUnit.EquippedWeapon = null;
+            _previewUnit.EquippedHelmet = null;
+            _previewUnit.EquippedNeck = null;
+            _previewUnit.EquippedArmor = null;
+            _previewUnit.EquippedShield = null;
+            _previewUnit.EquippedAccessory = null;
+            _previewUnit.EquippedRightHandFlashlight = null;
+            _previewUnit.EquippedLeftHandFlashlight = null;
+            _previewUnit.IsRightHandFlashlightOn = false;
+            _previewUnit.IsLeftHandFlashlightOn = false;
+            _previewUnit.EquippedShirt = null;
+            _previewUnit.EquippedPants = null;
+            _previewUnit.EquippedChestRig = null;
+            _previewUnit.EquippedBelt = null;
+            _previewUnit.EquippedBackpack = null;
+            _previewUnit.PantsInventory.Clear();
+            _previewUnit.ChestRigInventory.Clear();
+            _previewUnit.BackpackInventory.Clear();
+            _previewUnit.Grenades.Clear();
+            _previewUnit.MaxGrenades = 0;
         }
 
         private void UpdateSliderVisuals()
