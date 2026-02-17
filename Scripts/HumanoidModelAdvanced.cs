@@ -879,8 +879,9 @@ namespace XCOM_3
             // Ajoute un vrai volume d'épaule au-dessus des manches pour éviter
             // l'impression d'épaule « absente » quand une chemise est équipée.
             float shoulderCapRadius = dims.lw * 0.36f;
-            DrawSphere(device, effect, pos, leftShoulder, shoulderCapRadius, shirtColor * 0.95f, rot);
-            DrawSphere(device, effect, pos, rightShoulder, shoulderCapRadius, shirtColor * 0.95f, rot);
+            Color shoulderHighlightColor = new Color(220, 40, 40);
+            DrawSphere(device, effect, pos, leftShoulder, shoulderCapRadius, shoulderHighlightColor, rot);
+            DrawSphere(device, effect, pos, rightShoulder, shoulderCapRadius, shoulderHighlightColor, rot);
 
             DrawFrustumBetween(device, effect, pos, leftShoulder, leftElbow,
                 dims.lw * 0.62f, dims.lw * 0.56f, shirtColor * 0.9f, rot, 5);
@@ -1250,7 +1251,7 @@ namespace XCOM_3
             Vector3 elbow = new Vector3(shoulderX, shoulderY - dims.al * 0.06f, dims.al * 0.48f);
             Vector3 wrist = new Vector3(shoulderX, shoulderY - dims.al * 0.1f, dims.al * 0.96f);
 
-            DrawSphere(d, e, p, shoulder, dims.lw * 0.28f, armColor * 0.88f, r);
+            DrawSphere(d, e, p, shoulder, dims.lw * 0.28f, new Color(220, 40, 40), r);
             DrawFrustumBetween(d, e, p, shoulder, elbow,
                 dims.lw * 0.58f, dims.lw * 0.46f, armColor, r, 6);
             DrawForearmBetween(d, e, p, elbow, wrist,
@@ -1293,7 +1294,7 @@ namespace XCOM_3
                                         Matrix r, Color bodyColor, bool isAiming, Unit.Handedness dominantHand)
         {
             Color armColor = bodyColor * 0.9f;
-            Color shoulderColor = armColor * 0.82f;
+            Color shoulderColor = new Color(220, 40, 40);
             float shoulderHeightScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderHeightScale, 0.7f, 1.3f);
             float shoulderWidthScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
             float shoulderBaseY = dims.ll + dims.th * (0.9f * shoulderHeightScale);
