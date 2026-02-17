@@ -54,6 +54,7 @@ namespace XCOM_3
 
             // Charger les murs
             wallSegments = map.GetWalls();
+            InvalidateWallsByFloorCache();
             terrainHeights = currentMap.TerrainHeights
                 .Where(t => t.X >= 0 && t.X < gridWidth && t.Y >= 0 && t.Y < gridHeight)
                 .GroupBy(t => new Point(t.X, t.Y))
@@ -257,8 +258,14 @@ namespace XCOM_3
 
         private HashSet<WallSegment> GetWallsForFloor(int floor)
         {
+            if (wallsByFloorCache.TryGetValue(floor, out var cachedWalls))
+                return cachedWalls;
+
             if (floor == 0 || currentMap?.Buildings == null || currentMap.Buildings.Count == 0)
+            {
+                wallsByFloorCache[floor] = wallSegments;
                 return wallSegments;
+            }
 
             var filteredWalls = new HashSet<WallSegment>();
 
@@ -324,7 +331,13 @@ namespace XCOM_3
                 }
             }
 
+            wallsByFloorCache[floor] = filteredWalls;
             return filteredWalls;
+        }
+
+        private void InvalidateWallsByFloorCache()
+        {
+            wallsByFloorCache.Clear();
         }
 
         private static bool IsPerimeterWall(WallSegment wall, int minX, int minY, int maxX, int maxY)

@@ -156,6 +156,7 @@ namespace XCOM_3
         private HashSet<Point> roadCells = new();
         private HashSet<Point> sidewalkCells = new();
         private Dictionary<Point, float> terrainHeights = new Dictionary<Point, float>();
+        private readonly Dictionary<int, HashSet<WallSegment>> wallsByFloorCache = new Dictionary<int, HashSet<WallSegment>>();
         private Unit movementCinematicUnit = null;
         private HashSet<Unit> currentlySpottedEnemies = new HashSet<Unit>();
 
@@ -2494,6 +2495,7 @@ namespace XCOM_3
 
             CreateUnits(missionType);
             wallSegments = currentMap.GetWalls();
+            InvalidateWallsByFloorCache();
             pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallSegments, currentMap.StairConnections, currentMap.RampTiles, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
             combatSystem.SetPathfinding(pathfinding);
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
