@@ -2146,6 +2146,11 @@ namespace XCOM_3
                     AddPocketItems(unit.BackpackInventory.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, 2);
                     AddGridItems(unit.BackpackInventory.GetItemAt(info.GridPosition)?.Payload?.BackpackItems);
                     break;
+                case "containerpopup":
+                    AddPocketItems(containerPopupGrid?.GetItemAt(info.GridPosition)?.Payload?.PantsItems, 2);
+                    AddPocketItems(containerPopupGrid?.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, 2);
+                    AddGridItems(containerPopupGrid?.GetItemAt(info.GridPosition)?.Payload?.BackpackItems);
+                    break;
                 case "pants":
                     AddPocketItems(unit.PantsInventory, 2);
                     break;
@@ -2289,11 +2294,12 @@ namespace XCOM_3
                 case "nearbyloot":
                     sourceGridItem = nearbyLootGrid.GetItemAt(info.GridPosition);
                     break;
-            }
-
-            if (info.Source == "backpackutility")
-            {
-                sourceGridItem = activeUnit?.BackpackInventory?.GetItemAt(info.GridPosition);
+                case "backpackutility":
+                    sourceGridItem = activeUnit?.BackpackInventory?.GetItemAt(info.GridPosition);
+                    break;
+                case "containerpopup":
+                    sourceGridItem = containerPopupGrid?.GetItemAt(info.GridPosition);
+                    break;
             }
 
             if (sourceGridItem != null)
@@ -2583,6 +2589,23 @@ namespace XCOM_3
 
         private ItemContextInfo? GetItemUnderMouse(Point mousePos, Unit unit, int gridStartX, int gridStartY)
         {
+            if (showContainerPopup && containerPopupGrid != null && containerPopupGridRect.Contains(mousePos))
+            {
+                int popupX = (mousePos.X - containerPopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE;
+                int popupY = (mousePos.Y - containerPopupGridRect.Y) / CONTAINER_POPUP_CELL_SIZE;
+                GridItem popupItem = containerPopupGrid.GetItemAt(new Point(popupX, popupY));
+                if (popupItem != null)
+                {
+                    return new ItemContextInfo
+                    {
+                        Data = popupItem.Data,
+                        Source = "containerpopup",
+                        GridPosition = popupItem.GridPosition,
+                        Index = -1
+                    };
+                }
+            }
+
             int gridX = (mousePos.X - gridStartX) / CELL_SIZE;
             int gridY = (mousePos.Y - gridStartY) / CELL_SIZE;
             if (IsMainInventoryGridVisible && gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT)
@@ -2689,6 +2712,15 @@ namespace XCOM_3
                     if (backpackItem != null)
                         unit.BackpackInventory.RemoveItem(backpackItem);
                     break;
+                case "containerpopup":
+                    var popupItem = containerPopupGrid?.GetItemAt(info.GridPosition);
+                    if (popupItem != null)
+                    {
+                        containerPopupGrid.RemoveItem(popupItem);
+                        containerPopupItems.Remove(popupItem);
+                        SyncContainerPopupItemsToSource();
+                    }
+                    break;
                 case "nearbyloot":
                     var nearbyItem = nearbyLootGrid.GetItemAt(info.GridPosition);
                     if (nearbyItem != null)
@@ -2738,6 +2770,19 @@ namespace XCOM_3
                         unit.BackpackInventory.PlaceItem(restoredBackpackItem);
                     else
                         ReturnItemToGrid(restored);
+                    break;
+                case "containerpopup":
+                    var restoredPopupItem = new GridItem(info.Data, info.GridPosition, ItemSizeDatabase.GetItemSize(info.Data.Name), false);
+                    if (containerPopupGrid != null && containerPopupGrid.CanPlaceItem(restoredPopupItem.GridPosition, restoredPopupItem.GetCurrentSize()))
+                    {
+                        containerPopupGrid.PlaceItem(restoredPopupItem);
+                        containerPopupItems.Add(restoredPopupItem);
+                        SyncContainerPopupItemsToSource();
+                    }
+                    else
+                    {
+                        ReturnItemToGrid(restored);
+                    }
                     break;
                 case "nearbyloot":
                     var restoredNearbyItem = new GridItem(info.Data, info.GridPosition, ItemSizeDatabase.GetItemSize(info.Data.Name), false);
