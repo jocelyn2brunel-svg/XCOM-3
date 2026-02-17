@@ -164,7 +164,7 @@ namespace XCOM_3
         private const int TabHeight = 42;
         private const int TabSpacing = 8;
         private const int TabTopMargin = 12;
-        private const float WallHeightRatio = 0.92f;
+        private const float WallHeightRatio = 2.0f;
         private const int HoverRevealRadius = 2;
         private RasterizerState hoveredCellWireframeState;
 
