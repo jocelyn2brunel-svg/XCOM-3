@@ -129,6 +129,17 @@ namespace XCOM_3
         private bool hasContainerPopupSource = false;
         private bool isDraggingContainerPopup = false;
         private Point containerPopupDragOffset;
+        private bool showNestedContainerPopup = false;
+        private Rectangle nestedContainerPopupRect;
+        private readonly List<GridItem> nestedContainerPopupItems = new List<GridItem>();
+        private InventoryGrid nestedContainerPopupGrid;
+        private ItemSize nestedContainerPopupGridSize = new ItemSize(1, 1);
+        private Rectangle nestedContainerPopupGridRect;
+        private string nestedContainerPopupTitle = string.Empty;
+        private ItemContextInfo nestedContainerPopupSourceInfo;
+        private bool hasNestedContainerPopupSource = false;
+        private bool isDraggingNestedContainerPopup = false;
+        private Point nestedContainerPopupDragOffset;
         private readonly List<Rectangle> nearbyLootSlotRects = new List<Rectangle>();
         private readonly List<GridItem> nearbyLootSlotItems = new List<GridItem>();
         private int nearbyLootScrollRow = 0;
@@ -2020,49 +2031,110 @@ namespace XCOM_3
 
         private void HandleContainerPopup(MouseState mouse, bool leftClick, bool rightClick)
         {
-            if (!showContainerPopup)
+            if (!showContainerPopup && !showNestedContainerPopup)
                 return;
 
             Rectangle popupHeader = new Rectangle(containerPopupRect.X, containerPopupRect.Y, containerPopupRect.Width, 30);
             Rectangle popupCloseButton = new Rectangle(containerPopupRect.Right - 26, containerPopupRect.Y + 4, 20, 20);
 
-            if (leftClick && popupCloseButton.Contains(mouse.Position))
-            {
-                showContainerPopup = false;
-                hasContainerPopupSource = false;
-                isDraggingContainerPopup = false;
-                return;
-            }
+            Rectangle nestedPopupHeader = new Rectangle(nestedContainerPopupRect.X, nestedContainerPopupRect.Y, nestedContainerPopupRect.Width, 30);
+            Rectangle nestedPopupCloseButton = new Rectangle(nestedContainerPopupRect.Right - 26, nestedContainerPopupRect.Y + 4, 20, 20);
 
-            if (leftClick && popupHeader.Contains(mouse.Position) && !popupCloseButton.Contains(mouse.Position))
+            if (showNestedContainerPopup)
             {
-                isDraggingContainerPopup = true;
-                containerPopupDragOffset = new Point(mouse.X - containerPopupRect.X, mouse.Y - containerPopupRect.Y);
-            }
-
-            if (isDraggingContainerPopup)
-            {
-                if (mouse.LeftButton == ButtonState.Pressed)
+                if (leftClick && nestedPopupCloseButton.Contains(mouse.Position))
                 {
-                    int maxX = Math.Max(8, graphicsDevice.Viewport.Width - containerPopupRect.Width - 8);
-                    int maxY = Math.Max(8, graphicsDevice.Viewport.Height - containerPopupRect.Height - 8);
-
-                    int targetX = Math.Clamp(mouse.X - containerPopupDragOffset.X, 8, maxX);
-                    int targetY = Math.Clamp(mouse.Y - containerPopupDragOffset.Y, 8, maxY);
-                    containerPopupRect = new Rectangle(targetX, targetY, containerPopupRect.Width, containerPopupRect.Height);
-                    UpdateContainerPopupGridRect();
+                    showNestedContainerPopup = false;
+                    hasNestedContainerPopupSource = false;
+                    isDraggingNestedContainerPopup = false;
+                    return;
                 }
-                else
+
+                if (leftClick && nestedPopupHeader.Contains(mouse.Position) && !nestedPopupCloseButton.Contains(mouse.Position))
                 {
+                    isDraggingNestedContainerPopup = true;
+                    nestedContainerPopupDragOffset = new Point(mouse.X - nestedContainerPopupRect.X, mouse.Y - nestedContainerPopupRect.Y);
+                }
+
+                if (isDraggingNestedContainerPopup)
+                {
+                    if (mouse.LeftButton == ButtonState.Pressed)
+                    {
+                        int maxX = Math.Max(8, graphicsDevice.Viewport.Width - nestedContainerPopupRect.Width - 8);
+                        int maxY = Math.Max(8, graphicsDevice.Viewport.Height - nestedContainerPopupRect.Height - 8);
+
+                        int targetX = Math.Clamp(mouse.X - nestedContainerPopupDragOffset.X, 8, maxX);
+                        int targetY = Math.Clamp(mouse.Y - nestedContainerPopupDragOffset.Y, 8, maxY);
+                        nestedContainerPopupRect = new Rectangle(targetX, targetY, nestedContainerPopupRect.Width, nestedContainerPopupRect.Height);
+                        UpdateNestedContainerPopupGridRect();
+                    }
+                    else
+                    {
+                        isDraggingNestedContainerPopup = false;
+                    }
+                }
+            }
+
+            if (showContainerPopup)
+            {
+                if (leftClick && popupCloseButton.Contains(mouse.Position))
+                {
+                    showContainerPopup = false;
+                    hasContainerPopupSource = false;
+                    isDraggingContainerPopup = false;
+
+                    showNestedContainerPopup = false;
+                    hasNestedContainerPopupSource = false;
+                    isDraggingNestedContainerPopup = false;
+                    return;
+                }
+
+                if (leftClick && popupHeader.Contains(mouse.Position) && !popupCloseButton.Contains(mouse.Position))
+                {
+                    isDraggingContainerPopup = true;
+                    containerPopupDragOffset = new Point(mouse.X - containerPopupRect.X, mouse.Y - containerPopupRect.Y);
+                }
+
+                if (isDraggingContainerPopup)
+                {
+                    if (mouse.LeftButton == ButtonState.Pressed)
+                    {
+                        int maxX = Math.Max(8, graphicsDevice.Viewport.Width - containerPopupRect.Width - 8);
+                        int maxY = Math.Max(8, graphicsDevice.Viewport.Height - containerPopupRect.Height - 8);
+
+                        int targetX = Math.Clamp(mouse.X - containerPopupDragOffset.X, 8, maxX);
+                        int targetY = Math.Clamp(mouse.Y - containerPopupDragOffset.Y, 8, maxY);
+                        containerPopupRect = new Rectangle(targetX, targetY, containerPopupRect.Width, containerPopupRect.Height);
+                        UpdateContainerPopupGridRect();
+                    }
+                    else
+                    {
+                        isDraggingContainerPopup = false;
+                    }
+                }
+            }
+
+            if (rightClick)
+            {
+                bool inNested = showNestedContainerPopup && nestedContainerPopupRect.Contains(mouse.Position);
+                bool inMain = showContainerPopup && containerPopupRect.Contains(mouse.Position);
+
+                if (showNestedContainerPopup && !inNested)
+                {
+                    showNestedContainerPopup = false;
+                    hasNestedContainerPopupSource = false;
+                    isDraggingNestedContainerPopup = false;
+
+                    if (inMain)
+                        return;
+                }
+
+                if (showContainerPopup && !inMain && !inNested)
+                {
+                    showContainerPopup = false;
+                    hasContainerPopupSource = false;
                     isDraggingContainerPopup = false;
                 }
-            }
-
-            if (rightClick && !containerPopupRect.Contains(mouse.Position))
-            {
-                showContainerPopup = false;
-                hasContainerPopupSource = false;
-                isDraggingContainerPopup = false;
             }
         }
 
@@ -2070,6 +2142,30 @@ namespace XCOM_3
         {
             if (!TryBuildContainerPopupContent(info, unit, out string title, out ItemSize gridSize, out List<GridItem> gridItems))
                 return false;
+
+            bool openAsNested = info.Source == "containerpopup" || info.Source == "nestedcontainerpopup";
+
+            if (openAsNested)
+            {
+                nestedContainerPopupTitle = title;
+                nestedContainerPopupGridSize = new ItemSize(Math.Max(1, gridSize.Width), Math.Max(1, gridSize.Height));
+                nestedContainerPopupItems.Clear();
+                nestedContainerPopupItems.AddRange(gridItems);
+                nestedContainerPopupGrid = new InventoryGrid(nestedContainerPopupGridSize.Width, nestedContainerPopupGridSize.Height);
+                foreach (GridItem item in nestedContainerPopupItems)
+                {
+                    if (item != null)
+                        nestedContainerPopupGrid.PlaceItem(item);
+                }
+
+                nestedContainerPopupRect = BuildContainerPopupWindow(nestedContainerPopupGridSize, openAnchor);
+                UpdateNestedContainerPopupGridRect();
+                showNestedContainerPopup = true;
+                nestedContainerPopupSourceInfo = info;
+                hasNestedContainerPopupSource = true;
+                isDraggingNestedContainerPopup = false;
+                return true;
+            }
 
             containerPopupTitle = title;
             containerPopupGridSize = new ItemSize(Math.Max(1, gridSize.Width), Math.Max(1, gridSize.Height));
@@ -2088,6 +2184,10 @@ namespace XCOM_3
             containerPopupSourceInfo = info;
             hasContainerPopupSource = true;
             isDraggingContainerPopup = false;
+
+            showNestedContainerPopup = false;
+            hasNestedContainerPopupSource = false;
+            isDraggingNestedContainerPopup = false;
             return true;
         }
 
@@ -2208,26 +2308,35 @@ namespace XCOM_3
 
         private bool TryStartDragFromContainerPopup(Point mousePosition)
         {
-            if (!showContainerPopup || containerPopupGrid == null || !containerPopupGridRect.Contains(mousePosition))
+            bool useNested = showNestedContainerPopup && nestedContainerPopupGrid != null && nestedContainerPopupGridRect.Contains(mousePosition);
+            bool useMain = !useNested && showContainerPopup && containerPopupGrid != null && containerPopupGridRect.Contains(mousePosition);
+            if (!useNested && !useMain)
                 return false;
 
-            int cellX = (mousePosition.X - containerPopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE;
-            int cellY = (mousePosition.Y - containerPopupGridRect.Y) / CONTAINER_POPUP_CELL_SIZE;
-            GridItem popupItem = containerPopupGrid.GetItemAt(new Point(cellX, cellY));
+            InventoryGrid targetGrid = useNested ? nestedContainerPopupGrid : containerPopupGrid;
+            Rectangle targetGridRect = useNested ? nestedContainerPopupGridRect : containerPopupGridRect;
+            List<GridItem> targetItems = useNested ? nestedContainerPopupItems : containerPopupItems;
+
+            int cellX = (mousePosition.X - targetGridRect.X) / CONTAINER_POPUP_CELL_SIZE;
+            int cellY = (mousePosition.Y - targetGridRect.Y) / CONTAINER_POPUP_CELL_SIZE;
+            GridItem popupItem = targetGrid.GetItemAt(new Point(cellX, cellY));
             if (popupItem == null)
                 return false;
 
             ItemSize popupSize = popupItem.GetCurrentSize();
             Rectangle popupItemRect = new Rectangle(
-                containerPopupGridRect.X + popupItem.GridPosition.X * CONTAINER_POPUP_CELL_SIZE,
-                containerPopupGridRect.Y + popupItem.GridPosition.Y * CONTAINER_POPUP_CELL_SIZE,
+                targetGridRect.X + popupItem.GridPosition.X * CONTAINER_POPUP_CELL_SIZE,
+                targetGridRect.Y + popupItem.GridPosition.Y * CONTAINER_POPUP_CELL_SIZE,
                 popupSize.Width * CONTAINER_POPUP_CELL_SIZE,
                 popupSize.Height * CONTAINER_POPUP_CELL_SIZE);
 
             draggedItem = new GridItem(popupItem.Data, Point.Zero, popupItem.Size, popupItem.IsRotated, popupItem.Payload);
-            containerPopupGrid.RemoveItem(popupItem);
-            containerPopupItems.Remove(popupItem);
-            SyncContainerPopupItemsToSource();
+            targetGrid.RemoveItem(popupItem);
+            targetItems.Remove(popupItem);
+            if (useNested)
+                SyncNestedContainerPopupItemsToSource();
+            else
+                SyncContainerPopupItemsToSource();
 
             int maxWidth = popupSize.Width * CONTAINER_POPUP_CELL_SIZE - 1;
             int maxHeight = popupSize.Height * CONTAINER_POPUP_CELL_SIZE - 1;
@@ -2244,20 +2353,29 @@ namespace XCOM_3
 
         private bool TryPlaceDraggedItemInContainerPopup(Point mousePosition)
         {
-            if (!showContainerPopup || draggedItem == null || containerPopupGrid == null || !containerPopupGridRect.Contains(mousePosition))
+            bool useNested = showNestedContainerPopup && draggedItem != null && nestedContainerPopupGrid != null && nestedContainerPopupGridRect.Contains(mousePosition);
+            bool useMain = !useNested && showContainerPopup && draggedItem != null && containerPopupGrid != null && containerPopupGridRect.Contains(mousePosition);
+            if (!useNested && !useMain)
                 return false;
 
-            int popupGridX = (mousePosition.X - containerPopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.X;
-            int popupGridY = (mousePosition.Y - containerPopupGridRect.Y) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.Y;
+            InventoryGrid targetGrid = useNested ? nestedContainerPopupGrid : containerPopupGrid;
+            Rectangle targetGridRect = useNested ? nestedContainerPopupGridRect : containerPopupGridRect;
+            List<GridItem> targetItems = useNested ? nestedContainerPopupItems : containerPopupItems;
+
+            int popupGridX = (mousePosition.X - targetGridRect.X) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.X;
+            int popupGridY = (mousePosition.Y - targetGridRect.Y) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.Y;
             Point popupPos = new Point(popupGridX, popupGridY);
 
-            if (!containerPopupGrid.CanPlaceItem(popupPos, draggedItem.GetCurrentSize()))
+            if (!targetGrid.CanPlaceItem(popupPos, draggedItem.GetCurrentSize()))
                 return false;
 
             GridItem placedItem = new GridItem(draggedItem.Data, popupPos, draggedItem.Size, draggedItem.IsRotated, draggedItem.Payload);
-            containerPopupGrid.PlaceItem(placedItem);
-            containerPopupItems.Add(placedItem);
-            SyncContainerPopupItemsToSource();
+            targetGrid.PlaceItem(placedItem);
+            targetItems.Add(placedItem);
+            if (useNested)
+                SyncNestedContainerPopupItemsToSource();
+            else
+                SyncContainerPopupItemsToSource();
             PlayUiSound(uiClickSound, 0.5f);
             return true;
         }
@@ -2268,6 +2386,14 @@ namespace XCOM_3
                 return;
 
             ApplyContainerItemsToSource(containerPopupSourceInfo, containerPopupItems);
+        }
+
+        private void SyncNestedContainerPopupItemsToSource()
+        {
+            if (!hasNestedContainerPopupSource)
+                return;
+
+            ApplyContainerItemsToSource(nestedContainerPopupSourceInfo, nestedContainerPopupItems);
         }
 
         private void ApplyContainerItemsToSource(ItemContextInfo info, List<GridItem> popupItems)
@@ -2384,6 +2510,15 @@ namespace XCOM_3
                 containerPopupGrid = tempGrid;
             }
 
+            if (showNestedContainerPopup && hasNestedContainerPopupSource &&
+                nestedContainerPopupSourceInfo.Source == info.Source &&
+                nestedContainerPopupSourceInfo.GridPosition == info.GridPosition)
+            {
+                nestedContainerPopupItems.Clear();
+                nestedContainerPopupItems.AddRange(tempItems);
+                nestedContainerPopupGrid = tempGrid;
+            }
+
             unit.RefreshGrenadeInventoryFromEquipment();
             return true;
         }
@@ -2449,6 +2584,25 @@ namespace XCOM_3
                 containerPopupRect.Y + 36,
                 containerPopupGridSize.Width * CONTAINER_POPUP_CELL_SIZE,
                 containerPopupGridSize.Height * CONTAINER_POPUP_CELL_SIZE);
+        }
+
+        private void UpdateNestedContainerPopupGridRect()
+        {
+            nestedContainerPopupGridRect = new Rectangle(
+                nestedContainerPopupRect.X + 12,
+                nestedContainerPopupRect.Y + 36,
+                nestedContainerPopupGridSize.Width * CONTAINER_POPUP_CELL_SIZE,
+                nestedContainerPopupGridSize.Height * CONTAINER_POPUP_CELL_SIZE);
+        }
+
+        private InventoryGrid GetContainerGridBySource(string source)
+        {
+            return source switch
+            {
+                "containerpopup" => containerPopupGrid,
+                "nestedcontainerpopup" => nestedContainerPopupGrid,
+                _ => null
+            };
         }
 
         private bool TryEquipByContext(ItemContextInfo info, Unit unit)
@@ -2933,18 +3087,31 @@ namespace XCOM_3
                     ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
                 }
 
-                if (showContainerPopup && containerPopupGridRect.Contains(mouse.Position) && containerPopupGrid != null)
+                Rectangle activePopupGridRect = Rectangle.Empty;
+                InventoryGrid activePopupGrid = null;
+                if (showNestedContainerPopup && nestedContainerPopupGridRect.Contains(mouse.Position) && nestedContainerPopupGrid != null)
                 {
-                    int popupGridX = (mouse.X - containerPopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.X;
-                    int popupGridY = (mouse.Y - containerPopupGridRect.Y) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.Y;
+                    activePopupGridRect = nestedContainerPopupGridRect;
+                    activePopupGrid = nestedContainerPopupGrid;
+                }
+                else if (showContainerPopup && containerPopupGridRect.Contains(mouse.Position) && containerPopupGrid != null)
+                {
+                    activePopupGridRect = containerPopupGridRect;
+                    activePopupGrid = containerPopupGrid;
+                }
+
+                if (activePopupGrid != null)
+                {
+                    int popupGridX = (mouse.X - activePopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.X;
+                    int popupGridY = (mouse.Y - activePopupGridRect.Y) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.Y;
 
                     Rectangle previewRect = new Rectangle(
-                        containerPopupGridRect.X + popupGridX * CONTAINER_POPUP_CELL_SIZE,
-                        containerPopupGridRect.Y + popupGridY * CONTAINER_POPUP_CELL_SIZE,
+                        activePopupGridRect.X + popupGridX * CONTAINER_POPUP_CELL_SIZE,
+                        activePopupGridRect.Y + popupGridY * CONTAINER_POPUP_CELL_SIZE,
                         draggedItem.GetCurrentSize().Width * CONTAINER_POPUP_CELL_SIZE,
                         draggedItem.GetCurrentSize().Height * CONTAINER_POPUP_CELL_SIZE);
 
-                    bool canPlaceInContainer = containerPopupGrid.CanPlaceItem(new Point(popupGridX, popupGridY), draggedItem.GetCurrentSize());
+                    bool canPlaceInContainer = activePopupGrid.CanPlaceItem(new Point(popupGridX, popupGridY), draggedItem.GetCurrentSize());
                     Color ghostColor = canPlaceInContainer
                         ? ParasiteEveTheme.HoverOverlay * 0.6f
                         : ParasiteEveTheme.TextDanger * 0.4f;
@@ -3062,6 +3229,84 @@ namespace XCOM_3
                     SurfaceFormat.Color,
                     DepthFormat.Depth24);
             }
+        }
+
+        private void DrawContextMenuLayer()
+        {
+            if (!showContextMenu)
+                return;
+
+            ParasiteEveTheme.DrawPanel(spriteBatch, pixel, contextMenuRect);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextMenuRect, ParasiteEveTheme.SelectionOutline, 1);
+
+            Rectangle headerRect = new Rectangle(contextMenuRect.X, contextMenuRect.Y, contextMenuRect.Width, 28);
+            ParasiteEveTheme.DrawSectionHeader(spriteBatch, pixel, font, headerRect, "INVENTAIRE CONTEXTUEL");
+
+            if (contextMenuItem.Data != null)
+            {
+                Rectangle contextImageRect = new Rectangle(contextMenuRect.Right - 92, contextMenuRect.Y + 38, 80, 80);
+                spriteBatch.Draw(pixel, contextImageRect, ParasiteEveTheme.BackgroundMedium * 0.9f);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextImageRect, ParasiteEveTheme.BorderColor, 1);
+                DrawItemPreviewImage(contextMenuItem.Data, contextImageRect);
+
+                string line1 = contextMenuItem.Data.Name;
+                string line2 = $"Type: {contextMenuItem.Data.Type}";
+                string line3 = $"Poids: {contextMenuItem.Data.WeightLbs:0.##} lbs";
+                string line4 = contextMenuItem.Data.Type == ItemType.Armor
+                    ? $"Résistance éclats: {contextMenuItem.Data.FragmentationProtectionPercent}%"
+                    : string.Empty;
+
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line1,
+                    new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 40), ParasiteEveTheme.TextHighlight, 0.68f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line2,
+                    new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 62), ParasiteEveTheme.TextNormal, 0.62f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line3,
+                    new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 82), ParasiteEveTheme.TextDim, 0.58f);
+
+                if (!string.IsNullOrEmpty(line4))
+                {
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line4,
+                        new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 102), ParasiteEveTheme.TextDim, 0.56f);
+                }
+            }
+
+            if (contextMenuForEquippedFlashlight)
+            {
+                spriteBatch.Draw(pixel, contextThrowButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                spriteBatch.Draw(pixel, contextToggleFlashlightButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                spriteBatch.Draw(pixel, contextUnequipButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                spriteBatch.Draw(pixel, contextExamineButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextThrowButtonRect, ParasiteEveTheme.BorderColor, 1);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextToggleFlashlightButtonRect, ParasiteEveTheme.BorderColor, 1);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextUnequipButtonRect, ParasiteEveTheme.BorderColor, 1);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextExamineButtonRect, ParasiteEveTheme.BorderColor, 1);
+
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "LANCER", new Vector2(contextThrowButtonRect.X + 8, contextThrowButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, contextFlashlightToggleLabel, new Vector2(contextToggleFlashlightButtonRect.X + 8, contextToggleFlashlightButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "DESEQUIPER", new Vector2(contextUnequipButtonRect.X + 8, contextUnequipButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EXAMINER", new Vector2(contextExamineButtonRect.X + 8, contextExamineButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+            }
+            else
+            {
+                if (contextMenuHasOpenAction)
+                {
+                    spriteBatch.Draw(pixel, contextOpenButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextOpenButtonRect, ParasiteEveTheme.BorderColor, 1);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "OUVRIR", new Vector2(contextOpenButtonRect.X + 8, contextOpenButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                }
+
+                spriteBatch.Draw(pixel, contextEquipButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                spriteBatch.Draw(pixel, contextExamineButtonRect, ParasiteEveTheme.ButtonNormal * 0.7f);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextEquipButtonRect, ParasiteEveTheme.BorderColor, 1);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextExamineButtonRect, ParasiteEveTheme.BorderColor, 1);
+
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EQUIPER", new Vector2(contextEquipButtonRect.X + 8, contextEquipButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "EXAMINER", new Vector2(contextExamineButtonRect.X + 8, contextExamineButtonRect.Y + 4), ParasiteEveTheme.TextNormal, 0.65f);
+            }
+
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "Fermer", new Vector2(contextCloseButtonRect.X, contextCloseButtonRect.Y - 2), ParasiteEveTheme.TextWarning, 0.58f);
+
         }
 
         private void DrawContextMenuAndExamine()
@@ -3190,6 +3435,57 @@ namespace XCOM_3
                         new Vector2(itemRect.X + 4, itemRect.Y + 6), ParasiteEveTheme.TextNormal, 0.5f);
                 }
             }
+
+            if (showNestedContainerPopup)
+            {
+                ParasiteEveTheme.DrawPanel(spriteBatch, pixel, nestedContainerPopupRect);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, nestedContainerPopupRect, ParasiteEveTheme.SelectionOutline, 1);
+
+                Rectangle popupHeader = new Rectangle(nestedContainerPopupRect.X, nestedContainerPopupRect.Y, nestedContainerPopupRect.Width, 30);
+                ParasiteEveTheme.DrawSectionHeader(spriteBatch, pixel, font, popupHeader, $"CONTENU - {nestedContainerPopupTitle.ToUpper()}");
+
+                Rectangle popupCloseButton = new Rectangle(nestedContainerPopupRect.Right - 26, nestedContainerPopupRect.Y + 4, 20, 20);
+                spriteBatch.Draw(pixel, popupCloseButton, ParasiteEveTheme.ButtonNormal * 0.85f);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, popupCloseButton, ParasiteEveTheme.BorderColor, 1);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "X", new Vector2(popupCloseButton.X + 6, popupCloseButton.Y + 1), ParasiteEveTheme.TextWarning, 0.62f);
+
+                spriteBatch.Draw(pixel, nestedContainerPopupGridRect, ParasiteEveTheme.BackgroundMedium * 0.3f);
+                for (int x = 0; x <= nestedContainerPopupGridSize.Width; x++)
+                {
+                    int drawX = nestedContainerPopupGridRect.X + x * CONTAINER_POPUP_CELL_SIZE;
+                    spriteBatch.Draw(pixel, new Rectangle(drawX, nestedContainerPopupGridRect.Y, 1, nestedContainerPopupGridRect.Height), ParasiteEveTheme.TextDim * 0.2f);
+                }
+
+                for (int y = 0; y <= nestedContainerPopupGridSize.Height; y++)
+                {
+                    int drawY = nestedContainerPopupGridRect.Y + y * CONTAINER_POPUP_CELL_SIZE;
+                    spriteBatch.Draw(pixel, new Rectangle(nestedContainerPopupGridRect.X, drawY, nestedContainerPopupGridRect.Width, 1), ParasiteEveTheme.TextDim * 0.2f);
+                }
+
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, nestedContainerPopupGridRect, ParasiteEveTheme.BorderColor, 1);
+
+                foreach (GridItem popupItem in nestedContainerPopupItems)
+                {
+                    if (popupItem?.Data == null)
+                        continue;
+
+                    ItemSize popupSize = popupItem.GetCurrentSize();
+                    Rectangle itemRect = new Rectangle(
+                        nestedContainerPopupGridRect.X + popupItem.GridPosition.X * CONTAINER_POPUP_CELL_SIZE,
+                        nestedContainerPopupGridRect.Y + popupItem.GridPosition.Y * CONTAINER_POPUP_CELL_SIZE,
+                        popupSize.Width * CONTAINER_POPUP_CELL_SIZE,
+                        popupSize.Height * CONTAINER_POPUP_CELL_SIZE);
+
+                    spriteBatch.Draw(pixel, itemRect, ParasiteEveTheme.ButtonNormal * 0.72f);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, itemRect, ParasiteEveTheme.SelectionOutline * 0.85f, 1);
+
+                    DrawItemPreviewImage(popupItem.Data, itemRect);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, popupItem.Data.Name,
+                        new Vector2(itemRect.X + 4, itemRect.Y + 6), ParasiteEveTheme.TextNormal, 0.5f);
+                }
+            }
+
+            DrawContextMenuLayer();
 
             if (showExaminePopup && examinedItemData != null)
             {
