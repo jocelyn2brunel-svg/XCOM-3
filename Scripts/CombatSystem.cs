@@ -32,6 +32,8 @@ namespace XCOM_3
         private CoverSystem coverSystem;
         private readonly Dictionary<Unit, int> targetPressureCache = new Dictionary<Unit, int>();
         private readonly Dictionary<Unit, bool> lineOfSightCache = new Dictionary<Unit, bool>();
+        private readonly Dictionary<Unit, float> postHitPauseTimers = new Dictionary<Unit, float>();
+        private const float HitConfirmPauseSeconds = 0.5f;
 
         private static int GetWeaponRange(Unit unit) => unit?.WeaponData?.Range ?? 0;
         private static int GetWeaponAccuracy(Unit unit) => unit?.WeaponData?.Accuracy ?? 0;
@@ -379,6 +381,7 @@ namespace XCOM_3
             shooter.IsFiring = true;
             shooter.FireTarget = target.Cell;
             shooter.FireProgress = 0f;
+            postHitPauseTimers.Remove(shooter);
 
             // ✅ CALCUL AVEC COUVERTURE
             int baseAccuracy = GetWeaponAccuracy(shooter) + shooter.Skills.GetAccuracyBonus();
@@ -416,34 +419,58 @@ namespace XCOM_3
         public void UpdateFiringAnimations(GameTime gameTime)
         {
             float fireSpeed = 3f;
+            float deltaSeconds = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             foreach (var u in playerUnits.Concat(enemyUnits))
             {
                 if (!u.IsFiring || !u.FireTarget.HasValue)
                     continue;
 
-                u.FireProgress += (float)gameTime.ElapsedGameTime.TotalSeconds * fireSpeed;
+                u.FireProgress += deltaSeconds * fireSpeed;
 
                 if (u.FireProgress < 1f)
                     continue;
-
-                // Fin du tir
-                u.IsFiring = false;
-                u.FireProgress = 0f;
 
                 if (u.PendingTarget != null)
                 {
                     if (u.WillHit)
                     {
-                        ApplyDamage(u, u.PendingTarget);
+                        if (!postHitPauseTimers.ContainsKey(u))
+                        {
+                            // Impact: appliquer les dégâts puis conserver le plan de tir
+                            // pendant un court instant pour laisser la réaction visuelle apparaître.
+                            ApplyDamage(u, u.PendingTarget);
+                            GiveShootingXP(u, u.PendingTarget);
+
+                            u.PendingTarget = null;
+                            u.WillHit = false;
+                            postHitPauseTimers[u] = HitConfirmPauseSeconds;
+                            continue;
+                        }
                     }
-
-                    GiveShootingXP(u, u.PendingTarget);
-
-                    u.PendingTarget = null;
-                    u.WillHit = false;
+                    else
+                    {
+                        GiveShootingXP(u, u.PendingTarget);
+                        u.PendingTarget = null;
+                        u.WillHit = false;
+                    }
                 }
 
+                if (postHitPauseTimers.TryGetValue(u, out float remainingPause))
+                {
+                    remainingPause -= deltaSeconds;
+                    if (remainingPause > 0f)
+                    {
+                        postHitPauseTimers[u] = remainingPause;
+                        continue;
+                    }
+
+                    postHitPauseTimers.Remove(u);
+                }
+
+                // Fin du tir
+                u.IsFiring = false;
+                u.FireProgress = 0f;
                 u.FireTarget = null;
                 IsActionInProgress = false;
 
