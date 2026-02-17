@@ -177,7 +177,7 @@ namespace XCOM_3
             DrawPair(spriteBatch, ref cursor, "Main dominante", GetHandednessLabel(unit.DominantHand));
             DrawPair(spriteBatch, ref cursor, "Portee de deplacement", $"{unit.GetMaxMoveRange()} cases");
             DrawPair(spriteBatch, ref cursor, "Portee sprint", $"{unit.GetSprintRange()} cases");
-            DrawPair(spriteBatch, ref cursor, "Perception", $"{unit.PerceptionRangeCells} cases");
+            DrawPair(spriteBatch, ref cursor, "Perception", $"{unit.PerceptionRangeCells} cases ({unit.PerceptionRangeFeet} pieds)");
             DrawPair(spriteBatch, ref cursor, "Points d'action", $"{unit.ActionPoints}/{unit.MaxActionPoints}");
             DrawPair(spriteBatch, ref cursor, "Sante", $"{unit.Health}/{unit.GetMaxHealth()}");
             DrawPair(spriteBatch, ref cursor, "Phosphocreatine", $"{unit.Phosphocreatine}/{unit.MaxPhosphocreatine}");
