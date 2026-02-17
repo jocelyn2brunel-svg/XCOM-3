@@ -2336,6 +2336,21 @@ namespace XCOM_3
             if (popupItem == null)
                 return false;
 
+            ItemContextInfo pickedItemContext = new ItemContextInfo
+            {
+                Data = popupItem.Data,
+                Source = useNested ? "nestedcontainerpopup" : "containerpopup",
+                GridPosition = popupItem.GridPosition,
+                Index = -1
+            };
+
+            if (useMain && showNestedContainerPopup && hasNestedContainerPopupSource &&
+                AreSameItemContext(pickedItemContext, nestedContainerPopupSourceInfo))
+            {
+                // Empêche de retirer du popup principal le conteneur qui héberge le popup imbriqué ouvert.
+                return false;
+            }
+
             ItemSize popupSize = popupItem.GetCurrentSize();
             Rectangle popupItemRect = new Rectangle(
                 targetGridRect.X + popupItem.GridPosition.X * CONTAINER_POPUP_CELL_SIZE,
@@ -2344,13 +2359,7 @@ namespace XCOM_3
                 popupSize.Height * CONTAINER_POPUP_CELL_SIZE);
 
             draggedItem = new GridItem(popupItem.Data, Point.Zero, popupItem.Size, popupItem.IsRotated, popupItem.Payload);
-            draggedItemSourceInfo = new ItemContextInfo
-            {
-                Data = popupItem.Data,
-                Source = useNested ? "nestedcontainerpopup" : "containerpopup",
-                GridPosition = popupItem.GridPosition,
-                Index = -1
-            };
+            draggedItemSourceInfo = pickedItemContext;
             hasDraggedItemSourceInfo = true;
             targetGrid.RemoveItem(popupItem);
             targetItems.Remove(popupItem);
@@ -2380,6 +2389,10 @@ namespace XCOM_3
                 return false;
 
             if (IsDraggedItemCurrentlyOpenedContainer())
+                return false;
+
+            ItemContextInfo targetInfo = useNested ? nestedContainerPopupSourceInfo : containerPopupSourceInfo;
+            if (!CanMoveItemIntoContainer(targetInfo, draggedItem, activeUnit))
                 return false;
 
             InventoryGrid targetGrid = useNested ? nestedContainerPopupGrid : containerPopupGrid;
