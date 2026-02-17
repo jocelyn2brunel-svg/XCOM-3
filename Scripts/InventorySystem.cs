@@ -2637,6 +2637,7 @@ namespace XCOM_3
                 Math.Max(1, visibleRows * lootCellSize));
 
             DrawLootGridBackdrop(gridArea);
+            Point alignedGridOrigin = GetAlignedLootGridOrigin(gridArea);
 
             int visibleStartRow = nearbyLootScrollRow;
             int visibleEndRow = nearbyLootScrollRow + visibleRows;
@@ -2647,8 +2648,8 @@ namespace XCOM_3
                     continue;
 
                 int itemIndex = entry.ItemIndex;
-                int drawX = gridArea.X + entry.CellX * lootCellSize;
-                int drawY = gridArea.Y + (entry.CellY - nearbyLootScrollRow) * lootCellSize;
+                int drawX = alignedGridOrigin.X + entry.CellX * lootCellSize;
+                int drawY = alignedGridOrigin.Y + (entry.CellY - nearbyLootScrollRow) * lootCellSize;
                 Rectangle lootSlot = new Rectangle(
                     drawX,
                     drawY,
@@ -2693,15 +2694,20 @@ namespace XCOM_3
         {
             spriteBatch.Draw(pixel, gridArea, ParasiteEveTheme.BackgroundMedium * 0.28f);
 
-            Point alignedGridOrigin = new Point(
-                gridArea.X + PositiveModulo(GetGridStartX() - gridArea.X, CELL_SIZE),
-                gridArea.Y + PositiveModulo(GetGridStartY() - gridArea.Y, CELL_SIZE));
+            Point alignedGridOrigin = GetAlignedLootGridOrigin(gridArea);
 
-            for (int x = alignedGridOrigin.X; x <= gridArea.Right; x += CELL_SIZE)
+            for (int x = alignedGridOrigin.X; x <= gridArea.Right; x += LOOT_GRID_CELL_SIZE)
                 spriteBatch.Draw(pixel, new Rectangle(x, gridArea.Y, 1, gridArea.Height), ParasiteEveTheme.TextDim * 0.15f);
 
-            for (int y = alignedGridOrigin.Y; y <= gridArea.Bottom; y += CELL_SIZE)
+            for (int y = alignedGridOrigin.Y; y <= gridArea.Bottom; y += LOOT_GRID_CELL_SIZE)
                 spriteBatch.Draw(pixel, new Rectangle(gridArea.X, y, gridArea.Width, 1), ParasiteEveTheme.TextDim * 0.15f);
+        }
+
+        private Point GetAlignedLootGridOrigin(Rectangle gridArea)
+        {
+            return new Point(
+                gridArea.X + PositiveModulo(GetGridStartX() - gridArea.X, LOOT_GRID_CELL_SIZE),
+                gridArea.Y + PositiveModulo(GetGridStartY() - gridArea.Y, LOOT_GRID_CELL_SIZE));
         }
 
         private void HandleNearbyLootScroll(MouseState mouse, MouseState previousMouse)
@@ -2908,8 +2914,23 @@ namespace XCOM_3
             Rectangle inventoryBounds = GetInventoryPanelBounds();
             int availableWidth = graphicsDevice.Viewport.Width - inventoryBounds.Right - PANEL_GAP - 20;
             int width = Math.Max(260, availableWidth);
+            int minHeight = GetMainWindowHeight();
+            int maxHeight = Math.Max(minHeight, graphicsDevice.Viewport.Height - 40);
+            int desiredHeight = GetDesiredLootPanelHeight(width);
+            int height = Math.Clamp(desiredHeight, minHeight, maxHeight);
+            int y = graphicsDevice.Viewport.Height / 2 - height / 2;
 
-            return new Rectangle(inventoryBounds.Right + PANEL_GAP, GetMainWindowY(), width, GetMainWindowHeight());
+            return new Rectangle(inventoryBounds.Right + PANEL_GAP, y, width, height);
+        }
+
+        private int GetDesiredLootPanelHeight(int panelWidth)
+        {
+            int contentWidth = Math.Max(1, panelWidth - SECTION_PADDING * 2);
+            int columnCount = Math.Max(1, Math.Min(LOOT_GRID_COLUMNS, Math.Max(1, (contentWidth - 12) / LOOT_GRID_CELL_SIZE)));
+            BuildNearbyLootLayout(columnCount, out int totalRows);
+
+            int contentHeight = LootHeaderTextHeight + LOOT_GRID_BOTTOM_INFO_HEIGHT + totalRows * LOOT_GRID_CELL_SIZE;
+            return SECTION_HEADER_HEIGHT + SECTION_PADDING * 2 + contentHeight;
         }
 
         private int GetGridStartX()
