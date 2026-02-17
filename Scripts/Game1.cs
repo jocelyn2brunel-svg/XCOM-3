@@ -1393,7 +1393,7 @@ namespace XCOM_3
 
                     renderer3D.DrawPlane(
                         new Vector3(wallCenter.X * cellSize, surfaceYOffset, litFaceZ * cellSize),
-                        new Vector3(cellSize * 0.96f, wallHeight * 0.92f, 1f),
+                        new Vector3(cellSize * 0.96f, 1f, wallHeight * 0.92f),
                         highlightColor * highlightAlpha,
                         rotationX: MathHelper.PiOver2,
                         rotationY: 0f,
@@ -1407,7 +1407,7 @@ namespace XCOM_3
 
                     renderer3D.DrawPlane(
                         new Vector3(litFaceX * cellSize, surfaceYOffset, wallCenter.Y * cellSize),
-                        new Vector3(cellSize * 0.96f, wallHeight * 0.92f, 1f),
+                        new Vector3(cellSize * 0.96f, 1f, wallHeight * 0.92f),
                         highlightColor * highlightAlpha,
                         rotationX: MathHelper.PiOver2,
                         rotationY: MathHelper.PiOver2,
