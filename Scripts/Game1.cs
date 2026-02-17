@@ -1167,6 +1167,8 @@ namespace XCOM_3
             foreach (var unit in visibleUnits)
                 renderer3D.DrawUnit(unit, cellSize);
 
+            DrawActiveProjectiles3D();
+
             DrawAlliedTacticalFlashlightBeams(minFloor, floorCount);
 
             if (selectedUnit != null)
@@ -1332,6 +1334,66 @@ namespace XCOM_3
                         new Vector3(x * cellSize + cellSize / 2f, floorYOffset, y * cellSize + cellSize / 2f),
                         new Vector3(cellSize * 0.9f, 1f, cellSize * 0.9f),
                         beamColor * (0.35f + intensity * 0.65f));
+                }
+            }
+        }
+
+        private void DrawActiveProjectiles3D()
+        {
+            foreach (var shooter in playerUnits.Concat(enemyUnits))
+            {
+                if (!shooter.IsFiring || !shooter.FireTarget.HasValue)
+                    continue;
+
+                Unit targetUnit = shooter.PendingTarget;
+                int targetFloor = targetUnit?.Floor ?? shooter.Floor;
+
+                if (shooter.Floor != viewedFloor && targetFloor != viewedFloor)
+                    continue;
+
+                Vector3 muzzlePosition = shooter.VisualPosition + new Vector3(0f, cellSize * 0.72f, 0f);
+                Vector3 targetPosition;
+
+                if (targetUnit != null)
+                {
+                    targetPosition = targetUnit.VisualPosition + new Vector3(0f, cellSize * 0.62f, 0f);
+                }
+                else
+                {
+                    Point targetCell = shooter.FireTarget.Value;
+                    targetPosition = new Vector3(
+                        targetCell.X * cellSize + cellSize / 2f,
+                        WorldMetrics.FloorToWorldY(shooter.Floor, cellSize) + cellSize * 0.62f,
+                        targetCell.Y * cellSize + cellSize / 2f);
+                }
+
+                Vector3 shotDirection = targetPosition - muzzlePosition;
+                float shotLength = shotDirection.Length();
+
+                if (shotLength < 0.001f)
+                    continue;
+
+                shotDirection /= shotLength;
+
+                float projectileLead = MathHelper.Clamp(shooter.FireProgress * 1.12f, 0f, 1f);
+                Vector3 projectilePosition = Vector3.Lerp(muzzlePosition, targetPosition, projectileLead);
+
+                renderer3D.DrawCube(projectilePosition, new Vector3(cellSize * 0.09f), new Color(255, 210, 80, 235));
+
+                float tracerLength = Math.Min(cellSize * 1.5f, shotLength * projectileLead);
+                if (tracerLength > 0.02f)
+                {
+                    Vector3 tracerCenter = projectilePosition - shotDirection * (tracerLength * 0.5f);
+                    float tracerYaw = (float)Math.Atan2(shotDirection.X, shotDirection.Z);
+                    float tracerPitch = (float)Math.Asin(MathHelper.Clamp(-shotDirection.Y, -1f, 1f));
+
+                    renderer3D.DrawPlane(
+                        tracerCenter,
+                        new Vector3(cellSize * 0.09f, 1f, tracerLength),
+                        new Color(255, 140, 40, 175),
+                        tracerPitch,
+                        tracerYaw,
+                        0f);
                 }
             }
         }
