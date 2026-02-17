@@ -173,6 +173,14 @@ namespace XCOM_3
             AddSlider("Limb Width", 0.6f, 1.6f, () => HumanBodyMorphSettings.LimbWidthScale, v => HumanBodyMorphSettings.LimbWidthScale = HumanBodyMorphSettings.ClampScale(v, 0.6f, 1.6f));
             AddSlider("Arm Length", 0.6f, 1.6f, () => HumanBodyMorphSettings.ArmLengthScale, v => HumanBodyMorphSettings.ArmLengthScale = HumanBodyMorphSettings.ClampScale(v, 0.6f, 1.6f));
             AddSlider("Leg Length", 0.6f, 1.6f, () => HumanBodyMorphSettings.LegLengthScale, v => HumanBodyMorphSettings.LegLengthScale = HumanBodyMorphSettings.ClampScale(v, 0.6f, 1.6f));
+            AddSlider("Shoulder Size", 0.7f, 1.3f,
+                () => (HumanBodyMorphSettings.ShoulderWidthScale + HumanBodyMorphSettings.ShoulderHeightScale) * 0.5f,
+                v =>
+                {
+                    float clamped = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f);
+                    HumanBodyMorphSettings.ShoulderWidthScale = clamped;
+                    HumanBodyMorphSettings.ShoulderHeightScale = clamped;
+                });
             AddSlider("Shoulder Width", 0.7f, 1.3f, () => HumanBodyMorphSettings.ShoulderWidthScale, v => HumanBodyMorphSettings.ShoulderWidthScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
             AddSlider("Shoulder Height", 0.7f, 1.3f, () => HumanBodyMorphSettings.ShoulderHeightScale, v => HumanBodyMorphSettings.ShoulderHeightScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
 
