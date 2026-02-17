@@ -337,6 +337,64 @@ namespace XCOM_3
             return total;
         }
 
+        public ProtectionLevel GetBestProtectionLevel()
+        {
+            ProtectionLevel bestLevel = ProtectionLevel.None;
+
+            foreach (var equipped in GetEquippedArmorItems())
+            {
+                if (equipped?.Data == null)
+                    continue;
+
+                if (equipped.Data.ProtectionLevel > bestLevel)
+                    bestLevel = equipped.Data.ProtectionLevel;
+            }
+
+            return bestLevel;
+        }
+
+        public static string GetProtectionLabel(ProtectionLevel level)
+        {
+            return level switch
+            {
+                ProtectionLevel.Fragmentation => "Fragments",
+                ProtectionLevel.NIJ_II => "Armes légères (NIJ II)",
+                ProtectionLevel.NIJ_IIIA => "Armes moyennes (NIJ IIIA)",
+                ProtectionLevel.NIJ_III => "Armes d'assaut (NIJ III)",
+                ProtectionLevel.NIJ_IV => "Armes lourdes (NIJ IV)",
+                _ => "Aucune"
+            };
+        }
+
+        public int GetBallisticDamageReduction()
+        {
+            int protectionReduction = GetBestProtectionLevel() switch
+            {
+                ProtectionLevel.Fragmentation => 1,
+                ProtectionLevel.NIJ_II => 2,
+                ProtectionLevel.NIJ_IIIA => 3,
+                ProtectionLevel.NIJ_III => 4,
+                ProtectionLevel.NIJ_IV => 5,
+                _ => 0
+            };
+
+            return protectionReduction + Skills.GetDefenseBonus();
+        }
+
+        private IEnumerable<Item> GetEquippedArmorItems()
+        {
+            yield return EquippedHelmet;
+            yield return EquippedNeck;
+            yield return EquippedArmor;
+            yield return EquippedShield;
+            yield return EquippedShirt;
+            yield return EquippedPants;
+            yield return EquippedKnees;
+            yield return EquippedFeet;
+            yield return EquippedChestRig;
+            yield return EquippedBelt;
+        }
+
         private static HumanBodyType DetermineBodyType(Team team, string unitClass, string name)
         {
             bool isHuman = IsHumanUnit(team, unitClass);
