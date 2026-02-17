@@ -36,7 +36,10 @@ namespace XCOM_3
         private const int SECTION_PADDING = 12;
         private const int CONTEXT_WINDOW_WIDTH = 280;
         private const int CONTEXT_WINDOW_HEIGHT = 220;
-        private const int LOOT_ENTRY_HEIGHT = 22;
+        private const int LOOT_GRID_CELL_SIZE = CELL_SIZE;
+        private const int LOOT_GRID_COLUMNS = 6;
+        private const int LOOT_GRID_LABEL_HEIGHT = 22;
+        private const int LOOT_GRID_BOTTOM_INFO_HEIGHT = 24;
         private const int UiSoundSampleRate = 22050;
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -93,7 +96,7 @@ namespace XCOM_3
         private bool showExaminePopup = false;
         private Rectangle examinePopupRect;
         private ItemData examinedItemData;
-        private readonly List<Rectangle> nearbyLootRowRects = new List<Rectangle>();
+        private readonly List<Rectangle> nearbyLootSlotRects = new List<Rectangle>();
 
         private struct ItemContextInfo
         {
@@ -1165,9 +1168,9 @@ namespace XCOM_3
             if (nearbyLootItems.Count == 0)
                 return false;
 
-            for (int i = 0; i < nearbyLootRowRects.Count; i++)
+            for (int i = 0; i < nearbyLootSlotRects.Count; i++)
             {
-                if (!nearbyLootRowRects[i].Contains(mousePosition))
+                if (!nearbyLootSlotRects[i].Contains(mousePosition))
                     continue;
 
                 if (i >= nearbyLootItems.Count)
@@ -2481,7 +2484,7 @@ namespace XCOM_3
                 lootWindow.Width - SECTION_PADDING * 2,
                 lootWindow.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
 
-            nearbyLootRowRects.Clear();
+            nearbyLootSlotRects.Clear();
 
             spriteBatch.Draw(pixel, content, ParasiteEveTheme.BackgroundDark * 0.35f);
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, content, ParasiteEveTheme.BorderColor, 1);
@@ -2508,32 +2511,43 @@ namespace XCOM_3
                 ParasiteEveTheme.TextHighlight,
                 0.65f);
 
-            int maxVisible = Math.Min(nearbyLootItems.Count, 10);
+            int lootCellSize = LOOT_GRID_CELL_SIZE;
+            int columnCount = Math.Max(1, Math.Min(LOOT_GRID_COLUMNS, Math.Max(1, content.Width / lootCellSize)));
+            int visibleRows = Math.Max(1, (content.Height - 70) / (lootCellSize + LOOT_GRID_LABEL_HEIGHT));
+            int maxVisible = Math.Min(nearbyLootItems.Count, visibleRows * columnCount);
+
+            int gridStartY = content.Y + 34;
             for (int i = 0; i < maxVisible; i++)
             {
-                Rectangle lootRow = new Rectangle(
-                    content.X + 6,
-                    content.Y + 34 + i * LOOT_ENTRY_HEIGHT,
-                    Math.Max(0, content.Width - 12),
-                    LOOT_ENTRY_HEIGHT - 2);
-                nearbyLootRowRects.Add(lootRow);
+                int col = i % columnCount;
+                int row = i / columnCount;
+                Rectangle lootSlot = new Rectangle(
+                    content.X + 6 + col * lootCellSize,
+                    gridStartY + row * (lootCellSize + LOOT_GRID_LABEL_HEIGHT),
+                    Math.Max(1, lootCellSize - 4),
+                    Math.Max(1, lootCellSize - 4));
+                nearbyLootSlotRects.Add(lootSlot);
 
                 bool canPickup = inventoryGrid.FindFreePosition(ItemSizeDatabase.GetItemSize(nearbyLootItems[i].Name), true).HasValue;
-                Color rowColor = canPickup ? ParasiteEveTheme.ButtonNormal * 0.28f : ParasiteEveTheme.TextDanger * 0.2f;
-                spriteBatch.Draw(pixel, lootRow, rowColor);
+                Color slotColor = canPickup ? ParasiteEveTheme.ButtonNormal * 0.28f : ParasiteEveTheme.TextDanger * 0.2f;
+                spriteBatch.Draw(pixel, lootSlot, slotColor);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, lootSlot, ParasiteEveTheme.BorderColor, 1);
+
+                DrawItemPreviewImage(nearbyLootItems[i], lootSlot);
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                    $"- {nearbyLootItems[i].Name}",
-                    new Vector2(lootRow.X + 4, lootRow.Y + 3),
+                    nearbyLootItems[i].Name,
+                    new Vector2(lootSlot.X, lootSlot.Bottom + 2),
                     ParasiteEveTheme.TextNormal,
-                    0.55f);
+                    0.45f);
             }
 
             if (nearbyLootItems.Count > maxVisible)
             {
+                int hiddenCount = nearbyLootItems.Count - maxVisible;
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                    $"... +{nearbyLootItems.Count - maxVisible} autres",
-                    new Vector2(content.X + 8, content.Y + 36 + maxVisible * 20),
+                    $"... +{hiddenCount} autres",
+                    new Vector2(content.X + 8, content.Bottom - 44),
                     ParasiteEveTheme.TextDim,
                     0.55f);
             }
@@ -2674,7 +2688,17 @@ namespace XCOM_3
             Rectangle inventoryBounds = GetInventoryPanelBounds();
             int availableWidth = graphicsDevice.Viewport.Width - inventoryBounds.Right - PANEL_GAP - 20;
             int width = Math.Max(260, availableWidth);
-            return new Rectangle(inventoryBounds.Right + PANEL_GAP, GetMainWindowY(), width, GetMainWindowHeight());
+
+            int columns = Math.Max(1, Math.Min(LOOT_GRID_COLUMNS, Math.Max(1, (width - SECTION_PADDING * 2 - 12) / LOOT_GRID_CELL_SIZE)));
+            int rows = Math.Max(2, (int)Math.Ceiling(nearbyLootItems.Count / (float)columns));
+
+            int dynamicContentHeight = 34 + rows * (LOOT_GRID_CELL_SIZE + LOOT_GRID_LABEL_HEIGHT) + LOOT_GRID_BOTTOM_INFO_HEIGHT;
+            int dynamicHeight = SECTION_HEADER_HEIGHT + SECTION_PADDING * 2 + dynamicContentHeight;
+            int minHeight = Math.Max(210, SECTION_HEADER_HEIGHT + SECTION_PADDING * 2 + 110);
+            int maxHeight = graphicsDevice.Viewport.Height - GetMainWindowY() - 20;
+            int height = Math.Clamp(Math.Max(minHeight, dynamicHeight), minHeight, Math.Max(minHeight, maxHeight));
+
+            return new Rectangle(inventoryBounds.Right + PANEL_GAP, GetMainWindowY(), width, height);
         }
 
         private int GetGridStartX()
