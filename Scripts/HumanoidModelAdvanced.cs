@@ -878,7 +878,7 @@ namespace XCOM_3
 
             // Ajoute un vrai volume d'épaule au-dessus des manches pour éviter
             // l'impression d'épaule « absente » quand une chemise est équipée.
-            float shoulderCapRadius = dims.lw * 0.36f;
+            float shoulderCapRadius = dims.lw * 0.36f * HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderSphereScale, 0.6f, 2.2f);
             Color shoulderHighlightColor = new Color(220, 40, 40);
             DrawSphere(device, effect, pos, leftShoulder, shoulderCapRadius, shoulderHighlightColor, rot);
             DrawSphere(device, effect, pos, rightShoulder, shoulderCapRadius, shoulderHighlightColor, rot);
@@ -1251,7 +1251,7 @@ namespace XCOM_3
             Vector3 elbow = new Vector3(shoulderX, shoulderY - dims.al * 0.06f, dims.al * 0.48f);
             Vector3 wrist = new Vector3(shoulderX, shoulderY - dims.al * 0.1f, dims.al * 0.96f);
 
-            DrawSphere(d, e, p, shoulder, dims.lw * 0.28f, new Color(220, 40, 40), r);
+            DrawSphere(d, e, p, shoulder, dims.lw * 0.28f * HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderSphereScale, 0.6f, 2.2f), new Color(220, 40, 40), r);
             DrawFrustumBetween(d, e, p, shoulder, elbow,
                 dims.lw * 0.58f, dims.lw * 0.46f, armColor, r, 6);
             DrawForearmBetween(d, e, p, elbow, wrist,
@@ -1308,7 +1308,7 @@ namespace XCOM_3
             float supportShoulderX = supportSign * dims.tw * 0.58f * shoulderWidthScale;
             float dominantShoulderY = shoulderBaseY + GetShoulderVerticalOffset(dims, dominantShoulderX);
             float supportShoulderY = shoulderBaseY + GetShoulderVerticalOffset(dims, supportShoulderX);
-            float shoulderSphereRadius = dims.lw * 0.34f * shoulderWidthScale;
+            float shoulderSphereRadius = dims.lw * 0.34f * shoulderWidthScale * HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderSphereScale, 0.6f, 2.2f);
             float shoulderForwardOffset = dims.lw * 0.14f;
 
             DrawSphere(d, e, p,
@@ -1354,7 +1354,7 @@ namespace XCOM_3
             float shoulderOffsetX = dims.tw * shoulderSpread * shoulderWidthScale;
             float leftShoulderY = shoulderBaseY + GetShoulderVerticalOffset(dims, -shoulderOffsetX);
             float rightShoulderY = shoulderBaseY + GetShoulderVerticalOffset(dims, shoulderOffsetX);
-            float shoulderSphereRadius = dims.lw * 0.28f * shoulderWidthScale;
+            float shoulderSphereRadius = dims.lw * 0.28f * shoulderWidthScale * HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderSphereScale, 0.6f, 2.2f);
 
             DrawSphere(d, e, p, new Vector3(-shoulderOffsetX, leftShoulderY, 0f), shoulderSphereRadius, armColor * 0.88f, r);
             DrawSphere(d, e, p, new Vector3(shoulderOffsetX, rightShoulderY, 0f), shoulderSphereRadius, armColor * 0.88f, r);
@@ -1386,7 +1386,7 @@ namespace XCOM_3
                 forward * dims.al * 0.28f + Math.Max(0f, backward) * dims.al * 0.12f + bendBias * dims.al * 0.08f);
 
             // Épaule = vraie sphère
-            DrawSphere(d, e, p, shoulder, dims.lw * (radiusScale * 0.56f), armColor * 0.88f, r);
+            DrawSphere(d, e, p, shoulder, dims.lw * (radiusScale * 0.56f) * HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderSphereScale, 0.6f, 2.2f), armColor * 0.88f, r);
 
             // Biceps + avant-bras = cônes tronqués
             DrawFrustumBetween(d, e, p, shoulder, elbow,
@@ -1759,7 +1759,7 @@ namespace XCOM_3
             float shoulderBaseY = dims.ll + dims.th * (0.9f * shoulderHeightScale);
             float armReach = dims.tw * 1.55f * shoulderWidthScale;
             float elbowDrop = dims.lw * 0.06f;
-            float shoulderSphereRadius = dims.lw * 0.3f * shoulderWidthScale;
+            float shoulderSphereRadius = dims.lw * 0.3f * shoulderWidthScale * HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderSphereScale, 0.6f, 2.2f);
 
             float leftShoulderX = -dims.tw * 0.62f * shoulderWidthScale;
             float rightShoulderX = dims.tw * 0.62f * shoulderWidthScale;
