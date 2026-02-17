@@ -178,8 +178,14 @@ namespace XCOM_3
                 v =>
                 {
                     float clamped = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f);
-                    HumanBodyMorphSettings.ShoulderWidthScale = clamped;
-                    HumanBodyMorphSettings.ShoulderHeightScale = clamped;
+
+                    float currentWidth = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
+                    float currentHeight = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderHeightScale, 0.7f, 1.3f);
+                    float currentAverage = Math.Max(0.001f, (currentWidth + currentHeight) * 0.5f);
+                    float ratio = clamped / currentAverage;
+
+                    HumanBodyMorphSettings.ShoulderWidthScale = HumanBodyMorphSettings.ClampScale(currentWidth * ratio, 0.7f, 1.3f);
+                    HumanBodyMorphSettings.ShoulderHeightScale = HumanBodyMorphSettings.ClampScale(currentHeight * ratio, 0.7f, 1.3f);
                 });
             AddSlider("Shoulder Width", 0.7f, 1.3f, () => HumanBodyMorphSettings.ShoulderWidthScale, v => HumanBodyMorphSettings.ShoulderWidthScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
             AddSlider("Shoulder Height", 0.7f, 1.3f, () => HumanBodyMorphSettings.ShoulderHeightScale, v => HumanBodyMorphSettings.ShoulderHeightScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
