@@ -423,16 +423,36 @@ namespace XCOM_3
                 return 0;
 
             int totalReduction = 0;
-            string helmetName = unit.EquippedHelmet?.Data?.Name ?? string.Empty;
-            string armorName = unit.EquippedArmor?.Data?.Name ?? string.Empty;
-
-            if (helmetName.IndexOf("PASGT", StringComparison.OrdinalIgnoreCase) >= 0)
-                totalReduction += 9;
-
-            if (armorName.IndexOf("Flak Jacket", StringComparison.OrdinalIgnoreCase) >= 0)
-                totalReduction += 36;
+            totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedHelmet);
+            totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedArmor);
+            totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedShield);
+            totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedShirt);
+            totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedPants);
+            totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedChestRig);
+            totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedBelt);
+            totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedBackpack);
 
             return Math.Clamp(totalReduction, 0, 95);
+        }
+
+        private int GetItemFragmentationProtectionPercent(Item item)
+        {
+            ItemData data = item?.Data;
+            if (data == null)
+                return 0;
+
+            if (data.FragmentationProtectionPercent > 0)
+                return data.FragmentationProtectionPercent;
+
+            return data.ProtectionLevel switch
+            {
+                ProtectionLevel.Fragmentation => 12,
+                ProtectionLevel.NIJ_II => 16,
+                ProtectionLevel.NIJ_IIIA => 20,
+                ProtectionLevel.NIJ_III => 24,
+                ProtectionLevel.NIJ_IV => 28,
+                _ => 0
+            };
         }
 
         private bool TryGetMk2FragmentHitChancePercent(Point centerCell, int centerFloor, Unit unit, out int hitChancePercent)
