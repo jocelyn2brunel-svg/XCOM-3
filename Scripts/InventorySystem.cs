@@ -1903,7 +1903,7 @@ namespace XCOM_3
                 }
                 else if (!contextMenuForEquippedFlashlight && contextMenuHasOpenAction && contextOpenButtonRect.Contains(mouse.Position))
                 {
-                    if (TryOpenContainerPopup(contextMenuItem, unit))
+                    if (TryOpenContainerPopup(contextMenuItem, unit, mouse.Position))
                     {
                         showContextMenu = false;
                         PlayUiSound(uiClickSound, 0.48f);
@@ -2011,7 +2011,7 @@ namespace XCOM_3
             }
         }
 
-        private bool TryOpenContainerPopup(ItemContextInfo info, Unit unit)
+        private bool TryOpenContainerPopup(ItemContextInfo info, Unit unit, Point openAnchor)
         {
             if (!TryBuildContainerPopupContent(info, unit, out string title, out ItemSize gridSize, out List<GridItem> gridItems))
                 return false;
@@ -2027,7 +2027,7 @@ namespace XCOM_3
                     containerPopupGrid.PlaceItem(item);
             }
 
-            containerPopupRect = BuildContainerPopupWindow(containerPopupGridSize);
+            containerPopupRect = BuildContainerPopupWindow(containerPopupGridSize, openAnchor);
             UpdateContainerPopupGridRect();
             showContainerPopup = true;
             containerPopupSourceInfo = info;
@@ -2367,16 +2367,16 @@ namespace XCOM_3
             return Math.Max(0, data.BonusInventorySlots);
         }
 
-        private Rectangle BuildContainerPopupWindow(ItemSize gridSize)
+        private Rectangle BuildContainerPopupWindow(ItemSize gridSize, Point openAnchor)
         {
-            int width = Math.Max(CONTAINER_POPUP_WIDTH, gridSize.Width * CONTAINER_POPUP_CELL_SIZE + 24);
-            int height = Math.Max(CONTAINER_POPUP_HEIGHT, 30 + gridSize.Height * CONTAINER_POPUP_CELL_SIZE + 20);
+            int width = gridSize.Width * CONTAINER_POPUP_CELL_SIZE + 24;
+            int height = 30 + gridSize.Height * CONTAINER_POPUP_CELL_SIZE + 20;
 
             int maxX = Math.Max(8, graphicsDevice.Viewport.Width - width - 8);
             int maxY = Math.Max(8, graphicsDevice.Viewport.Height - height - 8);
 
-            int x = Math.Clamp((graphicsDevice.Viewport.Width - width) / 2, 8, maxX);
-            int y = Math.Clamp((graphicsDevice.Viewport.Height - height) / 2, 8, maxY);
+            int x = Math.Clamp(openAnchor.X + 12, 8, maxX);
+            int y = Math.Clamp(openAnchor.Y - 10, 8, maxY);
 
             return new Rectangle(x, y, width, height);
         }
@@ -2857,17 +2857,18 @@ namespace XCOM_3
                 }
             }
 
-            // ✅ Item en cours de drag (avec transparence)
-            if (draggedItem != null)
-            {
-                DrawGridItem(draggedItem, 0.7f);
-            }
-
             // ✅ Texte d'aide avec ombre
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "DOUBLE CLICK: EQUIP | RIGHT CLICK: ACTIONS | R: ROTATE",
                 new Vector2(inventoryWindow.X, inventoryWindow.Bottom + 8), ParasiteEveTheme.TextWarning, 0.8f);
 
             DrawContextMenuAndExamine();
+
+            // ✅ Item en cours de drag (avec transparence)
+            // Doit être rendu en dernier pour rester visible au-dessus des fenêtres contextuelles/popup.
+            if (draggedItem != null)
+            {
+                DrawGridItem(draggedItem, 0.7f);
+            }
         }
 
         private void DrawUnitPreviewPanel(Unit unit)
