@@ -1292,11 +1292,6 @@ namespace XCOM_3
             DrawRoundedHead(d, e, p, leftKnee, dims.lw * 0.28f, jointColor, r);
             DrawRoundedHead(d, e, p, rightKnee, dims.lw * 0.28f, jointColor, r);
 
-            float shoulderJointX = dims.tw * 0.6f;
-            float shoulderJointBaseY = dims.ll + dims.th * 0.9f;
-            DrawRoundedHead(d, e, p, new Vector3(-shoulderJointX, shoulderJointBaseY + GetShoulderVerticalOffset(dims, -shoulderJointX), 0), dims.lw * 0.28f, jointColor, r);
-            DrawRoundedHead(d, e, p, new Vector3(shoulderJointX, shoulderJointBaseY + GetShoulderVerticalOffset(dims, shoulderJointX), 0), dims.lw * 0.28f, jointColor, r);
-
             float armPhase = MathHelper.Clamp(armSwing / 0.3f, -1f, 1f);
             float oppositeArmPhase = -armPhase;
             Vector3 leftElbow = new Vector3(-dims.tw * 0.6f, dims.ll + dims.th * (0.57f + Math.Max(0f, armPhase) * 0.06f), armPhase * dims.al * 0.32f);
