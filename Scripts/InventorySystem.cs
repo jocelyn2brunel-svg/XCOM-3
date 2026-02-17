@@ -2032,12 +2032,12 @@ namespace XCOM_3
             Rectangle lootWindow = GetLootPanelBounds();
 
             DrawWindow(equipmentWindow, "EQUIPEMENT");
-            DrawWindow(inventoryWindow, $"INVENTAIRE - {selectedUnit.Name.ToUpper()}");
+            DrawWindow(inventoryWindow, $"APERCU UNITE - {selectedUnit.Name.ToUpper()}");
             DrawWindow(lootWindow, "LOOT A PROXIMITE");
 
             int gridStartX = GetGridStartX();
             int gridStartY = GetGridStartY();
-            DrawInventoryGrid(gridStartX, gridStartY);
+            DrawUnitPreviewPanel(selectedUnit);
 
             int equipX = GetEquipX();
             int equipY = GetEquipY();
@@ -2133,6 +2133,64 @@ namespace XCOM_3
                 new Vector2(inventoryWindow.X, inventoryWindow.Bottom + 8), ParasiteEveTheme.TextWarning, 0.8f);
 
             DrawContextMenuAndExamine();
+        }
+
+        private void DrawUnitPreviewPanel(Unit unit)
+        {
+            Rectangle content = GetInventoryContentBounds();
+            spriteBatch.Draw(pixel, content, ParasiteEveTheme.BackgroundDark * 0.35f);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, content, ParasiteEveTheme.BorderColor, 1);
+
+            Rectangle silhouetteRect = new Rectangle(
+                content.X + 22,
+                content.Y + 18,
+                content.Width - 44,
+                Math.Max(180, content.Height - 170));
+
+            DrawUnitSilhouette(silhouetteRect);
+
+            float infoY = silhouetteRect.Bottom + 12;
+            float infoX = content.X + 16;
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Nom: {unit.Name}", new Vector2(infoX, infoY), ParasiteEveTheme.TextHighlight, 0.65f);
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Classe: {unit.Class}", new Vector2(infoX, infoY + 22), ParasiteEveTheme.TextNormal, 0.62f);
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Sante: {unit.Health}/{unit.GetMaxHealth()}", new Vector2(infoX, infoY + 44), ParasiteEveTheme.TextNormal, 0.62f);
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"PA: {unit.ActionPoints}/{unit.MaxActionPoints}", new Vector2(infoX, infoY + 66), ParasiteEveTheme.TextNormal, 0.62f);
+
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                "Preview unite (centre)",
+                new Vector2(content.X + 14, content.Y + 8),
+                ParasiteEveTheme.TextDim,
+                0.55f);
+        }
+
+        private void DrawUnitSilhouette(Rectangle bounds)
+        {
+            int centerX = bounds.Center.X;
+            int topY = bounds.Y + 16;
+
+            Rectangle head = new Rectangle(centerX - 22, topY, 44, 44);
+            Rectangle torso = new Rectangle(centerX - 34, head.Bottom + 6, 68, 96);
+            Rectangle leftArm = new Rectangle(torso.X - 20, torso.Y + 6, 16, 84);
+            Rectangle rightArm = new Rectangle(torso.Right + 4, torso.Y + 6, 16, 84);
+            Rectangle leftLeg = new Rectangle(centerX - 28, torso.Bottom + 4, 22, 92);
+            Rectangle rightLeg = new Rectangle(centerX + 6, torso.Bottom + 4, 22, 92);
+
+            Color fill = ParasiteEveTheme.TextDim * 0.42f;
+            Color edge = ParasiteEveTheme.SelectionOutline * 0.65f;
+
+            spriteBatch.Draw(pixel, head, fill);
+            spriteBatch.Draw(pixel, torso, fill);
+            spriteBatch.Draw(pixel, leftArm, fill);
+            spriteBatch.Draw(pixel, rightArm, fill);
+            spriteBatch.Draw(pixel, leftLeg, fill);
+            spriteBatch.Draw(pixel, rightLeg, fill);
+
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, head, edge, 1);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, torso, edge, 1);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, leftArm, edge, 1);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, rightArm, edge, 1);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, leftLeg, edge, 1);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, rightLeg, edge, 1);
         }
 
         private void DrawContextMenuAndExamine()
