@@ -40,6 +40,19 @@ namespace XCOM_3
         private static int GetWeaponDamage(Unit unit) => unit?.WeaponData?.Damage ?? 0;
         private static bool HasUsableWeapon(Unit unit) => unit?.WeaponData != null;
 
+        private static int GetRangeBasedAccuracyPenalty(int distance, int weaponRange)
+        {
+            if (distance <= 0)
+                return 0;
+
+            if (weaponRange <= 1)
+                return distance > 1 ? 100 : 0;
+
+            float normalizedDistance = MathHelper.Clamp(distance / (float)weaponRange, 0f, 1f);
+            float adjustedDistance = MathHelper.Clamp((normalizedDistance - 0.25f) / 0.75f, 0f, 1f);
+            return (int)Math.Round(adjustedDistance * 40f);
+        }
+
         public CombatSystem(Random random, PathfindingSystem pathfinding,
             Func<Point, Unit> getUnitAtCell, OptimizedUnitManager unitManager)
         {
@@ -367,7 +380,9 @@ namespace XCOM_3
             int distance = Math.Abs(target.Cell.X - shooter.Cell.X) +
                           Math.Abs(target.Cell.Y - shooter.Cell.Y);
 
-            if (distance > GetWeaponRange(shooter))
+            int weaponRange = GetWeaponRange(shooter);
+
+            if (distance > weaponRange)
                 return;
 
             if (!pathfinding.HasLineOfSight(shooter.Cell, target.Cell))
@@ -385,7 +400,8 @@ namespace XCOM_3
 
             // ✅ CALCUL AVEC COUVERTURE
             int baseAccuracy = GetWeaponAccuracy(shooter) + shooter.Skills.GetAccuracyBonus();
-            int effectiveAccuracy = baseAccuracy - distance * 5;
+            int rangePenalty = GetRangeBasedAccuracyPenalty(distance, weaponRange);
+            int effectiveAccuracy = baseAccuracy - rangePenalty;
 
             // Appliquer le malus de couverture
             if (coverSystem != null)
@@ -410,7 +426,7 @@ namespace XCOM_3
             shooter.PendingTarget = target;
             shooter.ActionPoints--;
 
-            Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance)");
+            Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance, range penalty: -{rangePenalty}%)");
         }
 
         /// <summary>
