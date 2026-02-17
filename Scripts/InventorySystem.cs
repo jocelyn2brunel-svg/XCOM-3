@@ -4180,6 +4180,71 @@ namespace XCOM_3
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, info,
                 new Vector2(item.PixelBounds.X + 4, item.PixelBounds.Bottom - 15),
                 ParasiteEveTheme.TextHighlight * alpha, 0.4f);
+
+            DrawItemComparisonIndicators(item, alpha);
+        }
+
+        private void DrawItemComparisonIndicators(GridItem item, float alpha)
+        {
+            if (activeUnit == null || item?.Data == null || item.Data.Type != ItemType.Armor)
+                return;
+
+            ItemData equippedData = GetComparableEquippedItemData(activeUnit, item.Data);
+            if (equippedData == null)
+                return;
+
+            int candidateFrag = Math.Max(0, item.Data.FragmentationProtectionPercent);
+            int equippedFrag = Math.Max(0, equippedData.FragmentationProtectionPercent);
+            float candidateWeight = Math.Max(0f, item.Data.WeightLbs);
+            float equippedWeight = Math.Max(0f, equippedData.WeightLbs);
+
+            bool hasAdvantage = candidateFrag > equippedFrag || candidateWeight < equippedWeight;
+            bool hasDrawback = candidateFrag < equippedFrag || candidateWeight > equippedWeight;
+
+            if (!hasAdvantage && !hasDrawback)
+                return;
+
+            if (hasDrawback)
+            {
+                Vector2 minusPos = new Vector2(item.PixelBounds.X + 4, item.PixelBounds.Bottom - 16);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "-", minusPos, Color.Red * alpha, 0.8f);
+            }
+
+            if (hasAdvantage)
+            {
+                Vector2 plusPos = new Vector2(item.PixelBounds.Right - 12, item.PixelBounds.Bottom - 16);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "+", plusPos, Color.LimeGreen * alpha, 0.8f);
+            }
+        }
+
+        private ItemData GetComparableEquippedItemData(Unit unit, ItemData candidate)
+        {
+            if (unit == null || candidate == null || candidate.Type != ItemType.Armor)
+                return null;
+
+            return candidate.ArmorSlot switch
+            {
+                ArmorSlot.Head => unit.EquippedHelmet?.Data,
+                ArmorSlot.Neck => unit.EquippedNeck?.Data,
+                ArmorSlot.Torso => unit.EquippedArmor?.Data,
+                ArmorSlot.Shield => unit.EquippedShield?.Data,
+                ArmorSlot.Shirt => unit.EquippedShirt?.Data,
+                ArmorSlot.Pants => unit.EquippedPants?.Data,
+                ArmorSlot.Knees => unit.EquippedKnees?.Data,
+                ArmorSlot.Feet => unit.EquippedFeet?.Data,
+                ArmorSlot.ChestRig => unit.EquippedChestRig?.Data,
+                ArmorSlot.Belt => unit.EquippedBelt?.Data,
+                ArmorSlot.Backpack => GetEquippedBackpackData(unit),
+                _ => null
+            };
+        }
+
+        private ItemData GetEquippedBackpackData(Unit unit)
+        {
+            if (unit == null || string.IsNullOrWhiteSpace(unit.EquippedBackpack))
+                return null;
+
+            return ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData data) ? data : null;
         }
 
         private void DrawEquipmentSlot(Rectangle slot, string label, Item equippedItem, bool highlight = false, bool labelOnLeft = false)
