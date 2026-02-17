@@ -1296,8 +1296,17 @@ namespace XCOM_3
 
             if (!throwMode && currentPathNodes.Count > 0 && selectedUnit != null && currentPathNodes.Any(n => n.Floor == viewedFloor))
             {
+                BlendState previousBlend = GraphicsDevice.BlendState;
+                DepthStencilState previousDepth = GraphicsDevice.DepthStencilState;
+
+                GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                GraphicsDevice.DepthStencilState = DepthStencilState.None;
+
                 renderer3D.DrawMovementPath(currentPathNodes, selectedUnit, cellSize,
                     (float)gameTime.TotalGameTime.TotalSeconds);
+
+                GraphicsDevice.BlendState = previousBlend;
+                GraphicsDevice.DepthStencilState = previousDepth;
             }
 
         }
