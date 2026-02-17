@@ -167,6 +167,69 @@ namespace XCOM_3
             DrawRoundedCapsuleY(device, effect, center, relative, radius * 1.4f, radius * 1.02f, color, rot, 7);
         }
 
+        private void DrawSphere(GraphicsDevice device, BasicEffect effect, Vector3 center, Vector3 relative,
+                                float radius, Color color, Matrix rot, int latSegments = 8, int lonSegments = 12)
+        {
+            int lat = Math.Max(3, latSegments);
+            int lon = Math.Max(6, lonSegments);
+
+            var verts = new List<VertexPositionColor>((lat + 1) * (lon + 1));
+            var indices = new List<short>(lat * lon * 6);
+
+            for (int y = 0; y <= lat; y++)
+            {
+                float v = y / (float)lat;
+                float phi = v * MathF.PI;
+                float sinPhi = MathF.Sin(phi);
+                float cosPhi = MathF.Cos(phi);
+
+                for (int x = 0; x <= lon; x++)
+                {
+                    float u = x / (float)lon;
+                    float theta = u * MathF.Tau;
+                    float sinTheta = MathF.Sin(theta);
+                    float cosTheta = MathF.Cos(theta);
+
+                    Vector3 local = new(
+                        radius * sinPhi * cosTheta,
+                        radius * cosPhi,
+                        radius * sinPhi * sinTheta);
+
+                    verts.Add(new VertexPositionColor(local, color));
+                }
+            }
+
+            for (int y = 0; y < lat; y++)
+            {
+                for (int x = 0; x < lon; x++)
+                {
+                    short i0 = (short)(y * (lon + 1) + x);
+                    short i1 = (short)(i0 + 1);
+                    short i2 = (short)(i0 + lon + 1);
+                    short i3 = (short)(i2 + 1);
+
+                    indices.Add(i0); indices.Add(i2); indices.Add(i1);
+                    indices.Add(i1); indices.Add(i2); indices.Add(i3);
+                }
+            }
+
+            Vector3 finalPos = center + Vector3.Transform(relative, rot);
+            effect.World = rot * Matrix.CreateTranslation(finalPos);
+
+            foreach (var pass in effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                device.DrawUserIndexedPrimitives(
+                    PrimitiveType.TriangleList,
+                    verts.ToArray(),
+                    0,
+                    verts.Count,
+                    indices.ToArray(),
+                    0,
+                    indices.Count / 3);
+            }
+        }
+
         private void DrawFrustumBetween(GraphicsDevice device, BasicEffect effect, Vector3 center,
                                         Vector3 start, Vector3 end, float startRadius, float endRadius,
                                         Color color, Matrix modelRot, int segments = 5)
@@ -1321,7 +1384,7 @@ namespace XCOM_3
                 dims.head * 0.48f, dims.head * 0.2f, skin * 0.95f, r, 5);
 
             // Tête = sphère
-            DrawRoundedHead(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0),
+            DrawSphere(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0),
                 dims.head * 0.52f, skin, r);
 
             // Pas d'accessoires vestimentaires/cosmétiques.
