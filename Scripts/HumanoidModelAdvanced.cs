@@ -1293,6 +1293,7 @@ namespace XCOM_3
                                         Matrix r, Color bodyColor, bool isAiming, Unit.Handedness dominantHand)
         {
             Color armColor = bodyColor * 0.9f;
+            Color shoulderColor = armColor * 0.82f;
             float shoulderHeightScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderHeightScale, 0.7f, 1.3f);
             float shoulderWidthScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
             float shoulderBaseY = dims.ll + dims.th * (0.9f * shoulderHeightScale);
@@ -1306,6 +1307,15 @@ namespace XCOM_3
             float supportShoulderX = supportSign * dims.tw * 0.58f * shoulderWidthScale;
             float dominantShoulderY = shoulderBaseY + GetShoulderVerticalOffset(dims, dominantShoulderX);
             float supportShoulderY = shoulderBaseY + GetShoulderVerticalOffset(dims, supportShoulderX);
+            float shoulderSphereRadius = dims.lw * 0.34f * shoulderWidthScale;
+            float shoulderForwardOffset = dims.lw * 0.14f;
+
+            DrawSphere(d, e, p,
+                new Vector3(dominantShoulderX, dominantShoulderY, shoulderForwardOffset),
+                shoulderSphereRadius, shoulderColor, r);
+            DrawSphere(d, e, p,
+                new Vector3(supportShoulderX, supportShoulderY, shoulderForwardOffset),
+                shoulderSphereRadius, shoulderColor, r);
 
             DrawRoundedCapsuleY(d, e, p, new Vector3(dominantShoulderX, (dominantShoulderY + elbowY) * 0.5f, handZ * 0.35f),
                 dims.al * 0.52f, dims.lw * 0.5f, armColor, r, 6);
