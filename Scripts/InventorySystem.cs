@@ -40,7 +40,7 @@ namespace XCOM_3
         private const int LOOT_GRID_COLUMNS = 6;
         private const int LOOT_GRID_LABEL_HEIGHT = 22;
         private const int LOOT_GRID_BOTTOM_INFO_HEIGHT = 24;
-        private const int LootHeaderTextHeight = 34;
+        private const int LootHeaderTextHeight = 12;
         private const int UiSoundSampleRate = 22050;
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -2616,12 +2616,6 @@ namespace XCOM_3
                     0.6f);
                 return;
             }
-
-            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                $"Objets au sol: {nearbyLootItems.Count}",
-                new Vector2(content.X + 8, content.Y + 10),
-                ParasiteEveTheme.TextHighlight,
-                0.65f);
 
             int lootCellSize = LOOT_GRID_CELL_SIZE;
             int columnCount = Math.Max(1, Math.Min(LOOT_GRID_COLUMNS, Math.Max(1, (content.Width - 12) / lootCellSize)));
