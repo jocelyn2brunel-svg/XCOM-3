@@ -2247,11 +2247,9 @@ namespace XCOM_3
                     AddGridItems(unit.BackpackInventory.GetItemAt(info.GridPosition)?.Payload?.BackpackItems);
                     break;
                 case "containerpopup":
-                case "nestedcontainerpopup":
-                    InventoryGrid sourcePopupGrid = GetContainerGridBySource(info.Source);
-                    AddPocketItems(sourcePopupGrid?.GetItemAt(info.GridPosition)?.Payload?.PantsItems, 2);
-                    AddPocketItems(sourcePopupGrid?.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, 2);
-                    AddGridItems(sourcePopupGrid?.GetItemAt(info.GridPosition)?.Payload?.BackpackItems);
+                    AddPocketItems(containerPopupGrid?.GetItemAt(info.GridPosition)?.Payload?.PantsItems, 2);
+                    AddPocketItems(containerPopupGrid?.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, 2);
+                    AddGridItems(containerPopupGrid?.GetItemAt(info.GridPosition)?.Payload?.BackpackItems);
                     break;
                 case "pants":
                     AddPocketItems(unit.PantsInventory, 2);
@@ -2426,8 +2424,7 @@ namespace XCOM_3
                     sourceGridItem = activeUnit?.BackpackInventory?.GetItemAt(info.GridPosition);
                     break;
                 case "containerpopup":
-                case "nestedcontainerpopup":
-                    sourceGridItem = GetContainerGridBySource(info.Source)?.GetItemAt(info.GridPosition);
+                    sourceGridItem = containerPopupGrid?.GetItemAt(info.GridPosition);
                     break;
             }
 
@@ -2746,23 +2743,6 @@ namespace XCOM_3
 
         private ItemContextInfo? GetItemUnderMouse(Point mousePos, Unit unit, int gridStartX, int gridStartY)
         {
-            if (showNestedContainerPopup && nestedContainerPopupGrid != null && nestedContainerPopupGridRect.Contains(mousePos))
-            {
-                int nestedX = (mousePos.X - nestedContainerPopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE;
-                int nestedY = (mousePos.Y - nestedContainerPopupGridRect.Y) / CONTAINER_POPUP_CELL_SIZE;
-                GridItem nestedPopupItem = nestedContainerPopupGrid.GetItemAt(new Point(nestedX, nestedY));
-                if (nestedPopupItem != null)
-                {
-                    return new ItemContextInfo
-                    {
-                        Data = nestedPopupItem.Data,
-                        Source = "nestedcontainerpopup",
-                        GridPosition = nestedPopupItem.GridPosition,
-                        Index = -1
-                    };
-                }
-            }
-
             if (showContainerPopup && containerPopupGrid != null && containerPopupGridRect.Contains(mousePos))
             {
                 int popupX = (mousePos.X - containerPopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE;
@@ -2887,22 +2867,12 @@ namespace XCOM_3
                         unit.BackpackInventory.RemoveItem(backpackItem);
                     break;
                 case "containerpopup":
-                case "nestedcontainerpopup":
-                    var popupGrid = GetContainerGridBySource(info.Source);
-                    var popupItem = popupGrid?.GetItemAt(info.GridPosition);
+                    var popupItem = containerPopupGrid?.GetItemAt(info.GridPosition);
                     if (popupItem != null)
                     {
-                        popupGrid.RemoveItem(popupItem);
-                        if (info.Source == "nestedcontainerpopup")
-                        {
-                            nestedContainerPopupItems.Remove(popupItem);
-                            SyncNestedContainerPopupItemsToSource();
-                        }
-                        else
-                        {
-                            containerPopupItems.Remove(popupItem);
-                            SyncContainerPopupItemsToSource();
-                        }
+                        containerPopupGrid.RemoveItem(popupItem);
+                        containerPopupItems.Remove(popupItem);
+                        SyncContainerPopupItemsToSource();
                     }
                     break;
                 case "nearbyloot":
@@ -2956,22 +2926,12 @@ namespace XCOM_3
                         ReturnItemToGrid(restored);
                     break;
                 case "containerpopup":
-                case "nestedcontainerpopup":
                     var restoredPopupItem = new GridItem(info.Data, info.GridPosition, ItemSizeDatabase.GetItemSize(info.Data.Name), false);
-                    var targetPopupGrid = GetContainerGridBySource(info.Source);
-                    if (targetPopupGrid != null && targetPopupGrid.CanPlaceItem(restoredPopupItem.GridPosition, restoredPopupItem.GetCurrentSize()))
+                    if (containerPopupGrid != null && containerPopupGrid.CanPlaceItem(restoredPopupItem.GridPosition, restoredPopupItem.GetCurrentSize()))
                     {
-                        targetPopupGrid.PlaceItem(restoredPopupItem);
-                        if (info.Source == "nestedcontainerpopup")
-                        {
-                            nestedContainerPopupItems.Add(restoredPopupItem);
-                            SyncNestedContainerPopupItemsToSource();
-                        }
-                        else
-                        {
-                            containerPopupItems.Add(restoredPopupItem);
-                            SyncContainerPopupItemsToSource();
-                        }
+                        containerPopupGrid.PlaceItem(restoredPopupItem);
+                        containerPopupItems.Add(restoredPopupItem);
+                        SyncContainerPopupItemsToSource();
                     }
                     else
                     {
