@@ -786,6 +786,15 @@ namespace XCOM_3
         private static float GetHandSideSign(Unit.Handedness dominantHand)
             => dominantHand == Unit.Handedness.Left ? 1f : -1f;
 
+        private static readonly Color DominantShoulderColor = new Color(220, 40, 40);
+        private static readonly Color SupportShoulderColor = new Color(45, 120, 235);
+
+        private static Color GetShoulderColorForX(Unit.Handedness dominantHand, float shoulderX)
+        {
+            float dominantSign = GetHandSideSign(dominantHand);
+            return shoulderX * dominantSign >= 0f ? DominantShoulderColor : SupportShoulderColor;
+        }
+
         private void DrawWeapon(GraphicsDevice device, BasicEffect effect, Vector3 pos, Item weapon,
                                 float scale, Matrix rot, UnitDimensions dims, bool isAiming,
                                 Unit.Handedness dominantHand)
@@ -879,9 +888,10 @@ namespace XCOM_3
             // Ajoute un vrai volume d'épaule au-dessus des manches pour éviter
             // l'impression d'épaule « absente » quand une chemise est équipée.
             float shoulderCapRadius = dims.lw * 0.36f * HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderSphereScale, 0.6f, 2.2f);
-            Color shoulderHighlightColor = new Color(220, 40, 40);
-            DrawSphere(device, effect, pos, leftShoulder, shoulderCapRadius, shoulderHighlightColor, rot);
-            DrawSphere(device, effect, pos, rightShoulder, shoulderCapRadius, shoulderHighlightColor, rot);
+            DrawSphere(device, effect, pos, leftShoulder, shoulderCapRadius,
+                GetShoulderColorForX(dominantHand, leftShoulder.X), rot);
+            DrawSphere(device, effect, pos, rightShoulder, shoulderCapRadius,
+                GetShoulderColorForX(dominantHand, rightShoulder.X), rot);
 
             DrawFrustumBetween(device, effect, pos, leftShoulder, leftElbow,
                 dims.lw * 0.62f, dims.lw * 0.56f, shirtColor * 0.9f, rot, 5);
@@ -1246,12 +1256,17 @@ namespace XCOM_3
             float shoulderWidthScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
             float shoulderX = dominantSign * dims.tw * 0.58f * shoulderWidthScale;
             float shoulderY = dims.ll + dims.th * (0.86f * shoulderHeightScale) + GetShoulderVerticalOffset(dims, shoulderX);
+            float supportShoulderX = -shoulderX;
+            float supportShoulderY = dims.ll + dims.th * (0.86f * shoulderHeightScale) + GetShoulderVerticalOffset(dims, supportShoulderX);
+            float shoulderSphereRadius = dims.lw * 0.28f * HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderSphereScale, 0.6f, 2.2f);
 
             Vector3 shoulder = new Vector3(shoulderX, shoulderY, 0f);
+            Vector3 supportShoulder = new Vector3(supportShoulderX, supportShoulderY, 0f);
             Vector3 elbow = new Vector3(shoulderX, shoulderY - dims.al * 0.06f, dims.al * 0.48f);
             Vector3 wrist = new Vector3(shoulderX, shoulderY - dims.al * 0.1f, dims.al * 0.96f);
 
-            DrawSphere(d, e, p, shoulder, dims.lw * 0.28f * HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderSphereScale, 0.6f, 2.2f), new Color(220, 40, 40), r);
+            DrawSphere(d, e, p, shoulder, shoulderSphereRadius, DominantShoulderColor, r);
+            DrawSphere(d, e, p, supportShoulder, shoulderSphereRadius, SupportShoulderColor, r);
             DrawFrustumBetween(d, e, p, shoulder, elbow,
                 dims.lw * 0.58f, dims.lw * 0.46f, armColor, r, 6);
             DrawForearmBetween(d, e, p, elbow, wrist,
@@ -1294,7 +1309,6 @@ namespace XCOM_3
                                         Matrix r, Color bodyColor, bool isAiming, Unit.Handedness dominantHand)
         {
             Color armColor = bodyColor * 0.9f;
-            Color shoulderColor = new Color(220, 40, 40);
             float shoulderHeightScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderHeightScale, 0.7f, 1.3f);
             float shoulderWidthScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
             float shoulderBaseY = dims.ll + dims.th * (0.9f * shoulderHeightScale);
@@ -1313,10 +1327,10 @@ namespace XCOM_3
 
             DrawSphere(d, e, p,
                 new Vector3(dominantShoulderX, dominantShoulderY, shoulderForwardOffset),
-                shoulderSphereRadius, shoulderColor, r);
+                shoulderSphereRadius, DominantShoulderColor, r);
             DrawSphere(d, e, p,
                 new Vector3(supportShoulderX, supportShoulderY, shoulderForwardOffset),
-                shoulderSphereRadius, shoulderColor, r);
+                shoulderSphereRadius, SupportShoulderColor, r);
 
             DrawRoundedCapsuleY(d, e, p, new Vector3(dominantShoulderX, (dominantShoulderY + elbowY) * 0.5f, handZ * 0.35f),
                 dims.al * 0.52f, dims.lw * 0.5f, armColor, r, 6);
