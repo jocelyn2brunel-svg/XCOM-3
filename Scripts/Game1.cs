@@ -516,6 +516,9 @@ namespace XCOM_3
             if (currentState == GameState.Playing && characterInfoPanel.IsVisible && selectedUnit?.Team == Team.Player)
                 characterInfoPanel.DrawPreview3D(selectedUnit);
 
+            if (currentState == GameState.HumanBodyEditor)
+                humanBodyEditorManager.DrawPreview3D();
+
             // --- EFFETS VISUELS 3D ---
             VisualEffects.Draw(); // explosions et particules
 
