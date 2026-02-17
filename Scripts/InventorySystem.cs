@@ -3547,10 +3547,19 @@ namespace XCOM_3
                 float textX = imageRect.Right + 16;
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Type: {examinedItemData.Type}", new Vector2(textX, textY), ParasiteEveTheme.TextNormal, 0.7f);
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Poids: {examinedItemData.WeightLbs:0.##} lbs", new Vector2(textX, textY + 24), ParasiteEveTheme.TextNormal, 0.7f);
-                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Slots bonus: {examinedItemData.BonusInventorySlots}", new Vector2(textX, textY + 48), ParasiteEveTheme.TextNormal, 0.7f);
-                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Mobilite: -{examinedItemData.MobilityPenalty}", new Vector2(textX, textY + 72), ParasiteEveTheme.TextNormal, 0.7f);
+                string slotBonusText = examinedItemData.BonusInventorySlots > 0
+                    ? $"+{examinedItemData.BonusInventorySlots}"
+                    : examinedItemData.BonusInventorySlots < 0
+                        ? examinedItemData.BonusInventorySlots.ToString()
+                        : "0";
+                string mobilityText = examinedItemData.MobilityPenalty > 0
+                    ? $"-{examinedItemData.MobilityPenalty}"
+                    : "0";
+
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Slots bonus: {slotBonusText}", new Vector2(textX, textY + 48), ParasiteEveTheme.TextNormal, 0.7f);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Mobilite: {mobilityText}", new Vector2(textX, textY + 72), ParasiteEveTheme.TextNormal, 0.7f);
                 if (examinedItemData.Type == ItemType.Armor)
-                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Résistance éclats: {examinedItemData.FragmentationProtectionPercent}%", new Vector2(textX, textY + 96), ParasiteEveTheme.TextNormal, 0.7f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Résistance éclats: +{examinedItemData.FragmentationProtectionPercent}%", new Vector2(textX, textY + 96), ParasiteEveTheme.TextNormal, 0.7f);
 
                 if (!string.IsNullOrWhiteSpace(examinedItemData.Description))
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, examinedItemData.Description, new Vector2(examinePopupRect.X + 16, examinePopupRect.Y + 190), ParasiteEveTheme.TextDim, 0.6f);
