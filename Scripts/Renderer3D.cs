@@ -1081,54 +1081,64 @@ namespace XCOM_3
         {
             if (path == null || path.Count == 0 || unit == null) return;
 
-            int shortRange = unit.GetShortMoveRange();
-            int maxRange = unit.GetMaxMoveRange();
+            bool previousLighting = basic.LightingEnabled;
+            basic.LightingEnabled = false;
 
-            for (int i = 0; i < path.Count; i++)
+            try
             {
-                GridNode node = path[i];
-                Point cell = node.Cell;
-                int distance = i + 1;
+                int shortRange = unit.GetShortMoveRange();
+                int maxRange = unit.GetMaxMoveRange();
 
-                // Déterminer la couleur selon la distance
-                Color pathColor;
-                if (distance <= shortRange)
+                for (int i = 0; i < path.Count; i++)
                 {
-                    pathColor = new Color(0, 255, 100, 200); // Vert
-                }
-                else if (distance <= maxRange)
-                {
-                    pathColor = new Color(0, 200, 255, 200); // Bleu
-                }
-                else
-                {
-                    pathColor = new Color(255, 200, 0, 200); // Jaune (sprint)
-                }
+                    GridNode node = path[i];
+                    Point cell = node.Cell;
+                    int distance = i + 1;
 
-                Vector3 pos = new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
-                    WorldMetrics.FloorToWorldY(node.Floor, cellSize) + 0.09f,
-                    cell.Y * cellSize + cellSize / 2f
-                );
+                    // Déterminer la couleur selon la distance
+                    Color pathColor;
+                    if (distance <= shortRange)
+                    {
+                        pathColor = new Color(0, 255, 100, 200); // Vert
+                    }
+                    else if (distance <= maxRange)
+                    {
+                        pathColor = new Color(0, 200, 255, 200); // Bleu
+                    }
+                    else
+                    {
+                        pathColor = new Color(255, 200, 0, 200); // Jaune (sprint)
+                    }
 
-                float pulse = (float)Math.Sin(gameTime * 4f + i * 0.3f) * 0.08f + 0.92f;
-
-                // Marqueur de point de passage
-                DrawCube(pos, new Vector3(cellSize * 0.22f, 0.05f, cellSize * 0.22f), pathColor * pulse);
-
-                // Tracé de trajectoire entre 2 cases
-                if (i < path.Count - 1)
-                {
-                    GridNode nextNode = path[i + 1];
-                    Point nextCell = nextNode.Cell;
-                    Vector3 nextPos = new Vector3(
-                        nextCell.X * cellSize + cellSize / 2f,
-                        WorldMetrics.FloorToWorldY(nextNode.Floor, cellSize) + 0.09f,
-                        nextCell.Y * cellSize + cellSize / 2f
+                    Vector3 pos = new Vector3(
+                        cell.X * cellSize + cellSize / 2f,
+                        WorldMetrics.FloorToWorldY(node.Floor, cellSize) + 0.09f,
+                        cell.Y * cellSize + cellSize / 2f
                     );
 
-                    DrawPathSegment(pos, nextPos, pathColor * pulse, cellSize);
+                    float pulse = (float)Math.Sin(gameTime * 4f + i * 0.3f) * 0.08f + 0.92f;
+
+                    // Marqueur de point de passage
+                    DrawCube(pos, new Vector3(cellSize * 0.22f, 0.05f, cellSize * 0.22f), pathColor * pulse);
+
+                    // Tracé de trajectoire entre 2 cases
+                    if (i < path.Count - 1)
+                    {
+                        GridNode nextNode = path[i + 1];
+                        Point nextCell = nextNode.Cell;
+                        Vector3 nextPos = new Vector3(
+                            nextCell.X * cellSize + cellSize / 2f,
+                            WorldMetrics.FloorToWorldY(nextNode.Floor, cellSize) + 0.09f,
+                            nextCell.Y * cellSize + cellSize / 2f
+                        );
+
+                        DrawPathSegment(pos, nextPos, pathColor * pulse, cellSize);
+                    }
                 }
+            }
+            finally
+            {
+                basic.LightingEnabled = previousLighting;
             }
         }
 
