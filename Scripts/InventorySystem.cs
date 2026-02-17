@@ -1220,13 +1220,13 @@ namespace XCOM_3
             nearbyLootItems.RemoveAt(lootIndex);
             ClampNearbyLootScroll();
 
-            int maxWidth = lootSize.Width * CELL_SIZE - 1;
-            int maxHeight = lootSize.Height * CELL_SIZE - 1;
+            int maxWidth = lootSize.Width * LOOT_GRID_CELL_SIZE - 1;
+            int maxHeight = lootSize.Height * LOOT_GRID_CELL_SIZE - 1;
             int offsetX = Math.Clamp(mousePosition.X - lootSlot.X, 0, maxWidth);
             int offsetY = Math.Clamp(mousePosition.Y - lootSlot.Y, 0, maxHeight);
 
             dragPixelOffset = new Point(offsetX, offsetY);
-            dragGridOffset = new Point(offsetX / CELL_SIZE, offsetY / CELL_SIZE);
+            dragGridOffset = new Point(offsetX / LOOT_GRID_CELL_SIZE, offsetY / LOOT_GRID_CELL_SIZE);
             draggedItemFromNearbyLoot = true;
             PlayUiSound(uiClickSound, 0.45f);
 
@@ -2647,8 +2647,8 @@ namespace XCOM_3
                 Rectangle lootSlot = new Rectangle(
                     drawX,
                     drawY,
-                    Math.Max(1, entry.CellWidth * lootCellSize - 4),
-                    Math.Max(1, entry.CellHeight * lootCellSize - 4));
+                    Math.Max(1, entry.CellWidth * lootCellSize),
+                    Math.Max(1, entry.CellHeight * lootCellSize));
 
                 nearbyLootSlotRects.Add(lootSlot);
                 nearbyLootSlotItemIndexes.Add(itemIndex);
