@@ -41,6 +41,7 @@ namespace XCOM_3
         private const int LOOT_GRID_BOTTOM_INFO_HEIGHT = 24;
         private const int LootHeaderTextHeight = 12;
         private const int UiSoundSampleRate = 22050;
+        private const bool IsMainInventoryGridVisible = false;
 
         // ═══════════════════════════════════════════════════════════════════════
         // ÉTAT
@@ -757,7 +758,7 @@ namespace XCOM_3
             int gridY = (mouse.Y - gridStartY) / CELL_SIZE;
 
             hoveredItem = null;
-            if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT)
+            if (IsMainInventoryGridVisible && gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT)
             {
                 hoveredItem = inventoryGrid.GetItemAt(new Point(gridX, gridY)); //
             }
@@ -890,7 +891,7 @@ namespace XCOM_3
             int gridY = (mouse.Y - gridStartY) / CELL_SIZE;
 
             // Vérifier clic dans la grille
-            if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT)
+            if (IsMainInventoryGridVisible && gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT)
             {
                 GridItem clickedItem = inventoryGrid.GetItemAt(new Point(gridX, gridY));
 
@@ -911,7 +912,7 @@ namespace XCOM_3
                 }
             }
 
-            if (TryStartDragFromNearbyLoot(mouse.Position))
+            if (IsMainInventoryGridVisible && TryStartDragFromNearbyLoot(mouse.Position))
                 return;
 
             // ✅ VÉRIFIER ET DÉSÉQUIPER LES SLOTS
@@ -1207,7 +1208,7 @@ namespace XCOM_3
                 int gridPixelHeight = GRID_HEIGHT * CELL_SIZE;
                 Rectangle gridArea = new Rectangle(gridStartX, gridStartY, gridPixelWidth, gridPixelHeight);
 
-                if (gridArea.Contains(mouse.Position))
+                if (IsMainInventoryGridVisible && gridArea.Contains(mouse.Position))
                 {
                     // Essayer de placer à la position calculée
                     if (inventoryGrid.CanPlaceItem(draggedItem.GridPosition, draggedItem.GetCurrentSize()))
@@ -1251,6 +1252,18 @@ namespace XCOM_3
                 }
                 else
                 {
+                    if (!IsMainInventoryGridVisible && draggedItemFromNearbyLoot)
+                    {
+                        nearbyLootItems.Add(draggedItem.Data);
+                        ClampNearbyLootScroll();
+                        PlayUiSound(uiErrorSound, 0.65f);
+
+                        Console.WriteLine($"[INVENTORY] Main grid hidden. Item returned to nearby loot: {draggedItem.Data.Name}");
+                        draggedItem = null;
+                        draggedItemFromNearbyLoot = false;
+                        return;
+                    }
+
                     // Hors grille, replacer automatiquement
                     Point? freePos = inventoryGrid.FindFreePosition(draggedItem.GetCurrentSize(), true);
                     if (freePos.HasValue)
@@ -1312,6 +1325,9 @@ namespace XCOM_3
 
         private bool TryPickupNearbyLoot(Point mousePosition)
         {
+            if (!IsMainInventoryGridVisible)
+                return false;
+
             if (!TryGetNearbyLootEntryAt(mousePosition, out int lootIndex, out _))
                 return false;
 
@@ -1963,7 +1979,7 @@ namespace XCOM_3
         {
             int gridX = (mousePos.X - gridStartX) / CELL_SIZE;
             int gridY = (mousePos.Y - gridStartY) / CELL_SIZE;
-            if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT)
+            if (IsMainInventoryGridVisible && gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT)
             {
                 var gridItem = inventoryGrid.GetItemAt(new Point(gridX, gridY));
                 if (gridItem != null)
@@ -2878,7 +2894,7 @@ namespace XCOM_3
                 nearbyLootSlotRects.Add(lootSlot);
                 nearbyLootSlotItemIndexes.Add(itemIndex);
 
-                bool canPickup = inventoryGrid.FindFreePosition(ItemSizeDatabase.GetItemSize(nearbyLootItems[itemIndex].Name), true).HasValue;
+                bool canPickup = IsMainInventoryGridVisible && inventoryGrid.FindFreePosition(ItemSizeDatabase.GetItemSize(nearbyLootItems[itemIndex].Name), true).HasValue;
                 Color slotColor = canPickup ? ParasiteEveTheme.ButtonNormal * 0.28f : ParasiteEveTheme.TextDanger * 0.2f;
                 spriteBatch.Draw(pixel, lootSlot, slotColor);
                 ParasiteEveTheme.DrawBorder(spriteBatch, pixel, lootSlot, ParasiteEveTheme.BorderColor, 1);
