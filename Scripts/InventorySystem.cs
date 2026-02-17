@@ -1994,7 +1994,7 @@ namespace XCOM_3
         private bool TryBuildContainerPopupContent(ItemContextInfo info, Unit unit, out string title, out List<string> lines)
         {
             title = info.Data?.Name ?? "CONTENEUR";
-            lines = new List<string>();
+            List<string> popupLines = new List<string>();
 
             void AddPocketItems(List<Item> items, string prefix)
             {
@@ -2006,7 +2006,7 @@ namespace XCOM_3
                     Item item = items[i];
                     if (item?.Data == null)
                         continue;
-                    lines.Add($"{prefix} {i + 1}: {item.Data.Name}");
+                    popupLines.Add($"{prefix} {i + 1}: {item.Data.Name}");
                 }
             }
 
@@ -2019,7 +2019,7 @@ namespace XCOM_3
                 {
                     if (item?.Data == null)
                         continue;
-                    lines.Add($"[{item.GridPosition.X},{item.GridPosition.Y}] {item.Data.Name}");
+                    popupLines.Add($"[{item.GridPosition.X},{item.GridPosition.Y}] {item.Data.Name}");
                 }
             }
 
@@ -2052,6 +2052,8 @@ namespace XCOM_3
                     AddGridItems(unit.BackpackInventory.GetAllItems());
                     break;
             }
+
+            lines = popupLines;
 
             if (lines.Count == 0)
                 return false;
