@@ -1492,6 +1492,30 @@ namespace XCOM_3
                     return true;
                 }
 
+                Rectangle kneesSlot = GetKneesSlotBounds();
+                if (item.Data.ArmorSlot == ArmorSlot.Knees && kneesSlot.Contains(mousePosition))
+                {
+                    if (unit.EquippedKnees != null)
+                        ReturnItemToGrid(unit.EquippedKnees);
+                    unit.EquippedKnees = new Item(item.Data, Point.Zero);
+                    PlayUiSound(uiEquipSound, 0.6f);
+
+                    Console.WriteLine($"[INVENTORY] ✅ Equipped knees armor: {item.Data.Name}");
+                    return true;
+                }
+
+                Rectangle feetSlot = GetFeetSlotBounds();
+                if (item.Data.ArmorSlot == ArmorSlot.Feet && feetSlot.Contains(mousePosition))
+                {
+                    if (unit.EquippedFeet != null)
+                        ReturnItemToGrid(unit.EquippedFeet);
+                    unit.EquippedFeet = new Item(item.Data, Point.Zero);
+                    PlayUiSound(uiEquipSound, 0.6f);
+
+                    Console.WriteLine($"[INVENTORY] ✅ Equipped feet armor: {item.Data.Name}");
+                    return true;
+                }
+
                 Rectangle chestRigSlot = GetChestRigSlotBounds();
                 if (item.Data.ArmorSlot == ArmorSlot.ChestRig && chestRigSlot.Contains(mousePosition))
                 {
@@ -1759,6 +1783,8 @@ namespace XCOM_3
                 if (info.Data.ArmorSlot == ArmorSlot.Shield && info.Source == "shield") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Shirt && info.Source == "shirt") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Pants && info.Source == "pants") return true;
+                if (info.Data.ArmorSlot == ArmorSlot.Knees && info.Source == "knees") return true;
+                if (info.Data.ArmorSlot == ArmorSlot.Feet && info.Source == "feet") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.ChestRig && info.Source == "chestrig") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Belt && info.Source == "belt") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Backpack && info.Source == "backpack") return true;
@@ -1792,6 +1818,8 @@ namespace XCOM_3
                     case ArmorSlot.Shield: target = GetShieldSlotBounds().Center; return true;
                     case ArmorSlot.Shirt: target = GetShirtSlotBounds().Center; return true;
                     case ArmorSlot.Pants: target = GetPantsSlotBounds().Center; return true;
+                    case ArmorSlot.Knees: target = GetKneesSlotBounds().Center; return true;
+                    case ArmorSlot.Feet: target = GetFeetSlotBounds().Center; return true;
                     case ArmorSlot.ChestRig: target = GetChestRigSlotBounds().Center; return true;
                     case ArmorSlot.Belt: target = GetBeltSlotBounds().Center; return true;
                     case ArmorSlot.Backpack: target = GetBackpackSlotBounds().Center; return true;
@@ -1883,6 +1911,8 @@ namespace XCOM_3
             if (unit.EquippedAccessory != null && GetBeltSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedAccessory.Data, Source = "accessory", Index = -1 };
             if (unit.EquippedShirt != null && GetShirtSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedShirt.Data, Source = "shirt", Index = -1 };
             if (unit.EquippedPants != null && GetPantsSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedPants.Data, Source = "pants", Index = -1 };
+            if (unit.EquippedKnees != null && GetKneesSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedKnees.Data, Source = "knees", Index = -1 };
+            if (unit.EquippedFeet != null && GetFeetSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedFeet.Data, Source = "feet", Index = -1 };
             if (unit.EquippedChestRig != null && GetChestRigSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedChestRig.Data, Source = "chestrig", Index = -1 };
             if (unit.EquippedBelt != null && GetBeltSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedBelt.Data, Source = "belt", Index = -1 };
             if (!string.IsNullOrWhiteSpace(unit.EquippedBackpack) && GetBackpackSlotBounds().Contains(mousePos) && ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData backpackData))
@@ -1947,6 +1977,8 @@ namespace XCOM_3
                 case "leftflashlight": unit.EquippedLeftHandFlashlight = null; unit.IsLeftHandFlashlightOn = false; break;
                 case "shirt": unit.EquippedShirt = null; break;
                 case "pants": unit.EquippedPants = null; break;
+                case "knees": unit.EquippedKnees = null; break;
+                case "feet": unit.EquippedFeet = null; break;
                 case "chestrig": unit.EquippedChestRig = null; break;
                 case "belt": unit.EquippedBelt = null; break;
                 case "backpack": unit.EquippedBackpack = null; unit.EnsureBackpackInventoryGrid(); break;
@@ -1988,6 +2020,8 @@ namespace XCOM_3
                 case "leftflashlight": unit.EquippedLeftHandFlashlight = restored; unit.IsLeftHandFlashlightOn = true; break;
                 case "shirt": unit.EquippedShirt = restored; break;
                 case "pants": unit.EquippedPants = restored; break;
+                case "knees": unit.EquippedKnees = restored; break;
+                case "feet": unit.EquippedFeet = restored; break;
                 case "chestrig": unit.EquippedChestRig = restored; break;
                 case "belt": unit.EquippedBelt = restored; break;
                 case "backpack": unit.EquippedBackpack = info.Data.Name; unit.EnsureBackpackInventoryGrid(); break;
@@ -2353,6 +2387,20 @@ namespace XCOM_3
                     return true;
                 }
 
+                if (item.Data.ArmorSlot == ArmorSlot.Knees && GetKneesSlotBounds().Contains(mousePosition))
+                {
+                    previewRect = GetKneesSlotBounds();
+                    canEquip = true;
+                    return true;
+                }
+
+                if (item.Data.ArmorSlot == ArmorSlot.Feet && GetFeetSlotBounds().Contains(mousePosition))
+                {
+                    previewRect = GetFeetSlotBounds();
+                    canEquip = true;
+                    return true;
+                }
+
                 if (item.Data.ArmorSlot == ArmorSlot.ChestRig && GetChestRigSlotBounds().Contains(mousePosition))
                 {
                     previewRect = GetChestRigSlotBounds();
@@ -2533,6 +2581,14 @@ namespace XCOM_3
 
             DrawEquipmentSlot(GetPantsSlotBounds(), "PANTS", unit.EquippedPants,
                 isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Pants,
+                labelOnLeft: true);
+
+            DrawEquipmentSlot(GetKneesSlotBounds(), "KNEES", unit.EquippedKnees,
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Knees,
+                labelOnLeft: true);
+
+            DrawEquipmentSlot(GetFeetSlotBounds(), "FEET", unit.EquippedFeet,
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Feet,
                 labelOnLeft: true);
 
             DrawEquipmentSlot(GetArmorSlotBounds(), "VEST", unit.EquippedArmor,
@@ -3041,19 +3097,29 @@ namespace XCOM_3
             return GetMainEquipmentSlotBounds(6);
         }
 
-        private Rectangle GetChestRigSlotBounds()
+        private Rectangle GetKneesSlotBounds()
         {
             return GetMainEquipmentSlotBounds(7);
         }
 
-        private Rectangle GetBeltSlotBounds()
+        private Rectangle GetFeetSlotBounds()
         {
             return GetMainEquipmentSlotBounds(8);
         }
 
-        private Rectangle GetBackpackSlotBounds()
+        private Rectangle GetChestRigSlotBounds()
         {
             return GetMainEquipmentSlotBounds(9);
+        }
+
+        private Rectangle GetBeltSlotBounds()
+        {
+            return GetMainEquipmentSlotBounds(10);
+        }
+
+        private Rectangle GetBackpackSlotBounds()
+        {
+            return GetMainEquipmentSlotBounds(11);
         }
 
         private Rectangle GetMainEquipmentSlotBounds(int row)
