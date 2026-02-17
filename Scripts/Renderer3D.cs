@@ -143,6 +143,22 @@ namespace XCOM_3
             DrawVertices(verts, cubeIdx, Matrix.CreateScale(scale) * Matrix.CreateTranslation(pos));
         }
 
+        public void DrawLine(Vector3 start, Vector3 end, Color color)
+        {
+            VertexPositionColor[] lineVertices = new[]
+            {
+                new VertexPositionColor(start, color),
+                new VertexPositionColor(end, color)
+            };
+
+            basic.World = Matrix.Identity;
+            foreach (var pass in basic.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                gd.DrawUserPrimitives(PrimitiveType.LineList, lineVertices, 0, 1);
+            }
+        }
+
         public void DrawPlane(Vector3 pos, Vector3 scale, Color color)
             => DrawPlane(pos, scale, color, 0f, 0f, 0f);
 
