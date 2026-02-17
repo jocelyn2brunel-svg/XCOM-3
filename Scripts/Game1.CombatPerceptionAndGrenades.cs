@@ -425,6 +425,7 @@ namespace XCOM_3
 
             int totalReduction = 0;
             totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedHelmet);
+            totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedNeck);
             totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedArmor);
             totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedShield);
             totalReduction += GetItemFragmentationProtectionPercent(unit.EquippedShirt);

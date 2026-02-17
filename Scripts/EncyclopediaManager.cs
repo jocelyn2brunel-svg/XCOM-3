@@ -322,12 +322,14 @@ namespace XCOM_3
                 string slot = armor.ArmorSlot switch
                 {
                     ArmorSlot.Head => "Tête",
+                    ArmorSlot.Neck => "Cou",
                     ArmorSlot.Torso => "Torse",
                     ArmorSlot.Shield => "Bouclier",
                     ArmorSlot.Shirt => "Chemise",
                     ArmorSlot.Pants => "Pantalon",
                     ArmorSlot.ChestRig => "Chest Rig",
                     ArmorSlot.Belt => "Ceinture",
+                    ArmorSlot.Backpack => "Sac à dos",
                     _ => "Inconnu"
                 };
                 _spriteBatch.DrawString(_font, $"  Emplacement: {slot}", new Vector2(ContentX + 20, y), Color.White);

@@ -41,6 +41,7 @@ namespace XCOM_3
             var list = new List<ItemData>();
 
             AddHelmets(list);
+            AddNeckArmors(list);
             AddVests(list);
             AddModernPlates(list);
             AddShields(list);
@@ -66,6 +67,25 @@ namespace XCOM_3
                 Helmet("ACH", 15, ProtectionLevel.NIJ_IIIA, 3.3f, "Advanced Combat Helmet avec meilleur amorti d'impact.", 26),
                 Helmet("ECH", 16, ProtectionLevel.NIJ_IIIA, 3.6f, "Enhanced Combat Helmet, excellente tenue face aux éclats.", 30),
             });
+        }
+
+        // ─────────────────────────────────────────────
+        // PROTECTIONS DE COU
+        // ─────────────────────────────────────────────
+        private static void AddNeckArmors(List<ItemData> list)
+        {
+            list.Add(new ItemData(
+                "Ballistic Neck Armor",
+                ItemType.Armor,
+                1,
+                ArmorSlot.Neck,
+                ProtectionLevel.Fragmentation,
+                0,
+                0.4f,
+                0,
+                "Protège-cou balistique léger. Réduit légèrement les blessures par éclats.",
+                2
+            ));
         }
 
         // ─────────────────────────────────────────────

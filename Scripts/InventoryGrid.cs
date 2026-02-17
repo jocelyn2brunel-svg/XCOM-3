@@ -132,6 +132,7 @@ namespace XCOM_3
             if (name.Contains("SMG") || name.Contains("Pistol")) return new ItemSize(1, 2);
             if (name.Contains("Sniper")) return new ItemSize(1, 5);
             if (name.Contains("Helmet") || name.Contains("ACH") || name.Contains("ECH") || name.Contains("MICH")) return new ItemSize(2, 2);
+            if (name.Contains("Neck")) return new ItemSize(1, 1);
             if (name.Contains("Vest") || name.Contains("OTV") || name.Contains("MTV") || name.Contains("IMTV") || name.Contains("IOTV") || name.Contains("Jacket")) return new ItemSize(2, 3);
             if (name.Contains("Shield")) return new ItemSize(2, 4);
             if (name.Contains("Shirt")) return new ItemSize(2, 2);
