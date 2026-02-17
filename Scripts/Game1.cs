@@ -654,9 +654,61 @@ namespace XCOM_3
 
         private void HandleUnitKilled(Unit unit)
         {
+            DropUnitLootToGround(unit);
             if (unit.Team == Team.Player) { playerUnits.Remove(unit); if (playerUnits.Count == 0) currentState = GameState.GameOver; }
             else enemyUnits.Remove(unit);
             unitManager.OnUnitDied(unit);
+        }
+
+        private void DropUnitLootToGround(Unit unit)
+        {
+            if (unit == null || inventorySystem == null)
+                return;
+
+            foreach (string itemName in CollectUnitLootNames(unit))
+            {
+                RegisterGroundLoot(itemName, unit.Cell, unit.Floor);
+            }
+        }
+
+        private IEnumerable<string> CollectUnitLootNames(Unit unit)
+        {
+            if (unit?.EquippedWeapon?.Data?.Name != null) yield return unit.EquippedWeapon.Data.Name;
+            if (unit?.EquippedHelmet?.Data?.Name != null) yield return unit.EquippedHelmet.Data.Name;
+            if (unit?.EquippedNeck?.Data?.Name != null) yield return unit.EquippedNeck.Data.Name;
+            if (unit?.EquippedArmor?.Data?.Name != null) yield return unit.EquippedArmor.Data.Name;
+            if (unit?.EquippedShield?.Data?.Name != null) yield return unit.EquippedShield.Data.Name;
+            if (unit?.EquippedAccessory?.Data?.Name != null) yield return unit.EquippedAccessory.Data.Name;
+            if (unit?.EquippedRightHandFlashlight?.Data?.Name != null) yield return unit.EquippedRightHandFlashlight.Data.Name;
+            if (unit?.EquippedLeftHandFlashlight?.Data?.Name != null) yield return unit.EquippedLeftHandFlashlight.Data.Name;
+            if (unit?.EquippedShirt?.Data?.Name != null) yield return unit.EquippedShirt.Data.Name;
+            if (unit?.EquippedPants?.Data?.Name != null) yield return unit.EquippedPants.Data.Name;
+            if (unit?.EquippedChestRig?.Data?.Name != null) yield return unit.EquippedChestRig.Data.Name;
+            if (unit?.EquippedBelt?.Data?.Name != null) yield return unit.EquippedBelt.Data.Name;
+
+            if (!string.IsNullOrWhiteSpace(unit?.EquippedBackpack))
+                yield return unit.EquippedBackpack;
+
+            if (unit?.PantsInventory != null)
+            {
+                foreach (Item item in unit.PantsInventory)
+                    if (item?.Data?.Name != null)
+                        yield return item.Data.Name;
+            }
+
+            if (unit?.ChestRigInventory != null)
+            {
+                foreach (Item item in unit.ChestRigInventory)
+                    if (item?.Data?.Name != null)
+                        yield return item.Data.Name;
+            }
+
+            if (unit?.BackpackInventory != null)
+            {
+                foreach (GridItem gridItem in unit.BackpackInventory.GetAllItems())
+                    if (gridItem?.Data?.Name != null)
+                        yield return gridItem.Data.Name;
+            }
         }
 
         private void HandleFireCompleted()
