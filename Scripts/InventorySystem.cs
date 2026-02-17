@@ -3097,7 +3097,7 @@ namespace XCOM_3
 
                 // N'afficher la prévisualisation de placement que dans la zone de grille.
                 // Sur le panneau d'équipement, elle n'est pas pertinente et semble décalée.
-                if (gridArea.Contains(mouse.Position))
+                if (IsMainInventoryGridVisible && gridArea.Contains(mouse.Position))
                 {
                     // 1. Calcul de la position théorique dans la grille (identique à HandleEndDrag)
                     int ghostGridX = (mouse.X - gridStartX) / CELL_SIZE - dragGridOffset.X;
