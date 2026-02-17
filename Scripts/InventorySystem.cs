@@ -3435,8 +3435,16 @@ namespace XCOM_3
 
                     if (!string.IsNullOrEmpty(line4))
                     {
-                        ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line4,
-                            new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 102), ParasiteEveTheme.TextDim, 0.56f);
+                        Vector2 fragPos = new Vector2(contextMenuRect.X + 12, contextMenuRect.Y + 102);
+                        float fragScale = 0.56f;
+                        ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line4, fragPos, ParasiteEveTheme.TextDim, fragScale);
+
+                        if (TryGetFragmentationDeltaText(contextMenuItem.Data, out string fragDeltaText, out Color fragDeltaColor))
+                        {
+                            float line4Width = font.MeasureString(line4).X * fragScale;
+                            Vector2 deltaPos = new Vector2(fragPos.X + line4Width + 6f, fragPos.Y);
+                            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, fragDeltaText, deltaPos, fragDeltaColor, fragScale);
+                        }
                     }
                 }
 
@@ -3559,7 +3567,19 @@ namespace XCOM_3
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Slots bonus: {slotBonusText}", new Vector2(textX, textY + 48), ParasiteEveTheme.TextNormal, 0.7f);
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Mobilite: {mobilityText}", new Vector2(textX, textY + 72), ParasiteEveTheme.TextNormal, 0.7f);
                 if (examinedItemData.Type == ItemType.Armor)
-                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Résistance éclats: +{examinedItemData.FragmentationProtectionPercent}%", new Vector2(textX, textY + 96), ParasiteEveTheme.TextNormal, 0.7f);
+                {
+                    string fragText = $"Résistance éclats: {examinedItemData.FragmentationProtectionPercent}%";
+                    Vector2 fragPos = new Vector2(textX, textY + 96);
+                    float fragScale = 0.7f;
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, fragText, fragPos, ParasiteEveTheme.TextNormal, fragScale);
+
+                    if (TryGetFragmentationDeltaText(examinedItemData, out string fragDeltaText, out Color fragDeltaColor))
+                    {
+                        float fragWidth = font.MeasureString(fragText).X * fragScale;
+                        Vector2 deltaPos = new Vector2(fragPos.X + fragWidth + 6f, fragPos.Y);
+                        ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, fragDeltaText, deltaPos, fragDeltaColor, fragScale);
+                    }
+                }
 
                 if (!string.IsNullOrWhiteSpace(examinedItemData.Description))
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, examinedItemData.Description, new Vector2(examinePopupRect.X + 16, examinePopupRect.Y + 190), ParasiteEveTheme.TextDim, 0.6f);
@@ -4260,6 +4280,30 @@ namespace XCOM_3
                 return null;
 
             return ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData data) ? data : null;
+        }
+
+        private bool TryGetFragmentationDeltaText(ItemData candidateData, out string deltaText, out Color deltaColor)
+        {
+            deltaText = string.Empty;
+            deltaColor = ParasiteEveTheme.TextDim;
+
+            if (activeUnit == null || candidateData == null || candidateData.Type != ItemType.Armor)
+                return false;
+
+            ItemData equippedData = GetComparableEquippedItemData(activeUnit, candidateData);
+            if (equippedData == null)
+                return false;
+
+            int candidateFrag = Math.Max(0, candidateData.FragmentationProtectionPercent);
+            int equippedFrag = Math.Max(0, equippedData.FragmentationProtectionPercent);
+            int delta = candidateFrag - equippedFrag;
+            if (delta == 0)
+                return false;
+
+            bool positive = delta > 0;
+            deltaText = positive ? $"(+{delta}%)" : $"({delta}%)";
+            deltaColor = positive ? Color.LimeGreen : Color.Red;
+            return true;
         }
 
         private void DrawEquipmentSlot(Rectangle slot, string label, Item equippedItem, bool highlight = false, bool labelOnLeft = false)
