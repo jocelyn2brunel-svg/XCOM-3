@@ -49,6 +49,7 @@ namespace XCOM_3
 
         private InventoryGrid inventoryGrid;
         private GridItem draggedItem = null;
+        private bool draggedItemFromNearbyLoot = false;
         private Point dragGridOffset;
         private Point dragPixelOffset;
         private readonly List<ItemData> nearbyLootItems = new List<ItemData>();
@@ -761,12 +762,6 @@ namespace XCOM_3
             // Démarrer le drag
             if (leftClick && draggedItem == null)
             {
-                if (TryPickupNearbyLoot(mouse.Position))
-                {
-                    previousKeyboardState = keyboard;
-                    return;
-                }
-
                 if (!HandleDoubleClick(mouse, selectedUnit, gridStartX, gridStartY))
                     HandleStartDrag(mouse, selectedUnit, gridStartX, gridStartY);
             }
@@ -839,6 +834,9 @@ namespace XCOM_3
                     return;
                 }
             }
+
+            if (TryStartDragFromNearbyLoot(mouse.Position))
+                return;
 
             // ✅ VÉRIFIER ET DÉSÉQUIPER LES SLOTS
             // ✅ VÉRIFIER ET DÉSÉQUIPER LES SLOTS
@@ -1099,6 +1097,7 @@ namespace XCOM_3
             if (droppedOutsideInterface)
             {
                 nearbyLootItems.Add(draggedItem.Data);
+                draggedItemFromNearbyLoot = false;
                 PlayUiSound(uiClickSound, 0.5f);
 
                 Console.WriteLine($"[INVENTORY] Dropped outside interface, sent to nearby loot: {draggedItem.Data.Name}");
@@ -1111,6 +1110,17 @@ namespace XCOM_3
 
             if (!equipped)
             {
+                if (lootWindow.Contains(mouse.Position))
+                {
+                    nearbyLootItems.Add(draggedItem.Data);
+                    draggedItemFromNearbyLoot = false;
+                    PlayUiSound(uiClickSound, 0.5f);
+
+                    Console.WriteLine($"[INVENTORY] Dropped in nearby loot panel: {draggedItem.Data.Name}");
+                    draggedItem = null;
+                    return;
+                }
+
                 // ✅ Calculer la position grille à partir de la souris
                 int gridX = (mouse.X - gridStartX) / CELL_SIZE - dragGridOffset.X;
                 int gridY = (mouse.Y - gridStartY) / CELL_SIZE - dragGridOffset.Y;
@@ -1147,9 +1157,19 @@ namespace XCOM_3
                         }
                         else
                         {
-                            PlayUiSound(uiErrorSound, 0.65f);
+                            if (draggedItemFromNearbyLoot)
+                            {
+                                nearbyLootItems.Add(draggedItem.Data);
+                                PlayUiSound(uiErrorSound, 0.65f);
 
-                            Console.WriteLine($"[INVENTORY] WARNING: No space! Item lost: {draggedItem.Data.Name}");
+                                Console.WriteLine($"[INVENTORY] No space. Item returned to nearby loot: {draggedItem.Data.Name}");
+                            }
+                            else
+                            {
+                                PlayUiSound(uiErrorSound, 0.65f);
+
+                                Console.WriteLine($"[INVENTORY] WARNING: No space! Item lost: {draggedItem.Data.Name}");
+                            }
                         }
                     }
                 }
@@ -1168,18 +1188,82 @@ namespace XCOM_3
                     }
                     else
                     {
-                        PlayUiSound(uiErrorSound, 0.65f);
+                        if (draggedItemFromNearbyLoot)
+                        {
+                            nearbyLootItems.Add(draggedItem.Data);
+                            PlayUiSound(uiErrorSound, 0.65f);
 
-                        Console.WriteLine($"[INVENTORY] WARNING: No space! Item lost: {draggedItem.Data.Name}");
+                            Console.WriteLine($"[INVENTORY] No space. Item returned to nearby loot: {draggedItem.Data.Name}");
+                        }
+                        else
+                        {
+                            PlayUiSound(uiErrorSound, 0.65f);
+
+                            Console.WriteLine($"[INVENTORY] WARNING: No space! Item lost: {draggedItem.Data.Name}");
+                        }
                     }
                 }
             }
 
             draggedItem = null;
+            draggedItemFromNearbyLoot = false;
+        }
+
+        private bool TryStartDragFromNearbyLoot(Point mousePosition)
+        {
+            if (!TryGetNearbyLootEntryAt(mousePosition, out int lootIndex, out Rectangle lootSlot))
+                return false;
+
+            ItemData lootData = nearbyLootItems[lootIndex];
+            ItemSize lootSize = ItemSizeDatabase.GetItemSize(lootData.Name);
+            draggedItem = new GridItem(lootData, Point.Zero, lootSize, false);
+            nearbyLootItems.RemoveAt(lootIndex);
+            ClampNearbyLootScroll();
+
+            int maxWidth = lootSize.Width * CELL_SIZE - 1;
+            int maxHeight = lootSize.Height * CELL_SIZE - 1;
+            int offsetX = Math.Clamp(mousePosition.X - lootSlot.X, 0, maxWidth);
+            int offsetY = Math.Clamp(mousePosition.Y - lootSlot.Y, 0, maxHeight);
+
+            dragPixelOffset = new Point(offsetX, offsetY);
+            dragGridOffset = new Point(offsetX / CELL_SIZE, offsetY / CELL_SIZE);
+            draggedItemFromNearbyLoot = true;
+            PlayUiSound(uiClickSound, 0.45f);
+
+            Console.WriteLine($"[INVENTORY] Drag from nearby loot: {draggedItem.Data.Name}");
+            return true;
         }
 
         private bool TryPickupNearbyLoot(Point mousePosition)
         {
+            if (!TryGetNearbyLootEntryAt(mousePosition, out int lootIndex, out _))
+                return false;
+
+            ItemData lootData = nearbyLootItems[lootIndex];
+            ItemSize lootSize = ItemSizeDatabase.GetItemSize(lootData.Name);
+            Point? freePos = inventoryGrid.FindFreePosition(lootSize, true);
+            if (!freePos.HasValue)
+            {
+                PlayUiSound(uiErrorSound, 0.65f);
+
+                Console.WriteLine($"[INVENTORY] Cannot pickup nearby loot (inventory full): {lootData.Name}");
+                return true;
+            }
+
+            inventoryGrid.PlaceItem(new GridItem(lootData, freePos.Value, lootSize, false));
+            nearbyLootItems.RemoveAt(lootIndex);
+            ClampNearbyLootScroll();
+            PlayUiSound(uiEquipSound, 0.58f);
+
+            Console.WriteLine($"[INVENTORY] Picked nearby loot: {lootData.Name}");
+            return true;
+        }
+
+        private bool TryGetNearbyLootEntryAt(Point mousePosition, out int lootIndex, out Rectangle lootSlot)
+        {
+            lootIndex = -1;
+            lootSlot = Rectangle.Empty;
+
             if (nearbyLootItems.Count == 0)
                 return false;
 
@@ -1191,27 +1275,12 @@ namespace XCOM_3
                 if (i >= nearbyLootSlotItemIndexes.Count)
                     return false;
 
-                int lootIndex = nearbyLootSlotItemIndexes[i];
-                if (lootIndex < 0 || lootIndex >= nearbyLootItems.Count)
+                int candidateIndex = nearbyLootSlotItemIndexes[i];
+                if (candidateIndex < 0 || candidateIndex >= nearbyLootItems.Count)
                     return false;
 
-                ItemData lootData = nearbyLootItems[lootIndex];
-                ItemSize lootSize = ItemSizeDatabase.GetItemSize(lootData.Name);
-                Point? freePos = inventoryGrid.FindFreePosition(lootSize, true);
-                if (!freePos.HasValue)
-                {
-                    PlayUiSound(uiErrorSound, 0.65f);
-
-                    Console.WriteLine($"[INVENTORY] Cannot pickup nearby loot (inventory full): {lootData.Name}");
-                    return true;
-                }
-
-                inventoryGrid.PlaceItem(new GridItem(lootData, freePos.Value, lootSize, false));
-                nearbyLootItems.RemoveAt(lootIndex);
-                ClampNearbyLootScroll();
-                PlayUiSound(uiEquipSound, 0.58f);
-
-                Console.WriteLine($"[INVENTORY] Picked nearby loot: {lootData.Name}");
+                lootIndex = candidateIndex;
+                lootSlot = nearbyLootSlotRects[i];
                 return true;
             }
 
@@ -1847,6 +1916,17 @@ namespace XCOM_3
                 }
             }
 
+            if (TryGetNearbyLootEntryAt(mousePos, out int lootIndex, out _))
+            {
+                return new ItemContextInfo
+                {
+                    Data = nearbyLootItems[lootIndex],
+                    Source = "nearbyloot",
+                    Index = lootIndex,
+                    GridPosition = Point.Zero
+                };
+            }
+
             return null;
         }
 
@@ -1878,6 +1958,10 @@ namespace XCOM_3
                     var backpackItem = unit.BackpackInventory.GetItemAt(info.GridPosition);
                     if (backpackItem != null)
                         unit.BackpackInventory.RemoveItem(backpackItem);
+                    break;
+                case "nearbyloot":
+                    if (info.Index >= 0 && info.Index < nearbyLootItems.Count)
+                        nearbyLootItems.RemoveAt(info.Index);
                     break;
             }
             unit.RefreshGrenadeInventoryFromEquipment();
@@ -1921,6 +2005,13 @@ namespace XCOM_3
                         unit.BackpackInventory.PlaceItem(restoredBackpackItem);
                     else
                         ReturnItemToGrid(restored);
+                    break;
+                case "nearbyloot":
+                    if (info.Index >= 0 && info.Index <= nearbyLootItems.Count)
+                        nearbyLootItems.Insert(info.Index, info.Data);
+                    else
+                        nearbyLootItems.Add(info.Data);
+                    ClampNearbyLootScroll();
                     break;
             }
             unit.RefreshGrenadeInventoryFromEquipment();
