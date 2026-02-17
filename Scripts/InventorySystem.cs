@@ -145,6 +145,8 @@ namespace XCOM_3
         private int nearbyLootScrollRow = 0;
         private Point draggedNearbyLootSourcePosition = Point.Zero;
         private bool hasDraggedNearbyLootSourcePosition = false;
+        private ItemContextInfo draggedItemSourceInfo;
+        private bool hasDraggedItemSourceInfo = false;
 
         private struct ItemContextInfo
         {
@@ -968,6 +970,8 @@ namespace XCOM_3
 
         private void HandleStartDrag(MouseState mouse, Unit unit, int gridStartX, int gridStartY)
         {
+            hasDraggedItemSourceInfo = false;
+
             // Convertir position souris en position grille
             int gridX = (mouse.X - gridStartX) / CELL_SIZE;
             int gridY = (mouse.Y - gridStartY) / CELL_SIZE;
@@ -986,6 +990,8 @@ namespace XCOM_3
                     dragPixelOffset = new Point(
                         mouse.X - clickedItem.PixelBounds.X,
                         mouse.Y - clickedItem.PixelBounds.Y);
+                    draggedItemSourceInfo = new ItemContextInfo { Data = clickedItem.Data, Source = "grid", GridPosition = clickedItem.GridPosition, Index = -1 };
+                    hasDraggedItemSourceInfo = true;
                     inventoryGrid.RemoveItem(draggedItem);
                     PlayUiSound(uiClickSound, 0.45f);
 
@@ -1434,6 +1440,8 @@ namespace XCOM_3
 
             ItemSize lootSize = lootItem.GetCurrentSize();
             draggedItem = new GridItem(lootItem.Data, Point.Zero, lootItem.Size, lootItem.IsRotated, lootItem.Payload);
+            draggedItemSourceInfo = new ItemContextInfo { Data = lootItem.Data, Source = "nearbyloot", GridPosition = lootItem.GridPosition, Index = -1 };
+            hasDraggedItemSourceInfo = true;
             nearbyLootGrid.RemoveItem(lootItem);
             draggedNearbyLootSourcePosition = lootItem.GridPosition;
             hasDraggedNearbyLootSourcePosition = true;
@@ -2331,6 +2339,14 @@ namespace XCOM_3
                 popupSize.Height * CONTAINER_POPUP_CELL_SIZE);
 
             draggedItem = new GridItem(popupItem.Data, Point.Zero, popupItem.Size, popupItem.IsRotated, popupItem.Payload);
+            draggedItemSourceInfo = new ItemContextInfo
+            {
+                Data = popupItem.Data,
+                Source = useNested ? "nestedcontainerpopup" : "containerpopup",
+                GridPosition = popupItem.GridPosition,
+                Index = -1
+            };
+            hasDraggedItemSourceInfo = true;
             targetGrid.RemoveItem(popupItem);
             targetItems.Remove(popupItem);
             if (useNested)
@@ -2473,6 +2489,9 @@ namespace XCOM_3
             if (itemToInsert?.Data == null || !IsContainerData(info.Data))
                 return false;
 
+            if (!CanMoveItemIntoContainer(info, itemToInsert, unit))
+                return false;
+
             if (!TryBuildContainerPopupContent(info, unit, out _, out ItemSize gridSize, out List<GridItem> existingItems))
                 return false;
 
@@ -2521,6 +2540,82 @@ namespace XCOM_3
 
             unit.RefreshGrenadeInventoryFromEquipment();
             return true;
+        }
+
+        private bool CanMoveItemIntoContainer(ItemContextInfo targetInfo, GridItem itemToInsert, Unit unit)
+        {
+            if (hasDraggedItemSourceInfo && AreSameItemContext(draggedItemSourceInfo, targetInfo))
+                return false;
+
+            if (!IsContainerData(itemToInsert.Data))
+                return true;
+
+            if (!TryBuildContainerPopupContent(targetInfo, unit, out _, out _, out List<GridItem> targetItems))
+                return true;
+
+            string targetSignature = BuildContainerSignature(targetInfo.Data, targetItems);
+            return !ContainsContainerSignature(itemToInsert, targetSignature);
+        }
+
+        private static bool AreSameItemContext(ItemContextInfo a, ItemContextInfo b)
+        {
+            return string.Equals(a.Source, b.Source, StringComparison.Ordinal) &&
+                   a.Index == b.Index &&
+                   a.GridPosition == b.GridPosition &&
+                   string.Equals(a.Data?.Name, b.Data?.Name, StringComparison.Ordinal);
+        }
+
+        private static string BuildContainerSignature(ItemData data, IEnumerable<GridItem> gridItems)
+        {
+            List<string> itemSignatures = new List<string>();
+            if (gridItems != null)
+            {
+                foreach (GridItem gridItem in gridItems)
+                    itemSignatures.Add(BuildGridItemSignature(gridItem));
+            }
+
+            itemSignatures.Sort(StringComparer.Ordinal);
+            return $"{data?.Name ?? string.Empty}|{data?.ArmorSlot}|[{string.Join(";", itemSignatures)}]";
+        }
+
+        private static string BuildGridItemSignature(GridItem item)
+        {
+            if (item == null)
+                return "null";
+
+            List<string> childSignatures = new List<string>();
+            if (item.Payload?.BackpackItems != null)
+            {
+                foreach (GridItem child in item.Payload.BackpackItems)
+                    childSignatures.Add(BuildGridItemSignature(child));
+            }
+
+            childSignatures.Sort(StringComparer.Ordinal);
+            return $"{item.Data?.Name ?? string.Empty}|{item.Data?.ArmorSlot}|[{string.Join(";", childSignatures)}]";
+        }
+
+        private static bool ContainsContainerSignature(GridItem root, string targetSignature)
+        {
+            if (root == null)
+                return false;
+
+            if (IsContainerData(root.Data))
+            {
+                string rootSignature = BuildGridItemSignature(root);
+                if (string.Equals(rootSignature, targetSignature, StringComparison.Ordinal))
+                    return true;
+            }
+
+            if (root.Payload?.BackpackItems == null)
+                return false;
+
+            foreach (GridItem child in root.Payload.BackpackItems)
+            {
+                if (ContainsContainerSignature(child, targetSignature))
+                    return true;
+            }
+
+            return false;
         }
 
         private static int GetContainerGridWidth(ItemData data)
