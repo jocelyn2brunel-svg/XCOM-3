@@ -362,6 +362,7 @@ namespace XCOM_3
                 if (destroyedWalls.Count > 0)
                 {
                     foreach (var wall in destroyedWalls) wallSegments.Remove(wall);
+                    InvalidateWallsByFloorCache();
                     unitManager.OnWallsDestroyed();
                     Console.WriteLine($"Destroyed {destroyedWalls.Count} walls - cache invalidated");
                 }
