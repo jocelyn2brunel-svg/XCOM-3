@@ -66,6 +66,16 @@ namespace XCOM_3
         private Texture2D flashlightTexture;
         private Dictionary<string, Texture2D> armorTextures;
         private Dictionary<string, Texture2D> weaponTextures;
+        private readonly BasicEffect previewEffect;
+        private readonly HumanoidModelAdvanced previewModel;
+        private RenderTarget2D previewRenderTarget;
+
+        private const float PreviewModelScale = 1.85f;
+        private const float PreviewRotationSpeed = 1.8f;
+        private const float PreviewMouseRotationSensitivity = 0.015f;
+        private float previewRotation = 0f;
+        private bool isDraggingPreview = false;
+        private int lastDragMouseX = 0;
 
         // État des touches
         private KeyboardState previousKeyboardState;
@@ -179,6 +189,15 @@ namespace XCOM_3
             uiClickSound = CreateUiTone(760f, 46, 0.15f);
             uiEquipSound = CreateUiTone(980f, 58, 0.2f);
             uiErrorSound = CreateUiTone(220f, 90, 0.2f);
+
+            previewEffect = new BasicEffect(graphicsDevice)
+            {
+                VertexColorEnabled = true,
+                LightingEnabled = false,
+                AmbientLightColor = new Vector3(0.5f),
+                DiffuseColor = new Vector3(1f)
+            };
+            previewModel = new HumanoidModelAdvanced();
 
             InitializeItemDatabase();
             InitializeInventoryItems();
@@ -721,6 +740,8 @@ namespace XCOM_3
         {
             if (selectedUnit == null) return;
 
+            HandlePreviewRotation(mouse, previousMouse, keyboard);
+
             bool rightClick = mouse.RightButton == ButtonState.Pressed && previousMouse.RightButton == ButtonState.Released;
 
             // Accumuler le temps pour l'effet Sinus du pulse
@@ -800,6 +821,62 @@ namespace XCOM_3
             }
 
             previousKeyboardState = keyboard;
+        }
+
+        public void DrawPreview3D(Unit unit)
+        {
+            if (unit == null)
+                return;
+
+            Rectangle previewRect = GetPreviewViewportRect();
+            EnsurePreviewRenderTarget(previewRect.Width, previewRect.Height);
+            if (previewRenderTarget == null)
+                return;
+
+            Viewport originalViewport = graphicsDevice.Viewport;
+            DepthStencilState originalDepth = graphicsDevice.DepthStencilState;
+            BlendState originalBlend = graphicsDevice.BlendState;
+            RasterizerState originalRasterizer = graphicsDevice.RasterizerState;
+            RenderTargetBinding[] originalRenderTargets = graphicsDevice.GetRenderTargets();
+
+            graphicsDevice.SetRenderTarget(previewRenderTarget);
+            graphicsDevice.Viewport = new Viewport(0, 0, previewRenderTarget.Width, previewRenderTarget.Height);
+            graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            graphicsDevice.BlendState = BlendState.Opaque;
+            graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            graphicsDevice.Clear(new Color(14, 18, 28));
+
+            previewEffect.View = Matrix.CreateLookAt(new Vector3(0f, 2.5f, 5.6f), new Vector3(0f, 1.8f, 0f), Vector3.Up);
+            previewEffect.Projection = Matrix.CreatePerspectiveFieldOfView(
+                MathHelper.ToRadians(45f),
+                Math.Max(0.2f, previewRect.Width / (float)previewRect.Height),
+                0.1f,
+                100f);
+
+            Unit previewUnit = new Unit(unit)
+            {
+                VisualPosition = new Vector3(0f, 0f, 0f),
+                IsMoving = false,
+                IsAiming = false,
+                IsFiring = false
+            };
+            previewUnit.LegSwing = 0f;
+            previewUnit.ArmSwing = 0f;
+            previewUnit.BodyBob = 0f;
+            previewUnit.IdleBobOffset = 0f;
+
+            previewModel.DrawWithEquipment(
+                graphicsDevice,
+                previewEffect,
+                previewUnit,
+                PreviewModelScale,
+                MathHelper.Pi + previewRotation);
+
+            graphicsDevice.SetRenderTargets(originalRenderTargets);
+            graphicsDevice.Viewport = originalViewport;
+            graphicsDevice.DepthStencilState = originalDepth;
+            graphicsDevice.BlendState = originalBlend;
+            graphicsDevice.RasterizerState = originalRasterizer;
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -2172,18 +2249,16 @@ namespace XCOM_3
         private void DrawUnitPreviewPanel(Unit unit)
         {
             Rectangle content = GetInventoryContentBounds();
+            Rectangle previewRect = GetPreviewViewportRect();
+
             spriteBatch.Draw(pixel, content, ParasiteEveTheme.BackgroundDark * 0.35f);
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, content, ParasiteEveTheme.BorderColor, 1);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, ParasiteEveTheme.BorderColor, 2);
 
-            Rectangle silhouetteRect = new Rectangle(
-                content.X + 22,
-                content.Y + 18,
-                content.Width - 44,
-                Math.Max(180, content.Height - 170));
+            if (previewRenderTarget != null)
+                spriteBatch.Draw(previewRenderTarget, previewRect, Color.White);
 
-            DrawUnitSilhouette(silhouetteRect);
-
-            float infoY = silhouetteRect.Bottom + 12;
+            float infoY = previewRect.Bottom + 12;
             float infoX = content.X + 16;
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Nom: {unit.Name}", new Vector2(infoX, infoY), ParasiteEveTheme.TextHighlight, 0.65f);
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Classe: {unit.Class}", new Vector2(infoX, infoY + 22), ParasiteEveTheme.TextNormal, 0.62f);
@@ -2191,40 +2266,77 @@ namespace XCOM_3
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"PA: {unit.ActionPoints}/{unit.MaxActionPoints}", new Vector2(infoX, infoY + 66), ParasiteEveTheme.TextNormal, 0.62f);
 
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                "Preview unite (centre)",
+                "APERÇU 3D",
                 new Vector2(content.X + 14, content.Y + 8),
                 ParasiteEveTheme.TextDim,
                 0.55f);
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                "Tourner: ← / → ou glisser souris",
+                new Vector2(content.X + 14, previewRect.Bottom - 20),
+                ParasiteEveTheme.TextDim,
+                0.52f);
         }
 
-        private void DrawUnitSilhouette(Rectangle bounds)
+        private void HandlePreviewRotation(MouseState mouse, MouseState previousMouse, KeyboardState keyboard)
         {
-            int centerX = bounds.Center.X;
-            int topY = bounds.Y + 16;
+            if (keyboard.IsKeyDown(Keys.Left))
+                previewRotation -= PreviewRotationSpeed * 0.016f;
+            if (keyboard.IsKeyDown(Keys.Right))
+                previewRotation += PreviewRotationSpeed * 0.016f;
 
-            Rectangle head = new Rectangle(centerX - 22, topY, 44, 44);
-            Rectangle torso = new Rectangle(centerX - 34, head.Bottom + 6, 68, 96);
-            Rectangle leftArm = new Rectangle(torso.X - 20, torso.Y + 6, 16, 84);
-            Rectangle rightArm = new Rectangle(torso.Right + 4, torso.Y + 6, 16, 84);
-            Rectangle leftLeg = new Rectangle(centerX - 28, torso.Bottom + 4, 22, 92);
-            Rectangle rightLeg = new Rectangle(centerX + 6, torso.Bottom + 4, 22, 92);
+            Rectangle previewRect = GetPreviewViewportRect();
+            bool mouseInsidePreview = previewRect.Contains(mouse.Position);
+            bool isMousePressed = mouse.LeftButton == ButtonState.Pressed;
 
-            Color fill = ParasiteEveTheme.TextDim * 0.42f;
-            Color edge = ParasiteEveTheme.SelectionOutline * 0.65f;
+            if (!isMousePressed)
+            {
+                isDraggingPreview = false;
+            }
+            else if (!isDraggingPreview && previousMouse.LeftButton != ButtonState.Pressed && mouseInsidePreview)
+            {
+                isDraggingPreview = true;
+                lastDragMouseX = mouse.X;
+            }
 
-            spriteBatch.Draw(pixel, head, fill);
-            spriteBatch.Draw(pixel, torso, fill);
-            spriteBatch.Draw(pixel, leftArm, fill);
-            spriteBatch.Draw(pixel, rightArm, fill);
-            spriteBatch.Draw(pixel, leftLeg, fill);
-            spriteBatch.Draw(pixel, rightLeg, fill);
+            if (isDraggingPreview)
+            {
+                int deltaX = mouse.X - lastDragMouseX;
+                previewRotation += deltaX * PreviewMouseRotationSensitivity;
+                lastDragMouseX = mouse.X;
+            }
+        }
 
-            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, head, edge, 1);
-            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, torso, edge, 1);
-            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, leftArm, edge, 1);
-            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, rightArm, edge, 1);
-            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, leftLeg, edge, 1);
-            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, rightLeg, edge, 1);
+        private Rectangle GetPreviewViewportRect()
+        {
+            Rectangle content = GetInventoryContentBounds();
+            return new Rectangle(
+                content.X + 18,
+                content.Y + 26,
+                content.Width - 36,
+                Math.Max(180, content.Height - 170));
+        }
+
+        private void EnsurePreviewRenderTarget(int width, int height)
+        {
+            if (width <= 0 || height <= 0)
+                return;
+
+            if (previewRenderTarget != null && (previewRenderTarget.Width != width || previewRenderTarget.Height != height))
+            {
+                previewRenderTarget.Dispose();
+                previewRenderTarget = null;
+            }
+
+            if (previewRenderTarget == null)
+            {
+                previewRenderTarget = new RenderTarget2D(
+                    graphicsDevice,
+                    width,
+                    height,
+                    false,
+                    SurfaceFormat.Color,
+                    DepthFormat.Depth24);
+            }
         }
 
         private void DrawContextMenuAndExamine()
