@@ -189,6 +189,7 @@ namespace XCOM_3
                 });
             AddSlider("Shoulder Width", 0.7f, 1.3f, () => HumanBodyMorphSettings.ShoulderWidthScale, v => HumanBodyMorphSettings.ShoulderWidthScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
             AddSlider("Shoulder Height", 0.7f, 1.3f, () => HumanBodyMorphSettings.ShoulderHeightScale, v => HumanBodyMorphSettings.ShoulderHeightScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
+            AddSlider("Shoulder Slope", 0.7f, 1.3f, () => HumanBodyMorphSettings.ShoulderSlopeScale, v => HumanBodyMorphSettings.ShoulderSlopeScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
 
             AddSlider("Fem Head", 0.7f, 1.3f, () => HumanBodyMorphSettings.FeminineHeadScale, v => HumanBodyMorphSettings.FeminineHeadScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
             AddSlider("Fem Torso Width", 0.7f, 1.3f, () => HumanBodyMorphSettings.FeminineTorsoWidthScale, v => HumanBodyMorphSettings.FeminineTorsoWidthScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
