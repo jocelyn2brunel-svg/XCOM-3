@@ -1312,6 +1312,13 @@ namespace XCOM_3
             float shoulderWidthScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
             float shoulderHeightScale = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderHeightScale, 0.7f, 1.3f);
 
+            float shoulderY = dims.ll + dims.th * shoulderHeight * shoulderHeightScale;
+            float shoulderOffsetX = dims.tw * shoulderSpread * shoulderWidthScale;
+            float shoulderSphereRadius = dims.lw * 0.28f * shoulderWidthScale;
+
+            DrawSphere(d, e, p, new Vector3(-shoulderOffsetX, shoulderY, 0f), shoulderSphereRadius, armColor * 0.88f, r);
+            DrawSphere(d, e, p, new Vector3(shoulderOffsetX, shoulderY, 0f), shoulderSphereRadius, armColor * 0.88f, r);
+
             DrawSwingingArm(d, e, p, r, dims, armSwing, -dims.tw * shoulderSpread * shoulderWidthScale, shoulderHeight * shoulderHeightScale, bendBias, radiusScale, armColor);
             DrawSwingingArm(d, e, p, r, dims, -armSwing, dims.tw * shoulderSpread * shoulderWidthScale, shoulderHeight * shoulderHeightScale, bendBias, radiusScale, armColor);
         }
@@ -1710,6 +1717,7 @@ namespace XCOM_3
             float shoulderY = dims.ll + dims.th * (0.9f * shoulderHeightScale);
             float armReach = dims.tw * 1.55f * shoulderWidthScale;
             float elbowDrop = dims.lw * 0.06f;
+            float shoulderSphereRadius = dims.lw * 0.3f * shoulderWidthScale;
 
             Vector3 leftShoulder = new Vector3(-dims.tw * 0.62f * shoulderWidthScale, shoulderY, 0f);
             Vector3 leftElbow = new Vector3(-armReach, shoulderY - elbowDrop, 0f);
@@ -1719,13 +1727,13 @@ namespace XCOM_3
             Vector3 rightElbow = new Vector3(armReach, shoulderY - elbowDrop, 0f);
             Vector3 rightWrist = new Vector3(armReach + dims.al * 0.55f, shoulderY - elbowDrop, 0f);
 
-            DrawRoundedHead(d, e, p, leftShoulder, dims.lw * 0.3f, armColor * 0.88f, r);
+            DrawSphere(d, e, p, leftShoulder, shoulderSphereRadius, armColor * 0.88f, r);
             DrawFrustumBetween(d, e, p, leftShoulder, leftElbow, dims.lw * 0.54f, dims.lw * 0.42f, armColor, r, 6);
             DrawForearmBetween(d, e, p, leftElbow, leftWrist, dims.lw * 0.43f, dims.lw * 0.34f, forearmColor, r, 6);
             DrawBodyPart(d, e, p, leftWrist + new Vector3(-dims.lw * 0.24f, -dims.lw * 0.05f, 0f),
                 new Vector3(dims.lw * 0.52f, dims.lw * 0.30f, dims.lw * 0.48f), forearmColor * 0.95f, r);
 
-            DrawRoundedHead(d, e, p, rightShoulder, dims.lw * 0.3f, armColor * 0.88f, r);
+            DrawSphere(d, e, p, rightShoulder, shoulderSphereRadius, armColor * 0.88f, r);
             DrawFrustumBetween(d, e, p, rightShoulder, rightElbow, dims.lw * 0.54f, dims.lw * 0.42f, armColor, r, 6);
             DrawForearmBetween(d, e, p, rightElbow, rightWrist, dims.lw * 0.43f, dims.lw * 0.34f, forearmColor, r, 6);
             DrawBodyPart(d, e, p, rightWrist + new Vector3(dims.lw * 0.24f, -dims.lw * 0.05f, 0f),
