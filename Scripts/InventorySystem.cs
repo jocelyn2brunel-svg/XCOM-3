@@ -912,7 +912,7 @@ namespace XCOM_3
                 }
             }
 
-            if (IsMainInventoryGridVisible && TryStartDragFromNearbyLoot(mouse.Position))
+            if (TryStartDragFromNearbyLoot(mouse.Position))
                 return;
 
             // ✅ VÉRIFIER ET DÉSÉQUIPER LES SLOTS
@@ -2707,6 +2707,18 @@ namespace XCOM_3
                 isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shirt,
                 labelOnLeft: true);
 
+            Rectangle backpackSlot = GetBackpackSlotBounds();
+            Item backpackItem = null;
+            if (!string.IsNullOrWhiteSpace(unit.EquippedBackpack) && ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData backpackData))
+                backpackItem = new Item(backpackData, Point.Zero);
+
+            DrawEquipmentSlot(backpackSlot, "BACKPACK", backpackItem,
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Backpack, labelOnLeft: true);
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                string.IsNullOrWhiteSpace(unit.EquippedBackpack) ? "None" : unit.EquippedBackpack,
+                new Vector2(backpackSlot.X + 4, backpackSlot.Y + backpackSlot.Height / 2 - 5),
+                ParasiteEveTheme.TextNormal, 0.5f);
+
             DrawEquipmentSlot(GetPantsSlotBounds(), "PANTS", unit.EquippedPants,
                 isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Pants,
                 labelOnLeft: true);
@@ -2732,18 +2744,6 @@ namespace XCOM_3
                 isDragging &&
                 draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Belt,
                 labelOnLeft: true);
-
-            Rectangle backpackSlot = GetBackpackSlotBounds();
-            Item backpackItem = null;
-            if (!string.IsNullOrWhiteSpace(unit.EquippedBackpack) && ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData backpackData))
-                backpackItem = new Item(backpackData, Point.Zero);
-
-            DrawEquipmentSlot(backpackSlot, "BACKPACK", backpackItem,
-                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Backpack, labelOnLeft: true);
-            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                string.IsNullOrWhiteSpace(unit.EquippedBackpack) ? "None" : unit.EquippedBackpack,
-                new Vector2(backpackSlot.X + 4, backpackSlot.Y + backpackSlot.Height / 2 - 5),
-                ParasiteEveTheme.TextNormal, 0.5f);
 
             int pantsCapacity = unit.GetPantsInventoryCapacity();
             int chestRigCapacity = unit.GetChestRigInventoryCapacity();
@@ -3222,32 +3222,32 @@ namespace XCOM_3
 
         private Rectangle GetPantsSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(6);
+            return GetMainEquipmentSlotBounds(7);
         }
 
         private Rectangle GetKneesSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(7);
+            return GetMainEquipmentSlotBounds(8);
         }
 
         private Rectangle GetFeetSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(8);
+            return GetMainEquipmentSlotBounds(9);
         }
 
         private Rectangle GetChestRigSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(9);
+            return GetMainEquipmentSlotBounds(10);
         }
 
         private Rectangle GetBeltSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(10);
+            return GetMainEquipmentSlotBounds(11);
         }
 
         private Rectangle GetBackpackSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(11);
+            return GetMainEquipmentSlotBounds(6);
         }
 
         private Rectangle GetMainEquipmentSlotBounds(int row)
