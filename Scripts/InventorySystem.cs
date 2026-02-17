@@ -2244,7 +2244,7 @@ namespace XCOM_3
                 }
 
                 if (equipmentWindow.Contains(mouse.Position) &&
-                    TryGetEquipmentPreviewRect(selectedUnit, mouse.Position, draggedItem, out Rectangle previewRect, out bool canEquip))
+                    TryGetEquipmentPreviewRect(selectedUnit, mouse.Position, draggedItem, out Rectangle equipmentPreviewRect, out bool canEquip))
                 {
                     Color ghostColor = canEquip
                         ? ParasiteEveTheme.HoverOverlay * 0.6f
@@ -2254,8 +2254,8 @@ namespace XCOM_3
                         ? ParasiteEveTheme.SelectionOutline * 0.5f
                         : ParasiteEveTheme.TextDanger * 0.8f;
 
-                    spriteBatch.Draw(pixel, previewRect, ghostColor);
-                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
+                    spriteBatch.Draw(pixel, equipmentPreviewRect, ghostColor);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, equipmentPreviewRect, borderColor, 1);
                 }
 
                 if (lootWindow.Contains(mouse.Position) &&
