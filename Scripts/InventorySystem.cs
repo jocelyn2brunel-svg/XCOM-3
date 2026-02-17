@@ -4330,32 +4330,32 @@ namespace XCOM_3
 
         private Rectangle GetShieldSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(4);
+            return GetMainEquipmentSlotBounds(5);
         }
 
         private Rectangle GetShirtSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(5);
+            return GetMainEquipmentSlotBounds(6);
         }
 
         private Rectangle GetPantsSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(7);
+            return GetMainEquipmentSlotBounds(8);
         }
 
         private Rectangle GetKneesSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(8);
+            return GetMainEquipmentSlotBounds(9);
         }
 
         private Rectangle GetFeetSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(9);
+            return GetMainEquipmentSlotBounds(10);
         }
 
         private Rectangle GetChestRigSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(10);
+            return GetMainEquipmentSlotBounds(4);
         }
 
         private Rectangle GetBeltSlotBounds()
@@ -4365,7 +4365,7 @@ namespace XCOM_3
 
         private Rectangle GetBackpackSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(6);
+            return GetMainEquipmentSlotBounds(7);
         }
 
         private Rectangle GetMainEquipmentSlotBounds(int row)
