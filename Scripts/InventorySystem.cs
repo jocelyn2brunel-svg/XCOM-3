@@ -196,6 +196,7 @@ namespace XCOM_3
                 ["helmet_m1"] = CreateArmorIconTexture(new Color(130, 160, 110), ArmorIconKind.Helmet),
                 ["helmet_pasgt"] = CreateArmorIconTexture(new Color(95, 125, 85), ArmorIconKind.Helmet),
                 ["helmet_modern"] = CreateArmorIconTexture(new Color(170, 170, 150), ArmorIconKind.Helmet),
+                ["neck_ballistic"] = CreateArmorIconTexture(new Color(125, 125, 120), ArmorIconKind.Neck),
                 ["vest_flak"] = CreateArmorIconTexture(new Color(150, 130, 95), ArmorIconKind.Vest),
                 ["vest_pasgt"] = CreateArmorIconTexture(new Color(95, 120, 85), ArmorIconKind.Vest),
                 ["vest_plate"] = CreateArmorIconTexture(new Color(90, 110, 125), ArmorIconKind.Vest),
@@ -214,6 +215,7 @@ namespace XCOM_3
         private enum ArmorIconKind
         {
             Helmet,
+            Neck,
             Vest,
             Shield,
             Shirt,
@@ -262,6 +264,15 @@ namespace XCOM_3
                         }
                     }
                     FillRect(14, 38, 50, 44);
+                    break;
+
+                case ArmorIconKind.Neck:
+                    FillRect(20, 12, 44, 48);
+                    FillRect(16, 20, 48, 30);
+                    FillRect(24, 24, 40, 40);
+                    for (int y = 26; y <= 36; y++)
+                        for (int x = 26; x <= 38; x++)
+                            data[y * width + x] = inner;
                     break;
 
                 case ArmorIconKind.Vest:
@@ -324,6 +335,9 @@ namespace XCOM_3
 
             if (name.Contains("M1", StringComparison.OrdinalIgnoreCase) && armorTextures.TryGetValue("helmet_m1", out Texture2D m1))
                 return m1;
+
+            if (data.ArmorSlot == ArmorSlot.Neck && armorTextures.TryGetValue("neck_ballistic", out Texture2D neckArmor))
+                return neckArmor;
 
             if ((name.Contains("PASGT", StringComparison.OrdinalIgnoreCase) || name.Contains("Lightweight Helmet", StringComparison.OrdinalIgnoreCase)) &&
                 data.ArmorSlot == ArmorSlot.Head && armorTextures.TryGetValue("helmet_pasgt", out Texture2D pasgtHelmet))
@@ -718,6 +732,17 @@ namespace XCOM_3
                 PlayUiSound(uiClickSound, 0.48f);
 
                 Console.WriteLine($"[INVENTORY] Unequipped helmet: {draggedItem.Data.Name}");
+                return;
+            }
+
+            Rectangle neckSlot = GetNeckSlotBounds();
+            if (unit.EquippedNeck != null && neckSlot.Contains(mouse.Position))
+            {
+                StartDragFromEquipment(unit.EquippedNeck, mouse, neckSlot);
+                unit.EquippedNeck = null;
+                PlayUiSound(uiClickSound, 0.48f);
+
+                Console.WriteLine($"[INVENTORY] Unequipped neck armor: {draggedItem.Data.Name}");
                 return;
             }
 
@@ -1178,6 +1203,18 @@ namespace XCOM_3
                     return true;
                 }
 
+                Rectangle neckSlot = GetNeckSlotBounds();
+                if (item.Data.ArmorSlot == ArmorSlot.Neck && neckSlot.Contains(mousePosition))
+                {
+                    if (unit.EquippedNeck != null)
+                        ReturnItemToGrid(unit.EquippedNeck);
+                    unit.EquippedNeck = new Item(item.Data, Point.Zero);
+                    PlayUiSound(uiEquipSound, 0.6f);
+
+                    Console.WriteLine($"[INVENTORY] ✅ Equipped neck armor: {item.Data.Name}");
+                    return true;
+                }
+
                 Rectangle armorSlot = GetArmorSlotBounds();
                 if (item.Data.ArmorSlot == ArmorSlot.Torso && armorSlot.Contains(mousePosition))
                 {
@@ -1499,6 +1536,7 @@ namespace XCOM_3
             if (info.Data.Type == ItemType.Armor)
             {
                 if (info.Data.ArmorSlot == ArmorSlot.Head && info.Source == "helmet") return true;
+                if (info.Data.ArmorSlot == ArmorSlot.Neck && info.Source == "neck") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Torso && info.Source == "armor") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Shield && info.Source == "shield") return true;
                 if (info.Data.ArmorSlot == ArmorSlot.Shirt && info.Source == "shirt") return true;
@@ -1531,6 +1569,7 @@ namespace XCOM_3
                 switch (data.ArmorSlot)
                 {
                     case ArmorSlot.Head: target = GetHelmetSlotBounds().Center; return true;
+                    case ArmorSlot.Neck: target = GetNeckSlotBounds().Center; return true;
                     case ArmorSlot.Torso: target = GetArmorSlotBounds().Center; return true;
                     case ArmorSlot.Shield: target = GetShieldSlotBounds().Center; return true;
                     case ArmorSlot.Shirt: target = GetShirtSlotBounds().Center; return true;
@@ -1616,6 +1655,7 @@ namespace XCOM_3
                 if (unit.EquippedRightHandFlashlight != null) return new ItemContextInfo { Data = unit.EquippedRightHandFlashlight.Data, Source = "rightflashlight", Index = -1 };
             }
             if (unit.EquippedHelmet != null && GetHelmetSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedHelmet.Data, Source = "helmet", Index = -1 };
+            if (unit.EquippedNeck != null && GetNeckSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedNeck.Data, Source = "neck", Index = -1 };
             if (unit.EquippedArmor != null && GetArmorSlotBounds().Contains(mousePos)) return new ItemContextInfo { Data = unit.EquippedArmor.Data, Source = "armor", Index = -1 };
             if (GetShieldSlotBounds().Contains(mousePos))
             {
@@ -1670,6 +1710,7 @@ namespace XCOM_3
                     break;
                 case "weapon": unit.EquippedWeapon = null; unit.Weapon = string.Empty; unit.WeaponData = null; break;
                 case "helmet": unit.EquippedHelmet = null; break;
+                case "neck": unit.EquippedNeck = null; break;
                 case "armor": unit.EquippedArmor = null; break;
                 case "shield": unit.EquippedShield = null; break;
                 case "accessory": unit.EquippedAccessory = null; break;
@@ -1706,6 +1747,7 @@ namespace XCOM_3
                     break;
                 case "weapon": unit.EquippedWeapon = restored; unit.Weapon = info.Data.Name; unit.WeaponData = info.Data.WeaponData; break;
                 case "helmet": unit.EquippedHelmet = restored; break;
+                case "neck": unit.EquippedNeck = restored; break;
                 case "armor": unit.EquippedArmor = restored; break;
                 case "shield": unit.EquippedShield = restored; break;
                 case "accessory": unit.EquippedAccessory = restored; break;
@@ -1979,6 +2021,12 @@ namespace XCOM_3
                     return true;
                 }
 
+                if (item.Data.ArmorSlot == ArmorSlot.Neck && GetNeckSlotBounds().Contains(mousePosition))
+                {
+                    previewRect = GetNeckSlotBounds();
+                    return true;
+                }
+
                 if (item.Data.ArmorSlot == ArmorSlot.Torso && GetArmorSlotBounds().Contains(mousePosition))
                 {
                     previewRect = GetArmorSlotBounds();
@@ -2175,6 +2223,10 @@ namespace XCOM_3
 
             DrawEquipmentSlot(GetHelmetSlotBounds(), "HEAD", unit.EquippedHelmet,
                 isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Head,
+                labelOnLeft: true);
+
+            DrawEquipmentSlot(GetNeckSlotBounds(), "NECK", unit.EquippedNeck,
+                isDragging && draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Neck,
                 labelOnLeft: true);
 
             DrawEquipmentSlot(GetShirtSlotBounds(), "SUIT", unit.EquippedShirt,
@@ -2530,39 +2582,44 @@ namespace XCOM_3
             return GetMainEquipmentSlotBounds(1);
         }
 
-        private Rectangle GetArmorSlotBounds()
+        private Rectangle GetNeckSlotBounds()
         {
             return GetMainEquipmentSlotBounds(2);
         }
 
-        private Rectangle GetShieldSlotBounds()
+        private Rectangle GetArmorSlotBounds()
         {
             return GetMainEquipmentSlotBounds(3);
         }
 
-        private Rectangle GetShirtSlotBounds()
+        private Rectangle GetShieldSlotBounds()
         {
             return GetMainEquipmentSlotBounds(4);
         }
 
-        private Rectangle GetPantsSlotBounds()
+        private Rectangle GetShirtSlotBounds()
         {
             return GetMainEquipmentSlotBounds(5);
         }
 
-        private Rectangle GetChestRigSlotBounds()
+        private Rectangle GetPantsSlotBounds()
         {
             return GetMainEquipmentSlotBounds(6);
         }
 
-        private Rectangle GetBeltSlotBounds()
+        private Rectangle GetChestRigSlotBounds()
         {
             return GetMainEquipmentSlotBounds(7);
         }
 
-        private Rectangle GetBackpackSlotBounds()
+        private Rectangle GetBeltSlotBounds()
         {
             return GetMainEquipmentSlotBounds(8);
+        }
+
+        private Rectangle GetBackpackSlotBounds()
+        {
+            return GetMainEquipmentSlotBounds(9);
         }
 
         private Rectangle GetMainEquipmentSlotBounds(int row)

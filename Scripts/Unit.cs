@@ -63,6 +63,7 @@ namespace XCOM_3
         // Système d'inventaire
         public Item EquippedWeapon { get; set; }
         public Item EquippedHelmet { get; set; }
+        public Item EquippedNeck { get; set; }
         public Item EquippedArmor { get; set; }
         public Item EquippedShield { get; set; }
         public Item EquippedAccessory { get; set; }
@@ -156,6 +157,7 @@ namespace XCOM_3
                 ? new Item(new ItemData(weapon, ItemType.Weapon, weaponData), Point.Zero)
                 : null;
             EquippedHelmet = null;
+            EquippedNeck = null;
             EquippedArmor = null;
             EquippedShield = null;
             EquippedAccessory = null;
@@ -201,6 +203,7 @@ namespace XCOM_3
 
             EquippedWeapon = other.EquippedWeapon;
             EquippedHelmet = other.EquippedHelmet;
+            EquippedNeck = other.EquippedNeck;
             EquippedArmor = other.EquippedArmor;
             EquippedShield = other.EquippedShield;  // NOUVEAU
             EquippedAccessory = other.EquippedAccessory;
@@ -250,6 +253,7 @@ namespace XCOM_3
         {
             int total = 0;
             if (EquippedHelmet != null) total += EquippedHelmet.Data.ArmorValue;
+            if (EquippedNeck != null) total += EquippedNeck.Data.ArmorValue;
             if (EquippedArmor != null) total += EquippedArmor.Data.ArmorValue;
             if (EquippedShield != null) total += EquippedShield.Data.ArmorValue; // NOUVEAU
             if (EquippedShirt != null) total += EquippedShirt.Data.ArmorValue;   // NOUVEAU
@@ -318,6 +322,7 @@ namespace XCOM_3
 
             total += EquippedWeapon?.Data?.WeightLbs ?? 0f;
             total += EquippedHelmet?.Data?.WeightLbs ?? 0f;
+            total += EquippedNeck?.Data?.WeightLbs ?? 0f;
             total += EquippedArmor?.Data?.WeightLbs ?? 0f;
             total += EquippedShield?.Data?.WeightLbs ?? 0f;
             total += EquippedAccessory?.Data?.WeightLbs ?? 0f;

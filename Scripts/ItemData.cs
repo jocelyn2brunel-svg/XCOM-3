@@ -20,6 +20,7 @@ namespace XCOM_3
     {
         None,
         Head,
+        Neck,
         Torso,
         Shield,
         Shirt,
