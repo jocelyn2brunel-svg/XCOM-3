@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Linq;
 using XCOM_3.Scripts;
 
 namespace XCOM_3
@@ -91,6 +92,8 @@ namespace XCOM_3
                                              // Dans la section ÉTAT de InventorySystem.cs
         private Point? previewPos = null;
 
+        private Unit activeUnit = null;
+
         private const double DoubleClickThresholdSeconds = 0.35;
         private double lastClickTimeSeconds = -10;
         private string lastClickItemKey = string.Empty;
@@ -121,6 +124,8 @@ namespace XCOM_3
         private ItemSize containerPopupGridSize = new ItemSize(1, 1);
         private Rectangle containerPopupGridRect;
         private string containerPopupTitle = string.Empty;
+        private ItemContextInfo containerPopupSourceInfo;
+        private bool hasContainerPopupSource = false;
         private bool isDraggingContainerPopup = false;
         private Point containerPopupDragOffset;
         private readonly List<Rectangle> nearbyLootSlotRects = new List<Rectangle>();
@@ -751,6 +756,7 @@ namespace XCOM_3
         {
             if (selectedUnit == null) return;
 
+            activeUnit = selectedUnit;
             HandlePreviewRotation(mouse, previousMouse, keyboard);
 
             bool rightClick = mouse.RightButton == ButtonState.Pressed && previousMouse.RightButton == ButtonState.Released;
@@ -774,7 +780,7 @@ namespace XCOM_3
             }
 
             HandleContextMenus(mouse, leftClick, rightClick, selectedUnit, gridStartX, gridStartY);
-            if (showContextMenu || showExaminePopup || showContainerPopup)
+            if (showContextMenu || showExaminePopup)
             {
                 previousKeyboardState = keyboard;
                 return;
@@ -923,6 +929,9 @@ namespace XCOM_3
             }
 
             if (TryStartDragFromNearbyLoot(mouse.Position))
+                return;
+
+            if (TryStartDragFromContainerPopup(mouse.Position))
                 return;
 
             // ✅ VÉRIFIER ET DÉSÉQUIPER LES SLOTS
@@ -1205,6 +1214,24 @@ namespace XCOM_3
 
             if (!equipped)
             {
+                if (TryPlaceDraggedItemInContainerPopup(mouse.Position))
+                {
+                    draggedItem = null;
+                    draggedItemFromNearbyLoot = false;
+                    hasDraggedNearbyLootSourcePosition = false;
+                    return;
+                }
+
+                ItemContextInfo? closedContainerTarget = GetItemUnderMouse(mouse.Position, unit, gridStartX, gridStartY);
+                if (closedContainerTarget.HasValue && TryAddItemToContainerSource(closedContainerTarget.Value, draggedItem, unit))
+                {
+                    PlayUiSound(uiClickSound, 0.5f);
+                    draggedItem = null;
+                    draggedItemFromNearbyLoot = false;
+                    hasDraggedNearbyLootSourcePosition = false;
+                    return;
+                }
+
                 if (lootWindow.Contains(mouse.Position))
                 {
                     if (TryGetLootGridPlacement(mouse.Position, out Point lootGridPos) &&
@@ -1947,6 +1974,7 @@ namespace XCOM_3
             if (leftClick && popupCloseButton.Contains(mouse.Position))
             {
                 showContainerPopup = false;
+                hasContainerPopupSource = false;
                 isDraggingContainerPopup = false;
                 return;
             }
@@ -1978,6 +2006,7 @@ namespace XCOM_3
             if (rightClick && !containerPopupRect.Contains(mouse.Position))
             {
                 showContainerPopup = false;
+                hasContainerPopupSource = false;
                 isDraggingContainerPopup = false;
             }
         }
@@ -2001,6 +2030,8 @@ namespace XCOM_3
             containerPopupRect = BuildContainerPopupWindow(containerPopupGridSize);
             UpdateContainerPopupGridRect();
             showContainerPopup = true;
+            containerPopupSourceInfo = info;
+            hasContainerPopupSource = true;
             isDraggingContainerPopup = false;
             return true;
         }
@@ -2096,9 +2127,203 @@ namespace XCOM_3
 
             items = popupItems;
 
-            if (items.Count == 0)
+            if (items.Count > 0)
+                return true;
+
+            return baseCapacity > 0;
+        }
+
+        private static bool IsContainerData(ItemData data)
+        {
+            if (data == null)
                 return false;
 
+            if (data.ArmorSlot == ArmorSlot.Backpack ||
+                data.ArmorSlot == ArmorSlot.ChestRig ||
+                data.ArmorSlot == ArmorSlot.Pants)
+                return true;
+
+            return data.BonusInventorySlots > 0;
+        }
+
+        private bool TryStartDragFromContainerPopup(Point mousePosition)
+        {
+            if (!showContainerPopup || containerPopupGrid == null || !containerPopupGridRect.Contains(mousePosition))
+                return false;
+
+            int cellX = (mousePosition.X - containerPopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE;
+            int cellY = (mousePosition.Y - containerPopupGridRect.Y) / CONTAINER_POPUP_CELL_SIZE;
+            GridItem popupItem = containerPopupGrid.GetItemAt(new Point(cellX, cellY));
+            if (popupItem == null)
+                return false;
+
+            ItemSize popupSize = popupItem.GetCurrentSize();
+            Rectangle popupItemRect = new Rectangle(
+                containerPopupGridRect.X + popupItem.GridPosition.X * CONTAINER_POPUP_CELL_SIZE,
+                containerPopupGridRect.Y + popupItem.GridPosition.Y * CONTAINER_POPUP_CELL_SIZE,
+                popupSize.Width * CONTAINER_POPUP_CELL_SIZE,
+                popupSize.Height * CONTAINER_POPUP_CELL_SIZE);
+
+            draggedItem = new GridItem(popupItem.Data, Point.Zero, popupItem.Size, popupItem.IsRotated, popupItem.Payload);
+            containerPopupGrid.RemoveItem(popupItem);
+            containerPopupItems.Remove(popupItem);
+            SyncContainerPopupItemsToSource();
+
+            int maxWidth = popupSize.Width * CONTAINER_POPUP_CELL_SIZE - 1;
+            int maxHeight = popupSize.Height * CONTAINER_POPUP_CELL_SIZE - 1;
+            int offsetX = Math.Clamp(mousePosition.X - popupItemRect.X, 0, maxWidth);
+            int offsetY = Math.Clamp(mousePosition.Y - popupItemRect.Y, 0, maxHeight);
+
+            dragPixelOffset = new Point(offsetX, offsetY);
+            dragGridOffset = new Point(offsetX / CONTAINER_POPUP_CELL_SIZE, offsetY / CONTAINER_POPUP_CELL_SIZE);
+            draggedItemFromNearbyLoot = false;
+            hasDraggedNearbyLootSourcePosition = false;
+            PlayUiSound(uiClickSound, 0.45f);
+            return true;
+        }
+
+        private bool TryPlaceDraggedItemInContainerPopup(Point mousePosition)
+        {
+            if (!showContainerPopup || draggedItem == null || containerPopupGrid == null || !containerPopupGridRect.Contains(mousePosition))
+                return false;
+
+            int popupGridX = (mousePosition.X - containerPopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.X;
+            int popupGridY = (mousePosition.Y - containerPopupGridRect.Y) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.Y;
+            Point popupPos = new Point(popupGridX, popupGridY);
+
+            if (!containerPopupGrid.CanPlaceItem(popupPos, draggedItem.GetCurrentSize()))
+                return false;
+
+            GridItem placedItem = new GridItem(draggedItem.Data, popupPos, draggedItem.Size, draggedItem.IsRotated, draggedItem.Payload);
+            containerPopupGrid.PlaceItem(placedItem);
+            containerPopupItems.Add(placedItem);
+            SyncContainerPopupItemsToSource();
+            PlayUiSound(uiClickSound, 0.5f);
+            return true;
+        }
+
+        private void SyncContainerPopupItemsToSource()
+        {
+            if (!hasContainerPopupSource)
+                return;
+
+            ApplyContainerItemsToSource(containerPopupSourceInfo, containerPopupItems);
+        }
+
+        private void ApplyContainerItemsToSource(ItemContextInfo info, List<GridItem> popupItems)
+        {
+            if (popupItems == null)
+                return;
+
+            List<Item> pocketItems = popupItems
+                .OrderBy(item => item.GridPosition.Y)
+                .ThenBy(item => item.GridPosition.X)
+                .Select(item => new Item(item.Data, Point.Zero))
+                .ToList();
+
+            List<GridItem> gridItems = popupItems
+                .Select(item => new GridItem(item.Data, item.GridPosition, item.Size, item.IsRotated, item.Payload))
+                .ToList();
+
+            GridItem sourceGridItem = null;
+            switch (info.Source)
+            {
+                case "grid":
+                    sourceGridItem = inventoryGrid.GetItemAt(info.GridPosition);
+                    break;
+                case "nearbyloot":
+                    sourceGridItem = nearbyLootGrid.GetItemAt(info.GridPosition);
+                    break;
+            }
+
+            if (info.Source == "backpackutility")
+            {
+                sourceGridItem = activeUnit?.BackpackInventory?.GetItemAt(info.GridPosition);
+            }
+
+            if (sourceGridItem != null)
+            {
+                sourceGridItem.Payload ??= new GridItem.ContainerPayload();
+                switch (sourceGridItem.Data?.ArmorSlot)
+                {
+                    case ArmorSlot.Pants:
+                        sourceGridItem.Payload.PantsItems = pocketItems;
+                        break;
+                    case ArmorSlot.ChestRig:
+                        sourceGridItem.Payload.ChestRigItems = pocketItems;
+                        break;
+                    case ArmorSlot.Backpack:
+                        sourceGridItem.Payload.BackpackItems = gridItems;
+                        break;
+                }
+                return;
+            }
+
+            if (activeUnit == null)
+                return;
+
+            switch (info.Source)
+            {
+                case "pants":
+                    activeUnit.PantsInventory = pocketItems;
+                    break;
+                case "chestrig":
+                    activeUnit.ChestRigInventory = pocketItems;
+                    break;
+                case "backpack":
+                    activeUnit.EnsureBackpackInventoryGrid();
+                    activeUnit.BackpackInventory.Clear();
+                    foreach (GridItem item in gridItems)
+                        activeUnit.BackpackInventory.PlaceItem(new GridItem(item.Data, item.GridPosition, item.Size, item.IsRotated, item.Payload));
+                    break;
+            }
+
+            activeUnit.RefreshGrenadeInventoryFromEquipment();
+        }
+
+        private bool TryAddItemToContainerSource(ItemContextInfo info, GridItem itemToInsert, Unit unit)
+        {
+            if (itemToInsert?.Data == null || !IsContainerData(info.Data))
+                return false;
+
+            if (!TryBuildContainerPopupContent(info, unit, out _, out ItemSize gridSize, out List<GridItem> existingItems))
+                return false;
+
+            InventoryGrid tempGrid = new InventoryGrid(Math.Max(1, gridSize.Width), Math.Max(1, gridSize.Height));
+            List<GridItem> tempItems = new List<GridItem>();
+            foreach (GridItem existing in existingItems)
+            {
+                if (existing == null)
+                    continue;
+
+                GridItem copy = new GridItem(existing.Data, existing.GridPosition, existing.Size, existing.IsRotated, existing.Payload);
+                if (tempGrid.CanPlaceItem(copy.GridPosition, copy.GetCurrentSize()))
+                {
+                    tempGrid.PlaceItem(copy);
+                    tempItems.Add(copy);
+                }
+            }
+
+            Point? freePos = tempGrid.FindFreePosition(itemToInsert.GetCurrentSize(), true);
+            if (!freePos.HasValue)
+                return false;
+
+            GridItem inserted = new GridItem(itemToInsert.Data, freePos.Value, itemToInsert.Size, itemToInsert.IsRotated, itemToInsert.Payload);
+            tempGrid.PlaceItem(inserted);
+            tempItems.Add(inserted);
+
+            ApplyContainerItemsToSource(info, tempItems);
+
+            if (showContainerPopup && hasContainerPopupSource &&
+                containerPopupSourceInfo.Source == info.Source &&
+                containerPopupSourceInfo.GridPosition == info.GridPosition)
+            {
+                containerPopupItems.Clear();
+                containerPopupItems.AddRange(tempItems);
+                containerPopupGrid = tempGrid;
+            }
+
+            unit.RefreshGrenadeInventoryFromEquipment();
             return true;
         }
 
