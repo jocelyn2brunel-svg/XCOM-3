@@ -60,6 +60,7 @@ namespace XCOM_3
         private Texture2D pixel;
         private GraphicsDevice graphicsDevice;
         private Texture2D flashlightTexture;
+        private Dictionary<string, Texture2D> armorTextures;
 
         // État des touches
         private KeyboardState previousKeyboardState;
@@ -155,6 +156,7 @@ namespace XCOM_3
             ItemDatabase = new Dictionary<string, ItemData>();
 
             flashlightTexture = LoadOptionalTexture("Flashlight32x32.jpg");
+            armorTextures = LoadArmorTextures();
 
             uiClickSound = CreateUiTone(760f, 46, 0.15f);
             uiEquipSound = CreateUiTone(980f, 58, 0.2f);
@@ -184,6 +186,205 @@ namespace XCOM_3
             }
         }
 
+
+
+
+        private Dictionary<string, Texture2D> LoadArmorTextures()
+        {
+            var textures = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["helmet_m1"] = CreateArmorIconTexture(new Color(130, 160, 110), ArmorIconKind.Helmet),
+                ["helmet_pasgt"] = CreateArmorIconTexture(new Color(95, 125, 85), ArmorIconKind.Helmet),
+                ["helmet_modern"] = CreateArmorIconTexture(new Color(170, 170, 150), ArmorIconKind.Helmet),
+                ["vest_flak"] = CreateArmorIconTexture(new Color(150, 130, 95), ArmorIconKind.Vest),
+                ["vest_pasgt"] = CreateArmorIconTexture(new Color(95, 120, 85), ArmorIconKind.Vest),
+                ["vest_plate"] = CreateArmorIconTexture(new Color(90, 110, 125), ArmorIconKind.Vest),
+                ["shield_riot"] = CreateArmorIconTexture(new Color(105, 125, 145), ArmorIconKind.Shield),
+                ["shield_ballistic"] = CreateArmorIconTexture(new Color(75, 85, 95), ArmorIconKind.Shield),
+                ["shirt_combat"] = CreateArmorIconTexture(new Color(115, 140, 100), ArmorIconKind.Shirt),
+                ["pants_jeans"] = CreateArmorIconTexture(new Color(70, 110, 170), ArmorIconKind.Pants),
+                ["pants_cargo"] = CreateArmorIconTexture(new Color(115, 135, 100), ArmorIconKind.Pants),
+                ["chest_rig"] = CreateArmorIconTexture(new Color(120, 105, 85), ArmorIconKind.ChestRig),
+                ["backpack"] = CreateArmorIconTexture(new Color(90, 120, 85), ArmorIconKind.Backpack)
+            };
+
+            return textures;
+        }
+
+        private enum ArmorIconKind
+        {
+            Helmet,
+            Vest,
+            Shield,
+            Shirt,
+            Pants,
+            ChestRig,
+            Backpack
+        }
+
+        private Texture2D CreateArmorIconTexture(Color accent, ArmorIconKind kind)
+        {
+            const int width = 64;
+            const int height = 64;
+            var data = new Color[width * height];
+
+            Color background = ParasiteEveTheme.BackgroundDark;
+            Color inner = Color.Lerp(accent, Color.Black, 0.25f);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    bool border = x == 0 || y == 0 || x == width - 1 || y == height - 1;
+                    data[y * width + x] = border ? accent : background;
+                }
+            }
+
+            bool FillRect(int x0, int y0, int x1, int y1)
+            {
+                for (int y = Math.Max(0, y0); y <= Math.Min(height - 1, y1); y++)
+                    for (int x = Math.Max(0, x0); x <= Math.Min(width - 1, x1); x++)
+                        data[y * width + x] = accent;
+                return true;
+            }
+
+            switch (kind)
+            {
+                case ArmorIconKind.Helmet:
+                    for (int y = 12; y <= 42; y++)
+                    {
+                        for (int x = 10; x <= 54; x++)
+                        {
+                            int dx = x - 32;
+                            int dy = y - 26;
+                            if (dx * dx * 3 + dy * dy * 5 <= 1450)
+                                data[y * width + x] = accent;
+                        }
+                    }
+                    FillRect(14, 38, 50, 44);
+                    break;
+
+                case ArmorIconKind.Vest:
+                    FillRect(16, 10, 48, 52);
+                    FillRect(24, 18, 40, 50);
+                    for (int y = 24; y <= 46; y++)
+                        for (int x = 26; x <= 38; x++)
+                            data[y * width + x] = inner;
+                    break;
+
+                case ArmorIconKind.Shield:
+                    for (int y = 8; y <= 56; y++)
+                    {
+                        int half = 20 - Math.Abs(y - 32) / 2;
+                        for (int x = 32 - half; x <= 32 + half; x++)
+                            data[y * width + x] = accent;
+                    }
+                    break;
+
+                case ArmorIconKind.Shirt:
+                    FillRect(18, 16, 46, 52);
+                    FillRect(10, 18, 17, 34);
+                    FillRect(47, 18, 54, 34);
+                    break;
+
+                case ArmorIconKind.Pants:
+                    FillRect(22, 10, 42, 24);
+                    FillRect(22, 24, 30, 54);
+                    FillRect(34, 24, 42, 54);
+                    break;
+
+                case ArmorIconKind.ChestRig:
+                    FillRect(14, 14, 50, 50);
+                    FillRect(14, 10, 50, 14);
+                    for (int i = 0; i < 4; i++)
+                        FillRect(18 + i * 8, 26, 22 + i * 8, 42);
+                    break;
+
+                case ArmorIconKind.Backpack:
+                    FillRect(16, 10, 48, 54);
+                    FillRect(22, 16, 42, 48);
+                    for (int y = 16; y <= 48; y++)
+                        for (int x = 22; x <= 42; x++)
+                            data[y * width + x] = inner;
+                    break;
+            }
+
+            var texture = new Texture2D(graphicsDevice, width, height);
+            texture.SetData(data);
+            return texture;
+        }
+
+
+        private Texture2D GetArmorTexture(ItemData data)
+        {
+            if (data == null || data.Type != ItemType.Armor || armorTextures == null || armorTextures.Count == 0)
+                return null;
+
+            string name = data.Name ?? string.Empty;
+
+            if (name.Contains("M1", StringComparison.OrdinalIgnoreCase) && armorTextures.TryGetValue("helmet_m1", out Texture2D m1))
+                return m1;
+
+            if ((name.Contains("PASGT", StringComparison.OrdinalIgnoreCase) || name.Contains("Lightweight Helmet", StringComparison.OrdinalIgnoreCase)) &&
+                data.ArmorSlot == ArmorSlot.Head && armorTextures.TryGetValue("helmet_pasgt", out Texture2D pasgtHelmet))
+                return pasgtHelmet;
+
+            if ((name.Contains("MICH", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("ACH", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("ECH", StringComparison.OrdinalIgnoreCase)) &&
+                data.ArmorSlot == ArmorSlot.Head && armorTextures.TryGetValue("helmet_modern", out Texture2D modernHelmet))
+                return modernHelmet;
+
+            if ((name.Contains("M-1952", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("M-69", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("M-1955", StringComparison.OrdinalIgnoreCase)) &&
+                armorTextures.TryGetValue("vest_flak", out Texture2D flakVest))
+                return flakVest;
+
+            if (name.Contains("PASGT", StringComparison.OrdinalIgnoreCase) && data.ArmorSlot == ArmorSlot.Torso && armorTextures.TryGetValue("vest_pasgt", out Texture2D pasgtVest))
+                return pasgtVest;
+
+            if ((name.Contains("OTV", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("MTV", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("IMTV", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("IOTV", StringComparison.OrdinalIgnoreCase)) &&
+                armorTextures.TryGetValue("vest_plate", out Texture2D plateVest))
+                return plateVest;
+
+            if (name.Contains("Riot Shield", StringComparison.OrdinalIgnoreCase) && armorTextures.TryGetValue("shield_riot", out Texture2D riotShield))
+                return riotShield;
+
+            if (data.ArmorSlot == ArmorSlot.Shield && armorTextures.TryGetValue("shield_ballistic", out Texture2D ballisticShield))
+                return ballisticShield;
+
+            if (data.ArmorSlot == ArmorSlot.Shirt && armorTextures.TryGetValue("shirt_combat", out Texture2D shirt))
+                return shirt;
+
+            if (name.Contains("Jeans", StringComparison.OrdinalIgnoreCase) && armorTextures.TryGetValue("pants_jeans", out Texture2D jeans))
+                return jeans;
+
+            if (data.ArmorSlot == ArmorSlot.Pants && armorTextures.TryGetValue("pants_cargo", out Texture2D pants))
+                return pants;
+
+            if (data.ArmorSlot == ArmorSlot.ChestRig && armorTextures.TryGetValue("chest_rig", out Texture2D chestRig))
+                return chestRig;
+
+            if (data.ArmorSlot == ArmorSlot.Backpack && armorTextures.TryGetValue("backpack", out Texture2D backpack))
+                return backpack;
+
+            return null;
+        }
+
+        private void DrawItemPreviewImage(ItemData data, Rectangle targetRect, float alpha = 1f)
+        {
+            Texture2D armorTexture = GetArmorTexture(data);
+            if (armorTexture == null)
+                return;
+
+            Rectangle imageRect = new Rectangle(targetRect.X + 3, targetRect.Y + 3,
+                Math.Max(1, targetRect.Width - 6), Math.Max(1, targetRect.Height - 6));
+            spriteBatch.Draw(armorTexture, imageRect, Color.White * alpha);
+        }
 
         private SoundEffect CreateUiTone(float frequencyHz, int durationMs, float baseVolume)
         {
@@ -1664,6 +1865,11 @@ namespace XCOM_3
 
                 if (contextMenuItem.Data != null)
                 {
+                    Rectangle contextImageRect = new Rectangle(contextMenuRect.Right - 92, contextMenuRect.Y + 38, 80, 80);
+                    spriteBatch.Draw(pixel, contextImageRect, ParasiteEveTheme.BackgroundMedium * 0.9f);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextImageRect, ParasiteEveTheme.BorderColor, 1);
+                    DrawItemPreviewImage(contextMenuItem.Data, contextImageRect);
+
                     string line1 = contextMenuItem.Data.Name;
                     string line2 = $"Type: {contextMenuItem.Data.Type}";
                     string line3 = $"Poids: {contextMenuItem.Data.WeightLbs:0.##} lbs";
@@ -1726,7 +1932,9 @@ namespace XCOM_3
                 Rectangle imageRect = new Rectangle(examinePopupRect.X + 16, examinePopupRect.Y + 48, 96, 96);
                 spriteBatch.Draw(pixel, imageRect, ParasiteEveTheme.BackgroundMedium);
                 ParasiteEveTheme.DrawBorder(spriteBatch, pixel, imageRect, ParasiteEveTheme.BorderColor, 1);
-                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "IMAGE", new Vector2(imageRect.X + 24, imageRect.Y + 40), ParasiteEveTheme.TextDim, 0.6f);
+                DrawItemPreviewImage(examinedItemData, imageRect);
+                if (GetArmorTexture(examinedItemData) == null)
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "IMAGE", new Vector2(imageRect.X + 24, imageRect.Y + 40), ParasiteEveTheme.TextDim, 0.6f);
 
                 float textY = examinePopupRect.Y + 52;
                 float textX = imageRect.Right + 16;
@@ -2181,6 +2389,8 @@ namespace XCOM_3
                 spriteBatch.Draw(flashlightTexture, textureRect, Color.White * alpha);
             }
 
+            DrawItemPreviewImage(item.Data, item.PixelBounds, alpha);
+
             // Bordure colorée selon le type (via ta DB)
             Color typeColor = ItemSizeDatabase.GetItemColor(item.Data.Type) * alpha;
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, item.PixelBounds, typeColor, 1);
@@ -2228,6 +2438,8 @@ namespace XCOM_3
                         Math.Max(1, inner.Width - 6), Math.Max(1, inner.Height - 6));
                     spriteBatch.Draw(flashlightTexture, textureRect, Color.White);
                 }
+
+                DrawItemPreviewImage(equippedItem.Data, inner);
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, equippedItem.Data.Name,
                     new Vector2(inner.X + 4, inner.Y + inner.Height / 2 - 5), ParasiteEveTheme.TextNormal, 0.5f);
