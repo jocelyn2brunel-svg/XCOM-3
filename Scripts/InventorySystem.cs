@@ -2475,7 +2475,7 @@ namespace XCOM_3
                 return true;
 
             string targetSignature = BuildContainerSignature(targetInfo.Data, targetItems);
-            return !ContainsContainerSignature(itemToInsert, targetSignature);
+            return !ContainsContainerSignature(itemToInsert, targetSignature, includeRoot: false);
         }
 
         private bool IsDraggedItemCurrentlyOpenedContainer()
@@ -2523,12 +2523,12 @@ namespace XCOM_3
             return $"{item.Data?.Name ?? string.Empty}|{item.Data?.ArmorSlot}|[{string.Join(";", childSignatures)}]";
         }
 
-        private static bool ContainsContainerSignature(GridItem root, string targetSignature)
+        private static bool ContainsContainerSignature(GridItem root, string targetSignature, bool includeRoot = true)
         {
             if (root == null)
                 return false;
 
-            if (IsContainerData(root.Data))
+            if (includeRoot && IsContainerData(root.Data))
             {
                 string rootSignature = BuildGridItemSignature(root);
                 if (string.Equals(rootSignature, targetSignature, StringComparison.Ordinal))
