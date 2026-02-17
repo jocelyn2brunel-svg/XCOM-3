@@ -345,6 +345,7 @@ namespace XCOM_3
                 if (unit.Team == Team.Enemy && thrower != null && thrower.Team == Team.Player) { enemiesHit++; totalDamage += damage; }
                 if (unit.Health <= 0)
                 {
+                    PlayGrenadeFatalityEffect(unit, grenadeData);
                     (unit.Team == Team.Player ? playerUnits : enemyUnits).Remove(unit);
                     unitManager.OnUnitDied(unit);
                     Console.WriteLine($"{unit.Name} killed by explosion!");
@@ -495,6 +496,8 @@ namespace XCOM_3
             unit.Health = 0;
             Console.WriteLine($"{unit.Name} killed by MK 2 {reason}.");
 
+            PlayGrenadeFatalityEffect(unit, null);
+
             if (unit.Team == Team.Enemy && thrower != null && thrower.Team == Team.Player)
             {
                 enemiesHit++;
@@ -503,6 +506,23 @@ namespace XCOM_3
 
             (unit.Team == Team.Player ? playerUnits : enemyUnits).Remove(unit);
             unitManager.OnUnitDied(unit);
+        }
+
+        private void PlayGrenadeFatalityEffect(Unit unit, GrenadeData grenadeData)
+        {
+            if (unit == null)
+                return;
+
+            float floorY = WorldMetrics.FloorToWorldY(unit.Floor, cellSize);
+            Vector3 bodyCenter = new Vector3(
+                unit.Cell.X * cellSize + cellSize * 0.5f,
+                floorY + cellSize * 0.85f,
+                unit.Cell.Y * cellSize + cellSize * 0.5f);
+
+            float goreForce = grenadeData?.Radius ?? Mk2FragmentationEndRadius;
+            goreForce = MathHelper.Clamp(goreForce, 2f, 6f);
+
+            VisualEffects.PlayGibExplosion(bodyCenter, goreForce, renderer3D);
         }
 
         private void DrawThrowMode3D(GameTime gameTime)
