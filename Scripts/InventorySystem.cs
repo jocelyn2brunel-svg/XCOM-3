@@ -3341,6 +3341,7 @@ namespace XCOM_3
                 spriteBatch.Draw(pixel, contextImageRect, ParasiteEveTheme.BackgroundMedium * 0.9f);
                 ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextImageRect, ParasiteEveTheme.BorderColor, 1);
                 DrawItemPreviewImage(contextMenuItem.Data, contextImageRect);
+                DrawItemComparisonIndicators(contextMenuItem.Data, contextImageRect, 0.95f);
 
                 string line1 = contextMenuItem.Data.Name;
                 string line2 = $"Type: {contextMenuItem.Data.Type}";
@@ -3418,6 +3419,7 @@ namespace XCOM_3
                     spriteBatch.Draw(pixel, contextImageRect, ParasiteEveTheme.BackgroundMedium * 0.9f);
                     ParasiteEveTheme.DrawBorder(spriteBatch, pixel, contextImageRect, ParasiteEveTheme.BorderColor, 1);
                     DrawItemPreviewImage(contextMenuItem.Data, contextImageRect);
+                    DrawItemComparisonIndicators(contextMenuItem.Data, contextImageRect, 0.95f);
 
                     string line1 = contextMenuItem.Data.Name;
                     string line2 = $"Type: {contextMenuItem.Data.Type}";
