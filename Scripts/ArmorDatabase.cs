@@ -66,6 +66,8 @@ namespace XCOM_3
                 Helmet("MICH", 14, ProtectionLevel.NIJ_IIIA, 3.0f, "Casque modulaire MICH compatible communications.", 23),
                 Helmet("ACH", 15, ProtectionLevel.NIJ_IIIA, 3.3f, "Advanced Combat Helmet avec meilleur amorti d'impact.", 26),
                 Helmet("ECH", 16, ProtectionLevel.NIJ_IIIA, 3.6f, "Enhanced Combat Helmet, excellente tenue face aux éclats.", 30),
+                Helmet("Casquette Patrouille", 4, ProtectionLevel.Fragmentation, 1.1f, "Casquette légère avec renfort anti-éclats.", 8),
+                Helmet("Casquette Tactique", 5, ProtectionLevel.Fragmentation, 1.3f, "Casquette tactique modernisée, confortable et discrète.", 10),
             });
         }
 
@@ -264,7 +266,7 @@ namespace XCOM_3
         // ─────────────────────────────────────────────
 
         private static ItemData Helmet(string name, int armor, ProtectionLevel level, float weightLbs, string desc, int fragResistPercent)
-            => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Head, level, 0, weightLbs, 0, desc, fragResistPercent);
+            => ItemCreationPipeline.CreateHelmet(name, armor, level, weightLbs, desc, fragResistPercent);
 
         private static ItemData Vest(string name, int armor, ProtectionLevel level, float weightLbs, string desc, int fragResistPercent)
             => new ItemData(name, ItemType.Armor, armor, ArmorSlot.Torso, level, 0, weightLbs, 0, desc, fragResistPercent);
