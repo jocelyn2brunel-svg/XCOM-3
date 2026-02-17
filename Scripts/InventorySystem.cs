@@ -2257,6 +2257,38 @@ namespace XCOM_3
                     spriteBatch.Draw(pixel, previewRect, ghostColor);
                     ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
                 }
+
+                if (lootWindow.Contains(mouse.Position) &&
+                    TryGetLootGridPlacement(mouse.Position, out Point lootGridPos))
+                {
+                    Rectangle lootPanel = GetLootPanelBounds();
+                    Rectangle lootContent = new Rectangle(
+                        lootPanel.X + SECTION_PADDING,
+                        lootPanel.Y + SECTION_HEADER_HEIGHT + SECTION_PADDING,
+                        lootPanel.Width - SECTION_PADDING * 2,
+                        lootPanel.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
+
+                    Rectangle lootGridArea = GetNearbyLootGridArea(lootContent, GetNearbyLootVisibleRows());
+                    Point alignedLootOrigin = GetAlignedLootGridOrigin(lootGridArea);
+
+                    Rectangle previewRect = new Rectangle(
+                        alignedLootOrigin.X + lootGridPos.X * LOOT_GRID_CELL_SIZE,
+                        alignedLootOrigin.Y + (lootGridPos.Y - nearbyLootScrollRow) * LOOT_GRID_CELL_SIZE,
+                        draggedItem.GetCurrentSize().Width * LOOT_GRID_CELL_SIZE,
+                        draggedItem.GetCurrentSize().Height * LOOT_GRID_CELL_SIZE);
+
+                    bool canPlaceInLoot = nearbyLootGrid.CanPlaceItem(lootGridPos, draggedItem.GetCurrentSize());
+                    Color ghostColor = canPlaceInLoot
+                        ? ParasiteEveTheme.HoverOverlay * 0.6f
+                        : ParasiteEveTheme.TextDanger * 0.4f;
+
+                    Color borderColor = canPlaceInLoot
+                        ? ParasiteEveTheme.SelectionOutline * 0.5f
+                        : ParasiteEveTheme.TextDanger * 0.8f;
+
+                    spriteBatch.Draw(pixel, previewRect, ghostColor);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
+                }
             }
 
             // ✅ Item en cours de drag (avec transparence)
@@ -2875,11 +2907,7 @@ namespace XCOM_3
             int maxScrollRows = Math.Max(0, totalRows - visibleRows);
             nearbyLootScrollRow = Math.Clamp(nearbyLootScrollRow, 0, maxScrollRows);
 
-            Rectangle gridArea = new Rectangle(
-                content.X + 6,
-                content.Y + LootHeaderTextHeight,
-                content.Width - 12,
-                Math.Max(1, visibleRows * lootCellSize));
+            Rectangle gridArea = GetNearbyLootGridArea(content, visibleRows);
 
             DrawLootGridBackdrop(gridArea);
             Point alignedGridOrigin = GetAlignedLootGridOrigin(gridArea);
@@ -2923,6 +2951,19 @@ namespace XCOM_3
 
         }
 
+        private Rectangle GetNearbyLootGridArea(Rectangle content, int visibleRows)
+        {
+            int maxGridWidth = Math.Max(1, nearbyLootGrid.Width * LOOT_GRID_CELL_SIZE);
+            int requestedWidth = Math.Max(1, content.Width - 12);
+            int gridWidth = Math.Min(requestedWidth, maxGridWidth);
+
+            return new Rectangle(
+                content.X + 6,
+                content.Y + LootHeaderTextHeight,
+                gridWidth,
+                Math.Max(1, visibleRows * LOOT_GRID_CELL_SIZE));
+        }
+
         private void DrawLootGridBackdrop(Rectangle gridArea)
         {
             spriteBatch.Draw(pixel, gridArea, ParasiteEveTheme.BackgroundMedium * 0.28f);
@@ -2952,11 +2993,7 @@ namespace XCOM_3
                 lootWindow.Width - SECTION_PADDING * 2,
                 lootWindow.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
 
-            Rectangle gridArea = new Rectangle(
-                content.X + 6,
-                content.Y + LootHeaderTextHeight,
-                content.Width - 12,
-                Math.Max(1, GetNearbyLootVisibleRows() * LOOT_GRID_CELL_SIZE));
+            Rectangle gridArea = GetNearbyLootGridArea(content, GetNearbyLootVisibleRows());
 
             if (!gridArea.Contains(mousePosition))
             {
