@@ -39,7 +39,10 @@ namespace XCOM_3
         public int MaxPhosphocreatine = 100;
         public int MovementRange = 4; // Portée max en cases
         public int Health = 100, MaxHealth = 100;
-        public int PerceptionRangeCells { get; set; } = 18;
+        public const int FeetPerCell = 5;
+        public const int DefaultHumanPerceptionFeet = 120;
+        public int PerceptionRangeCells { get; set; } = DefaultHumanPerceptionFeet / FeetPerCell;
+        public int PerceptionRangeFeet => PerceptionRangeCells * FeetPerCell;
         public bool IsSpottedByPlayerTeam { get; set; } = false;
 
         private static readonly int[] phosphocreatineRegenByRound = { 18, 15, 12, 10, 8, 7, 6, 5, 4, 3 };
@@ -799,7 +802,7 @@ namespace XCOM_3
 
             const float speedPenaltyPerBodyWeightPercent = 0.75f;
             const float maxSpeedPenaltyPercent = 42f;
-            const float feetPerCell = 5f;
+            const float feetPerCell = FeetPerCell;
 
             float referenceBodyWeight = GetReferenceBodyWeightLbs();
             float carriedPercent = (carriedWeightLbs / referenceBodyWeight) * 100f;
@@ -819,7 +822,7 @@ namespace XCOM_3
 
         private void InitializeMovementProfile()
         {
-            const int feetPerCell = 5;
+            const int feetPerCell = FeetPerCell;
 
             // Même indice de condition physique pour maintenir une progression logique
             // (un jog faible donne aussi un run/sprint plutôt faibles).
