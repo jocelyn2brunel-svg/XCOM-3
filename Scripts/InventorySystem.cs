@@ -1033,13 +1033,12 @@ namespace XCOM_3
             Rectangle pantsSlot = GetPantsSlotBounds();
             if (unit.EquippedPants != null && pantsSlot.Contains(mouse.Position))
             {
-                foreach (var pocketItem in unit.PantsInventory)
+                GridItem.ContainerPayload payload = new GridItem.ContainerPayload
                 {
-                    if (pocketItem != null)
-                        ReturnItemToGrid(pocketItem);
-                }
+                    PantsItems = ClonePocketItems(unit.PantsInventory)
+                };
 
-                StartDragFromEquipment(unit.EquippedPants, mouse, pantsSlot);
+                StartDragFromEquipment(unit.EquippedPants, mouse, pantsSlot, payload);
                 unit.EquippedPants = null;
                 unit.PantsInventory.Clear();
                 unit.RefreshGrenadeInventoryFromEquipment();
@@ -1085,9 +1084,15 @@ namespace XCOM_3
             {
                 if (ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData equippedBackpackData))
                 {
-                    StartDragFromEquipment(new Item(equippedBackpackData, Point.Zero), mouse, backpackMainSlot);
+                    GridItem.ContainerPayload payload = new GridItem.ContainerPayload
+                    {
+                        BackpackItems = CloneGridItems(unit.BackpackInventory.GetAllItems())
+                    };
+
+                    StartDragFromEquipment(new Item(equippedBackpackData, Point.Zero), mouse, backpackMainSlot, payload);
                     unit.EquippedBackpack = null;
                     unit.EnsureBackpackInventoryGrid();
+                    unit.BackpackInventory.Clear();
                     unit.RefreshGrenadeInventoryFromEquipment();
                     PlayUiSound(uiClickSound, 0.48f);
 
@@ -1115,13 +1120,12 @@ namespace XCOM_3
             Rectangle chestRigMainSlot = GetChestRigSlotBounds();
             if (unit.EquippedChestRig != null && chestRigMainSlot.Contains(mouse.Position))
             {
-                foreach (var rigItem in unit.ChestRigInventory)
+                GridItem.ContainerPayload payload = new GridItem.ContainerPayload
                 {
-                    if (rigItem != null)
-                        ReturnItemToGrid(rigItem);
-                }
+                    ChestRigItems = ClonePocketItems(unit.ChestRigInventory)
+                };
 
-                StartDragFromEquipment(unit.EquippedChestRig, mouse, chestRigMainSlot);
+                StartDragFromEquipment(unit.EquippedChestRig, mouse, chestRigMainSlot, payload);
                 unit.EquippedChestRig = null;
                 unit.ChestRigInventory.Clear();
                 unit.RefreshGrenadeInventoryFromEquipment();
@@ -1133,9 +1137,12 @@ namespace XCOM_3
         }
 
         private void StartDragFromEquipment(Item equippedItem, MouseState mouse, Rectangle sourceSlot)
+            => StartDragFromEquipment(equippedItem, mouse, sourceSlot, null);
+
+        private void StartDragFromEquipment(Item equippedItem, MouseState mouse, Rectangle sourceSlot, GridItem.ContainerPayload payload)
         {
             ItemSize size = ItemSizeDatabase.GetItemSize(equippedItem.Data.Name);
-            draggedItem = new GridItem(equippedItem.Data, new Point(0, 0), size, false);
+            draggedItem = new GridItem(equippedItem.Data, new Point(0, 0), size, false, payload);
 
             int maxWidth = size.Width * CELL_SIZE - 1;
             int maxHeight = size.Height * CELL_SIZE - 1;
@@ -1169,7 +1176,7 @@ namespace XCOM_3
 
             if (droppedOutsideInterface)
             {
-                TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _);
+                TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _, draggedItem.Payload);
                 draggedItemFromNearbyLoot = false;
                 hasDraggedNearbyLootSourcePosition = false;
                 PlayUiSound(uiClickSound, 0.5f);
@@ -1190,16 +1197,16 @@ namespace XCOM_3
                         nearbyLootGrid.CanPlaceItem(lootGridPos, draggedItem.GetCurrentSize()))
                     {
                         draggedItem.GridPosition = lootGridPos;
-                        nearbyLootGrid.PlaceItem(new GridItem(draggedItem.Data, lootGridPos, draggedItem.Size, draggedItem.IsRotated));
+                        nearbyLootGrid.PlaceItem(new GridItem(draggedItem.Data, lootGridPos, draggedItem.Size, draggedItem.IsRotated, draggedItem.Payload));
                     }
                     else if (draggedItemFromNearbyLoot && hasDraggedNearbyLootSourcePosition &&
                              nearbyLootGrid.CanPlaceItem(draggedNearbyLootSourcePosition, draggedItem.GetCurrentSize()))
                     {
-                        nearbyLootGrid.PlaceItem(new GridItem(draggedItem.Data, draggedNearbyLootSourcePosition, draggedItem.Size, draggedItem.IsRotated));
+                        nearbyLootGrid.PlaceItem(new GridItem(draggedItem.Data, draggedNearbyLootSourcePosition, draggedItem.Size, draggedItem.IsRotated, draggedItem.Payload));
                     }
                     else
                     {
-                        TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _);
+                        TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _, draggedItem.Payload);
                     }
 
                     hasDraggedNearbyLootSourcePosition = false;
@@ -1249,7 +1256,7 @@ namespace XCOM_3
                         {
                             if (draggedItemFromNearbyLoot)
                             {
-                                TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _);
+                                TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _, draggedItem.Payload);
                                 PlayUiSound(uiErrorSound, 0.65f);
 
                                 Console.WriteLine($"[INVENTORY] No space. Item returned to nearby loot: {draggedItem.Data.Name}");
@@ -1267,7 +1274,7 @@ namespace XCOM_3
                 {
                     if (!IsMainInventoryGridVisible && draggedItemFromNearbyLoot)
                     {
-                        TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _);
+                        TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _, draggedItem.Payload);
                         ClampNearbyLootScroll();
                         PlayUiSound(uiErrorSound, 0.65f);
 
@@ -1293,7 +1300,7 @@ namespace XCOM_3
                     {
                         if (draggedItemFromNearbyLoot)
                         {
-                            TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _);
+                            TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _, draggedItem.Payload);
                             PlayUiSound(uiErrorSound, 0.65f);
 
                             Console.WriteLine($"[INVENTORY] No space. Item returned to nearby loot: {draggedItem.Data.Name}");
@@ -1319,7 +1326,7 @@ namespace XCOM_3
                 return false;
 
             ItemSize lootSize = lootItem.GetCurrentSize();
-            draggedItem = new GridItem(lootItem.Data, Point.Zero, lootItem.Size, lootItem.IsRotated);
+            draggedItem = new GridItem(lootItem.Data, Point.Zero, lootItem.Size, lootItem.IsRotated, lootItem.Payload);
             nearbyLootGrid.RemoveItem(lootItem);
             draggedNearbyLootSourcePosition = lootItem.GridPosition;
             hasDraggedNearbyLootSourcePosition = true;
@@ -1357,7 +1364,7 @@ namespace XCOM_3
                 return true;
             }
 
-            inventoryGrid.PlaceItem(new GridItem(lootItem.Data, freePos.Value, lootSize, lootItem.IsRotated));
+            inventoryGrid.PlaceItem(new GridItem(lootItem.Data, freePos.Value, lootSize, lootItem.IsRotated, lootItem.Payload));
             nearbyLootGrid.RemoveItem(lootItem);
             ClampNearbyLootScroll();
             PlayUiSound(uiEquipSound, 0.58f);
@@ -1575,17 +1582,16 @@ namespace XCOM_3
                 {
                     if (unit.EquippedPants != null)
                     {
-                        foreach (var pocketItem in unit.PantsInventory)
+                        GridItem.ContainerPayload previousPayload = new GridItem.ContainerPayload
                         {
-                            if (pocketItem != null)
-                                ReturnItemToGrid(pocketItem);
-                        }
-
-                        ReturnItemToGrid(unit.EquippedPants);
+                            PantsItems = ClonePocketItems(unit.PantsInventory)
+                        };
+                        ReturnGridItemToGrid(new GridItem(unit.EquippedPants.Data, Point.Zero,
+                            ItemSizeDatabase.GetItemSize(unit.EquippedPants.Data.Name), false, previousPayload));
                     }
 
                     unit.EquippedPants = new Item(item.Data, Point.Zero);
-                    unit.PantsInventory = new List<Item>();
+                    unit.PantsInventory = ClonePocketItems(item.Payload?.PantsItems) ?? new List<Item>();
                     unit.RefreshGrenadeInventoryFromEquipment();
                     PlayUiSound(uiEquipSound, 0.6f);
 
@@ -1622,17 +1628,16 @@ namespace XCOM_3
                 {
                     if (unit.EquippedChestRig != null)
                     {
-                        foreach (var rigItem in unit.ChestRigInventory)
+                        GridItem.ContainerPayload previousPayload = new GridItem.ContainerPayload
                         {
-                            if (rigItem != null)
-                                ReturnItemToGrid(rigItem);
-                        }
-
-                        ReturnItemToGrid(unit.EquippedChestRig);
+                            ChestRigItems = ClonePocketItems(unit.ChestRigInventory)
+                        };
+                        ReturnGridItemToGrid(new GridItem(unit.EquippedChestRig.Data, Point.Zero,
+                            ItemSizeDatabase.GetItemSize(unit.EquippedChestRig.Data.Name), false, previousPayload));
                     }
 
                     unit.EquippedChestRig = new Item(item.Data, Point.Zero);
-                    unit.ChestRigInventory = new List<Item>();
+                    unit.ChestRigInventory = ClonePocketItems(item.Payload?.ChestRigItems) ?? new List<Item>();
                     unit.RefreshGrenadeInventoryFromEquipment();
                     PlayUiSound(uiEquipSound, 0.6f);
 
@@ -1662,11 +1667,26 @@ namespace XCOM_3
                     if (!string.IsNullOrWhiteSpace(unit.EquippedBackpack) &&
                         ItemDatabase.TryGetValue(unit.EquippedBackpack, out ItemData previousBackpackData))
                     {
-                        ReturnItemToGrid(new Item(previousBackpackData, Point.Zero));
+                        GridItem.ContainerPayload previousPayload = new GridItem.ContainerPayload
+                        {
+                            BackpackItems = CloneGridItems(unit.BackpackInventory.GetAllItems())
+                        };
+                        ReturnGridItemToGrid(new GridItem(previousBackpackData, Point.Zero,
+                            ItemSizeDatabase.GetItemSize(previousBackpackData.Name), false, previousPayload));
                     }
 
                     unit.EquippedBackpack = item.Data.Name;
                     unit.EnsureBackpackInventoryGrid();
+                    unit.BackpackInventory.Clear();
+                    if (item.Payload?.BackpackItems != null)
+                    {
+                        foreach (GridItem backpackItem in item.Payload.BackpackItems)
+                        {
+                            GridItem restoredItem = backpackItem.Clone();
+                            if (unit.BackpackInventory.CanPlaceItem(restoredItem.GridPosition, restoredItem.GetCurrentSize()))
+                                unit.BackpackInventory.PlaceItem(restoredItem);
+                        }
+                    }
                     unit.RefreshGrenadeInventoryFromEquipment();
                     PlayUiSound(uiEquipSound, 0.6f);
 
@@ -1680,6 +1700,40 @@ namespace XCOM_3
 
             Console.WriteLine($"[INVENTORY] ❌ Not equipped (no matching slot)");
             return false;
+        }
+
+        private List<Item> ClonePocketItems(List<Item> items)
+        {
+            if (items == null)
+                return null;
+
+            List<Item> cloned = new List<Item>(items.Count);
+            foreach (Item item in items)
+                cloned.Add(item == null ? null : new Item(item.Data, Point.Zero));
+            return cloned;
+        }
+
+        private List<GridItem> CloneGridItems(List<GridItem> items)
+        {
+            if (items == null)
+                return null;
+
+            List<GridItem> cloned = new List<GridItem>(items.Count);
+            foreach (GridItem item in items)
+                cloned.Add(item?.Clone());
+            return cloned;
+        }
+
+        private void ReturnGridItemToGrid(GridItem item)
+        {
+            Point? freePos = inventoryGrid.FindFreePosition(item.GetCurrentSize(), true);
+            if (!freePos.HasValue)
+                return;
+
+            item.GridPosition = freePos.Value;
+            inventoryGrid.PlaceItem(item);
+            PlayUiSound(uiClickSound, 0.42f);
+            Console.WriteLine($"[INVENTORY] Returned old item to grid: {item.Data.Name}");
         }
 
         private void ReturnItemToGrid(Item item)
@@ -3041,7 +3095,7 @@ namespace XCOM_3
             return usedRows;
         }
 
-        private bool TryPlaceItemInNearbyLootGrid(ItemData itemData, out Point placedPosition)
+        private bool TryPlaceItemInNearbyLootGrid(ItemData itemData, out Point placedPosition, GridItem.ContainerPayload payload = null)
         {
             ItemSize size = ItemSizeDatabase.GetItemSize(itemData.Name);
             Point? freePos = nearbyLootGrid.FindFreePosition(size, true);
@@ -3051,7 +3105,7 @@ namespace XCOM_3
                 return false;
             }
 
-            var placedItem = new GridItem(itemData, freePos.Value, size, false);
+            var placedItem = new GridItem(itemData, freePos.Value, size, false, payload);
             nearbyLootGrid.PlaceItem(placedItem);
             placedPosition = freePos.Value;
             return true;
