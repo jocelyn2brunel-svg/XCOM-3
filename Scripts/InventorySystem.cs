@@ -3948,6 +3948,17 @@ namespace XCOM_3
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, content, ParasiteEveTheme.BorderColor, 1);
 
             List<GridItem> lootItems = nearbyLootGrid.GetAllItems();
+            int lootCellSize = LOOT_GRID_CELL_SIZE;
+            int visibleRows = GetNearbyLootVisibleRows();
+            int totalRows = GetNearbyLootUsedRows();
+            int maxScrollRows = Math.Max(0, totalRows - visibleRows);
+            nearbyLootScrollRow = Math.Clamp(nearbyLootScrollRow, 0, maxScrollRows);
+
+            Rectangle gridArea = GetNearbyLootGridArea(content, visibleRows);
+
+            DrawLootGridBackdrop(gridArea);
+            Point alignedGridOrigin = GetAlignedLootGridOrigin(gridArea);
+
             if (lootItems.Count == 0)
             {
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
@@ -3961,19 +3972,7 @@ namespace XCOM_3
                     new Vector2(content.X + 8, content.Y + 42),
                     ParasiteEveTheme.TextNormal,
                     0.6f);
-                return;
             }
-
-            int lootCellSize = LOOT_GRID_CELL_SIZE;
-            int visibleRows = GetNearbyLootVisibleRows();
-            int totalRows = GetNearbyLootUsedRows();
-            int maxScrollRows = Math.Max(0, totalRows - visibleRows);
-            nearbyLootScrollRow = Math.Clamp(nearbyLootScrollRow, 0, maxScrollRows);
-
-            Rectangle gridArea = GetNearbyLootGridArea(content, visibleRows);
-
-            DrawLootGridBackdrop(gridArea);
-            Point alignedGridOrigin = GetAlignedLootGridOrigin(gridArea);
 
             foreach (GridItem entry in lootItems)
             {
