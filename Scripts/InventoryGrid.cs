@@ -14,18 +14,65 @@ namespace XCOM_3
 
     public class GridItem
     {
+        public class ContainerPayload
+        {
+            public List<Item> PantsItems;
+            public List<Item> ChestRigItems;
+            public List<GridItem> BackpackItems;
+
+            public ContainerPayload Clone()
+            {
+                return new ContainerPayload
+                {
+                    PantsItems = CloneItems(PantsItems),
+                    ChestRigItems = CloneItems(ChestRigItems),
+                    BackpackItems = CloneGridItems(BackpackItems)
+                };
+            }
+
+            private static List<Item> CloneItems(List<Item> items)
+            {
+                if (items == null)
+                    return null;
+
+                var cloned = new List<Item>(items.Count);
+                foreach (Item item in items)
+                    cloned.Add(item == null ? null : new Item(item.Data, item.Position));
+                return cloned;
+            }
+
+            private static List<GridItem> CloneGridItems(List<GridItem> items)
+            {
+                if (items == null)
+                    return null;
+
+                var cloned = new List<GridItem>(items.Count);
+                foreach (GridItem item in items)
+                    cloned.Add(item?.Clone());
+                return cloned;
+            }
+        }
+
         public ItemData Data;
         public Point GridPosition;
         public ItemSize Size;
         public bool IsRotated;
+        public ContainerPayload Payload;
         public Rectangle PixelBounds { get; set; }
         private const int CELL_SIZE = 40;
 
-        public GridItem(ItemData data, Point pos, ItemSize size, bool rotated = false)
+        public GridItem(ItemData data, Point pos, ItemSize size, bool rotated = false, ContainerPayload payload = null)
         {
-            Data = data; GridPosition = pos; Size = size; IsRotated = rotated;
+            Data = data;
+            GridPosition = pos;
+            Size = size;
+            IsRotated = rotated;
+            Payload = payload?.Clone();
             UpdatePixelBounds();
         }
+
+        public GridItem Clone()
+            => new GridItem(Data, GridPosition, Size, IsRotated, Payload);
 
         public void UpdatePixelBounds(int offsetX = 0, int offsetY = 0)
         {

@@ -233,7 +233,8 @@ namespace XCOM_3
                         backpackItem.Data,
                         backpackItem.GridPosition,
                         backpackItem.Size,
-                        backpackItem.IsRotated));
+                        backpackItem.IsRotated,
+                        backpackItem.Payload));
                 }
             }
 
@@ -428,7 +429,7 @@ namespace XCOM_3
             {
                 foreach (GridItem item in backpackInventoryGrid.GetAllItems())
                 {
-                    GridItem migratedItem = new GridItem(item.Data, item.GridPosition, item.Size, item.IsRotated);
+                    GridItem migratedItem = new GridItem(item.Data, item.GridPosition, item.Size, item.IsRotated, item.Payload);
                     if (resizedGrid.CanPlaceItem(migratedItem.GridPosition, migratedItem.GetCurrentSize()))
                         resizedGrid.PlaceItem(migratedItem);
                 }
