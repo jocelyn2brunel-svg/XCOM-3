@@ -257,6 +257,8 @@ namespace XCOM_3
             _previewUnit.IsLeftHandFlashlightOn = false;
             _previewUnit.EquippedShirt = null;
             _previewUnit.EquippedPants = null;
+            _previewUnit.EquippedKnees = null;
+            _previewUnit.EquippedFeet = null;
             _previewUnit.EquippedChestRig = null;
             _previewUnit.EquippedBelt = null;
             _previewUnit.EquippedBackpack = null;

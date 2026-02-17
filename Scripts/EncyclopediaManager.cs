@@ -327,6 +327,8 @@ namespace XCOM_3
                     ArmorSlot.Shield => "Bouclier",
                     ArmorSlot.Shirt => "Chemise",
                     ArmorSlot.Pants => "Pantalon",
+                    ArmorSlot.Knees => "Genoux",
+                    ArmorSlot.Feet => "Pieds",
                     ArmorSlot.ChestRig => "Chest Rig",
                     ArmorSlot.Belt => "Ceinture",
                     ArmorSlot.Backpack => "Sac à dos",

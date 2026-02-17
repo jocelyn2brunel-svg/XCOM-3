@@ -73,6 +73,8 @@ namespace XCOM_3
         public bool IsLeftHandFlashlightOn { get; set; } = false;
         public Item EquippedShirt { get; set; }
         public Item EquippedPants { get; set; }
+        public Item EquippedKnees { get; set; }
+        public Item EquippedFeet { get; set; }
         public Item EquippedChestRig { get; set; }
         public Item EquippedBelt { get; set; }
         public List<Item> PantsInventory { get; set; } = new List<Item>();
@@ -167,6 +169,8 @@ namespace XCOM_3
             IsLeftHandFlashlightOn = false;
             EquippedShirt = null;
             EquippedPants = null;
+            EquippedKnees = null;
+            EquippedFeet = null;
             EquippedChestRig = null;
             EquippedBelt = null;
             PantsInventory = new List<Item>();
@@ -213,6 +217,8 @@ namespace XCOM_3
             IsLeftHandFlashlightOn = other.IsLeftHandFlashlightOn;
             EquippedShirt = other.EquippedShirt;    // NOUVEAU
             EquippedPants = other.EquippedPants;
+            EquippedKnees = other.EquippedKnees;
+            EquippedFeet = other.EquippedFeet;
             EquippedChestRig = other.EquippedChestRig;
             EquippedBelt = other.EquippedBelt;
             PantsInventory = new List<Item>(other.PantsInventory);
@@ -258,6 +264,8 @@ namespace XCOM_3
             if (EquippedShield != null) total += EquippedShield.Data.ArmorValue; // NOUVEAU
             if (EquippedShirt != null) total += EquippedShirt.Data.ArmorValue;   // NOUVEAU
             if (EquippedPants != null) total += EquippedPants.Data.ArmorValue;
+            if (EquippedKnees != null) total += EquippedKnees.Data.ArmorValue;
+            if (EquippedFeet != null) total += EquippedFeet.Data.ArmorValue;
             if (EquippedChestRig != null) total += EquippedChestRig.Data.ArmorValue;
             if (EquippedBelt != null) total += EquippedBelt.Data.ArmorValue;
             total += Skills.GetDefenseBonus();
@@ -313,6 +321,8 @@ namespace XCOM_3
             if (EquippedArmor != null) penalty += EquippedArmor.Data.MobilityPenalty;
             if (EquippedShield != null) penalty += EquippedShield.Data.MobilityPenalty;
             if (EquippedPants != null) penalty += EquippedPants.Data.MobilityPenalty;
+            if (EquippedKnees != null) penalty += EquippedKnees.Data.MobilityPenalty;
+            if (EquippedFeet != null) penalty += EquippedFeet.Data.MobilityPenalty;
             return penalty;
         }
 
@@ -330,6 +340,8 @@ namespace XCOM_3
             total += EquippedLeftHandFlashlight?.Data?.WeightLbs ?? 0f;
             total += EquippedShirt?.Data?.WeightLbs ?? 0f;
             total += EquippedPants?.Data?.WeightLbs ?? 0f;
+            total += EquippedKnees?.Data?.WeightLbs ?? 0f;
+            total += EquippedFeet?.Data?.WeightLbs ?? 0f;
             total += EquippedChestRig?.Data?.WeightLbs ?? 0f;
             total += EquippedBelt?.Data?.WeightLbs ?? 0f;
 

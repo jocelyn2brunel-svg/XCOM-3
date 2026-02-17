@@ -25,6 +25,8 @@ namespace XCOM_3
         Shield,
         Shirt,
         Pants,
+        Knees,
+        Feet,
         ChestRig,
         Belt,
         Backpack

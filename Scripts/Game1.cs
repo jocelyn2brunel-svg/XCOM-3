@@ -683,6 +683,8 @@ namespace XCOM_3
             if (unit?.EquippedLeftHandFlashlight?.Data?.Name != null) yield return unit.EquippedLeftHandFlashlight.Data.Name;
             if (unit?.EquippedShirt?.Data?.Name != null) yield return unit.EquippedShirt.Data.Name;
             if (unit?.EquippedPants?.Data?.Name != null) yield return unit.EquippedPants.Data.Name;
+            if (unit?.EquippedKnees?.Data?.Name != null) yield return unit.EquippedKnees.Data.Name;
+            if (unit?.EquippedFeet?.Data?.Name != null) yield return unit.EquippedFeet.Data.Name;
             if (unit?.EquippedChestRig?.Data?.Name != null) yield return unit.EquippedChestRig.Data.Name;
             if (unit?.EquippedBelt?.Data?.Name != null) yield return unit.EquippedBelt.Data.Name;
 
