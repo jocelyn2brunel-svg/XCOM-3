@@ -52,7 +52,8 @@ namespace XCOM_3
         private bool draggedItemFromNearbyLoot = false;
         private Point dragGridOffset;
         private Point dragPixelOffset;
-        private readonly List<ItemData> nearbyLootItems = new List<ItemData>();
+        private const int LOOT_GRID_MAX_ROWS = 40;
+        private readonly InventoryGrid nearbyLootGrid;
         private readonly Random random = new Random();
         private readonly SoundEffect uiClickSound;
         private readonly SoundEffect uiEquipSound;
@@ -109,17 +110,10 @@ namespace XCOM_3
         private Rectangle examinePopupRect;
         private ItemData examinedItemData;
         private readonly List<Rectangle> nearbyLootSlotRects = new List<Rectangle>();
-        private readonly List<int> nearbyLootSlotItemIndexes = new List<int>();
+        private readonly List<GridItem> nearbyLootSlotItems = new List<GridItem>();
         private int nearbyLootScrollRow = 0;
-
-        private struct NearbyLootLayoutEntry
-        {
-            public int ItemIndex;
-            public int CellX;
-            public int CellY;
-            public int CellWidth;
-            public int CellHeight;
-        }
+        private Point draggedNearbyLootSourcePosition = Point.Zero;
+        private bool hasDraggedNearbyLootSourcePosition = false;
 
         private struct ItemContextInfo
         {
@@ -162,9 +156,10 @@ namespace XCOM_3
             if (!ItemDatabase.TryGetValue(itemName, out ItemData lootData) || lootData == null)
                 return false;
 
-            nearbyLootItems.Add(lootData);
-            ClampNearbyLootScroll();
-            return true;
+            bool added = TryPlaceItemInNearbyLootGrid(lootData, out _);
+            if (added)
+                ClampNearbyLootScroll();
+            return added;
         }
 
 
@@ -181,6 +176,7 @@ namespace XCOM_3
             this.pixel = pixel;
 
             inventoryGrid = new InventoryGrid(GRID_WIDTH, GRID_HEIGHT);
+            nearbyLootGrid = new InventoryGrid(8, LOOT_GRID_MAX_ROWS);
             ItemDatabase = new Dictionary<string, ItemData>();
 
             flashlightTexture = LoadOptionalTexture("Flashlight32x32.jpg");
@@ -1173,8 +1169,9 @@ namespace XCOM_3
 
             if (droppedOutsideInterface)
             {
-                nearbyLootItems.Add(draggedItem.Data);
+                TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _);
                 draggedItemFromNearbyLoot = false;
+                hasDraggedNearbyLootSourcePosition = false;
                 PlayUiSound(uiClickSound, 0.5f);
 
                 Console.WriteLine($"[INVENTORY] Dropped outside interface, sent to nearby loot: {draggedItem.Data.Name}");
@@ -1189,7 +1186,23 @@ namespace XCOM_3
             {
                 if (lootWindow.Contains(mouse.Position))
                 {
-                    nearbyLootItems.Add(draggedItem.Data);
+                    if (TryGetLootGridPlacement(mouse.Position, out Point lootGridPos) &&
+                        nearbyLootGrid.CanPlaceItem(lootGridPos, draggedItem.GetCurrentSize()))
+                    {
+                        draggedItem.GridPosition = lootGridPos;
+                        nearbyLootGrid.PlaceItem(new GridItem(draggedItem.Data, lootGridPos, draggedItem.Size, draggedItem.IsRotated));
+                    }
+                    else if (draggedItemFromNearbyLoot && hasDraggedNearbyLootSourcePosition &&
+                             nearbyLootGrid.CanPlaceItem(draggedNearbyLootSourcePosition, draggedItem.GetCurrentSize()))
+                    {
+                        nearbyLootGrid.PlaceItem(new GridItem(draggedItem.Data, draggedNearbyLootSourcePosition, draggedItem.Size, draggedItem.IsRotated));
+                    }
+                    else
+                    {
+                        TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _);
+                    }
+
+                    hasDraggedNearbyLootSourcePosition = false;
                     draggedItemFromNearbyLoot = false;
                     PlayUiSound(uiClickSound, 0.5f);
 
@@ -1236,7 +1249,7 @@ namespace XCOM_3
                         {
                             if (draggedItemFromNearbyLoot)
                             {
-                                nearbyLootItems.Add(draggedItem.Data);
+                                TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _);
                                 PlayUiSound(uiErrorSound, 0.65f);
 
                                 Console.WriteLine($"[INVENTORY] No space. Item returned to nearby loot: {draggedItem.Data.Name}");
@@ -1254,13 +1267,14 @@ namespace XCOM_3
                 {
                     if (!IsMainInventoryGridVisible && draggedItemFromNearbyLoot)
                     {
-                        nearbyLootItems.Add(draggedItem.Data);
+                        TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _);
                         ClampNearbyLootScroll();
                         PlayUiSound(uiErrorSound, 0.65f);
 
                         Console.WriteLine($"[INVENTORY] Main grid hidden. Item returned to nearby loot: {draggedItem.Data.Name}");
                         draggedItem = null;
                         draggedItemFromNearbyLoot = false;
+                        hasDraggedNearbyLootSourcePosition = false;
                         return;
                     }
 
@@ -1279,7 +1293,7 @@ namespace XCOM_3
                     {
                         if (draggedItemFromNearbyLoot)
                         {
-                            nearbyLootItems.Add(draggedItem.Data);
+                            TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _);
                             PlayUiSound(uiErrorSound, 0.65f);
 
                             Console.WriteLine($"[INVENTORY] No space. Item returned to nearby loot: {draggedItem.Data.Name}");
@@ -1296,17 +1310,19 @@ namespace XCOM_3
 
             draggedItem = null;
             draggedItemFromNearbyLoot = false;
+            hasDraggedNearbyLootSourcePosition = false;
         }
 
         private bool TryStartDragFromNearbyLoot(Point mousePosition)
         {
-            if (!TryGetNearbyLootEntryAt(mousePosition, out int lootIndex, out Rectangle lootSlot))
+            if (!TryGetNearbyLootEntryAt(mousePosition, out GridItem lootItem, out Rectangle lootSlot))
                 return false;
 
-            ItemData lootData = nearbyLootItems[lootIndex];
-            ItemSize lootSize = ItemSizeDatabase.GetItemSize(lootData.Name);
-            draggedItem = new GridItem(lootData, Point.Zero, lootSize, false);
-            nearbyLootItems.RemoveAt(lootIndex);
+            ItemSize lootSize = lootItem.GetCurrentSize();
+            draggedItem = new GridItem(lootItem.Data, Point.Zero, lootItem.Size, lootItem.IsRotated);
+            nearbyLootGrid.RemoveItem(lootItem);
+            draggedNearbyLootSourcePosition = lootItem.GridPosition;
+            hasDraggedNearbyLootSourcePosition = true;
             ClampNearbyLootScroll();
 
             int maxWidth = lootSize.Width * LOOT_GRID_CELL_SIZE - 1;
@@ -1328,52 +1344,44 @@ namespace XCOM_3
             if (!IsMainInventoryGridVisible)
                 return false;
 
-            if (!TryGetNearbyLootEntryAt(mousePosition, out int lootIndex, out _))
+            if (!TryGetNearbyLootEntryAt(mousePosition, out GridItem lootItem, out _))
                 return false;
 
-            ItemData lootData = nearbyLootItems[lootIndex];
-            ItemSize lootSize = ItemSizeDatabase.GetItemSize(lootData.Name);
+            ItemSize lootSize = lootItem.GetCurrentSize();
             Point? freePos = inventoryGrid.FindFreePosition(lootSize, true);
             if (!freePos.HasValue)
             {
                 PlayUiSound(uiErrorSound, 0.65f);
 
-                Console.WriteLine($"[INVENTORY] Cannot pickup nearby loot (inventory full): {lootData.Name}");
+                Console.WriteLine($"[INVENTORY] Cannot pickup nearby loot (inventory full): {lootItem.Data.Name}");
                 return true;
             }
 
-            inventoryGrid.PlaceItem(new GridItem(lootData, freePos.Value, lootSize, false));
-            nearbyLootItems.RemoveAt(lootIndex);
+            inventoryGrid.PlaceItem(new GridItem(lootItem.Data, freePos.Value, lootSize, lootItem.IsRotated));
+            nearbyLootGrid.RemoveItem(lootItem);
             ClampNearbyLootScroll();
             PlayUiSound(uiEquipSound, 0.58f);
 
-            Console.WriteLine($"[INVENTORY] Picked nearby loot: {lootData.Name}");
+            Console.WriteLine($"[INVENTORY] Picked nearby loot: {lootItem.Data.Name}");
             return true;
         }
 
-        private bool TryGetNearbyLootEntryAt(Point mousePosition, out int lootIndex, out Rectangle lootSlot)
+        private bool TryGetNearbyLootEntryAt(Point mousePosition, out GridItem lootItem, out Rectangle lootSlot)
         {
-            lootIndex = -1;
+            lootItem = null;
             lootSlot = Rectangle.Empty;
-
-            if (nearbyLootItems.Count == 0)
-                return false;
 
             for (int i = 0; i < nearbyLootSlotRects.Count; i++)
             {
                 if (!nearbyLootSlotRects[i].Contains(mousePosition))
                     continue;
 
-                if (i >= nearbyLootSlotItemIndexes.Count)
+                if (i >= nearbyLootSlotItems.Count)
                     return false;
 
-                int candidateIndex = nearbyLootSlotItemIndexes[i];
-                if (candidateIndex < 0 || candidateIndex >= nearbyLootItems.Count)
-                    return false;
-
-                lootIndex = candidateIndex;
+                lootItem = nearbyLootSlotItems[i];
                 lootSlot = nearbyLootSlotRects[i];
-                return true;
+                return lootItem != null;
             }
 
             return false;
@@ -1781,7 +1789,7 @@ namespace XCOM_3
                     }
                     else
                     {
-                        nearbyLootItems.Add(contextMenuItem.Data);
+                        TryPlaceItemInNearbyLootGrid(contextMenuItem.Data, out _);
                     }
 
                     showContextMenu = false;
@@ -2038,14 +2046,14 @@ namespace XCOM_3
                 }
             }
 
-            if (TryGetNearbyLootEntryAt(mousePos, out int lootIndex, out _))
+            if (TryGetNearbyLootEntryAt(mousePos, out GridItem nearbyLootItem, out _))
             {
                 return new ItemContextInfo
                 {
-                    Data = nearbyLootItems[lootIndex],
+                    Data = nearbyLootItem.Data,
                     Source = "nearbyloot",
-                    Index = lootIndex,
-                    GridPosition = Point.Zero
+                    Index = -1,
+                    GridPosition = nearbyLootItem.GridPosition
                 };
             }
 
@@ -2084,8 +2092,9 @@ namespace XCOM_3
                         unit.BackpackInventory.RemoveItem(backpackItem);
                     break;
                 case "nearbyloot":
-                    if (info.Index >= 0 && info.Index < nearbyLootItems.Count)
-                        nearbyLootItems.RemoveAt(info.Index);
+                    var nearbyItem = nearbyLootGrid.GetItemAt(info.GridPosition);
+                    if (nearbyItem != null)
+                        nearbyLootGrid.RemoveItem(nearbyItem);
                     break;
             }
             unit.RefreshGrenadeInventoryFromEquipment();
@@ -2133,10 +2142,11 @@ namespace XCOM_3
                         ReturnItemToGrid(restored);
                     break;
                 case "nearbyloot":
-                    if (info.Index >= 0 && info.Index <= nearbyLootItems.Count)
-                        nearbyLootItems.Insert(info.Index, info.Data);
+                    var restoredNearbyItem = new GridItem(info.Data, info.GridPosition, ItemSizeDatabase.GetItemSize(info.Data.Name), false);
+                    if (nearbyLootGrid.CanPlaceItem(restoredNearbyItem.GridPosition, restoredNearbyItem.GetCurrentSize()))
+                        nearbyLootGrid.PlaceItem(restoredNearbyItem);
                     else
-                        nearbyLootItems.Add(info.Data);
+                        TryPlaceItemInNearbyLootGrid(info.Data, out _);
                     ClampNearbyLootScroll();
                     break;
             }
@@ -2837,12 +2847,13 @@ namespace XCOM_3
                 lootWindow.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
 
             nearbyLootSlotRects.Clear();
-            nearbyLootSlotItemIndexes.Clear();
+            nearbyLootSlotItems.Clear();
 
             spriteBatch.Draw(pixel, content, ParasiteEveTheme.BackgroundDark * 0.35f);
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, content, ParasiteEveTheme.BorderColor, 1);
 
-            if (nearbyLootItems.Count == 0)
+            List<GridItem> lootItems = nearbyLootGrid.GetAllItems();
+            if (lootItems.Count == 0)
             {
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
                     "Aucun loot detecte a portee.",
@@ -2859,9 +2870,8 @@ namespace XCOM_3
             }
 
             int lootCellSize = LOOT_GRID_CELL_SIZE;
-            int columnCount = Math.Max(1, (content.Width - 12) / lootCellSize);
-            int visibleRows = Math.Max(1, (content.Height - LootHeaderTextHeight - LOOT_GRID_BOTTOM_INFO_HEIGHT) / lootCellSize);
-            List<NearbyLootLayoutEntry> layout = BuildNearbyLootLayout(columnCount, out int totalRows);
+            int visibleRows = GetNearbyLootVisibleRows();
+            int totalRows = GetNearbyLootUsedRows();
             int maxScrollRows = Math.Max(0, totalRows - visibleRows);
             nearbyLootScrollRow = Math.Clamp(nearbyLootScrollRow, 0, maxScrollRows);
 
@@ -2874,38 +2884,26 @@ namespace XCOM_3
             DrawLootGridBackdrop(gridArea);
             Point alignedGridOrigin = GetAlignedLootGridOrigin(gridArea);
 
-            int visibleStartRow = nearbyLootScrollRow;
-            int visibleEndRow = nearbyLootScrollRow + visibleRows;
-
-            foreach (NearbyLootLayoutEntry entry in layout)
+            foreach (GridItem entry in lootItems)
             {
-                if (entry.CellY + entry.CellHeight <= visibleStartRow || entry.CellY >= visibleEndRow)
+                ItemSize size = entry.GetCurrentSize();
+                if (entry.GridPosition.Y + size.Height <= nearbyLootScrollRow || entry.GridPosition.Y >= nearbyLootScrollRow + visibleRows)
                     continue;
 
-                int itemIndex = entry.ItemIndex;
-                int drawX = alignedGridOrigin.X + entry.CellX * lootCellSize;
-                int drawY = alignedGridOrigin.Y + (entry.CellY - nearbyLootScrollRow) * lootCellSize;
-                Rectangle lootSlot = new Rectangle(
-                    drawX,
-                    drawY,
-                    Math.Max(1, entry.CellWidth * lootCellSize),
-                    Math.Max(1, entry.CellHeight * lootCellSize));
+                int drawX = alignedGridOrigin.X + entry.GridPosition.X * lootCellSize;
+                int drawY = alignedGridOrigin.Y + (entry.GridPosition.Y - nearbyLootScrollRow) * lootCellSize;
+                Rectangle lootSlot = new Rectangle(drawX, drawY, Math.Max(1, size.Width * lootCellSize), Math.Max(1, size.Height * lootCellSize));
 
                 nearbyLootSlotRects.Add(lootSlot);
-                nearbyLootSlotItemIndexes.Add(itemIndex);
+                nearbyLootSlotItems.Add(entry);
 
-                bool canPickup = IsMainInventoryGridVisible && inventoryGrid.FindFreePosition(ItemSizeDatabase.GetItemSize(nearbyLootItems[itemIndex].Name), true).HasValue;
+                bool canPickup = IsMainInventoryGridVisible && inventoryGrid.FindFreePosition(size, true).HasValue;
                 Color slotColor = canPickup ? ParasiteEveTheme.ButtonNormal * 0.28f : ParasiteEveTheme.TextDanger * 0.2f;
                 spriteBatch.Draw(pixel, lootSlot, slotColor);
                 ParasiteEveTheme.DrawBorder(spriteBatch, pixel, lootSlot, ParasiteEveTheme.BorderColor, 1);
 
-                DrawItemPreviewImage(nearbyLootItems[itemIndex], lootSlot);
-
-                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                    nearbyLootItems[itemIndex].Name,
-                    new Vector2(lootSlot.X + 4, lootSlot.Y + 4),
-                    ParasiteEveTheme.TextNormal,
-                    0.4f);
+                DrawItemPreviewImage(entry.Data, lootSlot);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, entry.Data.Name, new Vector2(lootSlot.X + 4, lootSlot.Y + 4), ParasiteEveTheme.TextNormal, 0.4f);
             }
 
             if (maxScrollRows > 0)
@@ -2918,7 +2916,7 @@ namespace XCOM_3
             }
 
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                "Cliquez un objet pour le ramasser.",
+                "Glissez/deposez pour organiser le loot.",
                 new Vector2(content.X + 8, content.Bottom - 22),
                 ParasiteEveTheme.TextDim,
                 0.5f);
@@ -2945,6 +2943,83 @@ namespace XCOM_3
                 gridArea.Y + PositiveModulo(GetGridStartY() - gridArea.Y, LOOT_GRID_CELL_SIZE));
         }
 
+        private bool TryGetLootGridPlacement(Point mousePosition, out Point targetCell)
+        {
+            Rectangle lootWindow = GetLootPanelBounds();
+            Rectangle content = new Rectangle(
+                lootWindow.X + SECTION_PADDING,
+                lootWindow.Y + SECTION_HEADER_HEIGHT + SECTION_PADDING,
+                lootWindow.Width - SECTION_PADDING * 2,
+                lootWindow.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
+
+            Rectangle gridArea = new Rectangle(
+                content.X + 6,
+                content.Y + LootHeaderTextHeight,
+                content.Width - 12,
+                Math.Max(1, GetNearbyLootVisibleRows() * LOOT_GRID_CELL_SIZE));
+
+            if (!gridArea.Contains(mousePosition))
+            {
+                targetCell = Point.Zero;
+                return false;
+            }
+
+            Point aligned = GetAlignedLootGridOrigin(gridArea);
+            int x = (mousePosition.X - aligned.X) / LOOT_GRID_CELL_SIZE - dragGridOffset.X;
+            int y = (mousePosition.Y - aligned.Y) / LOOT_GRID_CELL_SIZE - dragGridOffset.Y + nearbyLootScrollRow;
+            targetCell = new Point(x, y);
+            return true;
+        }
+
+        private int GetNearbyLootColumnCount()
+        {
+            Rectangle lootWindow = GetLootPanelBounds();
+            Rectangle content = new Rectangle(
+                lootWindow.X + SECTION_PADDING,
+                lootWindow.Y + SECTION_HEADER_HEIGHT + SECTION_PADDING,
+                lootWindow.Width - SECTION_PADDING * 2,
+                lootWindow.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
+            return Math.Max(1, (content.Width - 12) / LOOT_GRID_CELL_SIZE);
+        }
+
+        private int GetNearbyLootVisibleRows()
+        {
+            Rectangle lootWindow = GetLootPanelBounds();
+            Rectangle content = new Rectangle(
+                lootWindow.X + SECTION_PADDING,
+                lootWindow.Y + SECTION_HEADER_HEIGHT + SECTION_PADDING,
+                lootWindow.Width - SECTION_PADDING * 2,
+                lootWindow.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
+            return Math.Max(1, (content.Height - LootHeaderTextHeight - LOOT_GRID_BOTTOM_INFO_HEIGHT) / LOOT_GRID_CELL_SIZE);
+        }
+
+        private int GetNearbyLootUsedRows()
+        {
+            int usedRows = 1;
+            foreach (GridItem item in nearbyLootGrid.GetAllItems())
+            {
+                ItemSize size = item.GetCurrentSize();
+                usedRows = Math.Max(usedRows, item.GridPosition.Y + size.Height);
+            }
+            return usedRows;
+        }
+
+        private bool TryPlaceItemInNearbyLootGrid(ItemData itemData, out Point placedPosition)
+        {
+            ItemSize size = ItemSizeDatabase.GetItemSize(itemData.Name);
+            Point? freePos = nearbyLootGrid.FindFreePosition(size, true);
+            if (!freePos.HasValue)
+            {
+                placedPosition = Point.Zero;
+                return false;
+            }
+
+            var placedItem = new GridItem(itemData, freePos.Value, size, false);
+            nearbyLootGrid.PlaceItem(placedItem);
+            placedPosition = freePos.Value;
+            return true;
+        }
+
         private void HandleNearbyLootScroll(MouseState mouse, MouseState previousMouse)
         {
             Rectangle lootWindow = GetLootPanelBounds();
@@ -2962,63 +3037,10 @@ namespace XCOM_3
 
         private void ClampNearbyLootScroll()
         {
-            Rectangle lootWindow = GetLootPanelBounds();
-            Rectangle content = new Rectangle(
-                lootWindow.X + SECTION_PADDING,
-                lootWindow.Y + SECTION_HEADER_HEIGHT + SECTION_PADDING,
-                lootWindow.Width - SECTION_PADDING * 2,
-                lootWindow.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
-
-            int columnCount = Math.Max(1, (content.Width - 12) / LOOT_GRID_CELL_SIZE);
-            int visibleRows = Math.Max(1, (content.Height - LootHeaderTextHeight - LOOT_GRID_BOTTOM_INFO_HEIGHT) / LOOT_GRID_CELL_SIZE);
-            BuildNearbyLootLayout(columnCount, out int totalRows);
+            int visibleRows = GetNearbyLootVisibleRows();
+            int totalRows = GetNearbyLootUsedRows();
             int maxScrollRows = Math.Max(0, totalRows - visibleRows);
-
             nearbyLootScrollRow = Math.Clamp(nearbyLootScrollRow, 0, maxScrollRows);
-        }
-
-        private List<NearbyLootLayoutEntry> BuildNearbyLootLayout(int columnCount, out int totalRows)
-        {
-            List<NearbyLootLayoutEntry> layout = new List<NearbyLootLayoutEntry>(nearbyLootItems.Count);
-            int currentX = 0;
-            int currentY = 0;
-            int rowHeightInCells = 1;
-
-            for (int i = 0; i < nearbyLootItems.Count; i++)
-            {
-                ItemSize size = ItemSizeDatabase.GetItemSize(nearbyLootItems[i].Name);
-                int cellWidth = Math.Clamp(size.Width, 1, columnCount);
-                int cellHeight = Math.Max(1, size.Height);
-
-                if (currentX + cellWidth > columnCount)
-                {
-                    currentX = 0;
-                    currentY += rowHeightInCells;
-                    rowHeightInCells = 1;
-                }
-
-                layout.Add(new NearbyLootLayoutEntry
-                {
-                    ItemIndex = i,
-                    CellX = currentX,
-                    CellY = currentY,
-                    CellWidth = cellWidth,
-                    CellHeight = cellHeight
-                });
-
-                currentX += cellWidth;
-                rowHeightInCells = Math.Max(rowHeightInCells, cellHeight);
-
-                if (currentX >= columnCount)
-                {
-                    currentX = 0;
-                    currentY += rowHeightInCells;
-                    rowHeightInCells = 1;
-                }
-            }
-
-            totalRows = Math.Max(1, currentY + rowHeightInCells);
-            return layout;
         }
 
         private void DrawWindow(Rectangle bounds, string title)
@@ -3160,10 +3182,7 @@ namespace XCOM_3
 
         private int GetDesiredLootPanelHeight(int panelWidth)
         {
-            int contentWidth = Math.Max(1, panelWidth - SECTION_PADDING * 2);
-            int columnCount = Math.Max(1, (contentWidth - 12) / LOOT_GRID_CELL_SIZE);
-            BuildNearbyLootLayout(columnCount, out int totalRows);
-
+            int totalRows = GetNearbyLootUsedRows();
             int contentHeight = LootHeaderTextHeight + LOOT_GRID_BOTTOM_INFO_HEIGHT + totalRows * LOOT_GRID_CELL_SIZE;
             return SECTION_HEADER_HEIGHT + SECTION_PADDING * 2 + contentHeight;
         }
