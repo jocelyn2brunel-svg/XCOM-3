@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace XCOM_3
 {
@@ -125,12 +126,38 @@ namespace XCOM_3
 
     public static class ItemSizeDatabase
     {
+        private static readonly string[] PistolKeywords =
+        {
+            "Pistol", "Beretta", "Glock", "Sig Sauer", "Walther", "Colt", "Browning", "Five-seveN", "Luger", "Detonics", "Calico"
+        };
+
+        private static readonly string[] SmgKeywords =
+        {
+            "SMG", "MP5", "MP7", "UMP", "P90", "Vector", "Bizon", "Uzi", "Scorpion", "MAC-10"
+        };
+
+        private static readonly string[] AssaultRifleKeywords =
+        {
+            "Assault Rifle", "M16", "AK-", "Type 56", "HK416", "M4A1", "FAMAS", "G36", "AUG"
+        };
+
+        private static readonly string[] RifleKeywords =
+        {
+            "Rifle", "M14", "SCAR", "EBR", "Carbine"
+        };
+
+        private static bool ContainsAny(string name, params string[] keywords)
+            => keywords.Any(keyword => name.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+
         public static ItemSize GetItemSize(string name)
         {
             if (name.Contains("T-Shirt")) return new ItemSize(1, 1);
-            if (name.Contains("Rifle") || name.Contains("Shotgun")) return new ItemSize(1, 4);
-            if (name.Contains("SMG") || name.Contains("Pistol")) return new ItemSize(1, 2);
-            if (name.Contains("Sniper")) return new ItemSize(1, 5);
+            if (ContainsAny(name, PistolKeywords)) return new ItemSize(2, 1);
+            if (ContainsAny(name, SmgKeywords)) return new ItemSize(2, 3);
+            if (ContainsAny(name, AssaultRifleKeywords)) return new ItemSize(4, 2);
+            if (ContainsAny(name, RifleKeywords)) return new ItemSize(4, 1);
+            if (name.Contains("Shotgun", StringComparison.OrdinalIgnoreCase)) return new ItemSize(4, 2);
+            if (name.Contains("Sniper", StringComparison.OrdinalIgnoreCase)) return new ItemSize(5, 2);
             if (name.Contains("Helmet") || name.Contains("ACH") || name.Contains("ECH") || name.Contains("MICH")) return new ItemSize(2, 2);
             if (name.Contains("Neck")) return new ItemSize(1, 1);
             if (name.Contains("Vest") || name.Contains("OTV") || name.Contains("MTV") || name.Contains("IMTV") || name.Contains("IOTV") || name.Contains("Jacket")) return new ItemSize(2, 3);

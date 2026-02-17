@@ -61,6 +61,7 @@ namespace XCOM_3
         private GraphicsDevice graphicsDevice;
         private Texture2D flashlightTexture;
         private Dictionary<string, Texture2D> armorTextures;
+        private Dictionary<string, Texture2D> weaponTextures;
 
         // État des touches
         private KeyboardState previousKeyboardState;
@@ -157,6 +158,7 @@ namespace XCOM_3
 
             flashlightTexture = LoadOptionalTexture("Flashlight32x32.jpg");
             armorTextures = LoadArmorTextures();
+            weaponTextures = LoadWeaponTextures();
 
             uiClickSound = CreateUiTone(760f, 46, 0.15f);
             uiEquipSound = CreateUiTone(980f, 58, 0.2f);
@@ -212,6 +214,19 @@ namespace XCOM_3
             return textures;
         }
 
+        private Dictionary<string, Texture2D> LoadWeaponTextures()
+        {
+            return new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["pistol"] = CreateWeaponIconTexture(new Color(160, 160, 170), WeaponIconKind.Pistol),
+                ["smg"] = CreateWeaponIconTexture(new Color(120, 135, 150), WeaponIconKind.Smg),
+                ["assault_rifle"] = CreateWeaponIconTexture(new Color(105, 125, 95), WeaponIconKind.AssaultRifle),
+                ["rifle"] = CreateWeaponIconTexture(new Color(130, 120, 90), WeaponIconKind.Rifle),
+                ["shotgun"] = CreateWeaponIconTexture(new Color(110, 95, 80), WeaponIconKind.Shotgun),
+                ["sniper"] = CreateWeaponIconTexture(new Color(95, 110, 125), WeaponIconKind.Sniper)
+            };
+        }
+
         private enum ArmorIconKind
         {
             Helmet,
@@ -222,6 +237,16 @@ namespace XCOM_3
             Pants,
             ChestRig,
             Backpack
+        }
+
+        private enum WeaponIconKind
+        {
+            Pistol,
+            Smg,
+            AssaultRifle,
+            Rifle,
+            Shotgun,
+            Sniper
         }
 
         private Texture2D CreateArmorIconTexture(Color accent, ArmorIconKind kind)
@@ -325,6 +350,73 @@ namespace XCOM_3
             return texture;
         }
 
+        private Texture2D CreateWeaponIconTexture(Color accent, WeaponIconKind kind)
+        {
+            const int width = 96;
+            const int height = 64;
+            var data = new Color[width * height];
+
+            Color background = ParasiteEveTheme.BackgroundDark;
+            Color metal = Color.Lerp(accent, Color.White, 0.2f);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    bool border = x == 0 || y == 0 || x == width - 1 || y == height - 1;
+                    data[y * width + x] = border ? accent : background;
+                }
+            }
+
+            void FillRect(int x0, int y0, int x1, int y1, Color color)
+            {
+                for (int y = Math.Max(0, y0); y <= Math.Min(height - 1, y1); y++)
+                    for (int x = Math.Max(0, x0); x <= Math.Min(width - 1, x1); x++)
+                        data[y * width + x] = color;
+            }
+
+            switch (kind)
+            {
+                case WeaponIconKind.Pistol:
+                    FillRect(20, 24, 66, 32, metal);
+                    FillRect(38, 33, 48, 50, accent);
+                    FillRect(62, 20, 68, 23, accent);
+                    break;
+                case WeaponIconKind.Smg:
+                    FillRect(14, 22, 72, 30, metal);
+                    FillRect(26, 31, 35, 45, accent);
+                    FillRect(42, 30, 62, 34, accent);
+                    FillRect(70, 24, 80, 26, accent);
+                    break;
+                case WeaponIconKind.AssaultRifle:
+                    FillRect(10, 22, 82, 29, metal);
+                    FillRect(20, 30, 32, 48, accent);
+                    FillRect(45, 30, 62, 34, accent);
+                    FillRect(74, 20, 89, 23, accent);
+                    break;
+                case WeaponIconKind.Rifle:
+                    FillRect(6, 24, 88, 29, metal);
+                    FillRect(12, 30, 26, 44, accent);
+                    FillRect(80, 22, 92, 24, accent);
+                    break;
+                case WeaponIconKind.Shotgun:
+                    FillRect(8, 23, 84, 30, metal);
+                    FillRect(18, 31, 34, 45, accent);
+                    FillRect(70, 21, 88, 22, accent);
+                    break;
+                case WeaponIconKind.Sniper:
+                    FillRect(4, 25, 90, 29, metal);
+                    FillRect(30, 21, 54, 24, accent);
+                    FillRect(24, 30, 36, 44, accent);
+                    FillRect(84, 23, 94, 24, accent);
+                    break;
+            }
+
+            var texture = new Texture2D(graphicsDevice, width, height);
+            texture.SetData(data);
+            return texture;
+        }
+
 
         private Texture2D GetArmorTexture(ItemData data)
         {
@@ -389,15 +481,52 @@ namespace XCOM_3
             return null;
         }
 
+        private Texture2D GetWeaponTexture(ItemData data)
+        {
+            if (data?.Type != ItemType.Weapon)
+                return null;
+
+            string name = data.Name ?? string.Empty;
+
+            if (name.Contains("Sniper", StringComparison.OrdinalIgnoreCase) && weaponTextures.TryGetValue("sniper", out Texture2D sniperTexture))
+                return sniperTexture;
+
+            if (name.Contains("Shotgun", StringComparison.OrdinalIgnoreCase) && weaponTextures.TryGetValue("shotgun", out Texture2D shotgunTexture))
+                return shotgunTexture;
+
+            if ((name.Contains("SMG", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("MP5", StringComparison.OrdinalIgnoreCase)) && weaponTextures.TryGetValue("smg", out Texture2D smgTexture))
+                return smgTexture;
+
+            if ((name.Contains("Assault", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("M16", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("AK-", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("M4", StringComparison.OrdinalIgnoreCase)) && weaponTextures.TryGetValue("assault_rifle", out Texture2D assaultRifleTexture))
+                return assaultRifleTexture;
+
+            if ((name.Contains("Pistol", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("Beretta", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("Glock", StringComparison.OrdinalIgnoreCase)) && weaponTextures.TryGetValue("pistol", out Texture2D pistolTexture))
+                return pistolTexture;
+
+            if (weaponTextures.TryGetValue("rifle", out Texture2D rifleTexture))
+                return rifleTexture;
+
+            return null;
+        }
+
+        private Texture2D GetItemPreviewTexture(ItemData data)
+            => GetArmorTexture(data) ?? GetWeaponTexture(data);
+
         private void DrawItemPreviewImage(ItemData data, Rectangle targetRect, float alpha = 1f)
         {
-            Texture2D armorTexture = GetArmorTexture(data);
-            if (armorTexture == null)
+            Texture2D previewTexture = GetItemPreviewTexture(data);
+            if (previewTexture == null)
                 return;
 
             Rectangle imageRect = new Rectangle(targetRect.X + 3, targetRect.Y + 3,
                 Math.Max(1, targetRect.Width - 6), Math.Max(1, targetRect.Height - 6));
-            spriteBatch.Draw(armorTexture, imageRect, Color.White * alpha);
+            spriteBatch.Draw(previewTexture, imageRect, Color.White * alpha);
         }
 
         private SoundEffect CreateUiTone(float frequencyHz, int durationMs, float baseVolume)
@@ -487,8 +616,6 @@ namespace XCOM_3
             // Armes
             ItemDatabase["Rifle"] = new ItemData("Rifle", ItemType.Weapon,
                 new WeaponData("Rifle", 25, 80, 5));
-            ItemDatabase["Plasma Rifle"] = new ItemData("Plasma Rifle", ItemType.Weapon,
-                new WeaponData("Plasma Rifle", 30, 75, 5));
             ItemDatabase["Plasma Sniper"] = new ItemData("Plasma Sniper", ItemType.Weapon,
                 new WeaponData("Plasma Sniper", 50, 90, 8));
             ItemDatabase["Shotgun"] = new ItemData("Shotgun", ItemType.Weapon,
@@ -525,7 +652,7 @@ namespace XCOM_3
             // Placement automatique pour éviter les conflits
             var itemsToAdd = new List<string>
             {
-                "Plasma Rifle",
+                "Rifle",
                 "Shotgun",
                 "SMG",
                 "PASGT Helmet",
@@ -1975,7 +2102,7 @@ namespace XCOM_3
                 spriteBatch.Draw(pixel, imageRect, ParasiteEveTheme.BackgroundMedium);
                 ParasiteEveTheme.DrawBorder(spriteBatch, pixel, imageRect, ParasiteEveTheme.BorderColor, 1);
                 DrawItemPreviewImage(examinedItemData, imageRect);
-                if (GetArmorTexture(examinedItemData) == null)
+                if (GetItemPreviewTexture(examinedItemData) == null)
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "IMAGE", new Vector2(imageRect.X + 24, imageRect.Y + 40), ParasiteEveTheme.TextDim, 0.6f);
 
                 float textY = examinePopupRect.Y + 52;
