@@ -1226,7 +1226,7 @@ namespace XCOM_3
             Vector3 elbow = new Vector3(shoulderX, shoulderY - dims.al * 0.06f, dims.al * 0.48f);
             Vector3 wrist = new Vector3(shoulderX, shoulderY - dims.al * 0.1f, dims.al * 0.96f);
 
-            DrawRoundedHead(d, e, p, shoulder, dims.lw * 0.28f, armColor * 0.88f, r);
+            DrawSphere(d, e, p, shoulder, dims.lw * 0.28f, armColor * 0.88f, r);
             DrawFrustumBetween(d, e, p, shoulder, elbow,
                 dims.lw * 0.58f, dims.lw * 0.46f, armColor, r, 6);
             DrawForearmBetween(d, e, p, elbow, wrist,
@@ -1327,8 +1327,8 @@ namespace XCOM_3
                 -dims.al * (0.32f + Math.Max(0f, backward) * 0.1f),
                 forward * dims.al * 0.28f + Math.Max(0f, backward) * dims.al * 0.12f + bendBias * dims.al * 0.08f);
 
-            // Épaule = sphère
-            DrawRoundedHead(d, e, p, shoulder, dims.lw * (radiusScale * 0.56f), armColor * 0.88f, r);
+            // Épaule = vraie sphère
+            DrawSphere(d, e, p, shoulder, dims.lw * (radiusScale * 0.56f), armColor * 0.88f, r);
 
             // Biceps + avant-bras = cônes tronqués
             DrawFrustumBetween(d, e, p, shoulder, elbow,
