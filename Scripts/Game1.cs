@@ -1830,6 +1830,7 @@ namespace XCOM_3
             AssignRandomPants(playerUnits);
             EquipMk2GrenadeToAlliedPockets(playerUnits);
             RemoveDuplicateMk2GrenadesFromAlliedUnits(playerUnits);
+            AssignRandomInventoryToUnits(playerUnits);
 
             switch (missionType)
             {
@@ -1980,6 +1981,7 @@ namespace XCOM_3
             DistributeEnemiesAcrossUpperFloors();
 
             AssignRandomPants(enemyUnits);
+            AssignRandomInventoryToUnits(enemyUnits);
 
             foreach (var unit in playerUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
             foreach (var unit in enemyUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
@@ -2080,6 +2082,77 @@ namespace XCOM_3
                 {
                     GrenadeData grenade = unit.Grenades[i];
                     unit.PantsInventory.Add(new Item(new ItemData(grenade.Name, grenade), Point.Zero));
+                }
+
+                unit.RefreshGrenadeInventoryFromEquipment();
+            }
+        }
+
+        private void AssignRandomInventoryToUnits(List<Unit> units)
+        {
+            if (units == null || units.Count == 0 || inventorySystem?.ItemDatabase == null)
+                return;
+
+            List<ItemData> pocketCandidates = inventorySystem.ItemDatabase.Values
+                .Where(data => data != null
+                    && data.Type != ItemType.Weapon
+                    && !data.Name.Contains("Backpack", StringComparison.OrdinalIgnoreCase)
+                    && ItemSizeDatabase.IsPocketSized(data.Name))
+                .ToList();
+
+            List<ItemData> backpackCandidates = inventorySystem.ItemDatabase.Values
+                .Where(data => data != null
+                    && !data.Name.Contains("Backpack", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (pocketCandidates.Count == 0 && backpackCandidates.Count == 0)
+                return;
+
+            foreach (var unit in units)
+            {
+                if (unit == null)
+                    continue;
+
+                unit.PantsInventory ??= new List<Item>();
+                unit.ChestRigInventory ??= new List<Item>();
+
+                int pantsCapacity = unit.GetPantsInventoryCapacity();
+                int pantsItemsTarget = Math.Min(pantsCapacity, random.Next(1, 3));
+                while (unit.PantsInventory.Count < pantsItemsTarget && pocketCandidates.Count > 0)
+                {
+                    ItemData randomPocketItem = pocketCandidates[random.Next(pocketCandidates.Count)];
+                    unit.PantsInventory.Add(new Item(randomPocketItem, Point.Zero));
+                }
+
+                int chestRigCapacity = unit.GetChestRigInventoryCapacity();
+                int chestRigItemsTarget = Math.Min(chestRigCapacity, random.Next(0, 3));
+                while (unit.ChestRigInventory.Count < chestRigItemsTarget && pocketCandidates.Count > 0)
+                {
+                    ItemData randomPocketItem = pocketCandidates[random.Next(pocketCandidates.Count)];
+                    unit.ChestRigInventory.Add(new Item(randomPocketItem, Point.Zero));
+                }
+
+                unit.EnsureBackpackInventoryGrid();
+                int backpackItemsTarget = random.Next(1, 5);
+                for (int i = 0; i < backpackItemsTarget && backpackCandidates.Count > 0; i++)
+                {
+                    ItemData randomBackpackItem = backpackCandidates[random.Next(backpackCandidates.Count)];
+                    ItemSize itemSize = ItemSizeDatabase.GetItemSize(randomBackpackItem.Name);
+                    Point? position = unit.BackpackInventory.FindFreePosition(itemSize, true);
+
+                    if (!position.HasValue)
+                        continue;
+
+                    bool canPlaceDefault = unit.BackpackInventory.CanPlaceItem(position.Value, itemSize);
+                    bool canPlaceRotated = itemSize.Width != itemSize.Height
+                        && unit.BackpackInventory.CanPlaceItem(position.Value, itemSize.Rotated());
+                    bool rotate = !canPlaceDefault && canPlaceRotated;
+
+                    unit.BackpackInventory.PlaceItem(new GridItem(
+                        randomBackpackItem,
+                        position.Value,
+                        itemSize,
+                        rotate));
                 }
 
                 unit.RefreshGrenadeInventoryFromEquipment();
