@@ -101,6 +101,15 @@ namespace XCOM_3
         private readonly List<int> nearbyLootSlotItemIndexes = new List<int>();
         private int nearbyLootScrollRow = 0;
 
+        private struct NearbyLootLayoutEntry
+        {
+            public int ItemIndex;
+            public int CellX;
+            public int CellY;
+            public int CellWidth;
+            public int CellHeight;
+        }
+
         private struct ItemContextInfo
         {
             public ItemData Data;
@@ -2525,9 +2534,8 @@ namespace XCOM_3
 
             int lootCellSize = LOOT_GRID_CELL_SIZE;
             int columnCount = Math.Max(1, Math.Min(LOOT_GRID_COLUMNS, Math.Max(1, (content.Width - 12) / lootCellSize)));
-            int rowHeight = lootCellSize + LOOT_GRID_LABEL_HEIGHT;
-            int visibleRows = Math.Max(1, (content.Height - LootHeaderTextHeight - LOOT_GRID_BOTTOM_INFO_HEIGHT) / rowHeight);
-            int totalRows = Math.Max(1, (int)Math.Ceiling(nearbyLootItems.Count / (float)columnCount));
+            int visibleRows = Math.Max(1, (content.Height - LootHeaderTextHeight - LOOT_GRID_BOTTOM_INFO_HEIGHT) / lootCellSize);
+            List<NearbyLootLayoutEntry> layout = BuildNearbyLootLayout(columnCount, out int totalRows);
             int maxScrollRows = Math.Max(0, totalRows - visibleRows);
             nearbyLootScrollRow = Math.Clamp(nearbyLootScrollRow, 0, maxScrollRows);
 
@@ -2535,23 +2543,27 @@ namespace XCOM_3
                 content.X + 6,
                 content.Y + LootHeaderTextHeight,
                 content.Width - 12,
-                Math.Max(1, visibleRows * rowHeight));
+                Math.Max(1, visibleRows * lootCellSize));
 
             DrawLootGridBackdrop(gridArea);
 
-            int startIndex = nearbyLootScrollRow * columnCount;
-            int maxVisible = Math.Min(nearbyLootItems.Count - startIndex, visibleRows * columnCount);
+            int visibleStartRow = nearbyLootScrollRow;
+            int visibleEndRow = nearbyLootScrollRow + visibleRows;
 
-            for (int i = 0; i < maxVisible; i++)
+            foreach (NearbyLootLayoutEntry entry in layout)
             {
-                int col = i % columnCount;
-                int row = i / columnCount;
-                int itemIndex = startIndex + i;
+                if (entry.CellY + entry.CellHeight <= visibleStartRow || entry.CellY >= visibleEndRow)
+                    continue;
+
+                int itemIndex = entry.ItemIndex;
+                int drawX = gridArea.X + entry.CellX * lootCellSize;
+                int drawY = gridArea.Y + (entry.CellY - nearbyLootScrollRow) * lootCellSize;
                 Rectangle lootSlot = new Rectangle(
-                    gridArea.X + col * lootCellSize,
-                    gridArea.Y + row * rowHeight,
-                    Math.Max(1, lootCellSize - 4),
-                    Math.Max(1, lootCellSize - 4));
+                    drawX,
+                    drawY,
+                    Math.Max(1, entry.CellWidth * lootCellSize - 4),
+                    Math.Max(1, entry.CellHeight * lootCellSize - 4));
+
                 nearbyLootSlotRects.Add(lootSlot);
                 nearbyLootSlotItemIndexes.Add(itemIndex);
 
@@ -2564,9 +2576,9 @@ namespace XCOM_3
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
                     nearbyLootItems[itemIndex].Name,
-                    new Vector2(lootSlot.X, lootSlot.Bottom + 2),
+                    new Vector2(lootSlot.X + 4, lootSlot.Y + 4),
                     ParasiteEveTheme.TextNormal,
-                    0.45f);
+                    0.4f);
             }
 
             if (maxScrollRows > 0)
@@ -2626,12 +2638,55 @@ namespace XCOM_3
                 lootWindow.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
 
             int columnCount = Math.Max(1, Math.Min(LOOT_GRID_COLUMNS, Math.Max(1, (content.Width - 12) / LOOT_GRID_CELL_SIZE)));
-            int rowHeight = LOOT_GRID_CELL_SIZE + LOOT_GRID_LABEL_HEIGHT;
-            int visibleRows = Math.Max(1, (content.Height - LootHeaderTextHeight - LOOT_GRID_BOTTOM_INFO_HEIGHT) / rowHeight);
-            int totalRows = Math.Max(1, (int)Math.Ceiling(nearbyLootItems.Count / (float)columnCount));
+            int visibleRows = Math.Max(1, (content.Height - LootHeaderTextHeight - LOOT_GRID_BOTTOM_INFO_HEIGHT) / LOOT_GRID_CELL_SIZE);
+            BuildNearbyLootLayout(columnCount, out int totalRows);
             int maxScrollRows = Math.Max(0, totalRows - visibleRows);
 
             nearbyLootScrollRow = Math.Clamp(nearbyLootScrollRow, 0, maxScrollRows);
+        }
+
+        private List<NearbyLootLayoutEntry> BuildNearbyLootLayout(int columnCount, out int totalRows)
+        {
+            List<NearbyLootLayoutEntry> layout = new List<NearbyLootLayoutEntry>(nearbyLootItems.Count);
+            int currentX = 0;
+            int currentY = 0;
+            int rowHeightInCells = 1;
+
+            for (int i = 0; i < nearbyLootItems.Count; i++)
+            {
+                ItemSize size = ItemSizeDatabase.GetItemSize(nearbyLootItems[i].Name);
+                int cellWidth = Math.Clamp(size.Width, 1, columnCount);
+                int cellHeight = Math.Max(1, size.Height);
+
+                if (currentX + cellWidth > columnCount)
+                {
+                    currentX = 0;
+                    currentY += rowHeightInCells;
+                    rowHeightInCells = 1;
+                }
+
+                layout.Add(new NearbyLootLayoutEntry
+                {
+                    ItemIndex = i,
+                    CellX = currentX,
+                    CellY = currentY,
+                    CellWidth = cellWidth,
+                    CellHeight = cellHeight
+                });
+
+                currentX += cellWidth;
+                rowHeightInCells = Math.Max(rowHeightInCells, cellHeight);
+
+                if (currentX >= columnCount)
+                {
+                    currentX = 0;
+                    currentY += rowHeightInCells;
+                    rowHeightInCells = 1;
+                }
+            }
+
+            totalRows = Math.Max(1, currentY + rowHeightInCells);
+            return layout;
         }
 
         private void DrawWindow(Rectangle bounds, string title)
