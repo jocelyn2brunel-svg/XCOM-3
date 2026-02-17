@@ -1828,6 +1828,7 @@ namespace XCOM_3
             }
 
             AssignRandomPants(playerUnits);
+            AssignRandomEquipmentToUnits(playerUnits);
             EquipMk2GrenadeToAlliedPockets(playerUnits);
             RemoveDuplicateMk2GrenadesFromAlliedUnits(playerUnits);
             AssignRandomInventoryToUnits(playerUnits);
@@ -1981,6 +1982,7 @@ namespace XCOM_3
             DistributeEnemiesAcrossUpperFloors();
 
             AssignRandomPants(enemyUnits);
+            AssignRandomEquipmentToUnits(enemyUnits);
             AssignRandomInventoryToUnits(enemyUnits);
 
             foreach (var unit in playerUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
@@ -2000,10 +2002,76 @@ namespace XCOM_3
             {
                 if (grenadeDatabase.TryGetValue(itemName, out GrenadeData grenade))
                     unit.AddGrenade(grenade);
+
+                ItemData armorData = ArmorDatabase.GetArmor(itemName);
+                if (armorData != null)
+                    EquipArmorItemToSlot(unit, armorData);
             }
 
             if (unit.Grenades.Count == 0)
                 unit.AddGrenade(grenadeDatabase["MK 2"]);
+        }
+
+        private void AssignRandomEquipmentToUnits(List<Unit> units)
+        {
+            if (units == null || units.Count == 0)
+                return;
+
+            var slotCandidates = new Dictionary<ArmorSlot, IReadOnlyList<ItemData>>
+            {
+                [ArmorSlot.Head] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.Head),
+                [ArmorSlot.Neck] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.Neck),
+                [ArmorSlot.Torso] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.Torso),
+                [ArmorSlot.ChestRig] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.ChestRig),
+                [ArmorSlot.Backpack] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.Backpack)
+            };
+
+            foreach (Unit unit in units)
+            {
+                if (unit == null)
+                    continue;
+
+                foreach (var slotGroup in slotCandidates)
+                {
+                    var candidates = slotGroup.Value;
+                    if (candidates == null || candidates.Count == 0)
+                        continue;
+
+                    ItemData selected = candidates[random.Next(candidates.Count)];
+                    EquipArmorItemToSlot(unit, selected);
+                }
+            }
+        }
+
+        private static void EquipArmorItemToSlot(Unit unit, ItemData armorData)
+        {
+            if (unit == null || armorData == null)
+                return;
+
+            Item equippedItem = new Item(armorData, Point.Zero);
+
+            switch (armorData.ArmorSlot)
+            {
+                case ArmorSlot.Head:
+                    unit.EquippedHelmet = equippedItem;
+                    break;
+                case ArmorSlot.Neck:
+                    unit.EquippedNeck = equippedItem;
+                    break;
+                case ArmorSlot.Torso:
+                    unit.EquippedArmor = equippedItem;
+                    break;
+                case ArmorSlot.Pants:
+                    unit.EquippedPants = equippedItem;
+                    break;
+                case ArmorSlot.ChestRig:
+                    unit.EquippedChestRig = equippedItem;
+                    break;
+                case ArmorSlot.Backpack:
+                    unit.EquippedBackpack = armorData.Name;
+                    unit.EnsureBackpackInventoryGrid();
+                    break;
+            }
         }
 
         private void DistributeEnemiesAcrossUpperFloors()
