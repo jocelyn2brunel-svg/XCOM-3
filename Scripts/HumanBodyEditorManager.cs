@@ -173,21 +173,12 @@ namespace XCOM_3
             AddSlider("Limb Width", 0.6f, 1.6f, () => HumanBodyMorphSettings.LimbWidthScale, v => HumanBodyMorphSettings.LimbWidthScale = HumanBodyMorphSettings.ClampScale(v, 0.6f, 1.6f));
             AddSlider("Arm Length", 0.6f, 1.6f, () => HumanBodyMorphSettings.ArmLengthScale, v => HumanBodyMorphSettings.ArmLengthScale = HumanBodyMorphSettings.ClampScale(v, 0.6f, 1.6f));
             AddSlider("Leg Length", 0.6f, 1.6f, () => HumanBodyMorphSettings.LegLengthScale, v => HumanBodyMorphSettings.LegLengthScale = HumanBodyMorphSettings.ClampScale(v, 0.6f, 1.6f));
+            // "Shoulder Size" ne doit pas déplacer la hauteur d'épaule.
+            // On le fait piloter uniquement la largeur globale des épaules
+            // (la hauteur reste dédiée au slider "Shoulder Height").
             AddSlider("Shoulder Size", 0.7f, 1.3f,
-                () => (HumanBodyMorphSettings.ShoulderWidthScale + HumanBodyMorphSettings.ShoulderHeightScale) * 0.5f,
-                v =>
-                {
-                    float clamped = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f);
-
-                    float currentWidth = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderWidthScale, 0.7f, 1.3f);
-                    float currentHeight = HumanBodyMorphSettings.ClampScale(HumanBodyMorphSettings.ShoulderHeightScale, 0.7f, 1.3f);
-                    float currentAverage = Math.Max(0.001f, (currentWidth + currentHeight) * 0.5f);
-                    float ratio = clamped / currentAverage;
-
-                    HumanBodyMorphSettings.ShoulderWidthScale = HumanBodyMorphSettings.ClampScale(currentWidth * ratio, 0.7f, 1.3f);
-                    HumanBodyMorphSettings.ShoulderHeightScale = HumanBodyMorphSettings.ClampScale(currentHeight * ratio, 0.7f, 1.3f);
-                });
-            AddSlider("Shoulder Width", 0.7f, 1.3f, () => HumanBodyMorphSettings.ShoulderWidthScale, v => HumanBodyMorphSettings.ShoulderWidthScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
+                () => HumanBodyMorphSettings.ShoulderWidthScale,
+                v => HumanBodyMorphSettings.ShoulderWidthScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
             AddSlider("Shoulder Height", 0.7f, 1.3f, () => HumanBodyMorphSettings.ShoulderHeightScale, v => HumanBodyMorphSettings.ShoulderHeightScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
             AddSlider("Shoulder Slope", 0.7f, 1.3f, () => HumanBodyMorphSettings.ShoulderSlopeScale, v => HumanBodyMorphSettings.ShoulderSlopeScale = HumanBodyMorphSettings.ClampScale(v, 0.7f, 1.3f));
             AddSlider("Shoulder Sphere Volume", 0.6f, 2.2f,
