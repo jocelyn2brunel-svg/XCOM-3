@@ -876,6 +876,12 @@ namespace XCOM_3
                     out rightShoulder, out rightElbow, out rightWrist);
             }
 
+            // Ajoute un vrai volume d'épaule au-dessus des manches pour éviter
+            // l'impression d'épaule « absente » quand une chemise est équipée.
+            float shoulderCapRadius = dims.lw * 0.36f;
+            DrawSphere(device, effect, pos, leftShoulder, shoulderCapRadius, shirtColor * 0.95f, rot);
+            DrawSphere(device, effect, pos, rightShoulder, shoulderCapRadius, shirtColor * 0.95f, rot);
+
             DrawFrustumBetween(device, effect, pos, leftShoulder, leftElbow,
                 dims.lw * 0.62f, dims.lw * 0.56f, shirtColor * 0.9f, rot, 5);
             DrawFrustumBetween(device, effect, pos, leftElbow, leftWrist,
