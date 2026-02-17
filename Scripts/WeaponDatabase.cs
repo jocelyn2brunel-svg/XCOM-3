@@ -15,6 +15,8 @@ namespace XCOM_3
         {
             var weapons = new Dictionary<string, WeaponData>();
 
+            // NOTE: 1 case = 5 pieds. Les portées ci-dessous sont alignées sur des portées efficaces réelles approximatives.
+
             // ═══════════════════════════════════════════════════════════════════
             // MÊLÉE
             // ═══════════════════════════════════════════════════════════════════
@@ -28,61 +30,61 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["Beretta 92"] = new WeaponData("Beretta 92", 
-                damage: 25, accuracy: 75, range: 6, 
+                damage: 25, accuracy: 75, range: 33, 
                 weaponType: WeaponType.Pistol, caliber: "9x19mm");
 
             weapons["Beretta 92FS"] = new WeaponData("Beretta 92FS", 
-                damage: 26, accuracy: 76, range: 6, 
+                damage: 26, accuracy: 76, range: 33, 
                 weaponType: WeaponType.Pistol, caliber: "9x19mm", 
                 reference: "Terminator II");
 
             weapons["Beretta 93R"] = new WeaponData("Beretta 93R", 
-                damage: 28, accuracy: 72, range: 6, 
+                damage: 28, accuracy: 72, range: 33, 
                 weaponType: WeaponType.Pistol, caliber: "9x19mm", 
                 reference: "Parasite Eve II");
 
             weapons["Luger P08"] = new WeaponData("Luger P08", 
-                damage: 24, accuracy: 78, range: 5, 
+                damage: 24, accuracy: 78, range: 33, 
                 weaponType: WeaponType.Pistol, caliber: "9x19mm", 
                 reference: "Parasite Eve II");
 
             weapons["Sig Sauer P229"] = new WeaponData("Sig Sauer P229", 
-                damage: 27, accuracy: 80, range: 6, 
+                damage: 27, accuracy: 80, range: 33, 
                 weaponType: WeaponType.Pistol, caliber: "9x19mm", 
                 reference: "Parasite Eve II");
 
             weapons["Glock 17"] = new WeaponData("Glock 17", 
-                damage: 26, accuracy: 81, range: 6, 
+                damage: 26, accuracy: 81, range: 33, 
                 weaponType: WeaponType.Pistol, caliber: "9x19mm", 
                 reference: "Usage moderne");
 
             weapons["Calico M950"] = new WeaponData("Calico M950", 
-                damage: 22, accuracy: 70, range: 7, 
+                damage: 22, accuracy: 70, range: 39, 
                 weaponType: WeaponType.Pistol, caliber: "9x19mm", 
                 reference: "Parasite Eve II");
 
             weapons["Walther PPK"] = new WeaponData("Walther PPK", 
-                damage: 20, accuracy: 82, range: 5, 
+                damage: 20, accuracy: 82, range: 17, 
                 weaponType: WeaponType.Pistol, caliber: ".380 ACP", 
                 reference: "GoldenEye 64");
 
             weapons["Colt 1911"] = new WeaponData("Colt 1911", 
-                damage: 30, accuracy: 78, range: 6, 
+                damage: 30, accuracy: 78, range: 33, 
                 weaponType: WeaponType.Pistol, caliber: ".45 ACP", 
                 reference: "Terminator II");
 
             weapons["Detonics SpeedMaster"] = new WeaponData("Detonics SpeedMaster", 
-                damage: 32, accuracy: 77, range: 5, 
+                damage: 32, accuracy: 77, range: 17, 
                 weaponType: WeaponType.Pistol, caliber: ".45 ACP", 
                 reference: "Terminator II");
 
             weapons["Browning Hi-Power"] = new WeaponData("Browning Hi-Power", 
-                damage: 26, accuracy: 79, range: 6, 
+                damage: 26, accuracy: 79, range: 33, 
                 weaponType: WeaponType.Pistol, caliber: "9x19mm", 
                 reference: "Terminator II");
 
             weapons["FN Five-seveN"] = new WeaponData("FN Five-seveN", 
-                damage: 24, accuracy: 84, range: 7, 
+                damage: 24, accuracy: 84, range: 33, 
                 weaponType: WeaponType.Pistol, caliber: "5.7x28mm", 
                 reference: "Usage moderne");
 
@@ -91,7 +93,7 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["Korth Mongoose .44"] = new WeaponData("Korth Mongoose .44", 
-                damage: 50, accuracy: 85, range: 7, 
+                damage: 50, accuracy: 85, range: 33, 
                 weaponType: WeaponType.Revolver, caliber: ".44 Magnum", 
                 reference: "Parasite Eve II");
 
@@ -100,17 +102,17 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["H&K MP5"] = new WeaponData("H&K MP5", 
-                damage: 22, accuracy: 75, range: 8, 
+                damage: 22, accuracy: 75, range: 131, 
                 weaponType: WeaponType.SMG, caliber: "9x19mm", 
                 reference: "Parasite Eve II");
 
             weapons["H&K MP5K"] = new WeaponData("H&K MP5K", 
-                damage: 20, accuracy: 70, range: 6, 
+                damage: 20, accuracy: 70, range: 66, 
                 weaponType: WeaponType.SMG, caliber: "9x19mm", 
                 reference: "Parasite Eve II");
 
             weapons["H&K UMP45"] = new WeaponData("H&K UMP45", 
-                damage: 27, accuracy: 72, range: 7, 
+                damage: 27, accuracy: 72, range: 66, 
                 weaponType: WeaponType.SMG, caliber: ".45 ACP", 
                 reference: "Usage moderne");
 
@@ -119,16 +121,16 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["M16A1"] = new WeaponData("M16A1", 
-                damage: 35, accuracy: 80, range: 12, 
+                damage: 35, accuracy: 80, range: 360, 
                 weaponType: WeaponType.AssaultRifle, caliber: "5.56x45mm NATO", 
                 reference: "Parasite Eve II");
 
             weapons["AK-47"] = new WeaponData("AK-47", 
-                damage: 40, accuracy: 70, range: 10, 
+                damage: 40, accuracy: 70, range: 230, 
                 weaponType: WeaponType.AssaultRifle, caliber: "7.62x39mm");
 
             weapons["Type 56"] = new WeaponData("Type 56", 
-                damage: 38, accuracy: 72, range: 10, 
+                damage: 38, accuracy: 72, range: 230, 
                 weaponType: WeaponType.AssaultRifle, caliber: "7.62x39mm");
 
             // ═══════════════════════════════════════════════════════════════════
@@ -136,12 +138,12 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["M4A1"] = new WeaponData("M4A1", 
-                damage: 32, accuracy: 82, range: 10, 
+                damage: 32, accuracy: 82, range: 328, 
                 weaponType: WeaponType.Carbine, caliber: "5.56x45mm NATO", 
                 reference: "Parasite Eve II");
 
             weapons["HK416"] = new WeaponData("HK416", 
-                damage: 34, accuracy: 84, range: 11, 
+                damage: 34, accuracy: 84, range: 328, 
                 weaponType: WeaponType.Carbine, caliber: "5.56x45mm NATO", 
                 reference: "Usage moderne");
 
@@ -150,11 +152,11 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["M14"] = new WeaponData("M14", 
-                damage: 45, accuracy: 80, range: 14, 
+                damage: 45, accuracy: 80, range: 328, 
                 weaponType: WeaponType.BattleRifle, caliber: "7.62x51mm NATO");
 
             weapons["FN SCAR-H"] = new WeaponData("FN SCAR-H", 
-                damage: 50, accuracy: 82, range: 15, 
+                damage: 50, accuracy: 82, range: 394, 
                 weaponType: WeaponType.BattleRifle, caliber: "7.62x51mm NATO", 
                 reference: "Usage moderne");
 
@@ -163,52 +165,52 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["Franchi PA3"] = new WeaponData("Franchi PA3", 
-                damage: 60, accuracy: 65, range: 4, 
+                damage: 60, accuracy: 65, range: 23, 
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
                 reference: "Parasite Eve II");
 
             weapons["SP12"] = new WeaponData("SP12", 
-                damage: 65, accuracy: 68, range: 4, 
+                damage: 65, accuracy: 68, range: 23, 
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
                 reference: "Parasite Eve II");
 
             weapons["AA-12"] = new WeaponData("AA-12", 
-                damage: 70, accuracy: 70, range: 5, 
+                damage: 70, accuracy: 70, range: 26, 
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
                 reference: "Parasite Eve II");
 
             weapons["Winchester 1887"] = new WeaponData("Winchester 1887", 
-                damage: 75, accuracy: 60, range: 3, 
+                damage: 75, accuracy: 60, range: 20, 
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
                 reference: "Terminator II");
 
             weapons["Remington 870"] = new WeaponData("Remington 870", 
-                damage: 68, accuracy: 72, range: 4, 
+                damage: 68, accuracy: 72, range: 23, 
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
                 reference: "Terminator II");
 
             weapons["Mossberg 590"] = new WeaponData("Mossberg 590", 
-                damage: 67, accuracy: 73, range: 4, 
+                damage: 67, accuracy: 73, range: 23, 
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
                 reference: "Terminator II");
 
             weapons["Franchi SPAS-12"] = new WeaponData("Franchi SPAS-12", 
-                damage: 72, accuracy: 68, range: 5, 
+                damage: 72, accuracy: 68, range: 26, 
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
                 reference: "Terminator II");
 
             weapons["Franchi SPAS-15"] = new WeaponData("Franchi SPAS-15", 
-                damage: 70, accuracy: 70, range: 5, 
+                damage: 70, accuracy: 70, range: 26, 
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
                 reference: "Terminator II");
 
             weapons["Benelli M4"] = new WeaponData("Benelli M4", 
-                damage: 69, accuracy: 74, range: 5, 
+                damage: 69, accuracy: 74, range: 26, 
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
                 reference: "Usage moderne");
 
             weapons["Ithaca 37"] = new WeaponData("Ithaca 37", 
-                damage: 66, accuracy: 74, range: 4, 
+                damage: 66, accuracy: 74, range: 23, 
                 weaponType: WeaponType.Shotgun, caliber: "12 Gauge", 
                 reference: "Terminator II");
 
@@ -217,12 +219,12 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["M249 SAW"] = new WeaponData("M249 SAW", 
-                damage: 30, accuracy: 65, range: 15, 
+                damage: 30, accuracy: 65, range: 525, 
                 weaponType: WeaponType.MachineGun, caliber: "5.56x45mm", 
                 reference: "Parasite Eve II");
 
             weapons["PKM"] = new WeaponData("PKM", 
-                damage: 36, accuracy: 62, range: 16, 
+                damage: 36, accuracy: 62, range: 656, 
                 weaponType: WeaponType.MachineGun, caliber: "7.62x54mmR", 
                 reference: "Usage moderne");
 
@@ -231,15 +233,15 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["MK 14 EBR"] = new WeaponData("MK 14 EBR", 
-                damage: 55, accuracy: 88, range: 16, 
+                damage: 55, accuracy: 88, range: 525, 
                 weaponType: WeaponType.DMR, caliber: "7.62x51mm NATO");
 
             weapons["Marine Scout Rifle"] = new WeaponData("Marine Scout Rifle", 
-                damage: 58, accuracy: 90, range: 18, 
+                damage: 58, accuracy: 90, range: 590, 
                 weaponType: WeaponType.DMR, caliber: "7.62x51mm NATO");
 
             weapons["Dragunov SVD"] = new WeaponData("Dragunov SVD", 
-                damage: 60, accuracy: 89, range: 19, 
+                damage: 60, accuracy: 89, range: 525, 
                 weaponType: WeaponType.DMR, caliber: "7.62x54mmR", 
                 reference: "Usage moderne");
 
@@ -248,15 +250,15 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["M24 SWS"] = new WeaponData("M24 SWS", 
-                damage: 80, accuracy: 95, range: 20, 
+                damage: 80, accuracy: 95, range: 525, 
                 weaponType: WeaponType.SniperRifle, caliber: "7.62x51mm NATO");
 
             weapons["M2010 ESR"] = new WeaponData("M2010 ESR", 
-                damage: 85, accuracy: 96, range: 22, 
+                damage: 85, accuracy: 96, range: 787, 
                 weaponType: WeaponType.SniperRifle, caliber: ".300 Win Mag");
 
             weapons["MK 22 PSR"] = new WeaponData("MK 22 PSR", 
-                damage: 90, accuracy: 97, range: 24, 
+                damage: 90, accuracy: 97, range: 984, 
                 weaponType: WeaponType.SniperRifle, caliber: ".338 Lapua");
 
             // ═══════════════════════════════════════════════════════════════════
@@ -264,30 +266,30 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["Milkor MGL"] = new WeaponData("Milkor MGL", 
-                damage: 100, accuracy: 75, range: 8, 
+                damage: 100, accuracy: 75, range: 246, 
                 weaponType: WeaponType.GrenadeLauncher, caliber: "40mm Grenade");
 
             weapons["M79"] = new WeaponData("M79", 
-                damage: 95, accuracy: 80, range: 10, 
+                damage: 95, accuracy: 80, range: 246, 
                 weaponType: WeaponType.GrenadeLauncher, caliber: "40mm Grenade", 
                 reference: "Terminator II");
 
             weapons["M320"] = new WeaponData("M320", 
-                damage: 98, accuracy: 78, range: 9, 
+                damage: 98, accuracy: 78, range: 262, 
                 weaponType: WeaponType.GrenadeLauncher, caliber: "40mm Grenade");
 
             weapons["MM1"] = new WeaponData("MM1", 
-                damage: 105, accuracy: 72, range: 8, 
+                damage: 105, accuracy: 72, range: 230, 
                 weaponType: WeaponType.GrenadeLauncher, caliber: "40mm Grenade", 
                 reference: "Parasite Eve II");
 
             weapons["XM25"] = new WeaponData("XM25", 
-                damage: 110, accuracy: 85, range: 12, 
+                damage: 110, accuracy: 85, range: 459, 
                 weaponType: WeaponType.GrenadeLauncher, caliber: "25mm Airburst", 
                 reference: "Battlefield 4");
 
             weapons["H&K HK69A1"] = new WeaponData("H&K HK69A1", 
-                damage: 92, accuracy: 82, range: 9, 
+                damage: 92, accuracy: 82, range: 230, 
                 weaponType: WeaponType.GrenadeLauncher, caliber: "40mm Grenade");
 
             // ═══════════════════════════════════════════════════════════════════
@@ -295,16 +297,16 @@ namespace XCOM_3
             // ═══════════════════════════════════════════════════════════════════
 
             weapons["M202A1 Flash"] = new WeaponData("M202A1 Flash", 
-                damage: 150, accuracy: 70, range: 12, 
+                damage: 150, accuracy: 70, range: 492, 
                 weaponType: WeaponType.RocketLauncher, caliber: "66mm Incendiary", 
                 reference: "Resident Evil 3");
 
             weapons["RPG-7"] = new WeaponData("RPG-7", 
-                damage: 180, accuracy: 65, range: 15, 
+                damage: 180, accuracy: 65, range: 328, 
                 weaponType: WeaponType.RocketLauncher, caliber: "40mm Rocket");
 
             weapons["M72 LAW"] = new WeaponData("M72 LAW", 
-                damage: 160, accuracy: 75, range: 10, 
+                damage: 160, accuracy: 75, range: 131, 
                 weaponType: WeaponType.RocketLauncher, caliber: "66mm Rocket", 
                 reference: "Terminator II");
 
