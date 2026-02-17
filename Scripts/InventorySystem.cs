@@ -38,6 +38,7 @@ namespace XCOM_3
         private const int CONTEXT_WINDOW_HEIGHT = 220;
         private const int CONTAINER_POPUP_WIDTH = 360;
         private const int CONTAINER_POPUP_HEIGHT = 320;
+        private const int CONTAINER_POPUP_CELL_SIZE = 34;
         private const int LOOT_GRID_CELL_SIZE = CELL_SIZE;
         private const int LOOT_GRID_LABEL_HEIGHT = 22;
         private const int LOOT_GRID_BOTTOM_INFO_HEIGHT = 24;
@@ -115,7 +116,10 @@ namespace XCOM_3
         private ItemData examinedItemData;
         private bool showContainerPopup = false;
         private Rectangle containerPopupRect;
-        private readonly List<string> containerPopupItemLines = new List<string>();
+        private readonly List<GridItem> containerPopupItems = new List<GridItem>();
+        private InventoryGrid containerPopupGrid;
+        private ItemSize containerPopupGridSize = new ItemSize(1, 1);
+        private Rectangle containerPopupGridRect;
         private string containerPopupTitle = string.Empty;
         private bool isDraggingContainerPopup = false;
         private Point containerPopupDragOffset;
@@ -1963,6 +1967,7 @@ namespace XCOM_3
                     int targetX = Math.Clamp(mouse.X - containerPopupDragOffset.X, 8, maxX);
                     int targetY = Math.Clamp(mouse.Y - containerPopupDragOffset.Y, 8, maxY);
                     containerPopupRect = new Rectangle(targetX, targetY, containerPopupRect.Width, containerPopupRect.Height);
+                    UpdateContainerPopupGridRect();
                 }
                 else
                 {
@@ -1979,73 +1984,87 @@ namespace XCOM_3
 
         private bool TryOpenContainerPopup(ItemContextInfo info, Unit unit)
         {
-            if (!TryBuildContainerPopupContent(info, unit, out string title, out List<string> lines))
+            if (!TryBuildContainerPopupContent(info, unit, out string title, out ItemSize gridSize, out List<GridItem> gridItems))
                 return false;
 
             containerPopupTitle = title;
-            containerPopupItemLines.Clear();
-            containerPopupItemLines.AddRange(lines);
-            containerPopupRect = BuildContainerPopupWindow();
+            containerPopupGridSize = new ItemSize(Math.Max(1, gridSize.Width), Math.Max(1, gridSize.Height));
+            containerPopupItems.Clear();
+            containerPopupItems.AddRange(gridItems);
+            containerPopupGrid = new InventoryGrid(containerPopupGridSize.Width, containerPopupGridSize.Height);
+            foreach (GridItem item in containerPopupItems)
+            {
+                if (item != null)
+                    containerPopupGrid.PlaceItem(item);
+            }
+
+            containerPopupRect = BuildContainerPopupWindow(containerPopupGridSize);
+            UpdateContainerPopupGridRect();
             showContainerPopup = true;
             isDraggingContainerPopup = false;
             return true;
         }
 
-        private bool TryBuildContainerPopupContent(ItemContextInfo info, Unit unit, out string title, out List<string> lines)
+        private bool TryBuildContainerPopupContent(ItemContextInfo info, Unit unit, out string title, out ItemSize gridSize, out List<GridItem> items)
         {
             title = info.Data?.Name ?? "CONTENEUR";
-            List<string> popupLines = new List<string>();
+            List<GridItem> popupItems = new List<GridItem>();
+            gridSize = new ItemSize(1, 1);
 
-            void AddPocketItems(List<Item> items, string prefix)
+            void AddPocketItems(List<Item> pocketItems, int width)
             {
-                if (items == null)
+                if (pocketItems == null)
                     return;
 
-                for (int i = 0; i < items.Count; i++)
+                int safeWidth = Math.Max(1, width);
+                for (int i = 0; i < pocketItems.Count; i++)
                 {
-                    Item item = items[i];
-                    if (item?.Data == null)
+                    Item pocketItem = pocketItems[i];
+                    if (pocketItem?.Data == null)
                         continue;
-                    popupLines.Add($"{prefix} {i + 1}: {item.Data.Name}");
+
+                    Point position = new Point(i % safeWidth, i / safeWidth);
+                    popupItems.Add(new GridItem(pocketItem.Data, position, new ItemSize(1, 1), false));
                 }
             }
 
-            void AddGridItems(List<GridItem> items)
+            void AddGridItems(List<GridItem> gridItems)
             {
-                if (items == null)
+                if (gridItems == null)
                     return;
 
-                foreach (GridItem item in items)
+                foreach (GridItem item in gridItems)
                 {
                     if (item?.Data == null)
                         continue;
-                    popupLines.Add($"[{item.GridPosition.X},{item.GridPosition.Y}] {item.Data.Name}");
+
+                    popupItems.Add(new GridItem(item.Data, item.GridPosition, item.Size, item.IsRotated, item.Payload));
                 }
             }
 
             switch (info.Source)
             {
                 case "grid":
-                    AddPocketItems(inventoryGrid.GetItemAt(info.GridPosition)?.Payload?.PantsItems, "Poche");
-                    AddPocketItems(inventoryGrid.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, "Slot");
+                    AddPocketItems(inventoryGrid.GetItemAt(info.GridPosition)?.Payload?.PantsItems, 2);
+                    AddPocketItems(inventoryGrid.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, 2);
                     AddGridItems(inventoryGrid.GetItemAt(info.GridPosition)?.Payload?.BackpackItems);
                     break;
                 case "nearbyloot":
-                    AddPocketItems(nearbyLootGrid.GetItemAt(info.GridPosition)?.Payload?.PantsItems, "Poche");
-                    AddPocketItems(nearbyLootGrid.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, "Slot");
+                    AddPocketItems(nearbyLootGrid.GetItemAt(info.GridPosition)?.Payload?.PantsItems, 2);
+                    AddPocketItems(nearbyLootGrid.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, 2);
                     AddGridItems(nearbyLootGrid.GetItemAt(info.GridPosition)?.Payload?.BackpackItems);
                     break;
                 case "backpackutility":
                     unit.EnsureBackpackInventoryGrid();
-                    AddPocketItems(unit.BackpackInventory.GetItemAt(info.GridPosition)?.Payload?.PantsItems, "Poche");
-                    AddPocketItems(unit.BackpackInventory.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, "Slot");
+                    AddPocketItems(unit.BackpackInventory.GetItemAt(info.GridPosition)?.Payload?.PantsItems, 2);
+                    AddPocketItems(unit.BackpackInventory.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, 2);
                     AddGridItems(unit.BackpackInventory.GetItemAt(info.GridPosition)?.Payload?.BackpackItems);
                     break;
                 case "pants":
-                    AddPocketItems(unit.PantsInventory, "Poche");
+                    AddPocketItems(unit.PantsInventory, 2);
                     break;
                 case "chestrig":
-                    AddPocketItems(unit.ChestRigInventory, "Slot");
+                    AddPocketItems(unit.ChestRigInventory, 2);
                     break;
                 case "backpack":
                     unit.EnsureBackpackInventoryGrid();
@@ -2053,23 +2072,97 @@ namespace XCOM_3
                     break;
             }
 
-            lines = popupLines;
+            int widthFromItem = GetContainerGridWidth(info.Data);
+            int maxX = 0;
+            int maxY = 0;
+            foreach (GridItem popupItem in popupItems)
+            {
+                ItemSize size = popupItem.GetCurrentSize();
+                maxX = Math.Max(maxX, popupItem.GridPosition.X + size.Width);
+                maxY = Math.Max(maxY, popupItem.GridPosition.Y + size.Height);
+            }
 
-            if (lines.Count == 0)
+            int baseCapacity = GetContainerCellCapacity(info.Data);
+            if (baseCapacity > 0)
+            {
+                int width = Math.Max(1, widthFromItem);
+                int height = Math.Max(1, (int)Math.Ceiling(baseCapacity / (float)width));
+                gridSize = new ItemSize(width, height);
+            }
+            else
+            {
+                gridSize = new ItemSize(Math.Max(1, Math.Max(widthFromItem, maxX)), Math.Max(1, maxY));
+            }
+
+            items = popupItems;
+
+            if (items.Count == 0)
                 return false;
 
             return true;
         }
 
-        private Rectangle BuildContainerPopupWindow()
+        private static int GetContainerGridWidth(ItemData data)
         {
-            int maxX = Math.Max(8, graphicsDevice.Viewport.Width - CONTAINER_POPUP_WIDTH - 8);
-            int maxY = Math.Max(8, graphicsDevice.Viewport.Height - CONTAINER_POPUP_HEIGHT - 8);
+            if (data == null)
+                return 2;
 
-            int x = Math.Clamp((graphicsDevice.Viewport.Width - CONTAINER_POPUP_WIDTH) / 2, 8, maxX);
-            int y = Math.Clamp((graphicsDevice.Viewport.Height - CONTAINER_POPUP_HEIGHT) / 2, 8, maxY);
+            if (data.ArmorSlot == ArmorSlot.Backpack)
+            {
+                if (data.Name.Contains("Small", StringComparison.OrdinalIgnoreCase))
+                    return 2;
+                return 3;
+            }
 
-            return new Rectangle(x, y, CONTAINER_POPUP_WIDTH, CONTAINER_POPUP_HEIGHT);
+            if (data.ArmorSlot == ArmorSlot.ChestRig)
+                return 2;
+
+            if (data.ArmorSlot == ArmorSlot.Pants)
+                return 2;
+
+            return 2;
+        }
+
+        private static int GetContainerCellCapacity(ItemData data)
+        {
+            if (data == null)
+                return 0;
+
+            if (data.ArmorSlot == ArmorSlot.Backpack)
+            {
+                if (data.Name.Contains("XL", StringComparison.OrdinalIgnoreCase))
+                    return 12;
+                if (data.Name.Contains("Medium", StringComparison.OrdinalIgnoreCase))
+                    return 8;
+                if (data.Name.Contains("Small", StringComparison.OrdinalIgnoreCase))
+                    return 4;
+                return 6;
+            }
+
+            return Math.Max(0, data.BonusInventorySlots);
+        }
+
+        private Rectangle BuildContainerPopupWindow(ItemSize gridSize)
+        {
+            int width = Math.Max(CONTAINER_POPUP_WIDTH, gridSize.Width * CONTAINER_POPUP_CELL_SIZE + 24);
+            int height = Math.Max(CONTAINER_POPUP_HEIGHT, 30 + gridSize.Height * CONTAINER_POPUP_CELL_SIZE + 20);
+
+            int maxX = Math.Max(8, graphicsDevice.Viewport.Width - width - 8);
+            int maxY = Math.Max(8, graphicsDevice.Viewport.Height - height - 8);
+
+            int x = Math.Clamp((graphicsDevice.Viewport.Width - width) / 2, 8, maxX);
+            int y = Math.Clamp((graphicsDevice.Viewport.Height - height) / 2, 8, maxY);
+
+            return new Rectangle(x, y, width, height);
+        }
+
+        private void UpdateContainerPopupGridRect()
+        {
+            containerPopupGridRect = new Rectangle(
+                containerPopupRect.X + 12,
+                containerPopupRect.Y + 36,
+                containerPopupGridSize.Width * CONTAINER_POPUP_CELL_SIZE,
+                containerPopupGridSize.Height * CONTAINER_POPUP_CELL_SIZE);
         }
 
         private bool TryEquipByContext(ItemContextInfo info, Unit unit)
@@ -2514,6 +2607,29 @@ namespace XCOM_3
                     spriteBatch.Draw(pixel, previewRect, ghostColor);
                     ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
                 }
+
+                if (showContainerPopup && containerPopupGridRect.Contains(mouse.Position) && containerPopupGrid != null)
+                {
+                    int popupGridX = (mouse.X - containerPopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.X;
+                    int popupGridY = (mouse.Y - containerPopupGridRect.Y) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.Y;
+
+                    Rectangle previewRect = new Rectangle(
+                        containerPopupGridRect.X + popupGridX * CONTAINER_POPUP_CELL_SIZE,
+                        containerPopupGridRect.Y + popupGridY * CONTAINER_POPUP_CELL_SIZE,
+                        draggedItem.GetCurrentSize().Width * CONTAINER_POPUP_CELL_SIZE,
+                        draggedItem.GetCurrentSize().Height * CONTAINER_POPUP_CELL_SIZE);
+
+                    bool canPlaceInContainer = containerPopupGrid.CanPlaceItem(new Point(popupGridX, popupGridY), draggedItem.GetCurrentSize());
+                    Color ghostColor = canPlaceInContainer
+                        ? ParasiteEveTheme.HoverOverlay * 0.6f
+                        : ParasiteEveTheme.TextDanger * 0.4f;
+                    Color borderColor = canPlaceInContainer
+                        ? ParasiteEveTheme.SelectionOutline * 0.5f
+                        : ParasiteEveTheme.TextDanger * 0.8f;
+
+                    spriteBatch.Draw(pixel, previewRect, ghostColor);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
+                }
             }
 
             // ✅ Item en cours de drag (avec transparence)
@@ -2711,14 +2827,39 @@ namespace XCOM_3
                 ParasiteEveTheme.DrawBorder(spriteBatch, pixel, popupCloseButton, ParasiteEveTheme.BorderColor, 1);
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "X", new Vector2(popupCloseButton.X + 6, popupCloseButton.Y + 1), ParasiteEveTheme.TextWarning, 0.62f);
 
-                float lineY = containerPopupRect.Y + 40;
-                foreach (string line in containerPopupItemLines)
+                spriteBatch.Draw(pixel, containerPopupGridRect, ParasiteEveTheme.BackgroundMedium * 0.3f);
+                for (int x = 0; x <= containerPopupGridSize.Width; x++)
                 {
-                    if (lineY > containerPopupRect.Bottom - 18)
-                        break;
+                    int drawX = containerPopupGridRect.X + x * CONTAINER_POPUP_CELL_SIZE;
+                    spriteBatch.Draw(pixel, new Rectangle(drawX, containerPopupGridRect.Y, 1, containerPopupGridRect.Height), ParasiteEveTheme.TextDim * 0.2f);
+                }
 
-                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"- {line}", new Vector2(containerPopupRect.X + 12, lineY), ParasiteEveTheme.TextNormal, 0.62f);
-                    lineY += 18;
+                for (int y = 0; y <= containerPopupGridSize.Height; y++)
+                {
+                    int drawY = containerPopupGridRect.Y + y * CONTAINER_POPUP_CELL_SIZE;
+                    spriteBatch.Draw(pixel, new Rectangle(containerPopupGridRect.X, drawY, containerPopupGridRect.Width, 1), ParasiteEveTheme.TextDim * 0.2f);
+                }
+
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, containerPopupGridRect, ParasiteEveTheme.BorderColor, 1);
+
+                foreach (GridItem popupItem in containerPopupItems)
+                {
+                    if (popupItem?.Data == null)
+                        continue;
+
+                    ItemSize popupSize = popupItem.GetCurrentSize();
+                    Rectangle itemRect = new Rectangle(
+                        containerPopupGridRect.X + popupItem.GridPosition.X * CONTAINER_POPUP_CELL_SIZE,
+                        containerPopupGridRect.Y + popupItem.GridPosition.Y * CONTAINER_POPUP_CELL_SIZE,
+                        popupSize.Width * CONTAINER_POPUP_CELL_SIZE,
+                        popupSize.Height * CONTAINER_POPUP_CELL_SIZE);
+
+                    spriteBatch.Draw(pixel, itemRect, ParasiteEveTheme.ButtonNormal * 0.72f);
+                    ParasiteEveTheme.DrawBorder(spriteBatch, pixel, itemRect, ParasiteEveTheme.SelectionOutline * 0.85f, 1);
+
+                    string itemName = popupItem.Data.Name;
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, itemName,
+                        new Vector2(itemRect.X + 4, itemRect.Y + 6), ParasiteEveTheme.TextNormal, 0.5f);
                 }
             }
 
