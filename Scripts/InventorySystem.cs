@@ -37,7 +37,6 @@ namespace XCOM_3
         private const int CONTEXT_WINDOW_WIDTH = 280;
         private const int CONTEXT_WINDOW_HEIGHT = 220;
         private const int LOOT_GRID_CELL_SIZE = CELL_SIZE;
-        private const int LOOT_GRID_COLUMNS = 6;
         private const int LOOT_GRID_LABEL_HEIGHT = 22;
         private const int LOOT_GRID_BOTTOM_INFO_HEIGHT = 24;
         private const int LootHeaderTextHeight = 12;
@@ -2618,7 +2617,7 @@ namespace XCOM_3
             }
 
             int lootCellSize = LOOT_GRID_CELL_SIZE;
-            int columnCount = Math.Max(1, Math.Min(LOOT_GRID_COLUMNS, Math.Max(1, (content.Width - 12) / lootCellSize)));
+            int columnCount = Math.Max(1, (content.Width - 12) / lootCellSize);
             int visibleRows = Math.Max(1, (content.Height - LootHeaderTextHeight - LOOT_GRID_BOTTOM_INFO_HEIGHT) / lootCellSize);
             List<NearbyLootLayoutEntry> layout = BuildNearbyLootLayout(columnCount, out int totalRows);
             int maxScrollRows = Math.Max(0, totalRows - visibleRows);
@@ -2728,7 +2727,7 @@ namespace XCOM_3
                 lootWindow.Width - SECTION_PADDING * 2,
                 lootWindow.Height - SECTION_HEADER_HEIGHT - SECTION_PADDING * 2);
 
-            int columnCount = Math.Max(1, Math.Min(LOOT_GRID_COLUMNS, Math.Max(1, (content.Width - 12) / LOOT_GRID_CELL_SIZE)));
+            int columnCount = Math.Max(1, (content.Width - 12) / LOOT_GRID_CELL_SIZE);
             int visibleRows = Math.Max(1, (content.Height - LootHeaderTextHeight - LOOT_GRID_BOTTOM_INFO_HEIGHT) / LOOT_GRID_CELL_SIZE);
             BuildNearbyLootLayout(columnCount, out int totalRows);
             int maxScrollRows = Math.Max(0, totalRows - visibleRows);
@@ -2920,7 +2919,7 @@ namespace XCOM_3
         private int GetDesiredLootPanelHeight(int panelWidth)
         {
             int contentWidth = Math.Max(1, panelWidth - SECTION_PADDING * 2);
-            int columnCount = Math.Max(1, Math.Min(LOOT_GRID_COLUMNS, Math.Max(1, (contentWidth - 12) / LOOT_GRID_CELL_SIZE)));
+            int columnCount = Math.Max(1, (contentWidth - 12) / LOOT_GRID_CELL_SIZE);
             BuildNearbyLootLayout(columnCount, out int totalRows);
 
             int contentHeight = LootHeaderTextHeight + LOOT_GRID_BOTTOM_INFO_HEIGHT + totalRows * LOOT_GRID_CELL_SIZE;
