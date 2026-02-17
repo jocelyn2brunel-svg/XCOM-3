@@ -26,12 +26,22 @@ namespace XCOM_3
         private readonly SpriteBatch _spriteBatch;
         private readonly SpriteFont _font;
         private readonly Texture2D _pixel;
+        private readonly BasicEffect _previewEffect;
+        private readonly HumanoidModelAdvanced _previewModel;
+        private RenderTarget2D _previewRenderTarget;
+        private readonly Unit _previewUnit;
 
         private readonly List<SliderBinding> _sliders = new();
         private SliderBinding _draggedSlider;
 
         private readonly Button _backButton;
         private readonly Button _resetButton;
+
+        private const float PreviewModelScale = 1.75f;
+        private const float PreviewRotationSensitivity = 0.015f;
+        private float _previewRotation = MathHelper.Pi;
+        private bool _isDraggingPreview;
+        private int _lastDragMouseX;
 
         public event Action OnBackToMainMenu;
 
@@ -41,6 +51,22 @@ namespace XCOM_3
             _spriteBatch = spriteBatch;
             _font = font;
             _pixel = pixel;
+
+            _previewEffect = new BasicEffect(graphicsDevice)
+            {
+                VertexColorEnabled = true,
+                LightingEnabled = false,
+                AmbientLightColor = new Vector3(0.5f),
+                DiffuseColor = Vector3.One
+            };
+            _previewModel = new HumanoidModelAdvanced();
+            _previewUnit = new Unit(Point.Zero, Team.Player, "Nadia", "Assault", "Rifle", null)
+            {
+                VisualPosition = Vector3.Zero,
+                IsMoving = false,
+                IsAiming = false,
+                IsFiring = false
+            };
 
             _backButton = new Button("Back", new Vector2(0, 695));
             _resetButton = new Button("Reset Defaults", new Vector2(0, 655));
@@ -66,6 +92,7 @@ namespace XCOM_3
             }
 
             HandleSliders(mouseState);
+            HandlePreviewRotation(mouseState, previousMouseState);
             UpdateSliderVisuals();
         }
 
@@ -81,8 +108,56 @@ namespace XCOM_3
                 DrawSlider(_sliders[i], i);
             }
 
+            DrawPreviewPanel();
+
             _resetButton.Draw(_spriteBatch, _font, mouse);
             _backButton.Draw(_spriteBatch, _font, mouse);
+        }
+
+        public void DrawPreview3D()
+        {
+            Rectangle previewRect = GetPreviewRect();
+            EnsurePreviewRenderTarget(previewRect.Width, previewRect.Height);
+            if (_previewRenderTarget == null)
+                return;
+
+            _previewUnit.LegSwing = 0f;
+            _previewUnit.ArmSwing = 0f;
+            _previewUnit.BodyBob = 0f;
+            _previewUnit.IdleBobOffset = 0f;
+
+            Viewport originalViewport = _graphicsDevice.Viewport;
+            DepthStencilState originalDepth = _graphicsDevice.DepthStencilState;
+            BlendState originalBlend = _graphicsDevice.BlendState;
+            RasterizerState originalRasterizer = _graphicsDevice.RasterizerState;
+            RenderTargetBinding[] originalRenderTargets = _graphicsDevice.GetRenderTargets();
+
+            _graphicsDevice.SetRenderTarget(_previewRenderTarget);
+            _graphicsDevice.Viewport = new Viewport(0, 0, _previewRenderTarget.Width, _previewRenderTarget.Height);
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            _graphicsDevice.Clear(new Color(12, 18, 25));
+
+            _previewEffect.View = Matrix.CreateLookAt(new Vector3(0f, 2.4f, 5.5f), new Vector3(0f, 1.7f, 0f), Vector3.Up);
+            _previewEffect.Projection = Matrix.CreatePerspectiveFieldOfView(
+                MathHelper.ToRadians(45f),
+                Math.Max(0.2f, previewRect.Width / (float)previewRect.Height),
+                0.1f,
+                100f);
+
+            _previewModel.DrawWithEquipment(
+                _graphicsDevice,
+                _previewEffect,
+                _previewUnit,
+                PreviewModelScale,
+                _previewRotation);
+
+            _graphicsDevice.SetRenderTargets(originalRenderTargets);
+            _graphicsDevice.Viewport = originalViewport;
+            _graphicsDevice.DepthStencilState = originalDepth;
+            _graphicsDevice.BlendState = originalBlend;
+            _graphicsDevice.RasterizerState = originalRasterizer;
         }
 
         private void CreateSliders()
@@ -185,6 +260,69 @@ namespace XCOM_3
             _spriteBatch.Draw(_pixel, slider.Fill, UIThemeManager.PrimaryColor);
             _spriteBatch.Draw(_pixel, slider.Handle, Color.White);
             _spriteBatch.DrawString(_font, slider.Value.ToString("0.00"), new Vector2(slider.Bar.Right + 12, slider.Bar.Y - 7), UIThemeManager.PrimaryColor);
+        }
+
+        private void DrawPreviewPanel()
+        {
+            Rectangle previewRect = GetPreviewRect();
+            _spriteBatch.Draw(_pixel, previewRect, new Color(0, 0, 0, 170));
+
+            if (_previewRenderTarget != null)
+                _spriteBatch.Draw(_previewRenderTarget, previewRect, Color.White);
+
+            _spriteBatch.DrawString(_font, "Unit Preview", new Vector2(previewRect.X + 10, previewRect.Y + 8), UIThemeManager.PrimaryColor);
+            _spriteBatch.DrawString(_font, "Glisser pour tourner", new Vector2(previewRect.X + 10, previewRect.Bottom - 24), UIThemeManager.PrimaryColor);
+        }
+
+        private Rectangle GetPreviewRect() => new Rectangle(450, 90, 420, 560);
+
+        private void HandlePreviewRotation(MouseState mouseState, MouseState previousMouseState)
+        {
+            Rectangle previewRect = GetPreviewRect();
+            bool isMousePressed = mouseState.LeftButton == ButtonState.Pressed;
+
+            if (!isMousePressed)
+            {
+                _isDraggingPreview = false;
+                return;
+            }
+
+            if (!_isDraggingPreview && previousMouseState.LeftButton != ButtonState.Pressed && previewRect.Contains(mouseState.Position))
+            {
+                _isDraggingPreview = true;
+                _lastDragMouseX = mouseState.X;
+                return;
+            }
+
+            if (_isDraggingPreview)
+            {
+                int deltaX = mouseState.X - _lastDragMouseX;
+                _previewRotation += deltaX * PreviewRotationSensitivity;
+                _lastDragMouseX = mouseState.X;
+            }
+        }
+
+        private void EnsurePreviewRenderTarget(int width, int height)
+        {
+            if (width <= 0 || height <= 0)
+                return;
+
+            if (_previewRenderTarget != null && (_previewRenderTarget.Width != width || _previewRenderTarget.Height != height))
+            {
+                _previewRenderTarget.Dispose();
+                _previewRenderTarget = null;
+            }
+
+            if (_previewRenderTarget == null)
+            {
+                _previewRenderTarget = new RenderTarget2D(
+                    _graphicsDevice,
+                    width,
+                    height,
+                    false,
+                    SurfaceFormat.Color,
+                    DepthFormat.Depth24);
+            }
         }
     }
 }
