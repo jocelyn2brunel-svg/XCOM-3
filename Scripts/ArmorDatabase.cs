@@ -276,7 +276,7 @@ namespace XCOM_3
 
         private static void AddPlateVariants(List<ItemData> list, string baseName, int baseArmor)
         {
-            list.Add(Vest(baseName, baseArmor, ProtectionLevel.NIJ_IIIA, 16.0f, "Porte-plaques de base NIJ IIIA.", 18));
+            list.Add(Vest(baseName, baseArmor, ProtectionLevel.NIJ_IIIA, 16.0f, "Veste ballistique NIJ IIIA avec slots pour plaques SAPI/ESAPI.", 18));
             list.Add(new ItemData(
                 $"{baseName} + SAPI",
                 ItemType.Armor,
