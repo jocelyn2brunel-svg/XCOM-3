@@ -576,76 +576,81 @@ namespace XCOM_3
         {
             Color helmetColor = GetArmorColor(helmet.Data.Name);
 
+            // La forme de la tête a évolué ; on recale tous les casques
+            // sur un repère commun dérivé du crâne réel.
+            float headCenterY = dims.ll + dims.th + dims.head * 0.6f;
+            float headRadius = dims.head * 0.52f;
+
             // Position sur la tête
-            Vector3 helmetPos = new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0);
+            Vector3 helmetPos = new Vector3(0, headCenterY + headRadius * 0.16f, 0);
 
             // ✅ AMÉLIORÉ : Forme plus réaliste du casque PASGT
             if (helmet.Data.Name.Contains("PASGT"))
             {
                 // Corps principal du casque (forme ovoïde arrondie)
-                Vector3 helmetScale = new Vector3(dims.head * 1.2f, dims.head * 1.1f, dims.head * 1.3f);
+                Vector3 helmetScale = new Vector3(dims.head * 1.28f, dims.head * 1.2f, dims.head * 1.38f);
                 DrawBodyPart(device, effect, pos, helmetPos, helmetScale, helmetColor, rot);
 
                 // Bord avant du casque (visière/front)
-                Vector3 frontRimPos = new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, dims.head * 0.7f);
+                Vector3 frontRimPos = new Vector3(0, headCenterY - headRadius * 0.18f, dims.head * 0.76f);
                 Vector3 frontRimScale = new Vector3(dims.head * 1.3f, dims.head * 0.15f, dims.head * 0.2f);
                 DrawBodyPart(device, effect, pos, frontRimPos, frontRimScale, helmetColor * 0.85f, rot);
 
                 // Bord arrière du casque (protège-nuque étendu)
-                Vector3 backRimPos = new Vector3(0, dims.ll + dims.th + dims.head * 0.3f, -dims.head * 0.7f);
+                Vector3 backRimPos = new Vector3(0, headCenterY - headRadius * 0.5f, -dims.head * 0.76f);
                 Vector3 backRimScale = new Vector3(dims.head * 1.2f, dims.head * 0.2f, dims.head * 0.3f);
                 DrawBodyPart(device, effect, pos, backRimPos, backRimScale, helmetColor * 0.85f, rot);
 
                 // Bords latéraux (protection des oreilles)
-                Vector3 leftEarPos = new Vector3(-dims.head * 0.65f, dims.ll + dims.th + dims.head * 0.5f, 0);
+                Vector3 leftEarPos = new Vector3(-dims.head * 0.7f, headCenterY - headRadius * 0.15f, 0);
                 Vector3 earScale = new Vector3(dims.head * 0.15f, dims.head * 0.4f, dims.head * 0.5f);
                 DrawBodyPart(device, effect, pos, leftEarPos, earScale, helmetColor * 0.9f, rot);
 
-                Vector3 rightEarPos = new Vector3(dims.head * 0.65f, dims.ll + dims.th + dims.head * 0.5f, 0);
+                Vector3 rightEarPos = new Vector3(dims.head * 0.7f, headCenterY - headRadius * 0.15f, 0);
                 DrawBodyPart(device, effect, pos, rightEarPos, earScale, helmetColor * 0.9f, rot);
 
                 // Rivet/bouton visible (comme sur la photo)
-                Vector3 rivetPos = new Vector3(0, dims.ll + dims.th + dims.head * 0.9f, dims.head * 0.5f);
+                Vector3 rivetPos = new Vector3(0, headCenterY + headRadius * 0.7f, dims.head * 0.52f);
                 Vector3 rivetScale = new Vector3(dims.head * 0.08f, dims.head * 0.08f, dims.head * 0.08f);
                 DrawBodyPart(device, effect, pos, rivetPos, rivetScale, new Color(60, 60, 60), rot);
 
                 // Rails de montage sur les côtés (pour NVG ou accessoires)
-                Vector3 leftRailPos = new Vector3(-dims.head * 0.55f, dims.ll + dims.th + dims.head * 0.7f, dims.head * 0.4f);
+                Vector3 leftRailPos = new Vector3(-dims.head * 0.6f, headCenterY + headRadius * 0.34f, dims.head * 0.45f);
                 Vector3 railScale = new Vector3(dims.head * 0.1f, dims.head * 0.08f, dims.head * 0.15f);
                 DrawBodyPart(device, effect, pos, leftRailPos, railScale, new Color(40, 40, 40), rot);
 
-                Vector3 rightRailPos = new Vector3(dims.head * 0.55f, dims.ll + dims.th + dims.head * 0.7f, dims.head * 0.4f);
+                Vector3 rightRailPos = new Vector3(dims.head * 0.6f, headCenterY + headRadius * 0.34f, dims.head * 0.45f);
                 DrawBodyPart(device, effect, pos, rightRailPos, railScale, new Color(40, 40, 40), rot);
             }
             // Casques ACH/ECH/MICH (modernes)
             else if (helmet.Data.Name.Contains("ACH") || helmet.Data.Name.Contains("ECH") || helmet.Data.Name.Contains("MICH"))
             {
                 // Taille légèrement plus grande que la tête
-                Vector3 helmetScale = new Vector3(dims.head * 1.15f, dims.head * 1.25f, dims.head * 1.15f);
+                Vector3 helmetScale = new Vector3(dims.head * 1.24f, dims.head * 1.34f, dims.head * 1.24f);
                 DrawBodyPart(device, effect, pos, helmetPos, helmetScale, helmetColor, rot);
 
                 // Visière NVG mount (caractéristique des casques modernes)
-                Vector3 mountPos = new Vector3(0, dims.ll + dims.th + dims.head * 0.7f, dims.head * 0.6f);
+                Vector3 mountPos = new Vector3(0, headCenterY + headRadius * 0.34f, dims.head * 0.66f);
                 Vector3 mountScale = new Vector3(dims.head * 0.3f, dims.head * 0.15f, dims.head * 0.1f);
                 DrawBodyPart(device, effect, pos, mountPos, mountScale, new Color(50, 50, 50), rot);
 
                 // Rail picatinny sur le devant
-                Vector3 railPos = new Vector3(0, dims.ll + dims.th + dims.head * 0.75f, dims.head * 0.55f);
+                Vector3 railPos = new Vector3(0, headCenterY + headRadius * 0.5f, dims.head * 0.6f);
                 Vector3 railScale = new Vector3(dims.head * 0.25f, dims.head * 0.08f, dims.head * 0.08f);
                 DrawBodyPart(device, effect, pos, railPos, railScale, new Color(30, 30, 30), rot);
 
                 // Pads latéraux (protection d'impact)
-                Vector3 leftPadPos = new Vector3(-dims.head * 0.6f, dims.ll + dims.th + dims.head * 0.6f, 0);
+                Vector3 leftPadPos = new Vector3(-dims.head * 0.65f, headCenterY + headRadius * 0.06f, 0);
                 Vector3 padScale = new Vector3(dims.head * 0.12f, dims.head * 0.3f, dims.head * 0.3f);
                 DrawBodyPart(device, effect, pos, leftPadPos, padScale, helmetColor * 0.7f, rot);
 
-                Vector3 rightPadPos = new Vector3(dims.head * 0.6f, dims.ll + dims.th + dims.head * 0.6f, 0);
+                Vector3 rightPadPos = new Vector3(dims.head * 0.65f, headCenterY + headRadius * 0.06f, 0);
                 DrawBodyPart(device, effect, pos, rightPadPos, padScale, helmetColor * 0.7f, rot);
             }
             // Casque basique (fallback)
             else
             {
-                Vector3 helmetScale = new Vector3(dims.head * 1.15f, dims.head * 1.25f, dims.head * 1.15f);
+                Vector3 helmetScale = new Vector3(dims.head * 1.24f, dims.head * 1.34f, dims.head * 1.24f);
                 DrawBodyPart(device, effect, pos, helmetPos, helmetScale, helmetColor, rot);
             }
         }
