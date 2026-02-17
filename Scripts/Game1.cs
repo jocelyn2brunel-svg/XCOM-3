@@ -1829,6 +1829,7 @@ namespace XCOM_3
 
             AssignRandomPants(playerUnits);
             EquipMk2GrenadeToAlliedPockets(playerUnits);
+            RemoveDuplicateMk2GrenadesFromAlliedUnits(playerUnits);
 
             switch (missionType)
             {
@@ -2110,6 +2111,59 @@ namespace XCOM_3
                     unit.PantsInventory.Add(mk2Item);
                 else if (unit.GetChestRigInventoryCapacity() > unit.ChestRigInventory.Count)
                     unit.ChestRigInventory.Add(mk2Item);
+
+                unit.RefreshGrenadeInventoryFromEquipment();
+            }
+        }
+
+        private void RemoveDuplicateMk2GrenadesFromAlliedUnits(List<Unit> alliedUnits)
+        {
+            if (alliedUnits == null || alliedUnits.Count == 0)
+                return;
+
+            foreach (var unit in alliedUnits)
+            {
+                if (unit == null)
+                    continue;
+
+                bool keptOneMk2 = false;
+
+                void DeduplicatePocket(List<Item> inventory)
+                {
+                    for (int i = inventory.Count - 1; i >= 0; i--)
+                    {
+                        bool isMk2 = string.Equals(inventory[i]?.Data?.Name, "MK 2", StringComparison.OrdinalIgnoreCase);
+                        if (!isMk2)
+                            continue;
+
+                        if (!keptOneMk2)
+                        {
+                            keptOneMk2 = true;
+                            continue;
+                        }
+
+                        inventory.RemoveAt(i);
+                    }
+                }
+
+                DeduplicatePocket(unit.PantsInventory);
+                DeduplicatePocket(unit.ChestRigInventory);
+
+                unit.EnsureBackpackInventoryGrid();
+                var backpackMk2Items = unit.BackpackInventory.GetAllItems()
+                    .Where(item => string.Equals(item?.Data?.Name, "MK 2", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                foreach (var backpackMk2Item in backpackMk2Items)
+                {
+                    if (!keptOneMk2)
+                    {
+                        keptOneMk2 = true;
+                        continue;
+                    }
+
+                    unit.BackpackInventory.RemoveItem(backpackMk2Item);
+                }
 
                 unit.RefreshGrenadeInventoryFromEquipment();
             }
