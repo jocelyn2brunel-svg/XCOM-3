@@ -2313,6 +2313,9 @@ namespace XCOM_3
             if (!CanMoveItemIntoContainer(targetPopup.SourceInfo, draggedItem, activeUnit))
                 return false;
 
+            if (IsSingleCellOnlyContainer(targetPopup.SourceInfo) && !IsSingleCellItem(draggedItem))
+                return false;
+
             int popupGridX = (mousePosition.X - targetPopup.GridRect.X) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.X;
             int popupGridY = (mousePosition.Y - targetPopup.GridRect.Y) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.Y;
             Point popupPos = new Point(popupGridX, popupGridY);
@@ -2413,6 +2416,9 @@ namespace XCOM_3
             if (itemToInsert?.Data == null || !IsContainerData(info.Data))
                 return false;
 
+            if (IsSingleCellOnlyContainer(info) && !IsSingleCellItem(itemToInsert))
+                return false;
+
             if (!CanMoveItemIntoContainer(info, itemToInsert, unit))
                 return false;
 
@@ -2458,6 +2464,23 @@ namespace XCOM_3
 
             unit.RefreshGrenadeInventoryFromEquipment();
             return true;
+        }
+
+        private static bool IsSingleCellOnlyContainer(ItemContextInfo info)
+        {
+            if (info.Data?.ArmorSlot == ArmorSlot.Pants)
+                return true;
+
+            return string.Equals(info.Source, "pants", StringComparison.Ordinal);
+        }
+
+        private static bool IsSingleCellItem(GridItem item)
+        {
+            if (item == null)
+                return false;
+
+            ItemSize size = item.GetCurrentSize();
+            return size.Width == 1 && size.Height == 1;
         }
 
         private bool CanMoveItemIntoContainer(ItemContextInfo targetInfo, GridItem itemToInsert, Unit unit)
@@ -3156,20 +3179,20 @@ namespace XCOM_3
                     ParasiteEveTheme.DrawBorder(spriteBatch, pixel, previewRect, borderColor, 1);
                 }
 
-                Rectangle activePopupGridRect = Rectangle.Empty;
-                InventoryGrid activePopupGrid = null;
+                ContainerPopupState activePopup = null;
                 for (int i = containerPopups.Count - 1; i >= 0; i--)
                 {
                     if (containerPopups[i].GridRect.Contains(mouse.Position) && containerPopups[i].Grid != null)
                     {
-                        activePopupGridRect = containerPopups[i].GridRect;
-                        activePopupGrid = containerPopups[i].Grid;
+                        activePopup = containerPopups[i];
                         break;
                     }
                 }
 
-                if (activePopupGrid != null)
+                if (activePopup != null)
                 {
+                    Rectangle activePopupGridRect = activePopup.GridRect;
+                    InventoryGrid activePopupGrid = activePopup.Grid;
                     int popupGridX = (mouse.X - activePopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.X;
                     int popupGridY = (mouse.Y - activePopupGridRect.Y) / CONTAINER_POPUP_CELL_SIZE - dragGridOffset.Y;
 
@@ -3180,6 +3203,8 @@ namespace XCOM_3
                         draggedItem.GetCurrentSize().Height * CONTAINER_POPUP_CELL_SIZE);
 
                     bool canPlaceInContainer = activePopupGrid.CanPlaceItem(new Point(popupGridX, popupGridY), draggedItem.GetCurrentSize());
+                    if (canPlaceInContainer && IsSingleCellOnlyContainer(activePopup.SourceInfo) && !IsSingleCellItem(draggedItem))
+                        canPlaceInContainer = false;
                     Color ghostColor = canPlaceInContainer
                         ? ParasiteEveTheme.HoverOverlay * 0.6f
                         : ParasiteEveTheme.TextDanger * 0.4f;
