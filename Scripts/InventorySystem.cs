@@ -2259,6 +2259,11 @@ namespace XCOM_3
                     AddPocketItems(containerPopupGrid?.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, 2);
                     AddGridItems(containerPopupGrid?.GetItemAt(info.GridPosition)?.Payload?.BackpackItems);
                     break;
+                case "nestedcontainerpopup":
+                    AddPocketItems(nestedContainerPopupGrid?.GetItemAt(info.GridPosition)?.Payload?.PantsItems, 2);
+                    AddPocketItems(nestedContainerPopupGrid?.GetItemAt(info.GridPosition)?.Payload?.ChestRigItems, 2);
+                    AddGridItems(nestedContainerPopupGrid?.GetItemAt(info.GridPosition)?.Payload?.BackpackItems);
+                    break;
                 case "pants":
                     AddPocketItems(unit.PantsInventory, 2);
                     break;
@@ -2444,6 +2449,9 @@ namespace XCOM_3
                     break;
                 case "containerpopup":
                     sourceGridItem = containerPopupGrid?.GetItemAt(info.GridPosition);
+                    break;
+                case "nestedcontainerpopup":
+                    sourceGridItem = nestedContainerPopupGrid?.GetItemAt(info.GridPosition);
                     break;
             }
 
@@ -2858,6 +2866,23 @@ namespace XCOM_3
 
         private ItemContextInfo? GetItemUnderMouse(Point mousePos, Unit unit, int gridStartX, int gridStartY)
         {
+            if (showNestedContainerPopup && nestedContainerPopupGrid != null && nestedContainerPopupGridRect.Contains(mousePos))
+            {
+                int popupX = (mousePos.X - nestedContainerPopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE;
+                int popupY = (mousePos.Y - nestedContainerPopupGridRect.Y) / CONTAINER_POPUP_CELL_SIZE;
+                GridItem popupItem = nestedContainerPopupGrid.GetItemAt(new Point(popupX, popupY));
+                if (popupItem != null)
+                {
+                    return new ItemContextInfo
+                    {
+                        Data = popupItem.Data,
+                        Source = "nestedcontainerpopup",
+                        GridPosition = popupItem.GridPosition,
+                        Index = -1
+                    };
+                }
+            }
+
             if (showContainerPopup && containerPopupGrid != null && containerPopupGridRect.Contains(mousePos))
             {
                 int popupX = (mousePos.X - containerPopupGridRect.X) / CONTAINER_POPUP_CELL_SIZE;
@@ -2990,6 +3015,15 @@ namespace XCOM_3
                         SyncContainerPopupItemsToSource();
                     }
                     break;
+                case "nestedcontainerpopup":
+                    var nestedPopupItem = nestedContainerPopupGrid?.GetItemAt(info.GridPosition);
+                    if (nestedPopupItem != null)
+                    {
+                        nestedContainerPopupGrid.RemoveItem(nestedPopupItem);
+                        nestedContainerPopupItems.Remove(nestedPopupItem);
+                        SyncNestedContainerPopupItemsToSource();
+                    }
+                    break;
                 case "nearbyloot":
                     var nearbyItem = nearbyLootGrid.GetItemAt(info.GridPosition);
                     if (nearbyItem != null)
@@ -3047,6 +3081,19 @@ namespace XCOM_3
                         containerPopupGrid.PlaceItem(restoredPopupItem);
                         containerPopupItems.Add(restoredPopupItem);
                         SyncContainerPopupItemsToSource();
+                    }
+                    else
+                    {
+                        ReturnItemToGrid(restored);
+                    }
+                    break;
+                case "nestedcontainerpopup":
+                    var restoredNestedPopupItem = new GridItem(info.Data, info.GridPosition, ItemSizeDatabase.GetItemSize(info.Data.Name), false);
+                    if (nestedContainerPopupGrid != null && nestedContainerPopupGrid.CanPlaceItem(restoredNestedPopupItem.GridPosition, restoredNestedPopupItem.GetCurrentSize()))
+                    {
+                        nestedContainerPopupGrid.PlaceItem(restoredNestedPopupItem);
+                        nestedContainerPopupItems.Add(restoredNestedPopupItem);
+                        SyncNestedContainerPopupItemsToSource();
                     }
                     else
                     {
