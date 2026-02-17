@@ -72,6 +72,7 @@ namespace XCOM_3
         private Texture2D flashlightTexture;
         private Dictionary<string, Texture2D> armorTextures;
         private Dictionary<string, Texture2D> weaponTextures;
+        private readonly Dictionary<string, Texture2D> generatedItemTextures = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
         private readonly BasicEffect previewEffect;
         private readonly HumanoidModelAdvanced previewModel;
         private RenderTarget2D previewRenderTarget;
@@ -529,7 +530,61 @@ namespace XCOM_3
             if (data.ArmorSlot == ArmorSlot.Backpack && armorTextures.TryGetValue("backpack", out Texture2D backpack))
                 return backpack;
 
-            return null;
+            return GetOrCreateGeneratedItemTexture(data);
+        }
+
+        private Texture2D GetOrCreateGeneratedItemTexture(ItemData data)
+        {
+            if (data == null)
+                return null;
+
+            string textureKey = !string.IsNullOrWhiteSpace(data.GeneratedTextureKey)
+                ? data.GeneratedTextureKey
+                : $"generated_{data.ArmorSlot}_{data.Name}";
+
+            if (generatedItemTextures.TryGetValue(textureKey, out Texture2D existingTexture))
+                return existingTexture;
+
+            var slotColor = GetSlotAccentColor(data.ArmorSlot, data.Name);
+            var kind = GetArmorIconKind(data.ArmorSlot);
+            Texture2D generated = CreateArmorIconTexture(slotColor, kind);
+            generatedItemTextures[textureKey] = generated;
+            return generated;
+        }
+
+        private static ArmorIconKind GetArmorIconKind(ArmorSlot slot)
+        {
+            return slot switch
+            {
+                ArmorSlot.Head => ArmorIconKind.Helmet,
+                ArmorSlot.Neck => ArmorIconKind.Neck,
+                ArmorSlot.Torso => ArmorIconKind.Vest,
+                ArmorSlot.Shield => ArmorIconKind.Shield,
+                ArmorSlot.Shirt => ArmorIconKind.Shirt,
+                ArmorSlot.Pants => ArmorIconKind.Pants,
+                ArmorSlot.ChestRig => ArmorIconKind.ChestRig,
+                ArmorSlot.Backpack => ArmorIconKind.Backpack,
+                _ => ArmorIconKind.Vest
+            };
+        }
+
+        private static Color GetSlotAccentColor(ArmorSlot slot, string itemName)
+        {
+            int seed = StringComparer.OrdinalIgnoreCase.GetHashCode(itemName ?? string.Empty);
+            byte variation = (byte)(Math.Abs(seed) % 28);
+
+            return slot switch
+            {
+                ArmorSlot.Head => new Color((byte)(95 + variation), (byte)(120 + variation), (byte)(80 + variation / 2)),
+                ArmorSlot.Neck => new Color((byte)(100 + variation), (byte)(100 + variation), (byte)(100 + variation)),
+                ArmorSlot.Torso => new Color((byte)(85 + variation), (byte)(105 + variation), (byte)(118 + variation / 2)),
+                ArmorSlot.Shield => new Color((byte)(72 + variation), (byte)(88 + variation), (byte)(98 + variation / 2)),
+                ArmorSlot.Shirt => new Color((byte)(108 + variation), (byte)(132 + variation), (byte)(95 + variation / 2)),
+                ArmorSlot.Pants => new Color((byte)(70 + variation), (byte)(105 + variation), (byte)(125 + variation / 2)),
+                ArmorSlot.ChestRig => new Color((byte)(105 + variation), (byte)(90 + variation), (byte)(74 + variation / 2)),
+                ArmorSlot.Backpack => new Color((byte)(85 + variation), (byte)(110 + variation), (byte)(80 + variation / 2)),
+                _ => new Color((byte)(90 + variation), (byte)(90 + variation), (byte)(90 + variation))
+            };
         }
 
         private Texture2D GetWeaponTexture(ItemData data)

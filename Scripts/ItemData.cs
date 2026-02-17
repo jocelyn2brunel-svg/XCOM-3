@@ -62,6 +62,7 @@ namespace XCOM_3
         public int BonusInventorySlots;
         public int FragmentationProtectionPercent;
         public string Description;
+        public string GeneratedTextureKey { get; set; }
 
         // Données de grenades
         public GrenadeData GrenadeData { get; set; }
@@ -80,6 +81,7 @@ namespace XCOM_3
             BonusInventorySlots = 0;
             FragmentationProtectionPercent = 0;
             Description = "";
+            GeneratedTextureKey = string.Empty;
         }
 
         // Constructeur pour armures
@@ -103,6 +105,7 @@ namespace XCOM_3
             BonusInventorySlots = bonusInventorySlots;
             FragmentationProtectionPercent = Math.Clamp(fragmentationProtectionPercent, 0, 95);
             Description = description;
+            GeneratedTextureKey = string.Empty;
         }
 
         // Constructeur pour grenades
@@ -115,6 +118,7 @@ namespace XCOM_3
             BonusInventorySlots = 0;
             FragmentationProtectionPercent = 0;
             Description = description;
+            GeneratedTextureKey = string.Empty;
         }
 
     }

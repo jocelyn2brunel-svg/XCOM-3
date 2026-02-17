@@ -205,7 +205,7 @@ namespace XCOM_3
             if (ContainsAny(name, RifleKeywords)) return new ItemSize(4, 1);
             if (name.Contains("Shotgun", StringComparison.OrdinalIgnoreCase)) return new ItemSize(4, 2);
             if (name.Contains("Sniper", StringComparison.OrdinalIgnoreCase)) return new ItemSize(5, 2);
-            if (name.Contains("Helmet") || name.Contains("ACH") || name.Contains("ECH") || name.Contains("MICH")) return new ItemSize(2, 2);
+            if (name.Contains("Helmet") || name.Contains("ACH") || name.Contains("ECH") || name.Contains("MICH") || name.Contains("Casquette", StringComparison.OrdinalIgnoreCase)) return new ItemSize(2, 2);
             if (name.Contains("Neck")) return new ItemSize(1, 1);
             if (name.Contains("Vest") || name.Contains("OTV") || name.Contains("MTV") || name.Contains("IMTV") || name.Contains("IOTV") || name.Contains("Jacket")) return new ItemSize(2, 3);
             if (name.Contains("Shield")) return new ItemSize(2, 4);
