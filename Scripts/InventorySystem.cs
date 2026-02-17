@@ -2374,6 +2374,9 @@ namespace XCOM_3
             if (!useNested && !useMain)
                 return false;
 
+            if (IsDraggedItemCurrentlyOpenedContainer())
+                return false;
+
             InventoryGrid targetGrid = useNested ? nestedContainerPopupGrid : containerPopupGrid;
             Rectangle targetGridRect = useNested ? nestedContainerPopupGridRect : containerPopupGridRect;
             List<GridItem> targetItems = useNested ? nestedContainerPopupItems : containerPopupItems;
@@ -2547,6 +2550,9 @@ namespace XCOM_3
             if (hasDraggedItemSourceInfo && AreSameItemContext(draggedItemSourceInfo, targetInfo))
                 return false;
 
+            if (IsDraggedItemCurrentlyOpenedContainer())
+                return false;
+
             if (!IsContainerData(itemToInsert.Data))
                 return true;
 
@@ -2555,6 +2561,20 @@ namespace XCOM_3
 
             string targetSignature = BuildContainerSignature(targetInfo.Data, targetItems);
             return !ContainsContainerSignature(itemToInsert, targetSignature);
+        }
+
+        private bool IsDraggedItemCurrentlyOpenedContainer()
+        {
+            if (draggedItem?.Data == null || !hasDraggedItemSourceInfo || !IsContainerData(draggedItem.Data))
+                return false;
+
+            if (showContainerPopup && hasContainerPopupSource && AreSameItemContext(draggedItemSourceInfo, containerPopupSourceInfo))
+                return true;
+
+            if (showNestedContainerPopup && hasNestedContainerPopupSource && AreSameItemContext(draggedItemSourceInfo, nestedContainerPopupSourceInfo))
+                return true;
+
+            return false;
         }
 
         private static bool AreSameItemContext(ItemContextInfo a, ItemContextInfo b)
