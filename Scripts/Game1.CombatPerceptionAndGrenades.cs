@@ -625,13 +625,7 @@ namespace XCOM_3
                 Vector3 start = blastOrigin;
                 Vector3 end = info.UnitWorldCenter;
 
-                int steps = Math.Max(1, (int)(Vector3.Distance(start, end) / (cellSize * 0.35f)));
-                for (int i = 0; i <= steps; i++)
-                {
-                    float t = i / (float)steps;
-                    Vector3 p = Vector3.Lerp(start, end, t);
-                    renderer3D.DrawCube(p, new Vector3(cellSize * 0.06f), rayColor);
-                }
+                renderer3D.DrawLine(start, end, rayColor);
 
                 Vector3 direction = end - start;
                 if (direction.LengthSquared() > 0.0001f)
