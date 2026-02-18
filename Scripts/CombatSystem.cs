@@ -71,6 +71,9 @@ namespace XCOM_3
                 FurnitureType.Table => 15,
                 FurnitureType.Bed => 10,
                 FurnitureType.Chair => 5,
+                FurnitureType.SedanToyotaCorolla => 35,
+                FurnitureType.SedanBmwSeries3 => 35,
+                FurnitureType.SedanMercedesEClass => 35,
                 _ => 0
             };
         }
