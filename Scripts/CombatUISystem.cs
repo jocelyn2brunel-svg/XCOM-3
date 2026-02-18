@@ -40,8 +40,8 @@ namespace XCOM_3
         public bool EndTurnHovered { get; private set; }
 
         // Constantes
-        public const int ActionButtonWidth = 120;
-        public const int ActionButtonHeight = 40;
+        public const int ActionButtonWidth = 48;
+        public const int ActionButtonHeight = 48;
 
         public CombatUISystem(GraphicsDevice graphicsDevice, SpriteBatch spriteBatch,
             SpriteFont font, Texture2D pixel)
@@ -282,20 +282,31 @@ namespace XCOM_3
 
             int bw = ActionButtonWidth, bh = ActionButtonHeight;
             int by = graphicsDevice.Viewport.Height - bh - 20;
-            int bx = (graphicsDevice.Viewport.Width - bw) / 2;
+            int spacing = 12;
 
             var buttons = new List<Button>();
 
             if (hasFirearmEquipped)
             {
-                buttons.Add(new Button("FIRE", new Vector2(bx - 130, by)));
-                buttons.Add(new Button("RELOAD", new Vector2(bx, by)));
-                buttons.Add(new Button("OVERWATCH", new Vector2(bx + 130, by)));
+                buttons.Add(new Button("FIRE", Vector2.Zero));
+                buttons.Add(new Button("RELOAD", Vector2.Zero));
+                buttons.Add(new Button("OVERWATCH", Vector2.Zero));
             }
 
             if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
             {
-                buttons.Add(new Button("GRENADE", new Vector2(bx + 260, by)));
+                buttons.Add(new Button("GRENADE", Vector2.Zero));
+            }
+
+            if (buttons.Count > 0)
+            {
+                int totalWidth = buttons.Count * bw + (buttons.Count - 1) * spacing;
+                int startX = graphicsDevice.Viewport.Width / 2 - totalWidth / 2;
+
+                for (int i = 0; i < buttons.Count; i++)
+                {
+                    buttons[i].Position = new Vector2(startX + i * (bw + spacing), by);
+                }
             }
 
             UnitActionButtons.AddRange(buttons);
@@ -305,8 +316,13 @@ namespace XCOM_3
                 Rectangle r = new Rectangle((int)btn.Position.X, (int)btn.Position.Y, bw, bh);
                 bool isHovered = r.Contains(mouse.Position);
 
-                ParasiteEveTheme.DrawButton(spriteBatch, pixel, font, r,
-                    btn.Text, isHovered, false, btn.IsEnabled);
+                Color bgColor = isHovered ? ParasiteEveTheme.ButtonHover : ParasiteEveTheme.ButtonNormal;
+                spriteBatch.Draw(pixel, r, bgColor);
+
+                Color borderColor = isHovered ? ParasiteEveTheme.SelectionOutline : ParasiteEveTheme.BorderColor;
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, r, borderColor, 2);
+
+                DrawActionIcon(btn.Text, r, isHovered);
             }
 
             // Bouton CONFIRMER TIR
@@ -340,6 +356,92 @@ namespace XCOM_3
             {
                 FireButton = Rectangle.Empty;
             }
+        }
+
+        private void DrawActionIcon(string action, Rectangle bounds, bool isHovered)
+        {
+            Color iconColor = isHovered ? Color.White : ParasiteEveTheme.TextNormal;
+
+            switch (action)
+            {
+                case "FIRE":
+                    DrawTargetIcon(bounds, iconColor);
+                    break;
+                case "RELOAD":
+                    DrawMagazineIcon(bounds, iconColor);
+                    break;
+                case "GRENADE":
+                    DrawGrenadeIcon(bounds, iconColor);
+                    break;
+                case "OVERWATCH":
+                    DrawEyeIcon(bounds, iconColor);
+                    break;
+                default:
+                    Vector2 textSize = font.MeasureString(action);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, action,
+                        new Vector2(bounds.Center.X - textSize.X / 2, bounds.Center.Y - textSize.Y / 2),
+                        iconColor, 0.6f);
+                    break;
+            }
+        }
+
+        private void DrawTargetIcon(Rectangle bounds, Color color)
+        {
+            int cx = bounds.Center.X;
+            int cy = bounds.Center.Y;
+            int r = 12;
+
+            DrawCircleOutline(cx, cy, r, color, 2);
+            DrawCircleOutline(cx, cy, 5, color, 2);
+            spriteBatch.Draw(pixel, new Rectangle(cx - 1, cy - r - 4, 2, r - 2), color);
+            spriteBatch.Draw(pixel, new Rectangle(cx - 1, cy + 2, 2, r + 2), color);
+            spriteBatch.Draw(pixel, new Rectangle(cx - r - 4, cy - 1, r - 2, 2), color);
+            spriteBatch.Draw(pixel, new Rectangle(cx + 2, cy - 1, r + 2, 2), color);
+        }
+
+        private void DrawMagazineIcon(Rectangle bounds, Color color)
+        {
+            Rectangle magBody = new Rectangle(bounds.Center.X - 8, bounds.Center.Y - 10, 16, 20);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, magBody, color, 2);
+            spriteBatch.Draw(pixel, new Rectangle(magBody.X + 3, magBody.Y + 3, magBody.Width - 6, magBody.Height - 6), color * 0.35f);
+            spriteBatch.Draw(pixel, new Rectangle(magBody.X + 3, magBody.Y - 4, magBody.Width - 6, 3), color);
+        }
+
+        private void DrawGrenadeIcon(Rectangle bounds, Color color)
+        {
+            int cx = bounds.Center.X;
+            int cy = bounds.Center.Y + 2;
+            DrawCircleOutline(cx, cy, 9, color, 2);
+            spriteBatch.Draw(pixel, new Rectangle(cx - 2, cy - 16, 4, 6), color);
+            spriteBatch.Draw(pixel, new Rectangle(cx + 2, cy - 16, 6, 2), color);
+        }
+
+
+        private void DrawCircleOutline(int centerX, int centerY, int radius, Color color, int thickness)
+        {
+            int safeThickness = Math.Max(1, thickness);
+
+            for (int y = -radius; y <= radius; y++)
+            {
+                for (int x = -radius; x <= radius; x++)
+                {
+                    int distSquared = x * x + y * y;
+                    if (distSquared > radius * radius || distSquared < (radius - safeThickness) * (radius - safeThickness))
+                        continue;
+
+                    spriteBatch.Draw(pixel, new Rectangle(centerX + x, centerY + y, 1, 1), color);
+                }
+            }
+        }
+        private void DrawEyeIcon(Rectangle bounds, Color color)
+        {
+            int cx = bounds.Center.X;
+            int cy = bounds.Center.Y;
+            Rectangle eye = new Rectangle(cx - 14, cy - 8, 28, 16);
+
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, eye, color, 2);
+            DrawCircleOutline(cx, cy, 5, color, 2);
+            spriteBatch.Draw(pixel, new Rectangle(cx - 1, cy - 1, 2, 2), color);
         }
 
         /// <summary>
