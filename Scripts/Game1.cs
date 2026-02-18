@@ -1430,6 +1430,15 @@ namespace XCOM_3
             if (IsCellAvailableOnFloor(cell, preferredFloor))
                 return true;
 
+            // Qualité de vie: depuis un étage supérieur, autoriser explicitement
+            // le clic vers le sol extérieur (RDC), même si l'étage visé n'a pas
+            // de cellule navigable à ces coordonnées.
+            if (preferredFloor != 0 && IsGroundExteriorCell(cell) && IsCellAvailableOnFloor(cell, 0))
+            {
+                resolvedFloor = 0;
+                return true;
+            }
+
             int minFloor = GetMinimumViewFloor();
             int maxFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
             int upFloor = Math.Clamp(preferredFloor + 1, minFloor, maxFloor);
@@ -3232,6 +3241,11 @@ namespace XCOM_3
         private bool IsCellHoverableOnViewedFloor(Point cell, int floor)
         {
             if (IsCellAvailableOnFloor(cell, floor))
+                return true;
+
+            // Depuis un étage, on permet le survol des cellules extérieures du RDC
+            // pour autoriser le clic direct au sol (hors bâtiment).
+            if (floor != 0 && IsGroundExteriorCell(cell) && IsCellAvailableOnFloor(cell, 0))
                 return true;
 
             // Les cellules extérieures au sol restent valides pour le ciblage/mouvement
