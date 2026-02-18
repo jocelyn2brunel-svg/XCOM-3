@@ -1780,6 +1780,9 @@ namespace XCOM_3
             FlashlightHand flashlightHand = TryGetFlashlightHandForSlot(mousePosition);
             if (IsTacticalFlashlight(item.Data) && flashlightHand != FlashlightHand.None)
             {
+                if (flashlightHand == FlashlightHand.Left && IsTwoHandedWeapon(unit?.EquippedWeapon?.Data))
+                    return false;
+
                 EquipFlashlightInHand(unit, flashlightHand, item.Data);
                 PlayUiSound(uiEquipSound, 0.6f);
 
@@ -1796,6 +1799,10 @@ namespace XCOM_3
                 unit.EquippedWeapon = new Item(item.Data, Point.Zero);
                 unit.Weapon = item.Data.Name;
                 unit.WeaponData = item.Data.WeaponData;
+
+                if (IsTwoHandedWeapon(item.Data))
+                    UnequipLeftHand(unit);
+
                 PlayUiSound(uiEquipSound, 0.6f);
 
                 Console.WriteLine($"[INVENTORY] ✅ Equipped weapon: {item.Data.Name}");
@@ -1925,6 +1932,9 @@ namespace XCOM_3
                 Rectangle shieldSlot = GetShieldSlotBounds();
                 if (item.Data.ArmorSlot == ArmorSlot.Shield && shieldSlot.Contains(mousePosition))
                 {
+                    if (IsTwoHandedWeapon(unit?.EquippedWeapon?.Data))
+                        return false;
+
                     if (unit.EquippedShield != null)
                         ReturnItemToGrid(unit.EquippedShield);
                     unit.EquippedShield = new Item(item.Data, Point.Zero);
@@ -2069,6 +2079,39 @@ namespace XCOM_3
 
             Console.WriteLine($"[INVENTORY] ❌ Not equipped (no matching slot)");
             return false;
+        }
+
+        private static bool IsTwoHandedWeapon(ItemData weaponData)
+        {
+            if (weaponData?.Type != ItemType.Weapon || weaponData.WeaponData == null)
+                return false;
+
+            return weaponData.WeaponData.Type switch
+            {
+                WeaponType.Pistol => false,
+                WeaponType.Revolver => false,
+                WeaponType.Melee => false,
+                _ => true
+            };
+        }
+
+        private void UnequipLeftHand(Unit unit)
+        {
+            if (unit == null)
+                return;
+
+            if (unit.EquippedShield != null)
+            {
+                ReturnItemToGrid(unit.EquippedShield);
+                unit.EquippedShield = null;
+            }
+
+            if (unit.EquippedLeftHandFlashlight != null)
+            {
+                ReturnItemToGrid(unit.EquippedLeftHandFlashlight);
+                unit.EquippedLeftHandFlashlight = null;
+                unit.IsLeftHandFlashlightOn = false;
+            }
         }
 
         private List<Item> ClonePocketItems(List<Item> items)
@@ -4814,22 +4857,22 @@ namespace XCOM_3
 
         private Rectangle GetHelmetSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(1);
+            return GetMainEquipmentSlotBounds(2);
         }
 
         private Rectangle GetNeckSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(2);
+            return GetMainEquipmentSlotBounds(3);
         }
 
         private Rectangle GetArmorSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(3);
+            return GetMainEquipmentSlotBounds(4);
         }
 
         private Rectangle GetShieldSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(5);
+            return GetMainEquipmentSlotBounds(1);
         }
 
         private Rectangle GetShirtSlotBounds()
@@ -4854,7 +4897,7 @@ namespace XCOM_3
 
         private Rectangle GetChestRigSlotBounds()
         {
-            return GetMainEquipmentSlotBounds(4);
+            return GetMainEquipmentSlotBounds(5);
         }
 
         private Rectangle GetBeltSlotBounds()
