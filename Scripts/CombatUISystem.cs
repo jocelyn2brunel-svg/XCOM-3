@@ -290,11 +290,12 @@ namespace XCOM_3
             {
                 buttons.Add(new Button("FIRE", new Vector2(bx - 130, by)));
                 buttons.Add(new Button("RELOAD", new Vector2(bx, by)));
+                buttons.Add(new Button("OVERWATCH", new Vector2(bx + 130, by)));
             }
 
             if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
             {
-                buttons.Add(new Button("GRENADE", new Vector2(bx + 130, by)));
+                buttons.Add(new Button("GRENADE", new Vector2(bx + 260, by)));
             }
 
             UnitActionButtons.AddRange(buttons);

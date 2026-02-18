@@ -69,6 +69,7 @@ namespace XCOM_3
         private const int TacticalFlashlightThrowApCost = 1;
         private const string TacticalFlashlightItemName = "Lampe tactique aluminium";
         private const float Mk2WeightLbs = 1.3228f; // 600 grammes
+        private const float OverwatchShotIntervalSeconds = 3f;
 
         // --- Système de cartes ---
         private MapData currentMap;
@@ -769,8 +770,18 @@ namespace XCOM_3
             }
 
             UpdateUnitAnimations(gameTime);
-            if (combatSystem.CurrentTurn == TurnState.PlayerTurn) HandlePlayerTurn(mouse, leftClick, keyboard);
-            else if (combatSystem.CurrentTurn == TurnState.EnemyTurn) combatSystem.UpdateEnemyTurn(cellSize);
+            if (combatSystem.CurrentTurn == TurnState.PlayerTurn)
+            {
+                HandlePlayerTurn(mouse, leftClick, keyboard);
+            }
+            else if (combatSystem.CurrentTurn == TurnState.EnemyTurn)
+            {
+                UpdateOverwatchDuringEnemyTurn(gameTime);
+                if (!combatSystem.IsActionInProgress)
+                {
+                    combatSystem.UpdateEnemyTurn(cellSize);
+                }
+            }
 
             UpdateEnemyPerceptionVisibility();
 
@@ -781,6 +792,144 @@ namespace XCOM_3
             HandleFloorViewControls(keyboard);
 
             if (escapePressed) ReturnToMainMenuWithSave();
+        }
+
+
+        private void UpdateOverwatchDuringEnemyTurn(GameTime gameTime)
+        {
+            float deltaSeconds = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            foreach (var shooter in playerUnits)
+            {
+                if (shooter == null || !shooter.IsOnOverwatch)
+                    continue;
+
+                shooter.OverwatchCooldownRemainingSeconds = Math.Max(0f, shooter.OverwatchCooldownRemainingSeconds - deltaSeconds);
+            }
+
+            if (combatSystem.IsActionInProgress)
+                return;
+
+            foreach (var shooter in playerUnits)
+            {
+                if (shooter == null || !shooter.IsOnOverwatch || shooter.Health <= 0)
+                    continue;
+
+                if (shooter.IsFiring || shooter.IsMoving || shooter.OverwatchCooldownRemainingSeconds > 0f)
+                    continue;
+
+                if (TryTriggerOverwatchShot(shooter))
+                    return;
+            }
+        }
+
+        private bool TryTriggerOverwatchShot(Unit shooter)
+        {
+            if (shooter == null || shooter.OverwatchShotsRemaining <= 0 || shooter.WeaponData == null)
+            {
+                shooter?.ClearOverwatch();
+                return false;
+            }
+
+            if (shooter.WeaponData.UsesAmmo)
+            {
+                shooter.EnsureAmmoState();
+                int roundsPerShot = Math.Max(1, shooter.WeaponData.GetRoundsConsumedPerActionPoint());
+                int possibleShots = shooter.CurrentAmmoInMagazine / roundsPerShot;
+                shooter.OverwatchShotsRemaining = Math.Min(shooter.OverwatchShotsRemaining, possibleShots);
+
+                if (shooter.OverwatchShotsRemaining <= 0)
+                {
+                    Console.WriteLine($"[OVERWATCH] {shooter.Name} annule l'overwatch: munitions insuffisantes.");
+                    shooter.ClearOverwatch();
+                    return false;
+                }
+            }
+
+            Unit target = SelectOverwatchTarget(shooter);
+            if (target == null)
+                return false;
+
+            combatSystem.InitiateFire(shooter, target);
+
+            if (!shooter.IsFiring)
+                return false;
+
+            shooter.OverwatchShotsRemaining--;
+            shooter.OverwatchCooldownRemainingSeconds = OverwatchShotIntervalSeconds;
+            shooter.LastOverwatchTarget = target;
+
+            if (shooter.OverwatchShotsRemaining <= 0)
+            {
+                shooter.ClearOverwatch();
+            }
+
+            return true;
+        }
+
+        private Unit SelectOverwatchTarget(Unit shooter)
+        {
+            if (shooter == null)
+                return null;
+
+            var validTargets = FilterTargetsByPerception(shooter, combatSystem.GetValidFireTargets(shooter))
+                .Where(u => u != null && u.Team == Team.Enemy && u.Health > 0)
+                .ToList();
+
+            if (validTargets.Count == 0)
+                return null;
+
+            if (shooter.LastOverwatchTarget != null &&
+                shooter.LastOverwatchTarget.Health > 0 &&
+                validTargets.Contains(shooter.LastOverwatchTarget))
+            {
+                return shooter.LastOverwatchTarget;
+            }
+
+            return validTargets.FirstOrDefault(u => u != shooter.LastOverwatchTarget) ?? validTargets[0];
+        }
+
+        private void ActivateOverwatch(Unit unit)
+        {
+            if (unit == null || unit.Team != Team.Player || unit.ActionPoints <= 0)
+                return;
+
+            bool hasFirearmEquipped = unit.EquippedWeapon?.Data?.WeaponData != null
+                && unit.EquippedWeapon.Data.WeaponData.Type != WeaponType.Melee;
+
+            if (!hasFirearmEquipped || unit.WeaponData == null)
+            {
+                Console.WriteLine("[OVERWATCH] Aucune arme à feu équipée.");
+                return;
+            }
+
+            int apSpent = Math.Min(2, unit.ActionPoints);
+            int requestedShots = apSpent >= 2 ? 2 : 1;
+            int availableShots = requestedShots;
+
+            if (unit.WeaponData.UsesAmmo)
+            {
+                unit.EnsureAmmoState();
+                int roundsPerShot = Math.Max(1, unit.WeaponData.GetRoundsConsumedPerActionPoint());
+                int shotsFromAmmo = unit.CurrentAmmoInMagazine / roundsPerShot;
+                availableShots = Math.Min(availableShots, shotsFromAmmo);
+            }
+
+            if (availableShots <= 0)
+            {
+                Console.WriteLine($"[OVERWATCH] {unit.Name} ne peut pas activer l'overwatch: pas assez de balles.");
+                return;
+            }
+
+            unit.ActivateOverwatch(apSpent, availableShots);
+
+            combatUI.SelectedFireTarget = null;
+            combatUI.ShowFireTargets = false;
+            currentPath.Clear();
+            currentPathNodes.Clear();
+            pathCosts.Clear();
+
+            Console.WriteLine($"[OVERWATCH] {unit.Name} entre en overwatch ({availableShots} tir(s), coût {apSpent} AP).");
         }
 
 
@@ -2812,7 +2961,7 @@ namespace XCOM_3
 
                 switch (btn.Text)
                 {
-                    case "TIRER":
+                    case "FIRE":
                         if (selectedUnit != null && selectedUnit.ActionPoints > 0)
                         {
                             UpdateEnemyPerceptionVisibility();
@@ -2835,8 +2984,12 @@ namespace XCOM_3
                         }
                         break;
 
-                    case "RECHARGER":
-                        Console.WriteLine("Action future : RECHARGER");
+                    case "RELOAD":
+                        Console.WriteLine("Action future : RELOAD");
+                        break;
+
+                    case "OVERWATCH":
+                        ActivateOverwatch(selectedUnit);
                         break;
                 }
                 return;
