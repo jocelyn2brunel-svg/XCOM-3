@@ -84,7 +84,7 @@ namespace XCOM_3
             foreach (var u in playerUnits)
             {
                 u.ActionPoints = u.MaxActionPoints; // ← Utiliser MaxActionPoints au lieu de 3
-                u.RegeneratePhosphocreatine();
+                u.BeginTurnMetabolicRecovery();
                 u.ClearOverwatch();
             }
 
@@ -105,6 +105,7 @@ namespace XCOM_3
             foreach (var u in enemyUnits)
             {
                 u.ActionPoints = 2;
+                u.BeginTurnMetabolicRecovery();
             }
 
             EnemyTurnIndex = 0;
@@ -422,7 +423,7 @@ namespace XCOM_3
             // ✅ CALCUL AVEC COUVERTURE
             int baseAccuracy = GetWeaponAccuracy(shooter) + shooter.Skills.GetAccuracyBonus();
             int rangePenalty = GetRangeBasedAccuracyPenalty(distance, weaponRange);
-            int effectiveAccuracy = baseAccuracy - rangePenalty;
+            int effectiveAccuracy = baseAccuracy - rangePenalty - shooter.GetAnaerobicAccuracyPenalty();
 
             // Appliquer le malus de couverture
             if (coverSystem != null)
@@ -446,6 +447,7 @@ namespace XCOM_3
             shooter.WillHit = random.Next(100) < effectiveAccuracy;
             shooter.PendingTarget = target;
             shooter.ActionPoints--;
+            shooter.RegisterIntenseAction("tir", 18);
             int roundsConsumed = shooter.ConsumeRoundsForFireAction();
             shooter.FireRoundsToAnimate = Math.Max(1, roundsConsumed);
             shooter.FireAnimationDurationSeconds = ComputeFireAnimationDurationSeconds(shooter, shooter.FireRoundsToAnimate, shooter.FireActionPointsSpent);
