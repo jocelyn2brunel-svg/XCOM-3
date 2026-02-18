@@ -30,6 +30,8 @@ namespace XCOM_3
 
     public class PathfindingSystem
     {
+        public const int VerticalTransitionExtraCost = 1;
+
         private int gridW, gridH;
         private int floorCount;
         private HashSet<WallSegment> walls;
@@ -104,7 +106,7 @@ namespace XCOM_3
                     if (!CanTraverseNeighbor(cur, n, goalNode, movingUnit))
                         continue;
 
-                    int tentative = g[cur] + 1;
+                    int tentative = g[cur] + GetEdgeCost(cur, n);
                     if (tentative > maxCost) continue;
 
                     if (tentative < g.GetValueOrDefault(n, int.MaxValue))
@@ -130,7 +132,18 @@ namespace XCOM_3
 
         private int Heuristic(GridNode a, GridNode b)
         {
-            return Math.Abs(a.Cell.X - b.Cell.X) + Math.Abs(a.Cell.Y - b.Cell.Y) + Math.Abs(a.Floor - b.Floor);
+            int planarDistance = Math.Abs(a.Cell.X - b.Cell.X) + Math.Abs(a.Cell.Y - b.Cell.Y);
+            int floorDistance = Math.Abs(a.Floor - b.Floor);
+            return planarDistance + floorDistance * (1 + VerticalTransitionExtraCost);
+        }
+
+        private static int GetEdgeCost(GridNode from, GridNode to)
+        {
+            int baseCost = 1;
+            if (from.Floor != to.Floor)
+                baseCost += VerticalTransitionExtraCost;
+
+            return baseCost;
         }
 
         private GridNode GetLowestCostNode(List<GridNode> openNodes, Dictionary<GridNode, int> fScores)
@@ -205,17 +218,26 @@ namespace XCOM_3
 
             foreach (var ramp in ramps)
             {
+                int rampDx = GetRampAscendDx(ramp);
+                int rampDy = GetRampAscendDy(ramp);
+
                 if (ramp.Floor == node.Floor && ramp.X == node.Cell.X && ramp.Y == node.Cell.Y)
                 {
-                    yield return new GridNode(new Point(ramp.X, ramp.Y - 1), node.Floor + 1);
+                    yield return new GridNode(new Point(ramp.X + rampDx, ramp.Y + rampDy), node.Floor + 1);
                 }
 
-                if (ramp.Bidirectional && ramp.Floor + 1 == node.Floor && ramp.X == node.Cell.X && ramp.Y - 1 == node.Cell.Y)
+                if (ramp.Bidirectional && ramp.Floor + 1 == node.Floor && ramp.X + rampDx == node.Cell.X && ramp.Y + rampDy == node.Cell.Y)
                 {
                     yield return new GridNode(new Point(ramp.X, ramp.Y), node.Floor - 1);
                 }
             }
         }
+
+        private static int GetRampAscendDx(RampTileData ramp)
+            => (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDx : 0;
+
+        private static int GetRampAscendDy(RampTileData ramp)
+            => (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDy : -1;
 
         public List<Point> GetShortMoveCells(Unit u)
         {
@@ -245,14 +267,15 @@ namespace XCOM_3
         {
             var reachable = new List<GridNode>();
             var start = new GridNode(u.Cell, u.Floor);
-            var queue = new Queue<GridNode>();
+            var open = new List<GridNode>();
             var costs = new Dictionary<GridNode, int> { { start, 0 } };
 
-            queue.Enqueue(start);
+            open.Add(start);
 
-            while (queue.Count > 0)
+            while (open.Count > 0)
             {
-                var current = queue.Dequeue();
+                var current = GetLowestCostNode(open, costs);
+                open.Remove(current);
                 int currentCost = costs[current];
 
                 if (currentCost >= range)
@@ -269,7 +292,7 @@ namespace XCOM_3
                     if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell))
                         continue;
 
-                    int nextCost = currentCost + 1;
+                    int nextCost = currentCost + GetEdgeCost(current, neighbor);
                     if (nextCost > range)
                         continue;
 
@@ -277,7 +300,8 @@ namespace XCOM_3
                         continue;
 
                     costs[neighbor] = nextCost;
-                    queue.Enqueue(neighbor);
+                    if (!open.Contains(neighbor))
+                        open.Add(neighbor);
 
                     if (neighbor.Cell == u.Cell && neighbor.Floor == u.Floor)
                         continue;
@@ -473,6 +497,48 @@ namespace XCOM_3
 
         public int ManhattanDistance(Point a, Point b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
         public bool AreAdjacent(Point a, Point b) => ManhattanDistance(a, b) == 1;
+        public int GetPathCost(List<GridNode> path, GridNode? startNode = null)
+        {
+            if (path == null || path.Count == 0)
+                return 0;
+
+            int cost = 0;
+            GridNode previous = startNode ?? path[0];
+
+            int firstIndex = startNode.HasValue ? 0 : 1;
+            if (!startNode.HasValue)
+                cost = 1;
+
+            for (int i = firstIndex; i < path.Count; i++)
+            {
+                GridNode current = path[i];
+                cost += GetEdgeCost(previous, current);
+                previous = current;
+            }
+
+            return cost;
+        }
+
+        public int GetVerticalTransitionCount(List<GridNode> path, GridNode? startNode = null)
+        {
+            if (path == null || path.Count == 0)
+                return 0;
+
+            int transitions = 0;
+            GridNode previous = startNode ?? path[0];
+            int firstIndex = startNode.HasValue ? 0 : 1;
+
+            for (int i = firstIndex; i < path.Count; i++)
+            {
+                if (previous.Floor != path[i].Floor)
+                    transitions++;
+
+                previous = path[i];
+            }
+
+            return transitions;
+        }
+
         public int GetPathCost(List<Point> path) => path.Count;
     }
 }

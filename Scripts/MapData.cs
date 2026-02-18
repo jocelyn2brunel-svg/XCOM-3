@@ -254,6 +254,10 @@ namespace XCOM_3
         public int X { get; set; }
         public int Y { get; set; }
         public int Floor { get; set; }
+        // Direction du déplacement montant (doit être cardinal)
+        // Par défaut: vers le nord pour compatibilité avec les cartes existantes.
+        public int AscendDx { get; set; } = 0;
+        public int AscendDy { get; set; } = -1;
         public bool Bidirectional { get; set; } = true;
     }
 
