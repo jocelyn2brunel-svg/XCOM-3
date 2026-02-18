@@ -147,6 +147,7 @@ namespace XCOM_3
                 u.ActionPoints = u.MaxActionPoints; // ← Utiliser MaxActionPoints au lieu de 3
                 u.BeginTurnMetabolicRecovery();
                 u.ClearOverwatch();
+                u.ResetFireActionStreak();
             }
 
             CurrentTurn = TurnState.PlayerTurn;
@@ -167,6 +168,7 @@ namespace XCOM_3
             {
                 u.ActionPoints = 2;
                 u.BeginTurnMetabolicRecovery();
+                u.ResetFireActionStreak();
             }
 
             EnemyTurnIndex = 0;
@@ -597,7 +599,8 @@ namespace XCOM_3
             // ✅ CALCUL AVEC COUVERTURE
             int baseAccuracy = GetWeaponAccuracy(shooter) + shooter.Skills.GetAccuracyBonus();
             int rangePenalty = GetRangeBasedAccuracyPenalty(distance, weaponRange);
-            int effectiveAccuracy = baseAccuracy - rangePenalty - shooter.GetAnaerobicAccuracyPenalty();
+            int fireModePenalty = shooter.GetFireModeAccuracyPenaltyForNextShot();
+            int effectiveAccuracy = baseAccuracy - rangePenalty - shooter.GetAnaerobicAccuracyPenalty() - fireModePenalty;
 
             // Appliquer le malus de couverture
             if (coverSystem != null)
@@ -630,17 +633,18 @@ namespace XCOM_3
             shooter.ActionPoints--;
             shooter.RegisterIntenseAction("tir", 18);
             int roundsConsumed = shooter.ConsumeRoundsForFireAction();
+            shooter.RegisterFireActionInCurrentTurn();
             shooter.FireRoundsToAnimate = Math.Max(1, roundsConsumed);
             shooter.FireAnimationDurationSeconds = ComputeFireAnimationDurationSeconds(shooter, shooter.FireRoundsToAnimate, shooter.FireActionPointsSpent);
             OnShotFired?.Invoke(shooter);
 
             if (shooter.WeaponData != null && shooter.WeaponData.UsesAmmo)
             {
-                Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance, range penalty: -{rangePenalty}%, ammo -{roundsConsumed}, left {shooter.CurrentAmmoInMagazine}/{shooter.WeaponData.EffectiveMagazineCapacity})");
+                Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance, range penalty: -{rangePenalty}%, fire mode penalty: -{fireModePenalty}%, ammo -{roundsConsumed}, left {shooter.CurrentAmmoInMagazine}/{shooter.WeaponData.EffectiveMagazineCapacity})");
             }
             else
             {
-                Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance, range penalty: -{rangePenalty}%)");
+                Console.WriteLine($"[COMBAT] {shooter.Name} fires at {target.Name} ({effectiveAccuracy}% chance, range penalty: -{rangePenalty}%, fire mode penalty: -{fireModePenalty}%)");
             }
         }
 

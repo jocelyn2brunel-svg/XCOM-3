@@ -69,6 +69,7 @@ namespace XCOM_3
         public float FireProgress = 0f;
         public int FireRoundsToAnimate = 1;
         public int FireActionPointsSpent = 1;
+        public int ConsecutiveFireActionsThisTurn = 0;
         public float FireAnimationDurationSeconds = 0.25f;
         public Unit PendingTarget = null;
         public bool IsOnOverwatch = false;
@@ -321,6 +322,7 @@ namespace XCOM_3
             CoverTransitionProgress = other.CoverTransitionProgress;
             FireRoundsToAnimate = other.FireRoundsToAnimate;
             FireActionPointsSpent = other.FireActionPointsSpent;
+            ConsecutiveFireActionsThisTurn = other.ConsecutiveFireActionsThisTurn;
             FireAnimationDurationSeconds = other.FireAnimationDurationSeconds;
             IsOnOverwatch = other.IsOnOverwatch;
             OverwatchShotsRemaining = other.OverwatchShotsRemaining;
@@ -432,6 +434,31 @@ namespace XCOM_3
             int roundsConsumed = Math.Min(roundsNeeded, CurrentAmmoInMagazine);
             CurrentAmmoInMagazine -= roundsConsumed;
             return roundsConsumed;
+        }
+
+        public int GetFireModeAccuracyPenaltyForNextShot()
+        {
+            if (WeaponData == null)
+                return 0;
+
+            int perShotPenalty = WeaponData.CurrentFireMode switch
+            {
+                FireMode.Auto => 8,
+                FireMode.Burst => 4,
+                _ => 0
+            };
+
+            return Math.Max(0, ConsecutiveFireActionsThisTurn) * perShotPenalty;
+        }
+
+        public void RegisterFireActionInCurrentTurn()
+        {
+            ConsecutiveFireActionsThisTurn = Math.Max(0, ConsecutiveFireActionsThisTurn) + 1;
+        }
+
+        public void ResetFireActionStreak()
+        {
+            ConsecutiveFireActionsThisTurn = 0;
         }
 
         public void ActivateOverwatch(int actionPointsSpent, int shotsToReserve)
