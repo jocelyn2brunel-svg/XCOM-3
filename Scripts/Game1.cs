@@ -3522,11 +3522,7 @@ namespace XCOM_3
                             throwModeUsesFlashlight = false;
                             throwFlashlightFromRightHand = false;
                             selectedGrenade = throwableGrenade;
-                            int throwRange = GetUnitThrowRange(selectedUnit);
-                            var rawThrowableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
-            throwableCells = grenadeOptionWallAwareTargeting
-                ? rawThrowableCells.Where(cell => CanThrowToTarget(selectedUnit, cell, viewedFloor)).ToList()
-                : rawThrowableCells;
+                            throwableCellsCacheValid = false;
                             Console.WriteLine($"Mode grenade activé: {selectedGrenade.Name}");
                         }
                         break;
@@ -3634,11 +3630,7 @@ namespace XCOM_3
             throwFlashlightFromRightHand = fromRightHand;
             selectedGrenade = new GrenadeData(TacticalFlashlightItemName, GrenadeType.Flashbang, 0, 0, aoCost: TacticalFlashlightThrowApCost);
 
-            int throwRange = GetUnitThrowRange(selectedUnit);
-            var rawThrowableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
-            throwableCells = grenadeOptionWallAwareTargeting
-                ? rawThrowableCells.Where(cell => CanThrowToTarget(selectedUnit, cell, viewedFloor)).ToList()
-                : rawThrowableCells;
+            throwableCellsCacheValid = false;
             Console.WriteLine($"Mode lancer lampe activé ({(fromRightHand ? "main droite" : "main gauche")}).");
         }
     }
