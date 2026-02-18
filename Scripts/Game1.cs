@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
@@ -161,6 +162,11 @@ namespace XCOM_3
         private Unit movementCinematicUnit = null;
         private readonly Dictionary<Unit, bool> firingShoulderCameraDecisions = new Dictionary<Unit, bool>();
         private HashSet<Unit> currentlySpottedEnemies = new HashSet<Unit>();
+        private readonly string[] gameplaySongAssetNames = { "menu_music_1", "menu_music_2", "menu_music_3", "menu_music_4" };
+        private readonly Dictionary<string, Song> gameplaySongCache = new();
+        private Song currentGameplaySong;
+        private SoundEffect gunshotSoundEffect;
+        private SoundEffectInstance gunshotSoundEffectInstance;
 
         private enum UnitPageTab { Inventory, Skills, Info }
         private const int TabWidth = 170;
@@ -218,6 +224,7 @@ namespace XCOM_3
             InitializeGameplaySystems();
             InitializeMapSystems();
             InitializeDatabasesAndEncyclopedia();
+            InitializeAudioSystems();
 
             explosionManager = new ExplosionManager(random);
             edgeWallGenerator = new EdgeWallGenerator(random);
@@ -376,6 +383,7 @@ namespace XCOM_3
             combatUI = new CombatUISystem(GraphicsDevice, _spriteBatch, font, pixel);
             combatSystem.OnUnitKilled += HandleUnitKilled;
             combatSystem.OnFireCompleted += HandleFireCompleted;
+            combatSystem.OnShotFired += HandleShotFired;
 
             Window.ClientSizeChanged += (_, _) =>
             {
@@ -393,6 +401,64 @@ namespace XCOM_3
             // ✅ NOUVEAU : Initialiser le système de cartes
             mapGenerator = new MapGenerator(random);
             mapEditor = new MapEditor(camera, renderer3D, font, pixel, _spriteBatch);
+        }
+
+        private void InitializeAudioSystems()
+        {
+            gunshotSoundEffect = CreateProceduralGunshotSound();
+            gunshotSoundEffectInstance = gunshotSoundEffect?.CreateInstance();
+        }
+
+        private SoundEffect CreateProceduralGunshotSound()
+        {
+            const int sampleRate = 44100;
+            const float durationSeconds = 0.18f;
+            int sampleCount = (int)(sampleRate * durationSeconds);
+            short[] samples = new short[sampleCount];
+
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float t = i / (float)sampleRate;
+                float envelope = (float)Math.Exp(-18f * t);
+                float bass = (float)Math.Sin(2f * Math.PI * 95f * t);
+                float crack = (float)(random.NextDouble() * 2.0 - 1.0);
+                float value = (0.35f * bass + 0.65f * crack) * envelope;
+                samples[i] = (short)(MathHelper.Clamp(value, -1f, 1f) * short.MaxValue);
+            }
+
+            return new SoundEffect(samples, sampleRate, AudioChannels.Mono);
+        }
+
+        private void HandleShotFired(Unit shooter)
+        {
+            if (gunshotSoundEffectInstance == null)
+                return;
+
+            float volume = MathHelper.Clamp(0.4f + optionsMenuManager.GetMusicVolume() * 0.25f, 0.2f, 0.8f);
+            float pitch = MathHelper.Clamp((float)(random.NextDouble() * 0.16 - 0.08), -1f, 1f);
+
+            gunshotSoundEffectInstance.Stop();
+            gunshotSoundEffectInstance.Volume = volume;
+            gunshotSoundEffectInstance.Pitch = pitch;
+            gunshotSoundEffectInstance.Play();
+        }
+
+        private void PlayRandomGameplaySong()
+        {
+            if (gameplaySongAssetNames.Length == 0)
+                return;
+
+            string songAssetName = gameplaySongAssetNames[random.Next(gameplaySongAssetNames.Length)];
+            if (!gameplaySongCache.TryGetValue(songAssetName, out currentGameplaySong))
+            {
+                currentGameplaySong = Content.Load<Song>(songAssetName);
+                gameplaySongCache[songAssetName] = currentGameplaySong;
+            }
+
+            MediaPlayer.IsRepeating = true;
+            MediaPlayer.Volume = optionsMenuManager.GetMusicVolume();
+            MediaPlayer.Play(currentGameplaySong);
+            Console.WriteLine($"[AUDIO] In-game music: {songAssetName}");
         }
 
         private void EnsurePremadeMapsGenerated()
@@ -460,6 +526,7 @@ namespace XCOM_3
         {
             currentState = GameState.MainMenu;
             mainMenuManager.ResetToRootMenu();
+            mainMenuManager.PlayRandomMenuSong();
         }
 
         private void HandleCharacterCreationCompleted(List<CharacterCreationProfile> profiles)
@@ -2710,7 +2777,7 @@ namespace XCOM_3
         private void StartMission(string missionType)
         {
             EnsurePremadeMapsGenerated();
-            MediaPlayer.Stop();
+            PlayRandomGameplaySong();
             currentState = GameState.Playing;
 
             // ✅ NOUVEAU : Charger une carte (générée aléatoirement)

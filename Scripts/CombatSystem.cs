@@ -446,6 +446,7 @@ namespace XCOM_3
             int roundsConsumed = shooter.ConsumeRoundsForFireAction();
             shooter.FireRoundsToAnimate = Math.Max(1, roundsConsumed);
             shooter.FireAnimationDurationSeconds = ComputeFireAnimationDurationSeconds(shooter, shooter.FireRoundsToAnimate, shooter.FireActionPointsSpent);
+            OnShotFired?.Invoke(shooter);
 
             if (shooter.WeaponData != null && shooter.WeaponData.UsesAmmo)
             {
@@ -623,6 +624,7 @@ namespace XCOM_3
         // Events
         public event Action OnFireCompleted;
         public event Action<Unit> OnUnitKilled;
+        public event Action<Unit> OnShotFired;
 
         public void InitializeCoverSystem(int gridWidth, int gridHeight, HashSet<WallSegment> walls)
         {
