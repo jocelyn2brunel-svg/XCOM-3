@@ -116,7 +116,9 @@ namespace XCOM_3
                 int distance = Math.Abs(ui.Target.Cell.X - firingCell.X) +
                               Math.Abs(ui.Target.Cell.Y - firingCell.Y);
                 int anaerobicPenalty = selectedUnit.GetAnaerobicAccuracyPenalty();
-                ui.HitChance = Math.Max(selectedUnit.WeaponData.Accuracy - distance * 5 - anaerobicPenalty, 10);
+                int rangePenalty = Math.Max(0, distance * 5);
+                int fireModePenalty = selectedUnit.GetFireModeAccuracyPenaltyForNextShot();
+                ui.HitChance = Math.Max(selectedUnit.WeaponData.EffectiveAccuracy - rangePenalty - anaerobicPenalty - fireModePenalty, 10);
             }
         }
 
