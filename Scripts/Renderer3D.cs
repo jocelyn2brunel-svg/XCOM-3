@@ -809,7 +809,19 @@ namespace XCOM_3
         public void DrawGrenades(List<Grenade> grenades, int size)
         {
             foreach (var g in grenades)
-                DrawCube(g.Position, new Vector3(size * 0.2f), GrenadeDatabase.GetGrenadeColor(g.Data.Type));
+            {
+                Color grenadeColor = GrenadeDatabase.GetGrenadeColor(g.Data.Type);
+                DrawCube(g.Position, new Vector3(size * 0.2f), grenadeColor);
+
+                if (!g.EmitsLight)
+                    continue;
+
+                float pulse = 0.72f + 0.28f * (float)Math.Sin(globalAnimationTime * 14f + g.Progress * MathHelper.TwoPi);
+                DrawCube(g.Position, new Vector3(size * 0.32f), new Color(255, 250, 200, 170) * pulse);
+
+                Vector3 haloPos = new Vector3(g.Position.X, g.Position.Y - size * 0.12f, g.Position.Z);
+                DrawPlane(haloPos, new Vector3(size * 0.95f, 1f, size * 0.95f), new Color(255, 245, 170, 90) * pulse);
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════

@@ -62,6 +62,7 @@ namespace XCOM_3
         public int TargetFloor;         // Étage ciblé pour l'explosion
         public float ArcHeight;         // Hauteur de l'arc parabolique
         public float FlightDurationSeconds; // Durée totale du vol pour une lecture visuelle claire
+        public bool EmitsLight;         // Indique si l'objet émet de la lumière pendant le vol
 
         public Grenade(GrenadeData data, Vector3 start, Vector3 target, Unit thrower, int targetFloor)
         {
@@ -72,6 +73,7 @@ namespace XCOM_3
             Progress = 0f;
             Thrower = thrower;
             TargetFloor = targetFloor;
+            EmitsLight = false;
 
             // Calculer la hauteur de l'arc selon la distance
             float distance = Vector3.Distance(start, target);
