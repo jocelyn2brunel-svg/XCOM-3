@@ -159,6 +159,7 @@ namespace XCOM_3
         private Dictionary<Point, float> terrainHeights = new Dictionary<Point, float>();
         private readonly Dictionary<int, HashSet<WallSegment>> wallsByFloorCache = new Dictionary<int, HashSet<WallSegment>>();
         private Unit movementCinematicUnit = null;
+        private readonly Dictionary<Unit, bool> firingShoulderCameraDecisions = new Dictionary<Unit, bool>();
         private HashSet<Unit> currentlySpottedEnemies = new HashSet<Unit>();
 
         private enum UnitPageTab { Inventory, Skills, Info }
@@ -943,6 +944,8 @@ namespace XCOM_3
 
         private void UpdateAimCameraAndPose()
         {
+            CleanupFiringShoulderCameraDecisions();
+
             if (movementCinematicUnit != null)
             {
                 if (!movementCinematicUnit.IsMoving || combatSystem.CurrentTurn != TurnState.PlayerTurn)
@@ -993,6 +996,7 @@ namespace XCOM_3
 
             Unit aimingUnit = null;
             Unit targetUnit = null;
+            bool aimingFromFiringSequence = false;
 
             if (selectedUnit != null && selectedUnit.Team == Team.Player && selectedUnit.ActionPoints > 0 && !selectedUnit.IsMoving)
             {
@@ -1016,11 +1020,18 @@ namespace XCOM_3
                 if (aimingUnit != null)
                 {
                     aimingUnit.IsAiming = true;
+                    aimingFromFiringSequence = true;
                 }
             }
 
             if (aimingUnit != null && targetUnit != null)
             {
+                if (aimingFromFiringSequence && !ShouldUseFiringShoulderCamera(aimingUnit))
+                {
+                    camera.ClearShoulderCamera();
+                    return;
+                }
+
                 Vector3 shooterPos = aimingUnit.VisualPosition + new Vector3(0f, cellSize * 0.75f, 0f);
                 Vector3 toTarget = targetUnit.VisualPosition - aimingUnit.VisualPosition;
                 toTarget.Y = 0f;
@@ -1044,6 +1055,45 @@ namespace XCOM_3
             }
 
             camera.ClearShoulderCamera();
+        }
+
+        private bool ShouldUseFiringShoulderCamera(Unit shooter)
+        {
+            if (shooter == null)
+            {
+                return false;
+            }
+
+            if (!firingShoulderCameraDecisions.TryGetValue(shooter, out bool useShoulderCamera))
+            {
+                float probability = optionsMenuManager?.GetShooterCameraProbability() ?? 0.5f;
+                useShoulderCamera = random.NextDouble() < probability;
+                firingShoulderCameraDecisions[shooter] = useShoulderCamera;
+            }
+
+            return useShoulderCamera;
+        }
+
+        private void CleanupFiringShoulderCameraDecisions()
+        {
+            if (firingShoulderCameraDecisions.Count == 0)
+            {
+                return;
+            }
+
+            List<Unit> staleShooters = new List<Unit>();
+            foreach (var kvp in firingShoulderCameraDecisions)
+            {
+                if (kvp.Key == null || !kvp.Key.IsFiring)
+                {
+                    staleShooters.Add(kvp.Key);
+                }
+            }
+
+            foreach (var shooter in staleShooters)
+            {
+                firingShoulderCameraDecisions.Remove(shooter);
+            }
         }
 
         private void HandleFloorViewControls(KeyboardState keyboard)

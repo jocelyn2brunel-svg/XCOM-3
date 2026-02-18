@@ -30,6 +30,13 @@ namespace XCOM_3
         private Rectangle _volumeHandle;
         private bool _draggingVolume = false;
 
+        // --- Probabilité caméra proche pendant le tir ---
+        private float _shooterCameraProbability = 0.5f;
+        private Rectangle _shooterCameraBar;
+        private Rectangle _shooterCameraFill;
+        private Rectangle _shooterCameraHandle;
+        private bool _draggingShooterCameraProbability = false;
+
         // --- Contrôle couleur UI (RGB) ---
         private byte _themeR;
         private byte _themeG;
@@ -65,6 +72,7 @@ namespace XCOM_3
 
             CreateOptionsButtons();
             InitializeVolumeControls();
+            InitializeShooterCameraControls();
             InitializeThemeControls();
         }
 
@@ -72,8 +80,10 @@ namespace XCOM_3
         {
             HandleButtonClicks(mouseState, previousMouseState);
             HandleVolumeSlider(mouseState);
+            HandleShooterCameraSlider(mouseState);
             HandleThemeSliders(mouseState);
             UpdateVolumeVisuals();
+            UpdateShooterCameraVisuals();
             UpdateThemeVisuals();
         }
 
@@ -84,6 +94,7 @@ namespace XCOM_3
             DrawTitle("Options");
             DrawButtons(_optionsButtons, mouse);
             DrawVolumeControls();
+            DrawShooterCameraControls();
             DrawThemeControls();
         }
 
@@ -93,6 +104,13 @@ namespace XCOM_3
         {
             _musicVolume = MathHelper.Clamp(volume, 0f, 1f);
             MediaPlayer.Volume = _musicVolume;
+        }
+
+        public float GetShooterCameraProbability() => _shooterCameraProbability;
+
+        public void SetShooterCameraProbability(float probability)
+        {
+            _shooterCameraProbability = MathHelper.Clamp(probability, 0f, 1f);
         }
 
         private void CreateOptionsButtons()
@@ -109,6 +127,12 @@ namespace XCOM_3
         {
             _volumeBar = new Rectangle(0, 134, 200, 8);
             UpdateVolumeVisuals();
+        }
+
+        private void InitializeShooterCameraControls()
+        {
+            _shooterCameraBar = new Rectangle(0, 194, 230, 8);
+            UpdateShooterCameraVisuals();
         }
 
         private void InitializeThemeControls()
@@ -223,6 +247,30 @@ namespace XCOM_3
             UIThemeManager.SetPrimaryColor(_themeR, _themeG, _themeB);
         }
 
+        private void HandleShooterCameraSlider(MouseState mouseState)
+        {
+            if (mouseState.LeftButton == ButtonState.Pressed && _shooterCameraBar.Contains(mouseState.Position))
+            {
+                _draggingShooterCameraProbability = true;
+            }
+
+            if (mouseState.LeftButton == ButtonState.Released)
+            {
+                _draggingShooterCameraProbability = false;
+            }
+
+            if (_draggingShooterCameraProbability)
+            {
+                float newProbability = MathHelper.Clamp(
+                    (mouseState.X - _shooterCameraBar.X) / (float)_shooterCameraBar.Width,
+                    0f,
+                    1f
+                );
+
+                SetShooterCameraProbability(newProbability);
+            }
+        }
+
         private byte GetChannelValueFromMouse(int mouseX, Rectangle bar)
         {
             float normalized = MathHelper.Clamp((mouseX - bar.X) / (float)bar.Width, 0f, 1f);
@@ -255,6 +303,23 @@ namespace XCOM_3
             _redHandle = BuildHandle(_redBar, _themeR);
             _greenHandle = BuildHandle(_greenBar, _themeG);
             _blueHandle = BuildHandle(_blueBar, _themeB);
+        }
+
+        private void UpdateShooterCameraVisuals()
+        {
+            _shooterCameraFill = new Rectangle(
+                _shooterCameraBar.X,
+                _shooterCameraBar.Y,
+                (int)(_shooterCameraBar.Width * _shooterCameraProbability),
+                _shooterCameraBar.Height
+            );
+
+            _shooterCameraHandle = new Rectangle(
+                _shooterCameraBar.X + _shooterCameraFill.Width - 5,
+                _shooterCameraBar.Y - 4,
+                10,
+                _shooterCameraBar.Height + 8
+            );
         }
 
         private Rectangle BuildChannelFill(Rectangle bar, byte value)
@@ -311,9 +376,25 @@ namespace XCOM_3
             _spriteBatch.DrawString(_font, volumeText, textPos, UIThemeManager.PrimaryColor);
         }
 
+        private void DrawShooterCameraControls()
+        {
+            _spriteBatch.DrawString(_font, "Caméra proche au tir", new Vector2(0, 170), UIThemeManager.PrimaryColor);
+            _spriteBatch.Draw(_pixel, _shooterCameraBar, Color.Gray);
+            _spriteBatch.Draw(_pixel, _shooterCameraFill, UIThemeManager.PrimaryColor);
+            _spriteBatch.Draw(_pixel, _shooterCameraHandle, Color.White);
+
+            string probabilityText = $"{(_shooterCameraProbability * 100f):F0}%";
+            Vector2 textSize = _font.MeasureString(probabilityText);
+            Vector2 textPos = new Vector2(
+                _shooterCameraBar.X + _shooterCameraBar.Width + 10,
+                _shooterCameraBar.Y - textSize.Y / 2 + _shooterCameraBar.Height / 2
+            );
+            _spriteBatch.DrawString(_font, probabilityText, textPos, UIThemeManager.PrimaryColor);
+        }
+
         private void DrawThemeControls()
         {
-            _spriteBatch.DrawString(_font, "UI Color (RGB)", new Vector2(0, 220), UIThemeManager.PrimaryColor);
+            _spriteBatch.DrawString(_font, "UI Color (RGB)", new Vector2(0, 240), UIThemeManager.PrimaryColor);
 
             DrawChannel("R", _redBar, _redFill, _redHandle, Color.Red, _themeR);
             DrawChannel("G", _greenBar, _greenFill, _greenHandle, Color.LimeGreen, _themeG);
