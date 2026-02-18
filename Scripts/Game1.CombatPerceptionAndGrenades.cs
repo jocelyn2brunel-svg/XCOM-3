@@ -1197,7 +1197,8 @@ namespace XCOM_3
                 if (unit.Health <= 0)
                 {
                     PlayGrenadeFatalityEffect(unit, grenadeData);
-                    HandleUnitKilled(unit);
+                    Vector3 blastImpulse = ComputeExplosionImpulse(center, centerFloor, unit, grenadeData.Radius);
+                    HandleUnitKilled(unit, blastImpulse);
                     Console.WriteLine($"{unit.Name} killed by explosion!");
                 }
             }
@@ -1249,7 +1250,7 @@ namespace XCOM_3
 
                 if (random.NextDouble() <= hitChance)
                 {
-                    KillUnitFromMk2(unit, $"fragmentation ({hitChance * 100f:0}% chance)", thrower, ref enemiesHit, ref totalDamage);
+                    KillUnitFromMk2(unit, $"fragmentation ({hitChance * 100f:0}% chance)", thrower, center, centerFloor, ref enemiesHit, ref totalDamage);
                 }
             }
         }
@@ -1335,7 +1336,7 @@ namespace XCOM_3
             return hitChancePercent > 0;
         }
 
-        private void KillUnitFromMk2(Unit unit, string reason, Unit thrower, ref int enemiesHit, ref int totalDamage)
+        private void KillUnitFromMk2(Unit unit, string reason, Unit thrower, Point detonationCenter, int detonationFloor, ref int enemiesHit, ref int totalDamage)
         {
             int hpBefore = unit.Health;
             unit.Health = 0;
@@ -1349,7 +1350,40 @@ namespace XCOM_3
                 totalDamage += hpBefore;
             }
 
-            HandleUnitKilled(unit);
+            Vector3 fragmentationImpulse = ComputeExplosionImpulse(detonationCenter, detonationFloor, unit, Mk2FragmentationEndRadius + 1f);
+            HandleUnitKilled(unit, fragmentationImpulse);
+        }
+
+        private Vector3 ComputeExplosionImpulse(Point explosionCenter, int explosionFloor, Unit unit, float blastRadius)
+        {
+            if (unit == null)
+                return Vector3.Up;
+
+            Vector3 center = new Vector3(explosionCenter.X + 0.5f, explosionFloor * 0.25f, explosionCenter.Y + 0.5f);
+            Vector3 victim = new Vector3(unit.Cell.X + 0.5f, unit.Floor * 0.25f, unit.Cell.Y + 0.5f);
+
+            Vector3 away = victim - center;
+            float distance = away.Length();
+
+            if (distance < 0.0001f)
+            {
+                away = new Vector3(
+                    (float)(random.NextDouble() * 2.0 - 1.0),
+                    0.55f,
+                    (float)(random.NextDouble() * 2.0 - 1.0));
+            }
+            else
+            {
+                away /= distance;
+                away.Y += 0.28f;
+            }
+
+            away.Normalize();
+
+            float normalizedDistance = blastRadius <= 0f ? 1f : MathHelper.Clamp(distance / blastRadius, 0f, 1f);
+            float strength = MathHelper.Lerp(2.8f, 0.9f, normalizedDistance);
+
+            return away * strength;
         }
 
         private void PlayGrenadeFatalityEffect(Unit unit, GrenadeData grenadeData)
