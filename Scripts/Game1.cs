@@ -2697,10 +2697,13 @@ namespace XCOM_3
             {
                 foreach (var ramp in currentMap.RampTiles)
                 {
+                    int rampDx = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDx : 0;
+                    int rampDy = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDy : -1;
+
                     if (ramp.Floor == floor && ramp.X == cell.X && ramp.Y == cell.Y)
                         return true;
 
-                    if (ramp.Floor + 1 == floor && ramp.X == cell.X && ramp.Y - 1 == cell.Y)
+                    if (ramp.Floor + 1 == floor && ramp.X + rampDx == cell.X && ramp.Y + rampDy == cell.Y)
                         return true;
                 }
             }
@@ -2840,9 +2843,16 @@ namespace XCOM_3
 
                     pathCosts.Clear();
 
-                    for (int i = 0; i < currentPath.Count; i++)
+                    int cumulativeCost = 0;
+                    GridNode previousNode = new GridNode(selectedUnit.Cell, selectedUnit.Floor);
+                    foreach (var node in currentPathNodes)
                     {
-                        pathCosts[currentPath[i]] = i + 1;
+                        cumulativeCost += 1;
+                        if (node.Floor != previousNode.Floor)
+                            cumulativeCost += PathfindingSystem.VerticalTransitionExtraCost;
+
+                        pathCosts[node.Cell] = cumulativeCost;
+                        previousNode = node;
                     }
                 }
             }
@@ -2912,14 +2922,17 @@ namespace XCOM_3
             {
                 foreach (var ramp in currentMap.RampTiles)
                 {
+                    int rampDx = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDx : 0;
+                    int rampDy = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDy : -1;
+
                     if (ramp.Floor == fromFloor && ramp.X == clickedCell.X && ramp.Y == clickedCell.Y)
                     {
-                        movementGoal = new Point(ramp.X, ramp.Y - 1);
+                        movementGoal = new Point(ramp.X + rampDx, ramp.Y + rampDy);
                         goalFloor = fromFloor + 1;
                         return true;
                     }
 
-                    if (ramp.Bidirectional && ramp.Floor + 1 == fromFloor && ramp.X == clickedCell.X && ramp.Y - 1 == clickedCell.Y)
+                    if (ramp.Bidirectional && ramp.Floor + 1 == fromFloor && ramp.X + rampDx == clickedCell.X && ramp.Y + rampDy == clickedCell.Y)
                     {
                         movementGoal = new Point(ramp.X, ramp.Y);
                         goalFloor = fromFloor - 1;
@@ -2993,9 +3006,6 @@ namespace XCOM_3
             {
                 if (pathfinding == null) return;
 
-                // ✅ NOUVEAU : Vérifier dans quelle zone se trouve la cellule cliquée
-                var zones = pathfinding.GetMovementZones(selectedUnit);
-
                 // Calculer le chemin
                 Point movementGoal = clickedCell;
                 int goalFloor = viewedFloor;
@@ -3019,7 +3029,8 @@ namespace XCOM_3
 
                 if (path.Count == 0) return;
 
-                int distance = path.Count;
+                int distance = pathfinding.GetPathCost(pathNodes, new GridNode(selectedUnit.Cell, selectedUnit.Floor));
+                int verticalTransitions = pathfinding.GetVerticalTransitionCount(pathNodes, new GridNode(selectedUnit.Cell, selectedUnit.Floor));
                 int shortRange = selectedUnit.GetShortMoveRange();
                 int maxRange = selectedUnit.GetMaxMoveRange();
                 int sprintRange = selectedUnit.GetSprintRange();
@@ -3035,26 +3046,26 @@ namespace XCOM_3
                     // Zone verte (1 AP)
                     apCost = 1;
                     consumesPhosphocreatine = true;
-                    Console.WriteLine($"[MOVEMENT] Short move: {distance} cells (1 AP + {phosphocreatineCost}% phosphocreatine)");
+                    Console.WriteLine($"[MOVEMENT] Short move: {distance} cost ({path.Count} cells, {verticalTransitions} transitions) (1 AP + {phosphocreatineCost}% phosphocreatine)");
                 }
                 else if (distance <= maxRange && selectedUnit.ActionPoints >= 2 && selectedUnit.Phosphocreatine >= phosphocreatineCost)
                 {
                     // Zone bleue (2 AP)
                     apCost = 2;
                     consumesPhosphocreatine = true;
-                    Console.WriteLine($"[MOVEMENT] Max move: {distance} cells (2 AP + {phosphocreatineCost}% phosphocreatine)");
+                    Console.WriteLine($"[MOVEMENT] Max move: {distance} cost ({path.Count} cells, {verticalTransitions} transitions) (2 AP + {phosphocreatineCost}% phosphocreatine)");
                 }
                 else if (distance <= sprintRange && selectedUnit.CanSprint(distance))
                 {
                     // Zone jaune (2 AP + phosphocréatine)
                     apCost = 2;
                     consumesPhosphocreatine = true;
-                    Console.WriteLine($"[MOVEMENT] SPRINT: {distance} cells (2 AP + {phosphocreatineCost}% phosphocreatine)");
+                    Console.WriteLine($"[MOVEMENT] SPRINT: {distance} cost ({path.Count} cells, {verticalTransitions} transitions) (2 AP + {phosphocreatineCost}% phosphocreatine)");
                 }
                 else
                 {
                     // Hors de portée ou pas assez de ressources
-                    Console.WriteLine($"[MOVEMENT] Cannot reach: {distance} cells (out of range or insufficient resources)");
+                    Console.WriteLine($"[MOVEMENT] Cannot reach: {distance} cost ({path.Count} cells, {verticalTransitions} transitions) (out of range or insufficient resources)");
                     return;
                 }
 

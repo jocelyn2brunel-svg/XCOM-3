@@ -563,11 +563,13 @@ namespace XCOM_3
                 if (ramp.Floor != floorToRender)
                     continue;
 
-                DrawNorthRamp(ramp.X, ramp.Y, floorYOffset, cellSize);
+                int dx = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDx : 0;
+                int dy = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDy : -1;
+                DrawDirectionalRamp(ramp.X, ramp.Y, dx, dy, floorYOffset, cellSize);
             }
         }
 
-        private void DrawNorthRamp(int cellX, int cellY, float floorYOffset, int cellSize)
+        private void DrawDirectionalRamp(int cellX, int cellY, int ascendDx, int ascendDy, float floorYOffset, int cellSize)
         {
             const int slices = 6;
             float sliceDepth = cellSize / (float)slices;
@@ -576,15 +578,31 @@ namespace XCOM_3
             {
                 float t = (i + 1f) / slices;
                 float sliceHeight = t * cellSize;
-                float zMin = cellY * cellSize - i * sliceDepth;
+                float offsetAlongAxis = i * sliceDepth;
+
+                float centerX = cellX * cellSize + cellSize / 2f;
+                float centerZ = cellY * cellSize + cellSize / 2f;
+
+                if (ascendDx != 0)
+                {
+                    centerX += -ascendDx * (offsetAlongAxis - (cellSize * 0.5f - sliceDepth * 0.5f));
+                }
+                else
+                {
+                    centerZ += -ascendDy * (offsetAlongAxis - (cellSize * 0.5f - sliceDepth * 0.5f));
+                }
 
                 Vector3 pos = new Vector3(
-                    cellX * cellSize + cellSize / 2f,
+                    centerX,
                     floorYOffset + sliceHeight / 2f,
-                    zMin + sliceDepth / 2f);
+                    centerZ);
+
+                Vector3 size = ascendDx != 0
+                    ? new Vector3(sliceDepth * 0.95f, sliceHeight, cellSize * 0.95f)
+                    : new Vector3(cellSize * 0.95f, sliceHeight, sliceDepth * 0.95f);
 
                 Color color = Color.Lerp(new Color(170, 120, 80), new Color(220, 180, 120), t);
-                DrawCube(pos, new Vector3(cellSize * 0.95f, sliceHeight, sliceDepth * 0.95f), color * 0.85f);
+                DrawCube(pos, size, color * 0.85f);
             }
         }
 

@@ -229,33 +229,29 @@ namespace XCOM_3
                     int radiusX = Math.Min(1, Math.Min(centerX - minX, maxX - centerX));
                     int radiusY = Math.Min(1, Math.Min(centerY - minY, maxY - centerY));
 
-                    var spiralPoints = new List<Point>
+                    var centralSpiral = BuildSpiralPoints(centerX, centerY, minX, maxX, minY, maxY, radiusX, radiusY);
+                    AddStairShaftConnections(stairs, centralSpiral, maxBuildingFloor);
+
+                    // Bâtiments suffisamment grands: ajouter une deuxième cage proche d'une façade.
+                    if (building.Width >= 8 || building.Height >= 8)
                     {
-                        new Point(centerX, Math.Clamp(centerY - radiusY, minY, maxY)),
-                        new Point(Math.Clamp(centerX + radiusX, minX, maxX), centerY),
-                        new Point(centerX, Math.Clamp(centerY + radiusY, minY, maxY)),
-                        new Point(Math.Clamp(centerX - radiusX, minX, maxX), centerY)
-                    };
+                        int facadeAnchorX = Math.Clamp(building.X + 2, minX, maxX);
+                        int facadeAnchorY = Math.Clamp(building.Y + Math.Max(2, building.Height - 3), minY, maxY);
 
-                    spiralPoints = spiralPoints.Distinct().ToList();
-                    if (spiralPoints.Count == 0)
-                        continue;
+                        int secondaryRadiusX = Math.Min(1, Math.Min(facadeAnchorX - minX, maxX - facadeAnchorX));
+                        int secondaryRadiusY = Math.Min(1, Math.Min(facadeAnchorY - minY, maxY - facadeAnchorY));
 
-                    for (int floor = 0; floor < maxBuildingFloor - 1; floor++)
-                    {
-                        Point from = spiralPoints[floor % spiralPoints.Count];
-                        Point to = spiralPoints[(floor + 1) % spiralPoints.Count];
+                        var secondarySpiral = BuildSpiralPoints(
+                            facadeAnchorX,
+                            facadeAnchorY,
+                            minX,
+                            maxX,
+                            minY,
+                            maxY,
+                            secondaryRadiusX,
+                            secondaryRadiusY);
 
-                        stairs.Add(new StairConnectionData
-                        {
-                            FromX = from.X,
-                            FromY = from.Y,
-                            FromFloor = floor,
-                            ToX = to.X,
-                            ToY = to.Y,
-                            ToFloor = floor + 1,
-                            Bidirectional = true
-                        });
+                        AddStairShaftConnections(stairs, secondarySpiral, maxBuildingFloor);
                     }
                 }
             }
@@ -272,9 +268,11 @@ namespace XCOM_3
             foreach (var stair in stairs)
             {
                 bool climbsToUpperFloor = stair.ToFloor == stair.FromFloor + 1;
-                bool climbsNorth = stair.ToY == stair.FromY - 1 && stair.ToX == stair.FromX;
+                int dx = stair.ToX - stair.FromX;
+                int dy = stair.ToY - stair.FromY;
+                bool cardinalStep = Math.Abs(dx) + Math.Abs(dy) == 1;
 
-                if (!climbsToUpperFloor || !climbsNorth)
+                if (!climbsToUpperFloor || !cardinalStep)
                     continue;
 
                 ramps.Add(new RampTileData
@@ -282,11 +280,68 @@ namespace XCOM_3
                     X = stair.FromX,
                     Y = stair.FromY,
                     Floor = stair.FromFloor,
+                    AscendDx = dx,
+                    AscendDy = dy,
                     Bidirectional = stair.Bidirectional
                 });
             }
 
             return ramps;
+        }
+
+        private static List<Point> BuildSpiralPoints(
+            int centerX,
+            int centerY,
+            int minX,
+            int maxX,
+            int minY,
+            int maxY,
+            int radiusX,
+            int radiusY)
+        {
+            return new List<Point>
+            {
+                new Point(centerX, Math.Clamp(centerY - radiusY, minY, maxY)),
+                new Point(Math.Clamp(centerX + radiusX, minX, maxX), centerY),
+                new Point(centerX, Math.Clamp(centerY + radiusY, minY, maxY)),
+                new Point(Math.Clamp(centerX - radiusX, minX, maxX), centerY)
+            }
+            .Distinct()
+            .ToList();
+        }
+
+        private static void AddStairShaftConnections(List<StairConnectionData> stairs, List<Point> shaftPoints, int maxBuildingFloor)
+        {
+            if (shaftPoints == null || shaftPoints.Count == 0 || maxBuildingFloor <= 1)
+                return;
+
+            for (int floor = 0; floor < maxBuildingFloor - 1; floor++)
+            {
+                Point from = shaftPoints[floor % shaftPoints.Count];
+                Point to = shaftPoints[(floor + 1) % shaftPoints.Count];
+
+                bool duplicate = stairs.Any(st =>
+                    st.FromFloor == floor &&
+                    st.ToFloor == floor + 1 &&
+                    st.FromX == from.X &&
+                    st.FromY == from.Y &&
+                    st.ToX == to.X &&
+                    st.ToY == to.Y);
+
+                if (duplicate)
+                    continue;
+
+                stairs.Add(new StairConnectionData
+                {
+                    FromX = from.X,
+                    FromY = from.Y,
+                    FromFloor = floor,
+                    ToX = to.X,
+                    ToY = to.Y,
+                    ToFloor = floor + 1,
+                    Bidirectional = true
+                });
+            }
         }
 
         private List<TerrainHeightData> GenerateTerrainRelief(int width, int height)

@@ -20,6 +20,8 @@ Pipeline simplifié :
 - Les étages suivent la règle métier : **1 étage = 2 cases de hauteur**.
 - Le nombre d'étages des bâtiments urbains est fixé aléatoirement entre `1` et `8`.
 - Les sous-sols sont plus probables pour les grandes empreintes.
+- Les bâtiments multi-étages reçoivent désormais au moins une cage d'escalier interne, et les grands bâtiments peuvent en recevoir deux pour éviter les goulots d'étranglement.
+- Les rampes sont déduites des escaliers cardinaux quelle que soit l'orientation (nord/sud/est/ouest) pour conserver un accès vertical jouable.
 
 ## Types d'intérieurs
 Le générateur choisit aléatoirement parmi :

@@ -33,13 +33,20 @@ namespace XCOM_3
             {
                 foreach (var stair in currentMap.StairConnections)
                 {
-                    if (stair.ToFloor == stair.FromFloor + 1 && stair.ToX == stair.FromX && stair.ToY == stair.FromY - 1)
+                    if (stair.ToFloor == stair.FromFloor + 1)
                     {
+                        int dx = stair.ToX - stair.FromX;
+                        int dy = stair.ToY - stair.FromY;
+                        if (Math.Abs(dx) + Math.Abs(dy) != 1)
+                            continue;
+
                         currentMap.RampTiles.Add(new RampTileData
                         {
                             X = stair.FromX,
                             Y = stair.FromY,
                             Floor = stair.FromFloor,
+                            AscendDx = dx,
+                            AscendDy = dy,
                             Bidirectional = stair.Bidirectional
                         });
                     }
