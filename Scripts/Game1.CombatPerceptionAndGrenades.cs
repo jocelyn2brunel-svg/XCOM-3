@@ -706,17 +706,80 @@ namespace XCOM_3
 
         private void DrawGrappleMode3D(GameTime gameTime)
         {
-            if (!grappleMode || grappleAnchors.Count == 0)
-                return;
-
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 5f) * 0.25f + 0.75f;
-            float floorYOffset = WorldMetrics.FloorToWorldY(grappleTargetFloor, cellSize);
 
-            renderer3D.DrawZoneOutline(
-                grappleAnchors.Select(a => a.DestinationCell).ToList(),
-                cellSize,
-                floorYOffset + 0.09f,
-                new Color(80, 240, 255, 240) * pulse);
+            if (grappleMode && grappleAnchors.Count > 0)
+            {
+                float floorYOffset = WorldMetrics.FloorToWorldY(grappleTargetFloor, cellSize);
+
+                renderer3D.DrawZoneOutline(
+                    grappleAnchors.Select(a => a.DestinationCell).ToList(),
+                    cellSize,
+                    floorYOffset + 0.09f,
+                    new Color(80, 240, 255, 240) * pulse);
+
+                foreach (GrappleAnchor anchor in grappleAnchors)
+                {
+                    DrawGrappleAnchorVisual(anchor.DestinationCell, anchor.DestinationFloor, anchor.Wall, selectedUnit?.Floor ?? 0, pulse);
+                }
+            }
+
+            IEnumerable<Unit> grapplingUnits = playerUnits
+                .Concat(enemyUnits)
+                .Where(u => u != null && u.Health > 0 && u.IsGrappleConcentrating && u.GrappleAnchorFloor >= u.Floor);
+
+            foreach (Unit unit in grapplingUnits)
+            {
+                DrawGrappleAnchorVisual(unit.GrappleAnchorCell, unit.GrappleAnchorFloor, null, unit.Floor, pulse * 0.9f);
+            }
+        }
+
+        private void DrawGrappleAnchorVisual(Point anchorCell, int anchorFloor, WallSegment? supportingWall, int ropeDestinationFloor, float pulse)
+        {
+            Vector3 anchorPosition = GetGrappleAnchorWorldPosition(anchorCell, anchorFloor, supportingWall);
+            float ropeBottomY = WorldMetrics.FloorToWorldY(ropeDestinationFloor, cellSize) + cellSize * 0.2f;
+            ropeBottomY = Math.Min(ropeBottomY, anchorPosition.Y - cellSize * 0.1f);
+            Vector3 ropeEnd = new Vector3(anchorPosition.X, ropeBottomY, anchorPosition.Z);
+
+            Color ropeColor = new Color(196, 226, 240, 220) * pulse;
+            renderer3D.DrawLine(anchorPosition, ropeEnd, ropeColor);
+            renderer3D.DrawLine(anchorPosition + new Vector3(0.035f, 0f, 0.035f), ropeEnd + new Vector3(0.035f, 0f, 0.035f), ropeColor * 0.85f);
+
+            Color hookColor = new Color(84, 212, 230, 230) * pulse;
+            float hookSize = cellSize * 0.09f;
+            renderer3D.DrawCube(anchorPosition, new Vector3(hookSize, hookSize * 0.75f, hookSize), hookColor);
+            renderer3D.DrawCube(anchorPosition + new Vector3(-hookSize * 0.7f, -hookSize * 0.5f, 0f), new Vector3(hookSize * 0.55f, hookSize * 0.22f, hookSize * 0.22f), hookColor);
+            renderer3D.DrawCube(anchorPosition + new Vector3(hookSize * 0.7f, -hookSize * 0.5f, 0f), new Vector3(hookSize * 0.55f, hookSize * 0.22f, hookSize * 0.22f), hookColor);
+        }
+
+        private Vector3 GetGrappleAnchorWorldPosition(Point anchorCell, int anchorFloor, WallSegment? supportingWall)
+        {
+            float floorY = WorldMetrics.FloorToWorldY(anchorFloor, cellSize);
+            Vector3 position = new Vector3(
+                anchorCell.X * cellSize + cellSize / 2f,
+                floorY + cellSize * 1.55f,
+                anchorCell.Y * cellSize + cellSize / 2f);
+
+            if (!supportingWall.HasValue)
+                return position;
+
+            WallSegment wall = supportingWall.Value;
+            float edgeOffset = cellSize * 0.35f;
+
+            if (wall.IsHorizontal)
+            {
+                float wallZ = wall.Start.Y * cellSize;
+                bool isNorthSide = anchorCell.Y < wall.Start.Y;
+                position.Z = wallZ + (isNorthSide ? -edgeOffset : edgeOffset);
+            }
+            else
+            {
+                float wallX = wall.Start.X * cellSize;
+                bool isWestSide = anchorCell.X < wall.Start.X;
+                position.X = wallX + (isWestSide ? -edgeOffset : edgeOffset);
+            }
+
+            return position;
         }
 
         private void LaunchGrenade(Unit thrower, GrenadeData grenadeData, Point targetCell, int targetFloor)
