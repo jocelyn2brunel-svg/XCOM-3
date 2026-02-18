@@ -57,6 +57,9 @@ namespace XCOM_3
         public bool IsAiming = false;
         public Point? FireTarget = null;
         public float FireProgress = 0f;
+        public int FireRoundsToAnimate = 1;
+        public int FireActionPointsSpent = 1;
+        public float FireAnimationDurationSeconds = 0.25f;
         public Unit PendingTarget = null;
         public Vector3 VisualOffset = Vector3.Zero;
         public Vector3 ChargeStart;
@@ -288,6 +291,9 @@ namespace XCOM_3
             CoverDirections = other.CoverDirections;
             IsCrouched = other.IsCrouched;
             CoverTransitionProgress = other.CoverTransitionProgress;
+            FireRoundsToAnimate = other.FireRoundsToAnimate;
+            FireActionPointsSpent = other.FireActionPointsSpent;
+            FireAnimationDurationSeconds = other.FireAnimationDurationSeconds;
 
         }
 

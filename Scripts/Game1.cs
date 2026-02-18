@@ -1445,14 +1445,26 @@ namespace XCOM_3
 
                 shotDirection /= shotLength;
 
-                float projectileLead = MathHelper.Clamp(shooter.FireProgress * 1.12f, 0f, 1f);
-                Vector3 projectilePosition = Vector3.Lerp(muzzlePosition, targetPosition, projectileLead);
+                int roundsToAnimate = Math.Max(1, shooter.FireRoundsToAnimate);
+                float fireDuration = Math.Max(0.01f, shooter.FireAnimationDurationSeconds);
+                float elapsedFireSeconds = MathHelper.Clamp(shooter.FireProgress, 0f, 1f) * fireDuration;
+                float roundInterval = fireDuration / roundsToAnimate;
+                float projectileTravelTime = MathHelper.Clamp(roundInterval * 1.4f, 0.05f, 0.22f);
 
-                renderer3D.DrawCube(projectilePosition, new Vector3(cellSize * 0.09f), new Color(255, 210, 80, 235));
-
-                float tracerLength = Math.Min(cellSize * 1.5f, shotLength * projectileLead);
-                if (tracerLength > 0.02f)
+                for (int roundIndex = 0; roundIndex < roundsToAnimate; roundIndex++)
                 {
+                    float shotStart = roundIndex * roundInterval;
+                    float bulletProgress = (elapsedFireSeconds - shotStart) / projectileTravelTime;
+                    if (bulletProgress < 0f || bulletProgress > 1f)
+                        continue;
+
+                    Vector3 projectilePosition = Vector3.Lerp(muzzlePosition, targetPosition, bulletProgress);
+                    renderer3D.DrawCube(projectilePosition, new Vector3(cellSize * 0.09f), new Color(255, 210, 80, 235));
+
+                    float tracerLength = Math.Min(cellSize * 1.5f, shotLength * bulletProgress);
+                    if (tracerLength <= 0.02f)
+                        continue;
+
                     Vector3 tracerCenter = projectilePosition - shotDirection * (tracerLength * 0.5f);
                     float tracerYaw = (float)Math.Atan2(shotDirection.X, shotDirection.Z);
                     float tracerPitch = (float)Math.Asin(MathHelper.Clamp(-shotDirection.Y, -1f, 1f));
