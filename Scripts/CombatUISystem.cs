@@ -36,6 +36,7 @@ namespace XCOM_3
         // Boutons
         public Rectangle FireButton { get; private set; }
         public Rectangle EndTurnButton { get; private set; }
+        public Rectangle WeaponPreviewBounds { get; private set; }
         public bool FireButtonHovered { get; private set; }
         public bool EndTurnHovered { get; private set; }
 
@@ -163,7 +164,10 @@ namespace XCOM_3
         public void DrawUnitInfoPanel(Unit selectedUnit, Dictionary<string, GrenadeData> grenadeDatabase)
         {
             if (selectedUnit == null)
+            {
+                WeaponPreviewBounds = Rectangle.Empty;
                 return;
+            }
 
             int m = 15, w = 320, h = 240;
             int x = m, y = graphicsDevice.Viewport.Height - h - m;
@@ -184,12 +188,26 @@ namespace XCOM_3
 
             Vector2 p = new Vector2(x + 12, y + 40);
 
+            Rectangle weaponPreview = new Rectangle(innerRight - 94, y + 38, 82, 52);
+            WeaponPreviewBounds = weaponPreview;
+            DrawWeaponPreview(selectedUnit, weaponPreview);
+
             // Classe et Arme
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
                 $"CLASS: {selectedUnit.Class}", p, ParasiteEveTheme.TextNormal);
 
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
                 $"WEAPON: {selectedUnit.Weapon}", p + new Vector2(0, 22), ParasiteEveTheme.TextNormal);
+
+            if (selectedUnit.WeaponData != null && selectedUnit.WeaponData.UsesAmmo)
+            {
+                string fireModeLabel = GetFireModeLabel(selectedUnit.WeaponData.CurrentFireMode);
+                Color modeColor = selectedUnit.WeaponData.CanCycleFireMode
+                    ? new Color(190, 225, 255)
+                    : ParasiteEveTheme.TextDim;
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                    $"MODE: {fireModeLabel}", p + new Vector2(0, 66), modeColor, 0.7f);
+            }
 
             if (selectedUnit.WeaponData != null && selectedUnit.WeaponData.UsesAmmo)
             {
@@ -307,6 +325,71 @@ namespace XCOM_3
 
             // Scanlines effect
             ParasiteEveTheme.DrawScanlines(spriteBatch, pixel, panel, 0.08f);
+        }
+
+        public bool TryCycleWeaponFireModeAt(Point mousePosition, Unit selectedUnit)
+        {
+            if (selectedUnit?.WeaponData == null || !WeaponPreviewBounds.Contains(mousePosition))
+                return false;
+
+            if (!selectedUnit.WeaponData.CycleFireMode())
+                return false;
+
+            return true;
+        }
+
+        private void DrawWeaponPreview(Unit unit, Rectangle bounds)
+        {
+            ParasiteEveTheme.DrawPanel(spriteBatch, pixel, bounds, false);
+            spriteBatch.Draw(pixel, bounds, new Color(40, 54, 70) * 0.45f);
+
+            Color iconColor = new Color(180, 220, 255);
+            DrawWeaponSilhouette(unit?.WeaponData?.Type ?? WeaponType.AssaultRifle, bounds, iconColor);
+
+            if (unit?.WeaponData?.CanCycleFireMode == true)
+            {
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "RMB", new Vector2(bounds.X + 4, bounds.Bottom - 15), ParasiteEveTheme.TextHighlight, 0.55f);
+            }
+        }
+
+        private void DrawWeaponSilhouette(WeaponType type, Rectangle bounds, Color color)
+        {
+            int centerY = bounds.Center.Y;
+            int left = bounds.X + 8;
+            int right = bounds.Right - 8;
+
+            switch (type)
+            {
+                case WeaponType.Pistol:
+                case WeaponType.Revolver:
+                    spriteBatch.Draw(pixel, new Rectangle(left + 8, centerY - 4, 24, 6), color);
+                    spriteBatch.Draw(pixel, new Rectangle(left + 12, centerY + 2, 8, 10), color);
+                    break;
+
+                case WeaponType.Shotgun:
+                    spriteBatch.Draw(pixel, new Rectangle(left, centerY - 3, right - left - 4, 4), color);
+                    spriteBatch.Draw(pixel, new Rectangle(left + 10, centerY + 1, 18, 7), color);
+                    spriteBatch.Draw(pixel, new Rectangle(left + 28, centerY + 4, 20, 4), color * 0.8f);
+                    break;
+
+                default:
+                    spriteBatch.Draw(pixel, new Rectangle(left, centerY - 3, right - left, 4), color);
+                    spriteBatch.Draw(pixel, new Rectangle(left + 18, centerY - 9, 14, 6), color);
+                    spriteBatch.Draw(pixel, new Rectangle(left + 24, centerY + 1, 10, 10), color);
+                    spriteBatch.Draw(pixel, new Rectangle(right - 10, centerY - 6, 8, 10), color * 0.85f);
+                    break;
+            }
+        }
+
+        private static string GetFireModeLabel(FireMode mode)
+        {
+            return mode switch
+            {
+                FireMode.Single => "SEMI",
+                FireMode.Burst => "BURST",
+                FireMode.Auto => "AUTO",
+                _ => "SEMI"
+            };
         }
 
         /// <summary>

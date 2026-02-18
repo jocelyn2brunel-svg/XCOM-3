@@ -3430,7 +3430,19 @@ namespace XCOM_3
             if (leftClick) HandleUnitActionButtons(mouse);
             if (leftClick && combatUI.ShowFireTargets) combatUI.HandleFireTargetClick(mouse, selectedUnit);
             if (leftClick && !clickOnUI && !throwMode && !c4PlacementMode && !grappleMode && isHoveringValidCell) HandleGridClick(hoveredCell, interactionFloor, allowSmartFallback: !explicitUpperFloorTargeting);
-            if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released) CancelSelection();
+
+            bool rightClick = mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released;
+            if (rightClick)
+            {
+                if (combatUI.TryCycleWeaponFireModeAt(mouse.Position, selectedUnit))
+                {
+                    Console.WriteLine($"[COMBAT] {selectedUnit.Name} switched fire mode: {selectedUnit.WeaponData.CurrentFireMode}");
+                }
+                else
+                {
+                    CancelSelection();
+                }
+            }
 
             if (combatUI.FireButton.Contains(mouse.Position) && leftClick &&
                 selectedUnit != null && combatUI.SelectedFireTarget != null && selectedUnit.ActionPoints > 0)
