@@ -202,6 +202,7 @@ namespace XCOM_3
             {
                 LaunchGrenade(selectedUnit, selectedGrenade, throwTarget, viewedFloor);
                 selectedUnit.ActionPoints -= selectedGrenade.AOCost;
+                selectedUnit.RegisterIntenseAction("lancer", 14);
 
                 if (throwModeUsesFlashlight)
                 {
@@ -329,6 +330,7 @@ namespace XCOM_3
             });
 
             selectedUnit.ActionPoints -= satchel.AOCost;
+            selectedUnit.RegisterIntenseAction("pose de charge", 10);
             selectedUnit.RemoveGrenade(satchel);
             Console.WriteLine($"{selectedUnit.Name} pose une charge C4 sur {targetCell} (étage {viewedFloor}).");
             ExitSatchelPlacementMode();
@@ -358,6 +360,7 @@ namespace XCOM_3
                 return;
 
             detonator.ActionPoints -= SatchelDetonationActionPointCost;
+            detonator.RegisterIntenseAction("détonation coordonnée", 8);
 
             foreach (PlantedSatchelCharge charge in chargesToDetonate)
             {
@@ -540,6 +543,7 @@ namespace XCOM_3
 
             int roll = random.Next(100);
             selectedUnit.ActionPoints = Math.Max(0, selectedUnit.ActionPoints - GrappleActionPointCost);
+            selectedUnit.RegisterIntenseAction("lancer de grappin", 16);
             if (roll >= hitChance)
             {
                 Console.WriteLine($"[GRAPPLIN] Échec du lancer ({hitChance}% / roll {roll}).");
@@ -611,6 +615,7 @@ namespace XCOM_3
                     break;
 
                 unit.ActionPoints = Math.Max(0, unit.ActionPoints - climbApCost);
+                unit.RegisterIntenseAction("ascension au grappin", 20);
                 unit.Cell = unit.GrappleAnchorCell;
                 unit.Floor = nextFloor;
                 unit.VisualPosition = new Vector3(

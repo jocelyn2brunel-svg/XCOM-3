@@ -38,6 +38,11 @@ namespace XCOM_3
         public int MaxActionPoints = 2;
         public int Phosphocreatine = 100;
         public int MaxPhosphocreatine = 100;
+        public int AnaerobicFatigue = 0;
+        public int MaxAnaerobicFatigue = 100;
+        public int PendingAnaerobicAccuracyPenalty = 0;
+        public int ActiveAnaerobicAccuracyPenalty = 0;
+        public bool HasUsedAnaerobicEffortThisTurn = false;
         public int MovementRange = 4; // Portée max en cases
         public int Health = 100, MaxHealth = 100;
         public const int FeetPerCell = 5;
@@ -51,6 +56,7 @@ namespace XCOM_3
 
         private static readonly int[] phosphocreatineRegenByRound = { 18, 15, 12, 10, 8, 7, 6, 5, 4, 3 };
         private int phosphocreatineRegenRound = 0;
+        private int intenseActionsThisTurn = 0;
 
         public WeaponData WeaponData;
 
@@ -160,6 +166,11 @@ namespace XCOM_3
             MaxActionPoints = 2;
             Phosphocreatine = 100;
             MaxPhosphocreatine = 100;
+            AnaerobicFatigue = 0;
+            MaxAnaerobicFatigue = 100;
+            PendingAnaerobicAccuracyPenalty = 0;
+            ActiveAnaerobicAccuracyPenalty = 0;
+            HasUsedAnaerobicEffortThisTurn = false;
             MovementRange = 4;
 
             InitializeMovementProfile();
@@ -240,11 +251,17 @@ namespace XCOM_3
             MaxActionPoints = other.MaxActionPoints;
             Phosphocreatine = other.Phosphocreatine;
             MaxPhosphocreatine = other.MaxPhosphocreatine;
+            AnaerobicFatigue = other.AnaerobicFatigue;
+            MaxAnaerobicFatigue = other.MaxAnaerobicFatigue;
+            PendingAnaerobicAccuracyPenalty = other.PendingAnaerobicAccuracyPenalty;
+            ActiveAnaerobicAccuracyPenalty = other.ActiveAnaerobicAccuracyPenalty;
+            HasUsedAnaerobicEffortThisTurn = other.HasUsedAnaerobicEffortThisTurn;
             MovementRange = other.MovementRange;
             jogRangeCells = other.jogRangeCells;
             runRangeCells = other.runRangeCells;
             sprintRangeCells = other.sprintRangeCells;
             phosphocreatineRegenRound = other.phosphocreatineRegenRound;
+            intenseActionsThisTurn = other.intenseActionsThisTurn;
             Health = other.Health;
             MaxHealth = other.MaxHealth;
             PerceptionRangeCells = other.PerceptionRangeCells;
@@ -936,7 +953,9 @@ namespace XCOM_3
         public int GetShortMoveRange(float carriedWeightLbs)
         {
             int baseRange = jogRangeCells + Skills.GetMovementBonus();
-            int penalty = GetMobilityPenalty() + GetCarriedWeightMobilityPenaltyCells(carriedWeightLbs, baseRange);
+            int penalty = GetMobilityPenalty()
+                + GetCarriedWeightMobilityPenaltyCells(carriedWeightLbs, baseRange)
+                + GetAnaerobicMobilityPenaltyCells();
             return Math.Max(1, baseRange - penalty);
         }
 
@@ -954,7 +973,9 @@ namespace XCOM_3
         public int GetMaxMoveRange(float carriedWeightLbs)
         {
             int baseRange = runRangeCells + Skills.GetMovementBonus();
-            int penalty = GetMobilityPenalty() + GetCarriedWeightMobilityPenaltyCells(carriedWeightLbs, baseRange);
+            int penalty = GetMobilityPenalty()
+                + GetCarriedWeightMobilityPenaltyCells(carriedWeightLbs, baseRange)
+                + GetAnaerobicMobilityPenaltyCells();
             return Math.Max(1, baseRange - penalty);
         }
 
@@ -972,8 +993,89 @@ namespace XCOM_3
         public int GetSprintRange(float carriedWeightLbs)
         {
             int baseRange = sprintRangeCells + Skills.GetMovementBonus();
-            int penalty = GetMobilityPenalty() + GetCarriedWeightMobilityPenaltyCells(carriedWeightLbs, baseRange);
+            int penalty = GetMobilityPenalty()
+                + GetCarriedWeightMobilityPenaltyCells(carriedWeightLbs, baseRange)
+                + GetAnaerobicMobilityPenaltyCells();
             return Math.Max(GetMaxMoveRange(carriedWeightLbs), baseRange - penalty);
+        }
+
+        public void BeginTurnMetabolicRecovery()
+        {
+            RegeneratePhosphocreatine();
+
+            ActiveAnaerobicAccuracyPenalty = PendingAnaerobicAccuracyPenalty;
+            PendingAnaerobicAccuracyPenalty = 0;
+            HasUsedAnaerobicEffortThisTurn = false;
+            intenseActionsThisTurn = 0;
+
+            int recoveryPercent = GetAnaerobicRecoveryPercentByClass();
+            int recoveryAmount = (int)MathF.Ceiling(MaxAnaerobicFatigue * (recoveryPercent / 100f));
+            AnaerobicFatigue = Math.Max(0, AnaerobicFatigue - recoveryAmount);
+        }
+
+        public bool ActivateAnaerobicEffort()
+        {
+            if (HasUsedAnaerobicEffortThisTurn || ActionPoints <= 0)
+                return false;
+
+            HasUsedAnaerobicEffortThisTurn = true;
+            ActionPoints += 1;
+            PendingAnaerobicAccuracyPenalty += 15;
+            RegisterIntenseAction("effort anaérobie", 35);
+
+            Console.WriteLine($"[ANAEROBIC] {Name} active Effort Anaérobie: +1 AP maintenant, -15% précision au prochain tour.");
+            return true;
+        }
+
+        public void RegisterIntenseAction(string reason, int baseFatigue)
+        {
+            int safeBaseFatigue = Math.Max(0, baseFatigue);
+            float resistanceMultiplier = 1f - (GetAnaerobicTolerancePercentByClass() / 100f);
+            int adjustedFatigue = Math.Max(1, (int)MathF.Round(safeBaseFatigue * resistanceMultiplier));
+
+            intenseActionsThisTurn++;
+            if (intenseActionsThisTurn >= 2)
+            {
+                adjustedFatigue += 5;
+            }
+
+            AnaerobicFatigue = Math.Clamp(AnaerobicFatigue + adjustedFatigue, 0, MaxAnaerobicFatigue);
+            Console.WriteLine($"[ANAEROBIC] {Name}: +{adjustedFatigue} fatigue ({reason}). Niveau {AnaerobicFatigue}/{MaxAnaerobicFatigue}.");
+        }
+
+        public int GetAnaerobicAccuracyPenalty()
+        {
+            int fatiguePenalty = Math.Max(0, (AnaerobicFatigue - 25) / 10 * 3);
+            return Math.Min(35, fatiguePenalty + Math.Max(0, ActiveAnaerobicAccuracyPenalty));
+        }
+
+        public int GetAnaerobicMobilityPenaltyCells()
+        {
+            return Math.Min(3, AnaerobicFatigue / 30);
+        }
+
+        private int GetAnaerobicRecoveryPercentByClass()
+        {
+            if (string.Equals(Class, "Scout", StringComparison.OrdinalIgnoreCase))
+                return 24;
+            if (string.Equals(Class, "Heavy", StringComparison.OrdinalIgnoreCase))
+                return 14;
+            if (!string.IsNullOrWhiteSpace(Class) && Class.IndexOf("Elite", StringComparison.OrdinalIgnoreCase) >= 0)
+                return 22;
+
+            return 18;
+        }
+
+        private int GetAnaerobicTolerancePercentByClass()
+        {
+            if (string.Equals(Class, "Scout", StringComparison.OrdinalIgnoreCase))
+                return 18;
+            if (string.Equals(Class, "Heavy", StringComparison.OrdinalIgnoreCase))
+                return -15;
+            if (!string.IsNullOrWhiteSpace(Class) && Class.IndexOf("Elite", StringComparison.OrdinalIgnoreCase) >= 0)
+                return 25;
+
+            return 0;
         }
 
         /// <summary>
@@ -1118,6 +1220,7 @@ namespace XCOM_3
         {
             int cost = GetMovementPhosphocreatineCost(distance);
             ConsumePhosphocreatine(cost);
+            RegisterIntenseAction("déplacement intense", Math.Max(8, distance * 2));
             Console.WriteLine($"[UNIT] {Name} sprints! Phosphocreatine: {Phosphocreatine}/{MaxPhosphocreatine} (cost {cost})");
         }
 

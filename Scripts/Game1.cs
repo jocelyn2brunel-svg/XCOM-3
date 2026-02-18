@@ -3340,6 +3340,11 @@ namespace XCOM_3
                         ActivateOverwatch(selectedUnit);
                         break;
 
+                    case "ANAEROBIC":
+                        if (!selectedUnit.ActivateAnaerobicEffort())
+                            Console.WriteLine("[ANAEROBIC] Effort anaérobie indisponible (déjà utilisé ce tour ou AP insuffisants).");
+                        break;
+
                     case "GRAPPLIN":
                         ActivateGrappleMode();
                         break;

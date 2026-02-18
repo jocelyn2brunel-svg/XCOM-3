@@ -114,7 +114,8 @@ namespace XCOM_3
             {
                 int distance = Math.Abs(ui.Target.Cell.X - firingCell.X) +
                               Math.Abs(ui.Target.Cell.Y - firingCell.Y);
-                ui.HitChance = Math.Max(selectedUnit.WeaponData.Accuracy - distance * 5, 10);
+                int anaerobicPenalty = selectedUnit.GetAnaerobicAccuracyPenalty();
+                ui.HitChance = Math.Max(selectedUnit.WeaponData.Accuracy - distance * 5 - anaerobicPenalty, 10);
             }
         }
 
@@ -236,6 +237,18 @@ namespace XCOM_3
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, phosphocreatineText,
                 new Vector2(phosphocreatineBar.X + phosphocreatineBar.Width + 5, p.Y), ParasiteEveTheme.TextNormal, 0.8f);
 
+            // Barre de fatigue anaérobie (lactate)
+            p.Y += 25;
+            spriteBatch.DrawString(font, "LAC", p, new Color(255, 120, 80));
+            Rectangle lactateBar = new Rectangle(x + 60, (int)p.Y, w - 70, 16);
+            ParasiteEveTheme.DrawProgressBar(spriteBatch, pixel, lactateBar,
+                selectedUnit.AnaerobicFatigue, selectedUnit.MaxAnaerobicFatigue, new Color(255, 120, 80));
+
+            int anaerobicPenalty = selectedUnit.GetAnaerobicAccuracyPenalty();
+            string lactateText = $"{selectedUnit.AnaerobicFatigue}% (-{anaerobicPenalty}% ACC)";
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, lactateText,
+                new Vector2(lactateBar.X + 2, p.Y + 1), ParasiteEveTheme.TextNormal, 0.6f);
+
             // Indicateur si phosphocréatine basse
             if (!selectedUnit.CanSprint())
             {
@@ -319,6 +332,11 @@ namespace XCOM_3
                 buttons.Add(new Button("FIRE", Vector2.Zero));
                 buttons.Add(new Button("RELOAD", Vector2.Zero));
                 buttons.Add(new Button("OVERWATCH", Vector2.Zero));
+            }
+
+            if (selectedUnit != null)
+            {
+                buttons.Add(new Button("ANAEROBIC", Vector2.Zero));
             }
 
             bool hasThrowableGrenade = selectedUnit != null && selectedUnit.Grenades.Any(g => g.Type != GrenadeType.SatchelC4);
