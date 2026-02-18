@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace XCOM_3
 {
@@ -367,8 +368,58 @@ namespace XCOM_3
             if (WeaponData == null || !WeaponData.UsesAmmo)
                 return false;
 
-            CurrentAmmoInMagazine = WeaponData.EffectiveMagazineCapacity;
-            return true;
+            if (!TryConsumeCompatibleMagazine(out ItemData consumedMagazine))
+                return false;
+
+            int roundsLoaded = consumedMagazine?.AmmoCount ?? WeaponData.EffectiveMagazineCapacity;
+            CurrentAmmoInMagazine = Math.Clamp(roundsLoaded, 0, WeaponData.EffectiveMagazineCapacity);
+            return CurrentAmmoInMagazine > 0;
+        }
+
+        private bool TryConsumeCompatibleMagazine(out ItemData consumedMagazine)
+        {
+            consumedMagazine = null;
+            if (WeaponData == null || !WeaponData.UsesAmmo)
+                return false;
+
+            if (TryConsumeCompatibleMagazineFromPocket(ChestRigInventory, out consumedMagazine))
+                return true;
+
+            if (TryConsumeCompatibleMagazineFromPocket(PantsInventory, out consumedMagazine))
+                return true;
+
+            EnsureBackpackInventoryGrid();
+            GridItem backpackMagazine = BackpackInventory.GetAllItems()
+                .FirstOrDefault(item => item?.Data?.IsCompatibleMagazineFor(WeaponData) == true);
+
+            if (backpackMagazine != null)
+            {
+                consumedMagazine = backpackMagazine.Data;
+                BackpackInventory.RemoveItem(backpackMagazine);
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryConsumeCompatibleMagazineFromPocket(List<Item> pocket, out ItemData consumedMagazine)
+        {
+            consumedMagazine = null;
+            if (pocket == null || pocket.Count == 0)
+                return false;
+
+            for (int i = 0; i < pocket.Count; i++)
+            {
+                Item item = pocket[i];
+                if (item?.Data?.IsCompatibleMagazineFor(WeaponData) != true)
+                    continue;
+
+                consumedMagazine = item.Data;
+                pocket.RemoveAt(i);
+                return true;
+            }
+
+            return false;
         }
 
         public int ConsumeRoundsForFireAction()

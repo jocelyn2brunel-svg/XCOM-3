@@ -13,7 +13,8 @@ namespace XCOM_3
         Weapon,
         Armor,
         Accessory,
-        Grenade
+        Grenade,
+        Magazine
     }
 
     public enum ArmorSlot
@@ -68,6 +69,10 @@ namespace XCOM_3
         // Données de grenades
         public GrenadeData GrenadeData { get; set; }
 
+        // Données de chargeur
+        public string CompatibleCaliber { get; set; }
+        public int AmmoCount { get; set; }
+
         // Constructeur pour armes
         public ItemData(string name, ItemType type, WeaponData weaponData)
         {
@@ -84,6 +89,8 @@ namespace XCOM_3
             BodyCoveragePercent = 0;
             Description = "";
             GeneratedTextureKey = string.Empty;
+            CompatibleCaliber = string.Empty;
+            AmmoCount = 0;
         }
 
         // Constructeur pour armures
@@ -110,6 +117,8 @@ namespace XCOM_3
             BodyCoveragePercent = Math.Clamp(bodyCoveragePercent, 0, 100);
             Description = description;
             GeneratedTextureKey = string.Empty;
+            CompatibleCaliber = string.Empty;
+            AmmoCount = 0;
         }
 
         // Constructeur pour grenades
@@ -124,6 +133,28 @@ namespace XCOM_3
             BodyCoveragePercent = 0;
             Description = description;
             GeneratedTextureKey = string.Empty;
+            CompatibleCaliber = string.Empty;
+            AmmoCount = 0;
+        }
+
+        // Constructeur pour chargeurs
+        public ItemData(string name, string compatibleCaliber, int ammoCount, float weightLbs = 0.55f, string description = "")
+        {
+            Name = name;
+            Type = ItemType.Magazine;
+            WeaponData = null;
+            ArmorValue = 0;
+            ArmorSlot = ArmorSlot.None;
+            ProtectionLevel = ProtectionLevel.None;
+            MobilityPenalty = 0;
+            WeightLbs = weightLbs;
+            BonusInventorySlots = 0;
+            FragmentationProtectionPercent = 0;
+            BodyCoveragePercent = 0;
+            Description = description;
+            GeneratedTextureKey = string.Empty;
+            CompatibleCaliber = compatibleCaliber ?? string.Empty;
+            AmmoCount = Math.Max(1, ammoCount);
         }
 
         public int GetEffectiveBodyCoveragePercent()
@@ -147,6 +178,14 @@ namespace XCOM_3
             return ProtectionLevel == ProtectionLevel.Fragmentation
                 ? 12
                 : GetNijProtectionPercent();
+        }
+
+        public bool IsCompatibleMagazineFor(WeaponData weapon)
+        {
+            if (Type != ItemType.Magazine || weapon == null || !weapon.UsesAmmo)
+                return false;
+
+            return string.Equals(CompatibleCaliber ?? string.Empty, weapon.Caliber ?? string.Empty, StringComparison.OrdinalIgnoreCase);
         }
 
         private static int GetNijBaseProtectionPercent(ProtectionLevel level)

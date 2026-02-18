@@ -213,7 +213,7 @@ namespace XCOM_3
             if (name.Contains("Jeans") || name.Contains("Pantalon")) return new ItemSize(2, 1);
             if (name.Contains("Chest Rig")) return new ItemSize(2, 2);
             if (name.Contains("Backpack")) return new ItemSize(2, 2);
-            if (name.Contains("Grenade") || name.Contains("MK 2") || name.Contains("Lampe tactique") || name.Contains("Grappin", StringComparison.OrdinalIgnoreCase)) return new ItemSize(1, 1);
+            if (name.Contains("Grenade") || name.Contains("MK 2") || name.Contains("Lampe tactique") || name.Contains("Grappin", StringComparison.OrdinalIgnoreCase) || name.Contains("Chargeur", StringComparison.OrdinalIgnoreCase)) return new ItemSize(1, 1);
             return new ItemSize(1, 1);
         }
 
@@ -230,6 +230,7 @@ namespace XCOM_3
             ItemType.Armor => new Color(150, 100, 50),
             ItemType.Grenade => new Color(200, 100, 0),
             ItemType.Accessory => new Color(100, 200, 100),
+            ItemType.Magazine => new Color(220, 215, 90),
             _ => Color.Gray
         };
     }

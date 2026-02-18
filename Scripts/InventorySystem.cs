@@ -1152,6 +1152,18 @@ namespace XCOM_3
                 bonusInventorySlots: 0,
                 description: "Grappin tactique compact (1x1) - 1kg");
 
+            string[] commonMagCalibers = { "9x19mm", "5.56x45mm", "7.62x39mm", "7.62x51mm NATO", "12 Gauge" };
+            foreach (string caliber in commonMagCalibers)
+            {
+                string magName = $"Chargeur {caliber} (30)";
+                ItemDatabase[magName] = new ItemData(
+                    magName,
+                    caliber,
+                    ammoCount: caliber == "12 Gauge" ? 8 : 30,
+                    weightLbs: caliber == "12 Gauge" ? 0.8f : 0.55f,
+                    description: $"Chargeur compatible {caliber} (1x1).");
+            }
+
             // Armures (charger depuis ArmorDatabase)
             foreach (var armor in ArmorDatabase.GetAllArmors())
             {
@@ -4709,7 +4721,12 @@ namespace XCOM_3
                 ParasiteEveTheme.TextNormal * alpha, 0.6f);
 
             // ✅ Stats en bas
-            string info = item.Data.Type == ItemType.Weapon ? $"DMG:{item.Data.WeaponData?.Damage}" : $"ARM:{item.Data.ArmorValue}";
+            string info = item.Data.Type switch
+            {
+                ItemType.Weapon => $"DMG:{item.Data.WeaponData?.Damage}",
+                ItemType.Magazine => $"AMMO:{item.Data.AmmoCount}",
+                _ => $"ARM:{item.Data.ArmorValue}"
+            };
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, info,
                 new Vector2(item.PixelBounds.X + 4, item.PixelBounds.Bottom - 15),
                 ParasiteEveTheme.TextHighlight * alpha, 0.4f);

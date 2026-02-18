@@ -2480,6 +2480,7 @@ namespace XCOM_3
             EquipMk2GrenadeToAlliedPockets(playerUnits);
             RemoveDuplicateMk2GrenadesFromAlliedUnits(playerUnits);
             AssignRandomInventoryToUnits(playerUnits);
+            EnsureUnitsHaveCompatibleMagazines(playerUnits, minimumMagazinesPerUnit: 3);
 
             switch (missionType)
             {
@@ -2632,6 +2633,7 @@ namespace XCOM_3
             AssignRandomPants(enemyUnits);
             AssignRandomEquipmentToUnits(enemyUnits);
             AssignRandomInventoryToUnits(enemyUnits);
+            EnsureUnitsHaveCompatibleMagazines(enemyUnits, minimumMagazinesPerUnit: 2);
 
             foreach (var unit in playerUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
             foreach (var unit in enemyUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
@@ -2879,6 +2881,94 @@ namespace XCOM_3
 
                 unit.RefreshGrenadeInventoryFromEquipment();
             }
+        }
+
+        private void EnsureUnitsHaveCompatibleMagazines(List<Unit> units, int minimumMagazinesPerUnit)
+        {
+            if (units == null || units.Count == 0)
+                return;
+
+            int targetMagazines = Math.Max(1, minimumMagazinesPerUnit);
+
+            foreach (Unit unit in units)
+            {
+                if (unit?.WeaponData == null || !unit.WeaponData.UsesAmmo)
+                    continue;
+
+                int existingMags = CountCompatibleMagazines(unit);
+                int toAdd = Math.Max(0, targetMagazines - existingMags);
+
+                for (int i = 0; i < toAdd; i++)
+                {
+                    ItemData magazine = CreateMagazineForWeapon(unit.WeaponData);
+                    if (!TryAddPocketItemPreferChestRig(unit, magazine))
+                        TryAddMagazineToBackpack(unit, magazine);
+                }
+            }
+        }
+
+        private int CountCompatibleMagazines(Unit unit)
+        {
+            if (unit?.WeaponData == null)
+                return 0;
+
+            int count = 0;
+            count += unit.PantsInventory.Count(item => item?.Data?.IsCompatibleMagazineFor(unit.WeaponData) == true);
+            count += unit.ChestRigInventory.Count(item => item?.Data?.IsCompatibleMagazineFor(unit.WeaponData) == true);
+
+            unit.EnsureBackpackInventoryGrid();
+            count += unit.BackpackInventory.GetAllItems().Count(item => item?.Data?.IsCompatibleMagazineFor(unit.WeaponData) == true);
+            return count;
+        }
+
+        private ItemData CreateMagazineForWeapon(WeaponData weapon)
+        {
+            int rounds = Math.Max(1, weapon?.EffectiveMagazineCapacity ?? 1);
+            string caliber = weapon?.Caliber ?? "Unknown";
+            string name = $"Chargeur {caliber} ({rounds})";
+            string description = $"Chargeur 1x1 compatible {caliber}. Contient {rounds} cartouches.";
+            float weight = MathF.Max(0.2f, rounds * 0.03f);
+            return new ItemData(name, caliber, rounds, weight, description);
+        }
+
+        private bool TryAddPocketItemPreferChestRig(Unit unit, ItemData itemData)
+        {
+            if (unit == null || itemData == null)
+                return false;
+
+            unit.ChestRigInventory ??= new List<Item>();
+            unit.PantsInventory ??= new List<Item>();
+
+            int chestCapacity = unit.GetChestRigInventoryCapacity();
+            if (unit.ChestRigInventory.Count < chestCapacity)
+            {
+                unit.ChestRigInventory.Add(new Item(itemData, Point.Zero));
+                return true;
+            }
+
+            int pantsCapacity = unit.GetPantsInventoryCapacity();
+            if (unit.PantsInventory.Count < pantsCapacity)
+            {
+                unit.PantsInventory.Add(new Item(itemData, Point.Zero));
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryAddMagazineToBackpack(Unit unit, ItemData itemData)
+        {
+            if (unit == null || itemData == null)
+                return false;
+
+            unit.EnsureBackpackInventoryGrid();
+            ItemSize size = ItemSizeDatabase.GetItemSize(itemData.Name);
+            Point? freePos = unit.BackpackInventory.FindFreePosition(size, true);
+            if (!freePos.HasValue)
+                return false;
+
+            unit.BackpackInventory.PlaceItem(new GridItem(itemData, freePos.Value, size, false));
+            return true;
         }
 
         private void EquipMk2GrenadeToAlliedPockets(List<Unit> alliedUnits)
