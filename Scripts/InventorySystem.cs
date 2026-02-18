@@ -3862,6 +3862,17 @@ namespace XCOM_3
 
                 float detailsBottomY = textY + 96f;
 
+                if (examinedItemData.Type == ItemType.Weapon && examinedItemData.WeaponData != null)
+                {
+                    string rpmText = $"Cadence: {examinedItemData.WeaponData.RoundsPerMinute} RPM";
+                    string magText = $"Chargeur: {examinedItemData.WeaponData.EffectiveMagazineCapacity} balles";
+
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, rpmText, new Vector2(textX, textY + 96), ParasiteEveTheme.TextNormal, 0.7f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, magText, new Vector2(textX, textY + 120), ParasiteEveTheme.TextNormal, 0.7f);
+
+                    detailsBottomY = Math.Max(detailsBottomY, textY + 120f);
+                }
+
                 if (TryGetArmorComparisonSummary(examinedItemData, out string advantages, out string drawbacks))
                 {
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Avantages: {advantages}", new Vector2(textX, textY + 120), Color.LimeGreen, 0.62f);
