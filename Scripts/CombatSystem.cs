@@ -412,6 +412,7 @@ namespace XCOM_3
             shooter.IsFiring = true;
             shooter.FireTarget = target.Cell;
             shooter.FireProgress = 0f;
+            shooter.FireActionPointsSpent = 1;
             postHitPauseTimers.Remove(shooter);
 
             // ✅ CALCUL AVEC COUVERTURE
@@ -442,6 +443,8 @@ namespace XCOM_3
             shooter.PendingTarget = target;
             shooter.ActionPoints--;
             int roundsConsumed = shooter.ConsumeRoundsForFireAction();
+            shooter.FireRoundsToAnimate = Math.Max(1, roundsConsumed);
+            shooter.FireAnimationDurationSeconds = ComputeFireAnimationDurationSeconds(shooter, shooter.FireRoundsToAnimate, shooter.FireActionPointsSpent);
 
             if (shooter.WeaponData != null && shooter.WeaponData.UsesAmmo)
             {
@@ -458,7 +461,6 @@ namespace XCOM_3
         /// </summary>
         public void UpdateFiringAnimations(GameTime gameTime)
         {
-            float fireSpeed = 3f;
             float deltaSeconds = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             foreach (var u in playerUnits.Concat(enemyUnits))
@@ -466,7 +468,8 @@ namespace XCOM_3
                 if (!u.IsFiring || !u.FireTarget.HasValue)
                     continue;
 
-                u.FireProgress += deltaSeconds * fireSpeed;
+                float fireDuration = Math.Max(0.01f, u.FireAnimationDurationSeconds);
+                u.FireProgress += deltaSeconds / fireDuration;
 
                 if (u.FireProgress < 1f)
                     continue;
@@ -512,11 +515,28 @@ namespace XCOM_3
                 u.IsFiring = false;
                 u.FireProgress = 0f;
                 u.FireTarget = null;
+                u.FireRoundsToAnimate = 1;
+                u.FireActionPointsSpent = 1;
+                u.FireAnimationDurationSeconds = 0.25f;
                 IsActionInProgress = false;
 
                 OnFireCompleted?.Invoke();
                 return;
             }
+        }
+
+        private float ComputeFireAnimationDurationSeconds(Unit shooter, int roundsToAnimate, int actionPointsSpent)
+        {
+            int safeRounds = Math.Max(1, roundsToAnimate);
+            int safeActionPoints = Math.Max(1, actionPointsSpent);
+            int rpm = Math.Max(1, shooter?.WeaponData?.RoundsPerMinute ?? 0);
+
+            float secondsPerRound = 60f / rpm;
+            float burstDuration = safeRounds * secondsPerRound;
+
+            // Conserve une lisibilité minimale pour les armes lentes / sans munitions,
+            // mais respecte strictement le lien cadence(AP/RPM) -> durée.
+            return Math.Max(0.12f * safeActionPoints, burstDuration);
         }
 
         /// <summary>
