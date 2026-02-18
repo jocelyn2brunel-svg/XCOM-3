@@ -14,6 +14,25 @@ namespace XCOM_3
         private const float Mk2FragmentationEndRadius = 9f;
         private const int BaseThrowAccuracyPercent = 92;
         private const int ThrowDistancePenaltyPercentPerCell = 7;
+        private const int GrenadeCollisionSamples = 32;
+        private const int MaxGrenadeBounces = 1;
+        private const float GrenadeRicochetEnergyRetention = 0.6f;
+
+        private readonly struct GrenadeWallHit
+        {
+            public WallSegment Wall { get; }
+            public float PathT { get; }
+            public Vector2 Point { get; }
+            public Vector2 Normal { get; }
+
+            public GrenadeWallHit(WallSegment wall, float pathT, Vector2 point, Vector2 normal)
+            {
+                Wall = wall;
+                PathT = pathT;
+                Point = point;
+                Normal = normal;
+            }
+        }
 
         private readonly struct GrappleAnchor
         {
@@ -196,9 +215,20 @@ namespace XCOM_3
                 Vector3 startPos = new Vector3(selectedUnit.Cell.X * cellSize + cellSize / 2f, cellSize * 1.5f, selectedUnit.Cell.Y * cellSize + cellSize / 2f);
                 Vector3 targetPos = new Vector3(throwTarget.X * cellSize + cellSize / 2f, 0, throwTarget.Y * cellSize + cellSize / 2f);
                 trajectoryPreview = ThrowTrajectoryCalculator.CalculateArcPoints(startPos, targetPos);
+                ricochetPreview.Clear();
+
+                if (grenadeOptionThrowFeedback)
+                {
+                    Point previewLanding = PredictLandingCellWithEnvironment(selectedUnit, throwTarget, viewedFloor, out List<Vector3> previewRicochetPoints);
+                    if (previewLanding != throwTarget)
+                        ricochetPreview = previewRicochetPoints;
+                }
             }
             int throwRange = GetUnitThrowRange(selectedUnit);
-            if (leftClick && throwTarget.X >= 0 && ThrowTrajectoryCalculator.IsInThrowRange(selectedUnit.Cell, throwTarget, throwRange))
+            bool canThrow = ThrowTrajectoryCalculator.IsInThrowRange(selectedUnit.Cell, throwTarget, throwRange)
+                && (!grenadeOptionWallAwareTargeting || CanThrowToTarget(selectedUnit, throwTarget, viewedFloor));
+
+            if (leftClick && throwTarget.X >= 0 && canThrow)
             {
                 LaunchGrenade(selectedUnit, selectedGrenade, throwTarget, viewedFloor);
                 selectedUnit.ActionPoints -= selectedGrenade.AOCost;
@@ -662,10 +692,13 @@ namespace XCOM_3
 
         private void LaunchGrenade(Unit thrower, GrenadeData grenadeData, Point targetCell, int targetFloor)
         {
-            Point actualLandingCell = ResolveThrowLandingCell(thrower, targetCell);
+            Point actualLandingCell = ResolveThrowLandingCell(thrower, targetCell, targetFloor);
 
             Vector3 startPos = new Vector3(thrower.Cell.X * cellSize + cellSize / 2f, cellSize * 1.5f, thrower.Cell.Y * cellSize + cellSize / 2f);
-            Vector3 targetPos = new Vector3(actualLandingCell.X * cellSize + cellSize / 2f, 0, actualLandingCell.Y * cellSize + cellSize / 2f);
+            Vector3 targetPos = new Vector3(
+                actualLandingCell.X * cellSize + cellSize / 2f,
+                WorldMetrics.FloorToWorldY(targetFloor, cellSize) + cellSize * 0.5f,
+                actualLandingCell.Y * cellSize + cellSize / 2f);
             Grenade grenade = new Grenade(grenadeData, startPos, targetPos, thrower, targetFloor);
             activeGrenades.Add(grenade);
             if (actualLandingCell != targetCell)
@@ -678,7 +711,7 @@ namespace XCOM_3
             }
         }
 
-        private Point ResolveThrowLandingCell(Unit thrower, Point desiredTargetCell)
+        private Point ResolveThrowLandingCell(Unit thrower, Point desiredTargetCell, int targetFloor)
         {
             if (thrower == null)
                 return desiredTargetCell;
@@ -691,7 +724,7 @@ namespace XCOM_3
             int roll = random.Next(100);
 
             if (roll < hitChance)
-                return desiredTargetCell;
+                return PredictLandingCellWithEnvironment(thrower, desiredTargetCell, targetFloor, out _);
 
             List<Point> adjacentCells = new List<Point>();
             for (int dx = -1; dx <= 1; dx++)
@@ -716,8 +749,184 @@ namespace XCOM_3
 
             Point scatteredCell = adjacentCells[random.Next(adjacentCells.Count)];
             Console.WriteLine($"Throw deviation: distance={throwDistance}, chance={hitChance}%, roll={roll} -> {scatteredCell}");
-            return scatteredCell;
+            return PredictLandingCellWithEnvironment(thrower, scatteredCell, targetFloor, out _);
         }
+
+        private bool CanThrowToTarget(Unit thrower, Point targetCell, int targetFloor)
+        {
+            if (thrower == null)
+                return false;
+
+            Point predicted = PredictLandingCellWithEnvironment(thrower, targetCell, targetFloor, out _);
+            return predicted == targetCell;
+        }
+
+        private Point PredictLandingCellWithEnvironment(Unit thrower, Point desiredTargetCell, int targetFloor, out List<Vector3> bouncePreviewPoints)
+        {
+            bouncePreviewPoints = new List<Vector3>();
+
+            if (thrower == null)
+                return desiredTargetCell;
+
+            Point currentTarget = desiredTargetCell;
+            int remainingBounces = grenadeOptionRicochet ? MaxGrenadeBounces : 0;
+
+            while (true)
+            {
+                if (!TryFindFirstBlockingWall(thrower.Cell, currentTarget, targetFloor, out GrenadeWallHit hit))
+                    return currentTarget;
+
+                // Fenêtres des étages supérieurs: la grenade peut passer si la hauteur croise l'ouverture.
+                if (hit.Wall.Type == WallType.Window && CanPassWindowOpening(thrower.Cell, currentTarget, hit.PathT, targetFloor))
+                    return currentTarget;
+
+                if (!grenadeOptionRicochet || remainingBounces <= 0 || hit.Wall.Type != WallType.Full)
+                {
+                    Point impactCell = new Point(
+                        Math.Clamp((int)MathF.Floor(hit.Point.X), 0, gridWidth - 1),
+                        Math.Clamp((int)MathF.Floor(hit.Point.Y), 0, gridHeight - 1));
+                    return impactCell;
+                }
+
+                Vector2 source = new Vector2(thrower.Cell.X + 0.5f, thrower.Cell.Y + 0.5f);
+                Vector2 destination = new Vector2(currentTarget.X + 0.5f, currentTarget.Y + 0.5f);
+                Vector2 incoming = destination - source;
+                if (incoming.LengthSquared() < 0.001f)
+                    return currentTarget;
+
+                incoming.Normalize();
+                Vector2 reflected = incoming - 2f * Vector2.Dot(incoming, hit.Normal) * hit.Normal;
+                if (reflected.LengthSquared() < 0.001f)
+                    return currentTarget;
+
+                reflected.Normalize();
+                float remainingDistance = Vector2.Distance(hit.Point, destination) * GrenadeRicochetEnergyRetention;
+                Vector2 bounceTarget = hit.Point + reflected * MathF.Max(1f, remainingDistance);
+
+                Point bouncedCell = new Point(
+                    Math.Clamp((int)MathF.Floor(bounceTarget.X), 0, gridWidth - 1),
+                    Math.Clamp((int)MathF.Floor(bounceTarget.Y), 0, gridHeight - 1));
+
+                float floorY = WorldMetrics.FloorToWorldY(targetFloor, cellSize);
+                bouncePreviewPoints.Add(new Vector3(hit.Point.X * cellSize, floorY + cellSize * 0.25f, hit.Point.Y * cellSize));
+                bouncePreviewPoints.Add(new Vector3((bouncedCell.X + 0.5f) * cellSize, floorY + cellSize * 0.25f, (bouncedCell.Y + 0.5f) * cellSize));
+
+                if (bouncedCell == currentTarget)
+                    return bouncedCell;
+
+                currentTarget = bouncedCell;
+                remainingBounces--;
+            }
+        }
+
+        private bool TryFindFirstBlockingWall(Point fromCell, Point toCell, int floor, out GrenadeWallHit firstHit)
+        {
+            firstHit = default;
+
+            if (!grenadeOptionArcCollisionSampling)
+                return false;
+
+            HashSet<WallSegment> walls = GetWallsForFloor(floor);
+            if (walls == null || walls.Count == 0)
+                return false;
+
+            Vector3 start = new Vector3(fromCell.X * cellSize + cellSize / 2f, cellSize * 1.5f, fromCell.Y * cellSize + cellSize / 2f);
+            Vector3 end = new Vector3(toCell.X * cellSize + cellSize / 2f, WorldMetrics.FloorToWorldY(floor, cellSize) + cellSize * 0.5f, toCell.Y * cellSize + cellSize / 2f);
+            List<Vector3> arc = ThrowTrajectoryCalculator.CalculateArcPoints(start, end, GrenadeCollisionSamples);
+
+            float nearestT = float.MaxValue;
+            for (int i = 0; i < arc.Count - 1; i++)
+            {
+                Vector2 segA = new Vector2(arc[i].X / cellSize, arc[i].Z / cellSize);
+                Vector2 segB = new Vector2(arc[i + 1].X / cellSize, arc[i + 1].Z / cellSize);
+                float segmentStartT = i / (float)(arc.Count - 1);
+                float segmentEndT = (i + 1) / (float)(arc.Count - 1);
+
+                foreach (var wall in walls)
+                {
+                    if (wall.Type == WallType.Door)
+                        continue;
+
+                    if (!TryGetWallSegment2D(wall, out Vector2 wA, out Vector2 wB, out Vector2 normal))
+                        continue;
+
+                    if (!TryGetSegmentIntersection(segA, segB, wA, wB, out float segT, out _))
+                        continue;
+
+                    float pathT = MathHelper.Lerp(segmentStartT, segmentEndT, segT);
+                    if (pathT >= nearestT)
+                        continue;
+
+                    Vector2 hitPoint = Vector2.Lerp(segA, segB, segT);
+                    nearestT = pathT;
+                    firstHit = new GrenadeWallHit(wall, pathT, hitPoint, normal);
+                }
+            }
+
+            return nearestT < float.MaxValue;
+        }
+
+        private bool CanPassWindowOpening(Point fromCell, Point toCell, float pathT, int floor)
+        {
+            if (floor <= 0)
+                return false;
+
+            Vector3 start = new Vector3(fromCell.X * cellSize + cellSize / 2f, cellSize * 1.5f, fromCell.Y * cellSize + cellSize / 2f);
+            Vector3 end = new Vector3(toCell.X * cellSize + cellSize / 2f, WorldMetrics.FloorToWorldY(floor, cellSize) + cellSize * 0.5f, toCell.Y * cellSize + cellSize / 2f);
+
+            float distance = Vector3.Distance(start, end);
+            float arcHeight = Math.Min(distance * 0.5f, 8f);
+            float linearY = MathHelper.Lerp(start.Y, end.Y, pathT);
+            float arcProgress = 4f * pathT * (1f - pathT);
+            float grenadeY = linearY + arcProgress * arcHeight;
+
+            float floorY = WorldMetrics.FloorToWorldY(floor, cellSize);
+            float windowBottom = floorY + cellSize * 0.7f;
+            float windowTop = floorY + cellSize * 1.45f;
+            return grenadeY >= windowBottom && grenadeY <= windowTop;
+        }
+
+        private static bool TryGetWallSegment2D(WallSegment wall, out Vector2 a, out Vector2 b, out Vector2 normal)
+        {
+            if (wall.IsHorizontal)
+            {
+                int minX = Math.Min(wall.Start.X, wall.End.X);
+                int maxX = Math.Max(wall.Start.X, wall.End.X);
+                a = new Vector2(minX, wall.Start.Y);
+                b = new Vector2(maxX, wall.Start.Y);
+                normal = new Vector2(0f, 1f);
+            }
+            else
+            {
+                int minY = Math.Min(wall.Start.Y, wall.End.Y);
+                int maxY = Math.Max(wall.Start.Y, wall.End.Y);
+                a = new Vector2(wall.Start.X, minY);
+                b = new Vector2(wall.Start.X, maxY);
+                normal = new Vector2(1f, 0f);
+            }
+
+            return Vector2.DistanceSquared(a, b) > 0.0001f;
+        }
+
+        private static bool TryGetSegmentIntersection(Vector2 p, Vector2 p2, Vector2 q, Vector2 q2, out float t, out float u)
+        {
+            t = 0f;
+            u = 0f;
+
+            Vector2 r = p2 - p;
+            Vector2 s = q2 - q;
+            float rxs = Cross(r, s);
+            if (Math.Abs(rxs) < 0.0001f)
+                return false;
+
+            Vector2 qMinusP = q - p;
+            t = Cross(qMinusP, s) / rxs;
+            u = Cross(qMinusP, r) / rxs;
+            return t >= 0f && t <= 1f && u >= 0f && u <= 1f;
+        }
+
+        private static float Cross(Vector2 a, Vector2 b)
+            => a.X * b.Y - a.Y * b.X;
 
         private void UpdateGrenades(GameTime gameTime)
         {
@@ -1034,7 +1243,10 @@ namespace XCOM_3
             if (selectedUnit != null)
             {
                 int throwRange = GetUnitThrowRange(selectedUnit);
-                throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
+                var rawCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
+                throwableCells = grenadeOptionWallAwareTargeting
+                    ? rawCells.Where(cell => CanThrowToTarget(selectedUnit, cell, viewedFloor)).ToList()
+                    : rawCells;
             }
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.3f + 0.7f;
@@ -1074,6 +1286,15 @@ namespace XCOM_3
                     float t = s / (float)steps;
                     Vector3 p = Vector3.Lerp(a, b, t);
                     renderer3D.DrawCube(p, new Vector3(cellSize * 0.08f), Color.White * 0.85f);
+                }
+            }
+
+            if (grenadeOptionThrowFeedback && ricochetPreview.Count >= 2)
+            {
+                for (int i = 0; i < ricochetPreview.Count - 1; i += 2)
+                {
+                    renderer3D.DrawCube(ricochetPreview[i], new Vector3(cellSize * 0.12f), new Color(255, 180, 60, 220));
+                    renderer3D.DrawCube(ricochetPreview[i + 1], new Vector3(cellSize * 0.12f), new Color(255, 140, 30, 220));
                 }
             }
         }
