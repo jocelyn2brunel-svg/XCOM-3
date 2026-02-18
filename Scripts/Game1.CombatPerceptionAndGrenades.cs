@@ -215,10 +215,10 @@ namespace XCOM_3
             if (cacheHit)
                 return;
 
-            var rawThrowableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
-            throwableCells = grenadeOptionWallAwareTargeting
-                ? rawThrowableCells.Where(cell => CanThrowToTarget(selectedUnit, cell, viewedFloor)).ToList()
-                : rawThrowableCells;
+            // NOTE perf: validating each candidate cell with CanThrowToTarget() is expensive
+            // because it samples arc collisions against every wall segment.
+            // We keep the UI list broad and validate only the hovered/selected target.
+            throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
 
             throwableCellsCachedUnit = selectedUnit;
             throwableCellsCachedFloor = viewedFloor;
