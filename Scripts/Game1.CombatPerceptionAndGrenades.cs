@@ -1024,7 +1024,8 @@ namespace XCOM_3
                 0,                                   // hauteur sol
                 center.Y * cellSize + cellSize / 2f  // centre de la cellule Z
             );
-            VisualEffects.PlayExplosion(explosionPos, grenadeData.Radius, renderer3D);
+            bool showShrapnel = grenadeData.Type == GrenadeType.Frag;
+            VisualEffects.PlayExplosion(explosionPos, grenadeData.Radius, renderer3D, showShrapnel);
             PlayGrenadeExplosionSound(explosionPos, grenadeData.Radius);
 
             int enemiesHit = 0, totalDamage = 0;

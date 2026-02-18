@@ -16,10 +16,10 @@ namespace XCOM_3
 
         public static event Action<Vector3> OnSpentCasingLanded;
 
-        public static void PlayExplosion(Vector3 position, float radius, Renderer3D renderer)
+        public static void PlayExplosion(Vector3 position, float radius, Renderer3D renderer, bool showShrapnel = false)
         {
             // Crée un effet d'explosion et l'ajoute à la liste active
-            activeExplosions.Add(new ExplosionEffect(position, radius, renderer));
+            activeExplosions.Add(new ExplosionEffect(position, radius, renderer, showShrapnel));
         }
 
         public static void PlayGibExplosion(Vector3 position, float force, Renderer3D renderer)
@@ -105,14 +105,18 @@ namespace XCOM_3
             private float elapsed = 0f;
             private Renderer3D renderer;
             private List<Vector3> particleOffsets;
+            private readonly List<ShrapnelParticle> shrapnelParticles;
+            private readonly bool showShrapnel;
 
             public bool IsFinished => elapsed >= lifetime;
 
-            public ExplosionEffect(Vector3 pos, float rad, Renderer3D rend)
+            public ExplosionEffect(Vector3 pos, float rad, Renderer3D rend, bool withShrapnel)
             {
                 position = pos;
                 radius = rad;
                 renderer = rend;
+                showShrapnel = withShrapnel;
+                shrapnelParticles = new List<ShrapnelParticle>();
 
                 // Génération de particules aléatoires autour du centre
                 particleOffsets = new List<Vector3>();
@@ -123,6 +127,31 @@ namespace XCOM_3
                     float y = (float)(rand.NextDouble()) * radius * 0.5f;
                     float z = (float)(rand.NextDouble() - 0.5) * radius;
                     particleOffsets.Add(new Vector3(x, y, z));
+                }
+
+                if (showShrapnel)
+                {
+                    int shrapnelCount = Math.Max(18, (int)(radius * 14f));
+                    for (int i = 0; i < shrapnelCount; i++)
+                    {
+                        Vector3 direction = new Vector3(
+                            (float)(rand.NextDouble() - 0.5f),
+                            (float)(rand.NextDouble() * 0.5f + 0.05f),
+                            (float)(rand.NextDouble() - 0.5f));
+
+                        if (direction.LengthSquared() < 0.0001f)
+                            direction = Vector3.Forward;
+                        else
+                            direction.Normalize();
+
+                        shrapnelParticles.Add(new ShrapnelParticle
+                        {
+                            Direction = direction,
+                            Speed = radius * (2.9f + (float)rand.NextDouble() * 2.2f),
+                            Length = radius * (0.32f + (float)rand.NextDouble() * 0.34f),
+                            Size = radius * (0.03f + (float)rand.NextDouble() * 0.02f)
+                        });
+                    }
                 }
             }
 
@@ -145,6 +174,31 @@ namespace XCOM_3
                     Vector3 pos = position + offset + new Vector3(0, elapsed * radius * 0.5f, 0); // monte légèrement
                     renderer.DrawCube(pos, new Vector3(radius * 0.1f), new Color(200, 100, 50) * alpha);
                 }
+
+                if (!showShrapnel)
+                    return;
+
+                float shrapnelProgress = MathF.Min(1f, elapsed / (lifetime * 0.65f));
+                float shrapnelFade = alpha * (1f - shrapnelProgress * 0.25f);
+                Color shrapnelColor = new Color(240, 220, 190) * shrapnelFade;
+
+                foreach (ShrapnelParticle particle in shrapnelParticles)
+                {
+                    float travel = particle.Speed * elapsed;
+                    Vector3 tip = position + particle.Direction * travel;
+                    Vector3 tail = tip - particle.Direction * particle.Length;
+
+                    renderer.DrawLine(tail, tip, shrapnelColor);
+                    renderer.DrawCube(tip, new Vector3(particle.Size), shrapnelColor);
+                }
+            }
+
+            private struct ShrapnelParticle
+            {
+                public Vector3 Direction;
+                public float Speed;
+                public float Length;
+                public float Size;
             }
         }
 
