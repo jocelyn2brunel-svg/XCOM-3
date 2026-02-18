@@ -70,6 +70,8 @@ namespace XCOM_3
         private Texture2D pixel;
         private GraphicsDevice graphicsDevice;
         private Texture2D flashlightTexture;
+        private Texture2D grapplingHookTexture;
+        private Texture2D satchelChargeTexture;
         private Dictionary<string, Texture2D> armorTextures;
         private Dictionary<string, Texture2D> weaponTextures;
         private Dictionary<GrenadeType, Texture2D> grenadeTextures;
@@ -209,6 +211,8 @@ namespace XCOM_3
             ItemDatabase = new Dictionary<string, ItemData>();
 
             flashlightTexture = CreateFlashlightIconTexture(new Color(140, 156, 170));
+            grapplingHookTexture = CreateGrapplingHookIconTexture(new Color(110, 165, 188));
+            satchelChargeTexture = CreateSatchelChargeIconTexture(new Color(138, 102, 86), new Color(178, 128, 108));
             armorTextures = LoadArmorTextures();
             weaponTextures = LoadWeaponTextures();
             grenadeTextures = LoadGrenadeTextures();
@@ -683,6 +687,114 @@ namespace XCOM_3
             return texture;
         }
 
+        private Texture2D CreateGrapplingHookIconTexture(Color accent)
+        {
+            const int width = 64;
+            const int height = 64;
+            var data = new Color[width * height];
+
+            Color background = Color.Lerp(ParasiteEveTheme.BackgroundDark, Color.Black, 0.36f);
+            Color rope = new Color(174, 188, 198);
+            Color metal = Color.Lerp(accent, Color.White, 0.35f);
+            Color darkMetal = Color.Lerp(accent, Color.Black, 0.35f);
+
+            void SetPixel(int x, int y, Color c)
+            {
+                if (x >= 0 && x < width && y >= 0 && y < height)
+                    data[y * width + x] = c;
+            }
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float grain = ((x * 29 + y * 73) % 17) / 16f;
+                    data[y * width + x] = Color.Lerp(background, Color.Black, 0.13f * grain);
+                }
+            }
+
+            for (int y = 8; y <= 41; y++)
+            {
+                int sway = (int)MathF.Round(MathF.Sin((y - 8) * 0.24f) * 1.8f);
+                SetPixel(32 + sway, y, rope);
+                SetPixel(33 + sway, y, Color.Lerp(rope, Color.Black, 0.25f));
+            }
+
+            for (int y = 32; y <= 56; y++)
+            {
+                float ny = (y - 44) / 12f;
+                float radius = 7f * (float)Math.Sqrt(Math.Max(0f, 1f - ny * ny));
+                int x0 = (int)Math.Round(32 - radius);
+                int x1 = (int)Math.Round(32 + radius);
+                for (int x = x0; x <= x1; x++)
+                    SetPixel(x, y, Color.Lerp(metal, darkMetal, (x - x0) / Math.Max(1f, x1 - x0)));
+            }
+
+            for (int offset = 0; offset <= 8; offset++)
+            {
+                SetPixel(24 - offset, 48 - offset, metal);
+                SetPixel(23 - offset, 48 - offset, darkMetal);
+                SetPixel(40 + offset, 48 - offset, metal);
+                SetPixel(41 + offset, 48 - offset, darkMetal);
+            }
+
+            for (int x = 16; x <= 24; x++)
+                SetPixel(x, 40, Color.Lerp(metal, Color.White, 0.2f));
+
+            for (int x = 40; x <= 48; x++)
+                SetPixel(x, 40, Color.Lerp(metal, Color.White, 0.2f));
+
+            var texture = new Texture2D(graphicsDevice, width, height);
+            texture.SetData(data);
+            return texture;
+        }
+
+        private Texture2D CreateSatchelChargeIconTexture(Color bagColor, Color strapColor)
+        {
+            const int width = 64;
+            const int height = 64;
+            var data = new Color[width * height];
+
+            Color background = Color.Lerp(ParasiteEveTheme.BackgroundDark, Color.Black, 0.34f);
+            Color explosive = new Color(208, 78, 66);
+            Color wire = new Color(210, 202, 140);
+
+            void FillRect(int x0, int y0, int x1, int y1, Color color)
+            {
+                for (int y = Math.Max(0, y0); y <= Math.Min(height - 1, y1); y++)
+                    for (int x = Math.Max(0, x0); x <= Math.Min(width - 1, x1); x++)
+                        data[y * width + x] = color;
+            }
+
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                    data[y * width + x] = background;
+
+            FillRect(14, 20, 49, 48, bagColor);
+            FillRect(16, 22, 47, 46, Color.Lerp(bagColor, Color.Black, 0.28f));
+
+            FillRect(14, 20, 49, 22, strapColor);
+            FillRect(29, 12, 34, 21, strapColor);
+            FillRect(24, 10, 39, 13, Color.Lerp(strapColor, Color.White, 0.15f));
+
+            FillRect(20, 28, 30, 40, explosive);
+            FillRect(33, 28, 43, 40, explosive);
+
+            FillRect(20, 27, 43, 28, Color.Lerp(explosive, Color.White, 0.2f));
+            FillRect(26, 24, 38, 26, wire);
+            FillRect(31, 18, 32, 24, wire);
+
+            for (int x = 14; x <= 49; x++)
+            {
+                data[20 * width + x] = Color.Lerp(strapColor, Color.White, 0.25f);
+                data[48 * width + x] = Color.Lerp(bagColor, Color.Black, 0.55f);
+            }
+
+            var texture = new Texture2D(graphicsDevice, width, height);
+            texture.SetData(data);
+            return texture;
+        }
+
 
         private Texture2D GetArmorTexture(ItemData data)
         {
@@ -840,6 +952,13 @@ namespace XCOM_3
             if (data?.Type != ItemType.Grenade)
                 return null;
 
+            if (data.GrenadeData?.Type == GrenadeType.SatchelC4 ||
+                (data.Name?.Contains("Satchel", StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (data.Name?.Contains("C4", StringComparison.OrdinalIgnoreCase) ?? false))
+            {
+                return satchelChargeTexture;
+            }
+
             if (data.GrenadeData != null &&
                 grenadeTextures != null &&
                 grenadeTextures.TryGetValue(data.GrenadeData.Type, out Texture2D grenadeTexture))
@@ -882,8 +1001,11 @@ namespace XCOM_3
 
         private Texture2D GetAccessoryTexture(ItemData data)
         {
-            if (IsTacticalFlashlight(data) || IsGrapplingHook(data))
+            if (IsTacticalFlashlight(data))
                 return flashlightTexture;
+
+            if (IsGrapplingHook(data))
+                return grapplingHookTexture;
 
             return null;
         }
