@@ -27,6 +27,7 @@ namespace XCOM_3
 
         // --- Boutons du menu ---
         private List<Button> _menuButtons;
+        private readonly Dictionary<Button, string> _buttonActionByInstance = new();
         private MenuScreen _currentScreen = MenuScreen.Main;
 
         // --- Musique de menu ---
@@ -64,6 +65,8 @@ namespace XCOM_3
             _spriteBatch = spriteBatch;
             _font = font;
             _random = random;
+
+            LocalizationManager.OnLanguageChanged += HandleLanguageChanged;
         }
 
         /// <summary>
@@ -157,13 +160,32 @@ namespace XCOM_3
 
         private List<Button> CreateMainMenuButtons()
         {
-            string[] labels = { "New Game", "Continue", "Map Editor", "Character Creation", "Encyclopedia", "Body Editor", "Options", "Quit" };
+            _buttonActionByInstance.Clear();
+
+            string[] buttonActions =
+            {
+                "new_game",
+                "continue",
+                "map_editor",
+                "character_creation",
+                "encyclopedia",
+                "body_editor",
+                "options",
+                "quit"
+            };
             int startY = 100;
             int step = 28;
 
-            return labels.Select((text, index) =>
-                new Button(text, new Vector2(0, startY + index * step))
+            List<Button> buttons = buttonActions.Select((action, index) =>
+                new Button(LocalizationManager.Get($"menu.{action}"), new Vector2(0, startY + index * step))
             ).ToList();
+
+            for (int i = 0; i < buttons.Count; i++)
+            {
+                _buttonActionByInstance[buttons[i]] = buttonActions[i];
+            }
+
+            return buttons;
         }
 
         private void UpdateButtonStates()
@@ -171,7 +193,8 @@ namespace XCOM_3
             if (_currentScreen == MenuScreen.Main)
             {
                 // "Continue"
-                Button continueButton = _menuButtons.FirstOrDefault(button => button.Text == "Continue");
+                Button continueButton = _menuButtons.FirstOrDefault(button =>
+                    _buttonActionByInstance.TryGetValue(button, out string action) && action == "continue");
                 if (continueButton != null)
                 {
                     continueButton.IsEnabled = _hasSavedGame;
@@ -185,17 +208,20 @@ namespace XCOM_3
             {
                 if (button.IsClicked(mouseState, previousMouseState))
                 {
-                    HandleButtonAction(button.Text);
+                    if (_buttonActionByInstance.TryGetValue(button, out string action))
+                    {
+                        HandleButtonAction(action);
+                    }
                     return; // Une seule action par frame
                 }
             }
         }
 
-        private void HandleButtonAction(string buttonText)
+        private void HandleButtonAction(string buttonAction)
         {
-            switch (buttonText)
+            switch (buttonAction)
             {
-                case "Continue":
+                case "continue":
                     if (_hasSavedGame)
                     {
                         Console.WriteLine("[MENU] Continue requested");
@@ -207,40 +233,48 @@ namespace XCOM_3
                     }
                     break;
 
-                case "Map Editor":
+                case "map_editor":
                     Console.WriteLine("[MENU] Map Editor requested");
                     OnMapEditorRequested?.Invoke();
                     break;
 
-                case "New Game":
+                case "new_game":
                     Console.WriteLine("[MENU] New Game requested");
                     OnNewGameRequested?.Invoke();
                     break;
 
-                case "Character Creation":
+                case "character_creation":
                     Console.WriteLine("[MENU] Character Creation requested");
                     OnCharacterCreationRequested?.Invoke();
                     break;
 
-                case "Encyclopedia":
+                case "encyclopedia":
                     Console.WriteLine("[MENU] Encyclopedia requested");
                     OnEncyclopediaRequested?.Invoke();
                     break;
 
-                case "Body Editor":
+                case "body_editor":
                     Console.WriteLine("[MENU] Body editor requested");
                     OnBodyEditorRequested?.Invoke();
                     break;
 
-                case "Options":
+                case "options":
                     Console.WriteLine("[MENU] Options requested");
                     OnOptionsRequested?.Invoke();
                     break;
 
-                case "Quit":
+                case "quit":
                     Console.WriteLine("[MENU] Quit requested");
                     OnQuitRequested?.Invoke();
                     break;
+            }
+        }
+
+        private void HandleLanguageChanged(SupportedLanguage language)
+        {
+            if (_currentScreen == MenuScreen.Main)
+            {
+                _menuButtons = CreateMainMenuButtons();
             }
         }
 

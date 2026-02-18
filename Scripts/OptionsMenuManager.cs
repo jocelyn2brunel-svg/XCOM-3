@@ -22,6 +22,7 @@ namespace XCOM_3
 
         // --- Boutons ---
         private List<Button> _optionsButtons;
+        private readonly Dictionary<Button, string> _buttonActionByInstance = new();
 
         // --- Contrôle du volume ---
         private float _musicVolume = 0.5f;
@@ -74,6 +75,8 @@ namespace XCOM_3
             InitializeVolumeControls();
             InitializeShooterCameraControls();
             InitializeThemeControls();
+
+            LocalizationManager.OnLanguageChanged += _ => RefreshButtonLabels();
         }
 
         public void Update(MouseState mouseState, MouseState previousMouseState)
@@ -91,7 +94,7 @@ namespace XCOM_3
         {
             MouseState mouse = Mouse.GetState();
 
-            DrawTitle("Options");
+            DrawTitle(LocalizationManager.Get("options.title"));
             DrawButtons(_optionsButtons, mouse);
             DrawVolumeControls();
             DrawShooterCameraControls();
@@ -115,11 +118,44 @@ namespace XCOM_3
 
         private void CreateOptionsButtons()
         {
-            _optionsButtons = new List<Button>
+            _buttonActionByInstance.Clear();
+
+            var buttonSpecs = new[]
             {
-                new Button("Music Volume +", new Vector2(0, 100)),
-                new Button("Music Volume -", new Vector2(0, 156)),
-                new Button("Back", new Vector2(0, 430))
+                new { Action = "music_volume_plus", Position = new Vector2(0, 100) },
+                new { Action = "music_volume_minus", Position = new Vector2(0, 156) },
+                new { Action = "language", Position = new Vector2(0, 212) },
+                new { Action = "back", Position = new Vector2(0, 430) }
+            };
+
+            _optionsButtons = new List<Button>();
+            foreach (var spec in buttonSpecs)
+            {
+                Button button = new Button(GetButtonLabel(spec.Action), spec.Position);
+                _optionsButtons.Add(button);
+                _buttonActionByInstance[button] = spec.Action;
+            }
+        }
+
+        private void RefreshButtonLabels()
+        {
+            foreach (var entry in _buttonActionByInstance)
+            {
+                entry.Key.Text = GetButtonLabel(entry.Value);
+            }
+        }
+
+        private string GetButtonLabel(string action)
+        {
+            return action switch
+            {
+                "music_volume_plus" => LocalizationManager.Get("options.music_volume_plus"),
+                "music_volume_minus" => LocalizationManager.Get("options.music_volume_minus"),
+                "language" => LocalizationManager.GetFormatted(
+                    "options.language_button",
+                    LocalizationManager.GetLanguageDisplayName(LocalizationManager.CurrentLanguage)),
+                "back" => LocalizationManager.Get("options.back"),
+                _ => action
             };
         }
 
@@ -159,27 +195,35 @@ namespace XCOM_3
             {
                 if (button.IsClicked(mouseState, previousMouseState))
                 {
-                    HandleButtonAction(button.Text);
+                    if (_buttonActionByInstance.TryGetValue(button, out string action))
+                    {
+                        HandleButtonAction(action);
+                    }
                     return;
                 }
             }
         }
 
-        private void HandleButtonAction(string buttonText)
+        private void HandleButtonAction(string buttonAction)
         {
-            switch (buttonText)
+            switch (buttonAction)
             {
-                case "Music Volume +":
+                case "music_volume_plus":
                     SetMusicVolume(_musicVolume + 0.1f);
                     Console.WriteLine($"[OPTIONS] Volume increased to: {_musicVolume:F2}");
                     break;
 
-                case "Music Volume -":
+                case "music_volume_minus":
                     SetMusicVolume(_musicVolume - 0.1f);
                     Console.WriteLine($"[OPTIONS] Volume decreased to: {_musicVolume:F2}");
                     break;
 
-                case "Back":
+                case "language":
+                    LocalizationManager.ToggleLanguage();
+                    Console.WriteLine($"[OPTIONS] Language set to: {LocalizationManager.CurrentLanguage}");
+                    break;
+
+                case "back":
                     Console.WriteLine("[OPTIONS] Back to main menu");
                     OnBackToMainMenu?.Invoke();
                     break;
@@ -378,7 +422,7 @@ namespace XCOM_3
 
         private void DrawShooterCameraControls()
         {
-            _spriteBatch.DrawString(_font, "Caméra proche au tir", new Vector2(0, 170), UIThemeManager.PrimaryColor);
+            _spriteBatch.DrawString(_font, LocalizationManager.Get("options.shooter_camera"), new Vector2(0, 170), UIThemeManager.PrimaryColor);
             _spriteBatch.Draw(_pixel, _shooterCameraBar, Color.Gray);
             _spriteBatch.Draw(_pixel, _shooterCameraFill, UIThemeManager.PrimaryColor);
             _spriteBatch.Draw(_pixel, _shooterCameraHandle, Color.White);
@@ -394,7 +438,7 @@ namespace XCOM_3
 
         private void DrawThemeControls()
         {
-            _spriteBatch.DrawString(_font, "UI Color (RGB)", new Vector2(0, 240), UIThemeManager.PrimaryColor);
+            _spriteBatch.DrawString(_font, LocalizationManager.Get("options.ui_color"), new Vector2(0, 240), UIThemeManager.PrimaryColor);
 
             DrawChannel("R", _redBar, _redFill, _redHandle, Color.Red, _themeR);
             DrawChannel("G", _greenBar, _greenFill, _greenHandle, Color.LimeGreen, _themeG);
