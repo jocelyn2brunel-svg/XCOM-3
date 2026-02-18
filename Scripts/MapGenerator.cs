@@ -83,7 +83,7 @@ namespace XCOM_3
 
             map.StairConnections = GenerateDefaultStairs(map.GridWidth, map.GridHeight, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
-            map.TerrainHeights = GenerateTerrainRelief(map.GridWidth, map.GridHeight);
+            map.TerrainHeights = GenerateTerrainRelief(map.GridWidth, map.GridHeight, pattern);
 
             Console.WriteLine($"[MAP GEN] Generated {map.Name}: {map.GridWidth}x{map.GridHeight}, floors={map.FloorCount}, {map.Walls.Count} walls");
 
@@ -112,7 +112,7 @@ namespace XCOM_3
             map.FloorCount = 3;
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
-            map.TerrainHeights = GenerateTerrainRelief(width, height);
+            map.TerrainHeights = GenerateTerrainRelief(width, height, null);
 
             Console.WriteLine($"[MAP GEN] Created empty map: {width}x{height}, floors={map.FloorCount}");
 
@@ -168,7 +168,7 @@ namespace XCOM_3
                 });
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
-            map.TerrainHeights = GenerateTerrainRelief(width, height);
+            map.TerrainHeights = GenerateTerrainRelief(width, height, pattern);
 
             Console.WriteLine($"[MAP GEN] Generated {pattern} map: {width}x{height}, floors={map.FloorCount}");
 
@@ -344,8 +344,11 @@ namespace XCOM_3
             }
         }
 
-        private List<TerrainHeightData> GenerateTerrainRelief(int width, int height)
+        private List<TerrainHeightData> GenerateTerrainRelief(int width, int height, EdgeWallGenerator.WallPattern? pattern)
         {
+            if (pattern == EdgeWallGenerator.WallPattern.Trenches)
+                return GenerateTrenchTerrain(width, height);
+
             // Temporairement désactivé: pas de collines ni de fossés.
             if (!terrainReliefEnabled)
                 return new List<TerrainHeightData>();
@@ -407,6 +410,67 @@ namespace XCOM_3
             }
 
             return terrain;
+        }
+
+        private List<TerrainHeightData> GenerateTrenchTerrain(int width, int height)
+        {
+            // Tranchée principale profonde: -2 cases de hauteur.
+            // Tranchées secondaires: -1 case de hauteur.
+            var heights = new Dictionary<Point, float>();
+
+            void SetDepth(int x, int y, float depth)
+            {
+                if (x <= 0 || y <= 0 || x >= width - 1 || y >= height - 1)
+                    return;
+
+                var point = new Point(x, y);
+                if (heights.TryGetValue(point, out float existingDepth))
+                    heights[point] = Math.Min(existingDepth, depth);
+                else
+                    heights[point] = depth;
+            }
+
+            int currentY = height / 2;
+            var mainTrench = new List<Point>();
+
+            for (int x = 3; x < width - 3; x++)
+            {
+                mainTrench.Add(new Point(x, currentY));
+
+                if (random.Next(100) < 20)
+                    currentY += random.Next(-1, 2);
+
+                currentY = Math.Max(4, Math.Min(height - 5, currentY));
+            }
+
+            foreach (Point p in mainTrench)
+            {
+                SetDepth(p.X, p.Y, -2f);
+
+                // Lèvres de tranchée plus hautes pour créer une transition visuelle.
+                SetDepth(p.X, p.Y - 1, -1f);
+                SetDepth(p.X, p.Y + 1, -1f);
+            }
+
+            int numCross = random.Next(2, 5);
+            for (int i = 0; i < numCross; i++)
+            {
+                int crossX = random.Next(5, width - 5);
+                int length = random.Next(4, 8);
+                int startY = random.Next(4, Math.Max(5, height - length - 4));
+
+                for (int y = startY; y < startY + length && y < height - 3; y++)
+                    SetDepth(crossX, y, -1f);
+            }
+
+            return heights
+                .Select(h => new TerrainHeightData
+                {
+                    X = h.Key.X,
+                    Y = h.Key.Y,
+                    HeightOffset = h.Value
+                })
+                .ToList();
         }
 
         /// <summary>
