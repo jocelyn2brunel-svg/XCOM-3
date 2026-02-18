@@ -61,6 +61,7 @@ namespace XCOM_3
         public float WeightLbs;
         public int BonusInventorySlots;
         public int FragmentationProtectionPercent;
+        public int BodyCoveragePercent;
         public string Description;
         public string GeneratedTextureKey { get; set; }
 
@@ -80,6 +81,7 @@ namespace XCOM_3
             WeightLbs = weaponData?.WeightLbs ?? 0f;
             BonusInventorySlots = 0;
             FragmentationProtectionPercent = 0;
+            BodyCoveragePercent = 0;
             Description = "";
             GeneratedTextureKey = string.Empty;
         }
@@ -92,7 +94,8 @@ namespace XCOM_3
                        float weightLbs = 0f,
                        int bonusInventorySlots = 0,
                        string description = "",
-                       int fragmentationProtectionPercent = 0)
+                       int fragmentationProtectionPercent = 0,
+                       int bodyCoveragePercent = 0)
         {
             Name = name;
             Type = type;
@@ -104,6 +107,7 @@ namespace XCOM_3
             WeightLbs = weightLbs;
             BonusInventorySlots = bonusInventorySlots;
             FragmentationProtectionPercent = Math.Clamp(fragmentationProtectionPercent, 0, 95);
+            BodyCoveragePercent = Math.Clamp(bodyCoveragePercent, 0, 100);
             Description = description;
             GeneratedTextureKey = string.Empty;
         }
@@ -117,8 +121,63 @@ namespace XCOM_3
             WeightLbs = weightLbs;
             BonusInventorySlots = 0;
             FragmentationProtectionPercent = 0;
+            BodyCoveragePercent = 0;
             Description = description;
             GeneratedTextureKey = string.Empty;
+        }
+
+        public int GetEffectiveBodyCoveragePercent()
+            => BodyCoveragePercent > 0 ? BodyCoveragePercent : GetDefaultBodyCoveragePercent(ArmorSlot);
+
+        public int GetNijProtectionPercent()
+        {
+            int nijBase = GetNijBaseProtectionPercent(ProtectionLevel);
+            if (nijBase <= 0)
+                return 0;
+
+            float coverageRatio = GetEffectiveBodyCoveragePercent() / 100f;
+            return Math.Clamp((int)Math.Round(nijBase * coverageRatio), 0, 95);
+        }
+
+        public int GetEffectiveFragmentationProtectionPercent()
+        {
+            if (FragmentationProtectionPercent > 0)
+                return FragmentationProtectionPercent;
+
+            return ProtectionLevel == ProtectionLevel.Fragmentation
+                ? 12
+                : GetNijProtectionPercent();
+        }
+
+        private static int GetNijBaseProtectionPercent(ProtectionLevel level)
+        {
+            return level switch
+            {
+                ProtectionLevel.NIJ_II => 35,
+                ProtectionLevel.NIJ_IIIA => 45,
+                ProtectionLevel.NIJ_III => 60,
+                ProtectionLevel.NIJ_IV => 75,
+                _ => 0
+            };
+        }
+
+        private static int GetDefaultBodyCoveragePercent(ArmorSlot slot)
+        {
+            return slot switch
+            {
+                ArmorSlot.Head => 12,
+                ArmorSlot.Neck => 4,
+                ArmorSlot.Torso => 38,
+                ArmorSlot.Shield => 30,
+                ArmorSlot.Shirt => 18,
+                ArmorSlot.Pants => 24,
+                ArmorSlot.Knees => 6,
+                ArmorSlot.Feet => 6,
+                ArmorSlot.ChestRig => 16,
+                ArmorSlot.Belt => 4,
+                ArmorSlot.Backpack => 12,
+                _ => 0
+            };
         }
 
     }

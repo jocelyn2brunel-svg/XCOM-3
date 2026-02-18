@@ -16,7 +16,8 @@ namespace XCOM_3
             int mobilityPenalty = 0,
             int bonusInventorySlots = 0,
             string description = "",
-            int fragmentationProtectionPercent = 0)
+            int fragmentationProtectionPercent = 0,
+            int bodyCoveragePercent = 0)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Le nom d'item est obligatoire.", nameof(name));
@@ -34,7 +35,8 @@ namespace XCOM_3
                 weightLbs,
                 bonusInventorySlots,
                 description,
-                fragmentationProtectionPercent);
+                fragmentationProtectionPercent,
+                bodyCoveragePercent);
 
             item.GeneratedTextureKey = BuildGeneratedTextureKey(name, armorSlot);
             return item;
@@ -46,7 +48,8 @@ namespace XCOM_3
             ProtectionLevel protectionLevel,
             float weightLbs,
             string description,
-            int fragmentationProtectionPercent)
+            int fragmentationProtectionPercent,
+            int bodyCoveragePercent = 0)
         {
             return CreateArmorItem(
                 name,
@@ -57,7 +60,8 @@ namespace XCOM_3
                 0,
                 0,
                 description,
-                fragmentationProtectionPercent);
+                fragmentationProtectionPercent,
+                bodyCoveragePercent);
         }
 
         private static string BuildGeneratedTextureKey(string name, ArmorSlot slot)
