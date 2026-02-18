@@ -286,7 +286,10 @@ namespace XCOM_3
         Table,
         Chair,
         Stove,
-        Bed
+        Bed,
+        SedanToyotaCorolla,
+        SedanBmwSeries3,
+        SedanMercedesEClass
     }
 
     [Serializable]
@@ -308,6 +311,9 @@ namespace XCOM_3
                 FurnitureType.Chair => 3f,
                 FurnitureType.Stove => 3f,
                 FurnitureType.Bed => 2f,
+                FurnitureType.SedanToyotaCorolla => 4.7f,
+                FurnitureType.SedanBmwSeries3 => 4.8f,
+                FurnitureType.SedanMercedesEClass => 4.8f,
                 _ => 3f
             };
         }

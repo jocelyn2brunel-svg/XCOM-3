@@ -80,7 +80,7 @@ namespace XCOM_3
                     Y = p.Y,
                     Floor = 0
                 });
-            map.Furnitures = GenerateBuildingFurniture(map.Buildings, map.GridWidth, map.GridHeight, map.FloorCount);
+            map.Furnitures = GenerateMapFurniture(pattern, map.Buildings, map.GridWidth, map.GridHeight, map.FloorCount, map.SpawnZones, map.HescoBarriers);
 
             map.StairConnections = GenerateDefaultStairs(map.GridWidth, map.GridHeight, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
@@ -167,7 +167,7 @@ namespace XCOM_3
                     Y = p.Y,
                     Floor = 0
                 });
-            map.Furnitures = GenerateBuildingFurniture(map.Buildings, width, height, map.FloorCount);
+            map.Furnitures = GenerateMapFurniture(pattern, map.Buildings, width, height, map.FloorCount, map.SpawnZones, map.HescoBarriers);
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
             map.TerrainHeights = GenerateTerrainRelief(width, height, pattern);
@@ -259,6 +259,25 @@ namespace XCOM_3
             }
 
             return stairs;
+        }
+
+        private List<FurnitureData> GenerateMapFurniture(
+            EdgeWallGenerator.WallPattern pattern,
+            List<BuildingFootprintData> buildings,
+            int mapWidth,
+            int mapHeight,
+            int maxFloors,
+            List<SpawnZone> spawnZones,
+            List<HescoBarrierData> hescoBarriers)
+        {
+            List<FurnitureData> furnitures = GenerateBuildingFurniture(buildings, mapWidth, mapHeight, maxFloors);
+
+            if (pattern == EdgeWallGenerator.WallPattern.Urban)
+            {
+                furnitures.AddRange(GenerateUrbanStreetSedans(mapWidth, mapHeight, buildings, spawnZones, hescoBarriers, furnitures));
+            }
+
+            return furnitures;
         }
 
         private List<FurnitureData> GenerateBuildingFurniture(
@@ -358,6 +377,130 @@ namespace XCOM_3
             }
 
             return furnitures;
+        }
+
+        private List<FurnitureData> GenerateUrbanStreetSedans(
+            int mapWidth,
+            int mapHeight,
+            List<BuildingFootprintData> buildings,
+            List<SpawnZone> spawnZones,
+            List<HescoBarrierData> hescoBarriers,
+            List<FurnitureData> existingFurniture)
+        {
+            var sedans = new List<FurnitureData>();
+
+            const int blockSize = 14;
+            const int streetWidth = 2;
+            const int startX = 2;
+            int endX = Math.Max(startX + 1, mapWidth - 2);
+            const int startY = 4;
+            int endY = Math.Max(startY + 1, mapHeight - 4);
+            int stride = blockSize + streetWidth;
+
+            var blockedCells = new HashSet<Point>();
+
+            if (buildings != null)
+            {
+                foreach (BuildingFootprintData building in buildings)
+                {
+                    for (int x = building.X; x < building.X + building.Width; x++)
+                    {
+                        for (int y = building.Y; y < building.Y + building.Height; y++)
+                        {
+                            blockedCells.Add(new Point(x, y));
+                        }
+                    }
+                }
+            }
+
+            if (hescoBarriers != null)
+            {
+                foreach (HescoBarrierData barrier in hescoBarriers)
+                {
+                    blockedCells.Add(new Point(barrier.X, barrier.Y));
+                }
+            }
+
+            if (existingFurniture != null)
+            {
+                foreach (FurnitureData furniture in existingFurniture)
+                {
+                    if (furniture.Floor != 0)
+                        continue;
+
+                    blockedCells.Add(new Point(furniture.X, furniture.Y));
+                }
+            }
+
+            if (spawnZones != null)
+            {
+                foreach (SpawnZone zone in spawnZones)
+                {
+                    for (int x = zone.MinX; x <= zone.MaxX; x++)
+                    {
+                        for (int y = zone.MinY; y <= zone.MaxY; y++)
+                        {
+                            blockedCells.Add(new Point(x, y));
+                        }
+                    }
+                }
+            }
+
+            var roadCandidates = new List<Point>();
+            for (int y = startY; y < endY; y++)
+            {
+                for (int x = startX; x < endX; x++)
+                {
+                    bool isRoad = (x - startX) % stride >= blockSize || (y - startY) % stride >= blockSize;
+                    if (!isRoad)
+                        continue;
+
+                    Point cell = new Point(x, y);
+                    if (blockedCells.Contains(cell))
+                        continue;
+
+                    roadCandidates.Add(cell);
+                }
+            }
+
+            if (roadCandidates.Count == 0)
+                return sedans;
+
+            int targetSedanCount = Math.Clamp((mapWidth * mapHeight) / 220, 4, 16);
+            targetSedanCount = Math.Min(targetSedanCount, roadCandidates.Count);
+            Shuffle(roadCandidates);
+
+            FurnitureType[] sedanTypes =
+            {
+                FurnitureType.SedanToyotaCorolla,
+                FurnitureType.SedanBmwSeries3,
+                FurnitureType.SedanMercedesEClass
+            };
+
+            for (int i = 0; i < targetSedanCount; i++)
+            {
+                Point candidate = roadCandidates[i];
+                FurnitureType sedanType = sedanTypes[random.Next(sedanTypes.Length)];
+
+                sedans.Add(new FurnitureData
+                {
+                    X = candidate.X,
+                    Y = candidate.Y,
+                    Floor = 0,
+                    Type = sedanType
+                });
+            }
+
+            return sedans;
+        }
+
+        private void Shuffle<T>(IList<T> values)
+        {
+            for (int i = values.Count - 1; i > 0; i--)
+            {
+                int swapIndex = random.Next(i + 1);
+                (values[i], values[swapIndex]) = (values[swapIndex], values[i]);
+            }
         }
 
         private Point? FindAvailableInteriorCell(int minX, int maxX, int minY, int maxY, HashSet<Point> occupied)

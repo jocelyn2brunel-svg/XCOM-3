@@ -306,11 +306,15 @@ namespace XCOM_3
         private static Vector2 GetFurnitureFootprint(FurnitureType type, int cellSize)
         {
             float baseSize = cellSize * 0.78f;
+            float feetToWorld = cellSize / (float)Unit.FeetPerCell;
             return type switch
             {
                 FurnitureType.Bed => new Vector2(cellSize * 0.95f, cellSize * 0.75f),
                 FurnitureType.Fridge => new Vector2(cellSize * 0.62f, cellSize * 0.62f),
                 FurnitureType.Chair => new Vector2(cellSize * 0.48f, cellSize * 0.48f),
+                FurnitureType.SedanToyotaCorolla => new Vector2(15.2f * feetToWorld, 5.9f * feetToWorld),
+                FurnitureType.SedanBmwSeries3 => new Vector2(15.6f * feetToWorld, 6.0f * feetToWorld),
+                FurnitureType.SedanMercedesEClass => new Vector2(16.3f * feetToWorld, 6.2f * feetToWorld),
                 _ => new Vector2(baseSize, baseSize)
             };
         }
@@ -325,6 +329,9 @@ namespace XCOM_3
                 FurnitureType.Chair => new Color(95, 72, 50),
                 FurnitureType.Stove => new Color(96, 96, 104),
                 FurnitureType.Bed => new Color(96, 128, 172),
+                FurnitureType.SedanToyotaCorolla => new Color(198, 202, 208),
+                FurnitureType.SedanBmwSeries3 => new Color(60, 64, 76),
+                FurnitureType.SedanMercedesEClass => new Color(26, 26, 30),
                 _ => new Color(130, 130, 130)
             };
         }
