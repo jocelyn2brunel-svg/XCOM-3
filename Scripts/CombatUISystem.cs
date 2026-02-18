@@ -62,6 +62,7 @@ namespace XCOM_3
         /// </summary>
         public void UpdateFireTargets(Unit selectedUnit, List<Unit> validTargets)
         {
+            Unit previousSelection = SelectedFireTarget;
             FireTargetsUI.Clear();
             SelectedFireTarget = null;
 
@@ -76,20 +77,37 @@ namespace XCOM_3
             for (int i = 0; i < validTargets.Count; i++)
             {
                 var target = validTargets[i];
-                int distance = Math.Abs(target.Cell.X - selectedUnit.Cell.X) +
-                              Math.Abs(target.Cell.Y - selectedUnit.Cell.Y);
-
-                int chance = Math.Max(selectedUnit.WeaponData.Accuracy - distance * 5, 10);
-
                 FireTargetsUI.Add(new FireTargetUI
                 {
                     Target = target,
-                    HitChance = chance,
+                    HitChance = 0,
                     Bounds = Rectangle.Empty
                 });
             }
 
+            if (previousSelection != null)
+            {
+                SelectedFireTarget = FireTargetsUI
+                    .Select(ui => ui.Target)
+                    .FirstOrDefault(target => target == previousSelection);
+            }
+
+            UpdateFireTargetHitChances(selectedUnit, selectedUnit.Cell);
+
             UpdateFireTargetsUIPositions(selectedUnit);
+        }
+
+        public void UpdateFireTargetHitChances(Unit selectedUnit, Point firingCell)
+        {
+            if (selectedUnit == null || selectedUnit.WeaponData == null)
+                return;
+
+            foreach (var ui in FireTargetsUI)
+            {
+                int distance = Math.Abs(ui.Target.Cell.X - firingCell.X) +
+                              Math.Abs(ui.Target.Cell.Y - firingCell.Y);
+                ui.HitChance = Math.Max(selectedUnit.WeaponData.Accuracy - distance * 5, 10);
+            }
         }
 
         /// <summary>
@@ -109,13 +127,13 @@ namespace XCOM_3
 
             if (SelectedFireTarget != null && selectedUnit != null && selectedUnit.ActionPoints > 0)
             {
+                int targetRowY = by - icon - 15;
                 int fireConfirmWidth = 180;
                 int fireConfirmHeight = 50;
                 int fireButtonX = graphicsDevice.Viewport.Width / 2 - fireConfirmWidth / 2;
-                int fireButtonY = by - fireConfirmHeight - 15;
 
                 startX = fireButtonX + (fireConfirmWidth - total) / 2;
-                y = fireButtonY - icon - 15;
+                y = targetRowY;
             }
             else
             {
@@ -328,11 +346,13 @@ namespace XCOM_3
             // Bouton CONFIRMER TIR
             if (hasFirearmEquipped && SelectedFireTarget != null && selectedUnit != null && selectedUnit.ActionPoints > 0)
             {
+                int icon = 52;
                 int fireConfirmWidth = 180;
                 int fireConfirmHeight = 50;
+                int targetRowY = by - icon - 15;
                 FireButton = new Rectangle(
                     graphicsDevice.Viewport.Width / 2 - fireConfirmWidth / 2,
-                    by - fireConfirmHeight - 15,
+                    targetRowY - fireConfirmHeight - 15,
                     fireConfirmWidth,
                     fireConfirmHeight
                 );
