@@ -2831,6 +2831,16 @@ namespace XCOM_3
 
             if (combatUI.EndTurnButton.Contains(mouse.Position) && leftClick && !combatSystem.IsActionInProgress)
                 combatSystem.StartEnemyTurn();
+
+            // Passage automatique au tour ennemi quand toutes les unités du joueur
+            // ont terminé leurs actions et qu'aucune animation d'action n'est en cours.
+            if (!combatSystem.IsActionInProgress &&
+                combatSystem.CurrentTurn == TurnState.PlayerTurn &&
+                playerUnits.All(u => u.ActionPoints <= 0) &&
+                playerUnits.All(u => !u.IsMoving && !u.IsFiring))
+            {
+                combatSystem.StartEnemyTurn();
+            }
         }
 
         private bool TryResolveVerticalTransition(int fromFloor, Point clickedCell, out Point movementGoal, out int goalFloor)
