@@ -3208,6 +3208,8 @@ namespace XCOM_3
             if (pocketCandidates.Count == 0 && backpackCandidates.Count == 0)
                 return;
 
+            bool grapplingHookAssigned = false;
+
             foreach (var unit in units)
             {
                 if (unit == null)
@@ -3255,8 +3257,64 @@ namespace XCOM_3
                         rotate));
                 }
 
+                if (inventorySystem.ItemDatabase.TryGetValue(GrapplingHookItemName, out ItemData grapplingHookData))
+                {
+                    bool hasGrapplingHook = HasItemInUnitInventory(unit, GrapplingHookItemName);
+                    if (!hasGrapplingHook)
+                    {
+                        bool shouldTryAssignHook = random.NextDouble() < 0.35;
+                        if (!grapplingHookAssigned || shouldTryAssignHook)
+                        {
+                            grapplingHookAssigned = TryAddPocketItemPreferChestRig(unit, grapplingHookData)
+                                || TryAddMagazineToBackpack(unit, grapplingHookData);
+                        }
+                    }
+                    else
+                    {
+                        grapplingHookAssigned = true;
+                    }
+                }
+
                 unit.RefreshGrenadeInventoryFromEquipment();
             }
+
+            if (!grapplingHookAssigned && units.Count > 0
+                && inventorySystem.ItemDatabase.TryGetValue(GrapplingHookItemName, out ItemData fallbackGrapplingHookData))
+            {
+                foreach (Unit unit in units.Where(u => u != null))
+                {
+                    if (HasItemInUnitInventory(unit, GrapplingHookItemName))
+                    {
+                        grapplingHookAssigned = true;
+                        break;
+                    }
+
+                    if (TryAddPocketItemPreferChestRig(unit, fallbackGrapplingHookData)
+                        || TryAddMagazineToBackpack(unit, fallbackGrapplingHookData))
+                    {
+                        unit.RefreshGrenadeInventoryFromEquipment();
+                        grapplingHookAssigned = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        private static bool HasItemInUnitInventory(Unit unit, string itemName)
+        {
+            if (unit == null || string.IsNullOrWhiteSpace(itemName))
+                return false;
+
+            bool inPants = unit.PantsInventory.Any(item => string.Equals(item?.Data?.Name, itemName, StringComparison.OrdinalIgnoreCase));
+            if (inPants)
+                return true;
+
+            bool inChestRig = unit.ChestRigInventory.Any(item => string.Equals(item?.Data?.Name, itemName, StringComparison.OrdinalIgnoreCase));
+            if (inChestRig)
+                return true;
+
+            unit.EnsureBackpackInventoryGrid();
+            return unit.BackpackInventory.GetAllItems().Any(item => string.Equals(item?.Data?.Name, itemName, StringComparison.OrdinalIgnoreCase));
         }
 
         private void EnsureUnitsHaveCompatibleMagazines(List<Unit> units, int minimumMagazinesPerUnit)
