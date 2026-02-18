@@ -9,13 +9,24 @@ namespace XCOM_3
         {
             var grenades = new Dictionary<string, GrenadeData>();
 
-            // Garder uniquement la MK 2
+            // Grenades disponibles
             grenades["MK 2"] = new GrenadeData(
                 "MK 2",
                 GrenadeType.Frag,
                 damage: 35,
                 radius: 2,
                 destroyWalls: false,
+                digsTerrain: false,
+                digDepth: 0,
+                aoCost: 1
+            );
+
+            grenades["Satchel Charge (C4)"] = new GrenadeData(
+                "Satchel Charge (C4)",
+                GrenadeType.SatchelC4,
+                damage: 55,
+                radius: 2,
+                destroyWalls: true,
                 digsTerrain: false,
                 digDepth: 0,
                 aoCost: 1
@@ -45,6 +56,8 @@ namespace XCOM_3
                     return new Color(255, 100, 0);      // Orange vif
                 case GrenadeType.EMP:
                     return new Color(100, 150, 255);    // Bleu électrique
+                case GrenadeType.SatchelC4:
+                    return new Color(210, 40, 40);      // Rouge explosif
                 default:
                     return Color.White;
             }
@@ -71,6 +84,8 @@ namespace XCOM_3
                     return "I";
                 case GrenadeType.EMP:
                     return "E";
+                case GrenadeType.SatchelC4:
+                    return "C4";
                 default:
                     return "?";
             }
