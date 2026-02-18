@@ -491,7 +491,7 @@ namespace XCOM_3
                 samples[i] = (short)(MathHelper.Clamp(value, -1f, 1f) * short.MaxValue);
             }
 
-            return new SoundEffect(samples, sampleRate, AudioChannels.Mono);
+            return new SoundEffect(ConvertPcm16ToBytes(samples), sampleRate, AudioChannels.Mono);
         }
 
         private SoundEffect CreateProceduralGunshotSound()
@@ -511,7 +511,7 @@ namespace XCOM_3
                 samples[i] = (short)(MathHelper.Clamp(value, -1f, 1f) * short.MaxValue);
             }
 
-            return new SoundEffect(samples, sampleRate, AudioChannels.Mono);
+            return new SoundEffect(ConvertPcm16ToBytes(samples), sampleRate, AudioChannels.Mono);
         }
 
         private SoundEffect CreateProceduralCasingClingSound()
@@ -532,7 +532,17 @@ namespace XCOM_3
                 samples[i] = (short)(MathHelper.Clamp(value, -1f, 1f) * short.MaxValue);
             }
 
-            return new SoundEffect(samples, sampleRate, AudioChannels.Mono);
+            return new SoundEffect(ConvertPcm16ToBytes(samples), sampleRate, AudioChannels.Mono);
+        }
+
+        private static byte[] ConvertPcm16ToBytes(short[] samples)
+        {
+            if (samples == null || samples.Length == 0)
+                return Array.Empty<byte>();
+
+            byte[] bytes = new byte[samples.Length * sizeof(short)];
+            Buffer.BlockCopy(samples, 0, bytes, 0, bytes.Length);
+            return bytes;
         }
 
         private void HandleShotFired(Unit shooter)
