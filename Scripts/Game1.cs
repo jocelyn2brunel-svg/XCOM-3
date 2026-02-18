@@ -63,12 +63,22 @@ namespace XCOM_3
         private List<Point> explosionPreview = new List<Point>();
         private List<Vector3> trajectoryPreview = new List<Vector3>();
         private readonly List<FlashlightLootMarker> flashlightLootMarkers = new List<FlashlightLootMarker>();
+        private bool grappleMode = false;
+        private int grappleTargetFloor = -1;
+        private List<GrappleAnchor> grappleAnchors = new List<GrappleAnchor>();
 
         // Constantes
         private const int BaseThrowRange = 20;
         private const int TacticalFlashlightRangeCells = 40;
         private const int TacticalFlashlightThrowApCost = 1;
         private const string TacticalFlashlightItemName = "Lampe tactique aluminium";
+        private const string GrapplingHookItemName = "Grappin tactique";
+        private const int GrappleActionPointCost = 1;
+        private const int GrappleBaseThrowStrengthFeet = 15;
+        private const int GrappleMaxThrowStrengthFeet = 30;
+        private const int GrappleFloorHeightFeet = 10;
+        private const int GrappleBaseAccuracyPercent = 78;
+        private const int GrappleHeightPenaltyPercentPerFloor = 14;
         private const float Mk2WeightLbs = 1.3228f; // 600 grammes
         private const float OverwatchShotIntervalSeconds = 3f;
 
@@ -1288,6 +1298,11 @@ namespace XCOM_3
 
             DrawMk2FragmentationHitChanceLabels();
 
+            if (grappleMode)
+            {
+                _spriteBatch.DrawString(font, "Mode grappin: ciblez une fenetre/demi-mur en hauteur", new Vector2(10, 90), new Color(110, 240, 255));
+            }
+
             _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | PgUp/PgDn: Etage | I: Inventaire | C: Fiche perso", new Vector2(10, 10), Color.White);
             _spriteBatch.DrawString(font, "Escaliers: balises orange/bleu sur la grille", new Vector2(10, 70), new Color(255, 190, 90));
 
@@ -1518,6 +1533,7 @@ namespace XCOM_3
 
             DrawHoveredCell3D(gameTime);
             DrawThrowMode3D(gameTime);
+            DrawGrappleMode3D(gameTime);
 
             if (showCoverIndicators)
             {
@@ -2817,7 +2833,7 @@ namespace XCOM_3
                 hoveredCell = rawHoveredCell;
 
             // 1. Check if we have a valid unit and valid cell
-            if (selectedUnit != null && selectedUnit.ActionPoints > 0 && isHoveringValidCell &&
+            if (!grappleMode && selectedUnit != null && selectedUnit.ActionPoints > 0 && isHoveringValidCell &&
                 selectedUnit.Team == Team.Player)
             {
                 // 2. Define maxRange here
@@ -2869,6 +2885,7 @@ namespace XCOM_3
             }
 
             if (throwMode) HandleGrenadeThrow(mouse, leftClick);
+            if (grappleMode) HandleGrappleAction(mouse, leftClick);
 
             if (selectedUnit != null && selectedUnit.Team == Team.Player && combatUI.ShowFireTargets)
             {
@@ -2884,7 +2901,7 @@ namespace XCOM_3
 
             if (leftClick) HandleUnitActionButtons(mouse);
             if (leftClick && combatUI.ShowFireTargets) combatUI.HandleFireTargetClick(mouse, selectedUnit);
-            if (leftClick && !clickOnUI && !throwMode && isHoveringValidCell) HandleGridClick(hoveredCell);
+            if (leftClick && !clickOnUI && !throwMode && !grappleMode && isHoveringValidCell) HandleGridClick(hoveredCell);
             if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released) CancelSelection();
 
             if (combatUI.FireButton.Contains(mouse.Position) && leftClick &&
@@ -3127,6 +3144,7 @@ namespace XCOM_3
                     case "GRENADE":
                         if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
                         {
+                            ExitGrappleMode();
                             throwMode = true;
                             throwModeUsesFlashlight = false;
                             throwFlashlightFromRightHand = false;
@@ -3143,6 +3161,10 @@ namespace XCOM_3
 
                     case "OVERWATCH":
                         ActivateOverwatch(selectedUnit);
+                        break;
+
+                    case "GRAPPLIN":
+                        ActivateGrappleMode();
                         break;
                 }
                 return;
@@ -3180,6 +3202,7 @@ namespace XCOM_3
             pathCosts.Clear();
 
             ExitThrowMode();
+            ExitGrappleMode();
         }
 
         private void ExitThrowMode()
@@ -3191,6 +3214,13 @@ namespace XCOM_3
             throwableCells.Clear();
             explosionPreview.Clear();
             trajectoryPreview.Clear();
+        }
+
+        private void ExitGrappleMode()
+        {
+            grappleMode = false;
+            grappleTargetFloor = -1;
+            grappleAnchors.Clear();
         }
 
         private void ActivateFlashlightThrowMode(bool fromRightHand)
@@ -3205,6 +3235,7 @@ namespace XCOM_3
             if (selectedUnit.ActionPoints < TacticalFlashlightThrowApCost)
                 return;
 
+            ExitGrappleMode();
             throwMode = true;
             throwModeUsesFlashlight = true;
             throwFlashlightFromRightHand = fromRightHand;

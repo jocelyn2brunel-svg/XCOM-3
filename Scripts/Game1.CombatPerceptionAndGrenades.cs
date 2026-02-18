@@ -15,6 +15,20 @@ namespace XCOM_3
         private const int BaseThrowAccuracyPercent = 92;
         private const int ThrowDistancePenaltyPercentPerCell = 7;
 
+        private readonly struct GrappleAnchor
+        {
+            public Point DestinationCell { get; }
+            public int DestinationFloor { get; }
+            public WallSegment Wall { get; }
+
+            public GrappleAnchor(Point destinationCell, int destinationFloor, WallSegment wall)
+            {
+                DestinationCell = destinationCell;
+                DestinationFloor = destinationFloor;
+                Wall = wall;
+            }
+        }
+
         private readonly struct Mk2FragmentationPreviewInfo
         {
             public Unit Unit { get; }
@@ -154,6 +168,169 @@ namespace XCOM_3
 
                 CancelSelection();
             }
+        }
+
+        private bool UnitHasGrapplingHookEquipped(Unit unit)
+        {
+            return string.Equals(unit?.EquippedRightHandFlashlight?.Data?.Name, GrapplingHookItemName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(unit?.EquippedLeftHandFlashlight?.Data?.Name, GrapplingHookItemName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private int GetGrappleThrowStrengthFeet(Unit unit)
+        {
+            int strengthBonus = unit?.Skills?[SkillType.Strength]?.Level ?? 0;
+            int throwStrengthFeet = GrappleBaseThrowStrengthFeet + strengthBonus;
+            return Math.Clamp(throwStrengthFeet, GrappleBaseThrowStrengthFeet, GrappleMaxThrowStrengthFeet);
+        }
+
+        private int GetGrappleDexterityAccuracyBonus(Unit unit)
+        {
+            return Math.Max(0, (unit?.Skills?[SkillType.WeaponHandling]?.Level ?? 0) * 3);
+        }
+
+        private void ActivateGrappleMode()
+        {
+            if (selectedUnit == null || selectedUnit.Team != Team.Player)
+                return;
+
+            if (!UnitHasGrapplingHookEquipped(selectedUnit) || selectedUnit.ActionPoints < GrappleActionPointCost)
+            {
+                Console.WriteLine("[GRAPPLIN] Impossible d'activer le grappin (équipement/AP insuffisant).");
+                return;
+            }
+
+            int maxFloorsUp = Math.Max(1, GetGrappleThrowStrengthFeet(selectedUnit) / GrappleFloorHeightFeet);
+            int mapTopFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
+            grappleTargetFloor = Math.Min(mapTopFloor, selectedUnit.Floor + maxFloorsUp);
+            if (grappleTargetFloor <= selectedUnit.Floor)
+            {
+                Console.WriteLine("[GRAPPLIN] Aucun étage supérieur accessible depuis cette position.");
+                return;
+            }
+
+            grappleAnchors = GetValidGrappleAnchors(selectedUnit, grappleTargetFloor);
+            if (grappleAnchors.Count == 0)
+            {
+                Console.WriteLine("[GRAPPLIN] Aucun point d'ancrage accessible (fenêtre/demi-mur). ");
+                return;
+            }
+
+            throwMode = false;
+            grappleMode = true;
+            viewedFloor = grappleTargetFloor;
+            Console.WriteLine($"[GRAPPLIN] Mode activé: {grappleAnchors.Count} points d'ancrage à l'étage {grappleTargetFloor}.");
+        }
+
+        private List<GrappleAnchor> GetValidGrappleAnchors(Unit unit, int destinationFloor)
+        {
+            var anchors = new List<GrappleAnchor>();
+            if (unit == null || destinationFloor <= unit.Floor)
+                return anchors;
+
+            HashSet<Point> validFloorCells = GetCellsForFloor(destinationFloor);
+            HashSet<WallSegment> wallsOnFloor = GetWallsForFloor(destinationFloor);
+
+            foreach (var wall in wallsOnFloor)
+            {
+                if (wall.Type == WallType.Full)
+                    continue;
+
+                Point sideA = wall.IsHorizontal
+                    ? new Point(Math.Min(wall.Start.X, wall.End.X), wall.Start.Y - 1)
+                    : new Point(wall.Start.X - 1, Math.Min(wall.Start.Y, wall.End.Y));
+
+                Point sideB = wall.IsHorizontal
+                    ? new Point(Math.Min(wall.Start.X, wall.End.X), wall.Start.Y)
+                    : new Point(wall.Start.X, Math.Min(wall.Start.Y, wall.End.Y));
+
+                foreach (Point candidate in new[] { sideA, sideB })
+                {
+                    if (!validFloorCells.Contains(candidate))
+                        continue;
+
+                    if (!IsCellAvailableOnFloor(candidate, destinationFloor))
+                        continue;
+
+                    int manhattan = Math.Abs(candidate.X - unit.Cell.X) + Math.Abs(candidate.Y - unit.Cell.Y);
+                    if (manhattan > 8)
+                        continue;
+
+                    anchors.Add(new GrappleAnchor(candidate, destinationFloor, wall));
+                }
+            }
+
+            return anchors
+                .GroupBy(a => a.DestinationCell)
+                .Select(g => g.First())
+                .ToList();
+        }
+
+        private void HandleGrappleAction(MouseState mouse, bool leftClick)
+        {
+            if (!grappleMode || selectedUnit == null)
+                return;
+
+            Point hovered = camera.GetCellFromMouse(
+                mouse.Position,
+                GraphicsDevice.Viewport.Width,
+                GraphicsDevice.Viewport.Height,
+                WorldMetrics.FloorToWorldY(grappleTargetFloor, cellSize));
+
+            if (hovered.X >= 0)
+                hoveredCell = hovered;
+
+            if (!leftClick || hovered.X < 0)
+                return;
+
+            int anchorIndex = grappleAnchors.FindIndex(a => a.DestinationCell == hovered);
+            if (anchorIndex < 0)
+                return;
+
+            GrappleAnchor selectedAnchor = grappleAnchors[anchorIndex];
+            int floorsClimbed = Math.Max(1, selectedAnchor.DestinationFloor - selectedUnit.Floor);
+            int hitChance = Math.Clamp(
+                GrappleBaseAccuracyPercent
+                + GetGrappleDexterityAccuracyBonus(selectedUnit)
+                - floorsClimbed * GrappleHeightPenaltyPercentPerFloor,
+                20,
+                98);
+
+            int roll = random.Next(100);
+            if (roll >= hitChance)
+            {
+                Console.WriteLine($"[GRAPPLIN] Échec ({hitChance}% / roll {roll}).");
+                selectedUnit.ActionPoints = Math.Max(0, selectedUnit.ActionPoints - GrappleActionPointCost);
+                ExitGrappleMode();
+                return;
+            }
+
+            selectedUnit.Cell = selectedAnchor.DestinationCell;
+            selectedUnit.Floor = selectedAnchor.DestinationFloor;
+            selectedUnit.VisualPosition = new Vector3(
+                selectedUnit.Cell.X * cellSize + cellSize / 2f,
+                WorldMetrics.FloorToWorldY(selectedUnit.Floor, cellSize),
+                selectedUnit.Cell.Y * cellSize + cellSize / 2f);
+            selectedUnit.ActionPoints = Math.Max(0, selectedUnit.ActionPoints - GrappleActionPointCost);
+            unitManager.OnUnitMoved(selectedUnit, selectedUnit.Cell, selectedUnit.Floor);
+            combatSystem.UpdateUnitCover(selectedUnit);
+
+            Console.WriteLine($"[GRAPPLIN] {selectedUnit.Name} atteint {selectedUnit.Cell} à l'étage {selectedUnit.Floor}.");
+            ExitGrappleMode();
+        }
+
+        private void DrawGrappleMode3D(GameTime gameTime)
+        {
+            if (!grappleMode || grappleAnchors.Count == 0)
+                return;
+
+            float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 5f) * 0.25f + 0.75f;
+            float floorYOffset = WorldMetrics.FloorToWorldY(grappleTargetFloor, cellSize);
+
+            renderer3D.DrawZoneOutline(
+                grappleAnchors.Select(a => a.DestinationCell).ToList(),
+                cellSize,
+                floorYOffset + 0.09f,
+                new Color(80, 240, 255, 240) * pulse);
         }
 
         private void LaunchGrenade(Unit thrower, GrenadeData grenadeData, Point targetCell, int targetFloor)
