@@ -1483,6 +1483,8 @@ namespace XCOM_3
             {
                 cachedMovableCells = pathfinding.GetMovableCells(selectedUnit);
                 combatUI.UpdateFireTargets(selectedUnit, FilterTargetsByPerception(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit)));
+                combatUI.ShowFireTargets = false;
+                combatUI.SelectedFireTarget = null;
             }
 
             CenterCameraOnUnit(selectedUnit);
@@ -3367,6 +3369,8 @@ namespace XCOM_3
                         UpdateEnemyPerceptionVisibility();
                         var validTargets = FilterTargetsByPerception(selectedUnit, combatSystem.GetValidFireTargets(selectedUnit));
                         combatUI.UpdateFireTargets(selectedUnit, validTargets);
+                        combatUI.ShowFireTargets = false;
+                        combatUI.SelectedFireTarget = null;
                     }
                     else
                     {
