@@ -13,6 +13,33 @@ namespace XCOM_3
 {
     public partial class Game1 : Game
     {
+        private readonly struct WindowInstance : IEquatable<WindowInstance>
+        {
+            public int Floor { get; }
+            public WallSegment Segment { get; }
+
+            public WindowInstance(int floor, WallSegment segment)
+            {
+                Floor = floor;
+                Segment = segment;
+            }
+
+            public bool Equals(WindowInstance other)
+            {
+                return Floor == other.Floor && Segment.Equals(other.Segment);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is WindowInstance other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(Floor, Segment);
+            }
+        }
+
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
         static extern bool AllocConsole();
 
@@ -117,6 +144,7 @@ namespace XCOM_3
 
         // --- Murs sur les edges des cases ---
         private HashSet<WallSegment> wallSegments = new HashSet<WallSegment>();
+        private readonly HashSet<WindowInstance> shatteredWindows = new HashSet<WindowInstance>();
         private EdgeWallGenerator edgeWallGenerator;
 
         // --- Unités et combat ---
@@ -3385,6 +3413,7 @@ namespace XCOM_3
             manualFloorViewUntilSeconds = 0d;
             explicitUpperFloorTargeting = false;
             wallSegments = currentMap.GetWalls();
+            shatteredWindows.Clear();
             InvalidateWallsByFloorCache();
             pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallSegments, currentMap.StairConnections, currentMap.RampTiles, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
             combatSystem.SetPathfinding(pathfinding);

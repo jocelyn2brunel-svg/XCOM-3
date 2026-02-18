@@ -17,6 +17,8 @@ namespace XCOM_3
         private const int GrenadeCollisionSamples = 32;
         private const int MaxGrenadeBounces = 1;
         private const float GrenadeRicochetEnergyRetention = 0.6f;
+        private const float Mk2WindowBreakDistanceMeters = 18f;
+        private const float ConfinedBlastDistanceMultiplier = 1.5f;
 
         private readonly struct GrenadeWallHit
         {
@@ -1159,6 +1161,12 @@ namespace XCOM_3
             VisualEffects.PlayExplosion(explosionPos, grenadeData.Radius, renderer3D, showShrapnel);
             PlayGrenadeExplosionSound(explosionPos, grenadeData.Radius);
 
+            int shatteredCount = ShatterWindowsAroundExplosion(center, centerFloor, grenadeData);
+            if (shatteredCount > 0)
+            {
+                Console.WriteLine($"Shattered {shatteredCount} windows around explosion");
+            }
+
             int enemiesHit = 0, totalDamage = 0;
 
             if (grenadeData.Name == "MK 2")
@@ -1225,6 +1233,61 @@ namespace XCOM_3
                 craters.AddRange(newCraters);
                 Console.WriteLine($"Created {newCraters.Count} craters");
             }
+        }
+
+        private int ShatterWindowsAroundExplosion(Point center, int centerFloor, GrenadeData grenadeData)
+        {
+            if (grenadeData == null)
+                return 0;
+
+            float breakDistanceMeters = GetWindowBreakDistanceMeters(grenadeData, centerFloor);
+            if (breakDistanceMeters <= 0.01f)
+                return 0;
+
+            float breakDistanceCells = breakDistanceMeters / Math.Max(0.1f, cellSize);
+            HashSet<WallSegment> wallsOnFloor = GetWallsForFloor(centerFloor);
+            List<WallSegment> windowsToShatter = new List<WallSegment>();
+
+            foreach (WallSegment wall in wallsOnFloor)
+            {
+                if (wall.Type != WallType.Window)
+                    continue;
+
+                Vector2 wallCenter = new Vector2(
+                    (wall.Start.X + wall.End.X) * 0.5f,
+                    (wall.Start.Y + wall.End.Y) * 0.5f);
+
+                if (Vector2.Distance(new Vector2(center.X, center.Y), wallCenter) <= breakDistanceCells)
+                    windowsToShatter.Add(wall);
+            }
+
+            if (windowsToShatter.Count == 0)
+                return 0;
+
+            foreach (WallSegment window in windowsToShatter)
+                shatteredWindows.Add(new WindowInstance(centerFloor, window));
+
+            InvalidateWallsByFloorCache();
+            unitManager.OnWallsDestroyed();
+            return windowsToShatter.Count;
+        }
+
+        private float GetWindowBreakDistanceMeters(GrenadeData grenadeData, int explosionFloor)
+        {
+            float explosiveEquivalentKg = grenadeData.Name switch
+            {
+                "MK 2" => 0.055f,
+                "Satchel Charge (C4)" => 0.248f,
+                _ => 0.055f * MathF.Max(0.35f, grenadeData.Radius / 2f)
+            };
+
+            float mk2Scale = MathF.Pow(MathF.Max(0.001f, explosiveEquivalentKg / 0.055f), 1f / 3f);
+            float distance = Mk2WindowBreakDistanceMeters * mk2Scale;
+
+            if (explosionFloor != 0)
+                distance *= ConfinedBlastDistanceMultiplier;
+
+            return distance;
         }
 
         private void ApplyMk2Explosion(Point center, int centerFloor, Unit thrower, ref int enemiesHit, ref int totalDamage)

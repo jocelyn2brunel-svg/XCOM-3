@@ -522,7 +522,17 @@ namespace XCOM_3
 
                     DrawWallSection(topPartCenter, topPartScale, s.IsHorizontal, wallColor, wallTexture);
 
-                    // Le milieu reste vide pour laisser passer la ligne de vue !
+                    // 3. VITRE TRANSPARENTE AU CENTRE
+                    float glassHeight = wallHeight - bottomHeight - topPartHeight;
+                    Vector3 glassCenter = center;
+                    glassCenter.Y = floorHeightOffset + bottomHeight + (glassHeight / 2f);
+                    float glassThickness = Math.Max(0.03f, thickness * 0.35f);
+                    Vector3 glassScale = s.IsHorizontal
+                        ? new Vector3(size * 0.94f, glassHeight * 0.96f, glassThickness)
+                        : new Vector3(glassThickness, glassHeight * 0.96f, size * 0.94f);
+
+                    DrawCube(glassCenter, glassScale, new Color(175, 225, 255, 95));
+                    DrawCube(glassCenter, glassScale * new Vector3(1.02f, 0.08f, 1.02f), new Color(235, 245, 255, 65));
                 }
                 else if (s.Type == WallType.Door)
                 {
