@@ -305,6 +305,8 @@ namespace XCOM_3
 
             bool hasFirearmEquipped = selectedUnit?.EquippedWeapon?.Data?.WeaponData != null
                 && selectedUnit.EquippedWeapon.Data.WeaponData.Type != WeaponType.Melee;
+            bool hasGrapplingHookEquipped = string.Equals(selectedUnit?.EquippedRightHandFlashlight?.Data?.Name, "Grappin tactique", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(selectedUnit?.EquippedLeftHandFlashlight?.Data?.Name, "Grappin tactique", StringComparison.OrdinalIgnoreCase);
 
             int bw = ActionButtonWidth, bh = ActionButtonHeight;
             int by = graphicsDevice.Viewport.Height - bh - 20;
@@ -322,6 +324,11 @@ namespace XCOM_3
             if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
             {
                 buttons.Add(new Button("GRENADE", Vector2.Zero));
+            }
+
+            if (hasGrapplingHookEquipped)
+            {
+                buttons.Add(new Button("GRAPPLIN", Vector2.Zero));
             }
 
             if (buttons.Count > 0)
@@ -404,6 +411,9 @@ namespace XCOM_3
                 case "OVERWATCH":
                     DrawEyeIcon(bounds, iconColor);
                     break;
+                case "GRAPPLIN":
+                    DrawGrappleIcon(bounds, iconColor);
+                    break;
                 default:
                     Vector2 textSize = font.MeasureString(action);
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, action,
@@ -470,6 +480,20 @@ namespace XCOM_3
             ParasiteEveTheme.DrawBorder(spriteBatch, pixel, eye, color, 2);
             DrawCircleOutline(cx, cy, 5, color, 2);
             spriteBatch.Draw(pixel, new Rectangle(cx - 1, cy - 1, 2, 2), color);
+        }
+
+        private void DrawGrappleIcon(Rectangle bounds, Color color)
+        {
+            int cx = bounds.Center.X;
+            int cy = bounds.Center.Y;
+
+            spriteBatch.Draw(pixel, new Rectangle(cx - 2, cy - 12, 4, 18), color);
+            spriteBatch.Draw(pixel, new Rectangle(cx - 9, cy + 4, 18, 3), color);
+            spriteBatch.Draw(pixel, new Rectangle(cx - 13, cy - 11, 9, 3), color);
+            spriteBatch.Draw(pixel, new Rectangle(cx + 4, cy - 11, 9, 3), color);
+            spriteBatch.Draw(pixel, new Rectangle(cx - 14, cy - 11, 2, 10), color);
+            spriteBatch.Draw(pixel, new Rectangle(cx + 12, cy - 11, 2, 10), color);
+            DrawCircleOutline(cx, cy + 9, 4, color, 2);
         }
 
         /// <summary>

@@ -882,7 +882,7 @@ namespace XCOM_3
 
         private Texture2D GetAccessoryTexture(ItemData data)
         {
-            if (IsTacticalFlashlight(data))
+            if (IsTacticalFlashlight(data) || IsGrapplingHook(data))
                 return flashlightTexture;
 
             return null;
@@ -930,6 +930,14 @@ namespace XCOM_3
         {
             return string.Equals(data?.Name, "Lampe tactique aluminium", StringComparison.OrdinalIgnoreCase);
         }
+
+        private static bool IsGrapplingHook(ItemData data)
+        {
+            return string.Equals(data?.Name, "Grappin tactique", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsHandUtilityItem(ItemData data)
+            => IsTacticalFlashlight(data) || IsGrapplingHook(data);
 
         private static bool IsHandFlashlightSource(string source)
         {
@@ -1010,6 +1018,16 @@ namespace XCOM_3
                 weightLbs: 0.6614f,
                 bonusInventorySlots: 0,
                 description: "Lampe tactique aluminium (1x1) - 300g");
+            ItemDatabase["Grappin tactique"] = new ItemData(
+                "Grappin tactique",
+                ItemType.Accessory,
+                armorValue: 0,
+                armorSlot: ArmorSlot.None,
+                protectionLevel: ProtectionLevel.None,
+                mobilityPenalty: 0,
+                weightLbs: 2.2046f,
+                bonusInventorySlots: 0,
+                description: "Grappin tactique compact (1x1) - 1kg");
 
             // Armures (charger depuis ArmorDatabase)
             foreach (var armor in ArmorDatabase.GetAllArmors())
@@ -1041,7 +1059,8 @@ namespace XCOM_3
                 "Pantalon de Travail",
                 // ✅ Grenades
                 "MK 2",
-                "Lampe tactique aluminium"
+                "Lampe tactique aluminium",
+                "Grappin tactique"
             };
 
             string[] backpackOptions = { "Backpack Small", "Backpack Medium", "Backpack XL" };
@@ -1778,7 +1797,7 @@ namespace XCOM_3
             }
 
             FlashlightHand flashlightHand = TryGetFlashlightHandForSlot(mousePosition);
-            if (IsTacticalFlashlight(item.Data) && flashlightHand != FlashlightHand.None)
+            if (IsHandUtilityItem(item.Data) && flashlightHand != FlashlightHand.None)
             {
                 if (flashlightHand == FlashlightHand.Left && IsTwoHandedWeapon(unit?.EquippedWeapon?.Data))
                     return false;
@@ -1786,7 +1805,7 @@ namespace XCOM_3
                 EquipFlashlightInHand(unit, flashlightHand, item.Data);
                 PlayUiSound(uiEquipSound, 0.6f);
 
-                Console.WriteLine($"[INVENTORY] ✅ Equipped flashlight in {flashlightHand} hand: {item.Data.Name}");
+                Console.WriteLine($"[INVENTORY] ✅ Equipped utility in {flashlightHand} hand: {item.Data.Name}");
                 return true;
             }
 
@@ -3076,7 +3095,7 @@ namespace XCOM_3
 
             if (data.Type == ItemType.Accessory)
             {
-                if (IsTacticalFlashlight(data))
+                if (IsHandUtilityItem(data))
                 {
                     if (unit.EquippedRightHandFlashlight == null)
                     {
@@ -4184,13 +4203,13 @@ namespace XCOM_3
 
             // Slots d'équipement principaux (empilés verticalement)
             Item rightHandItem = unit.EquippedWeapon ?? unit.EquippedRightHandFlashlight;
-            bool highlightRightHand = isDragging && (draggedItem.Data.Type == ItemType.Weapon || IsTacticalFlashlight(draggedItem.Data));
+            bool highlightRightHand = isDragging && (draggedItem.Data.Type == ItemType.Weapon || IsHandUtilityItem(draggedItem.Data));
             DrawEquipmentSlot(GetWeaponSlotBounds(), "RIGHT HAND", rightHandItem,
                 highlightRightHand,
                 labelOnLeft: true);
 
             Item leftHandItem = unit.EquippedShield ?? unit.EquippedLeftHandFlashlight;
-            bool highlightLeftHand = isDragging && ((draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield) || IsTacticalFlashlight(draggedItem.Data));
+            bool highlightLeftHand = isDragging && ((draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield) || IsHandUtilityItem(draggedItem.Data));
             DrawEquipmentSlot(GetShieldSlotBounds(), "LEFT HAND", leftHandItem,
                 highlightLeftHand,
                 labelOnLeft: true);
