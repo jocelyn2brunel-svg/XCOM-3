@@ -28,6 +28,7 @@ namespace XCOM_3
             currentMap.RampTiles ??= new List<RampTileData>();
             currentMap.TerrainHeights ??= new List<TerrainHeightData>();
             currentMap.HescoBarriers ??= new List<HescoBarrierData>();
+            currentMap.Furnitures ??= new List<FurnitureData>();
 
             if (currentMap.RampTiles.Count == 0 && currentMap.StairConnections != null)
             {
@@ -721,6 +722,17 @@ namespace XCOM_3
         }
 
 
+
+
+        private List<FurnitureData> GetFurnitureForFloor(int floor)
+        {
+            if (currentMap?.Furnitures == null || currentMap.Furnitures.Count == 0)
+                return new List<FurnitureData>();
+
+            return currentMap.Furnitures
+                .Where(f => f.Floor == floor)
+                .ToList();
+        }
 
         private List<Point> GetHescoBarriersForFloor(int floor)
         {

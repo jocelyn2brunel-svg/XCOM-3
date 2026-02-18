@@ -1605,6 +1605,10 @@ namespace XCOM_3
                 if (hescoBarriersForFloor.Count > 0)
                     renderer3D.DrawHescoBarriers(hescoBarriersForFloor, cellSize, yOffset, hescoWallTexture);
 
+                var furnituresForFloor = GetFurnitureForFloor(floor);
+                if (furnituresForFloor.Count > 0)
+                    renderer3D.DrawFurniture(furnituresForFloor, cellSize, yOffset);
+
                 var wallsForFloor = GetWallsForFloor(floor);
                 if (wallsForFloor.Count > 0)
                 {

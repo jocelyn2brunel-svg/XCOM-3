@@ -45,6 +45,7 @@ namespace XCOM_3
         public List<BuildingFootprintData> Buildings { get; set; } = new List<BuildingFootprintData>();
         public List<TerrainHeightData> TerrainHeights { get; set; } = new List<TerrainHeightData>();
         public List<HescoBarrierData> HescoBarriers { get; set; } = new List<HescoBarrierData>();
+        public List<FurnitureData> Furnitures { get; set; } = new List<FurnitureData>();
 
         // Paramètres de mission
         public string SuggestedMissionType { get; set; } = "Tutorial";
@@ -276,6 +277,40 @@ namespace XCOM_3
         public int X { get; set; }
         public int Y { get; set; }
         public int Floor { get; set; } = 0;
+    }
+
+    public enum FurnitureType
+    {
+        Counter,
+        Fridge,
+        Table,
+        Chair,
+        Stove,
+        Bed
+    }
+
+    [Serializable]
+    public class FurnitureData
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Floor { get; set; } = 0;
+        public FurnitureType Type { get; set; }
+
+        public static float GetHeightFeet(FurnitureType type)
+        {
+            return type switch
+            {
+                FurnitureType.Counter => 3f,
+                FurnitureType.Fridge => 6f,
+                FurnitureType.Table => 3f,
+                // Siège: 2 pieds + 1 pied pour le dossier.
+                FurnitureType.Chair => 3f,
+                FurnitureType.Stove => 3f,
+                FurnitureType.Bed => 2f,
+                _ => 3f
+            };
+        }
     }
 
     /// <summary>
