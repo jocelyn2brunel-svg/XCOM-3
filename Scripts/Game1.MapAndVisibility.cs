@@ -62,6 +62,7 @@ namespace XCOM_3
 
             // Charger les murs
             wallSegments = map.GetWalls();
+            shatteredWindows.Clear();
             InvalidateWallsByFloorCache();
             terrainHeights = currentMap.TerrainHeights
                 .Where(t => t.X >= 0 && t.X < gridWidth && t.Y >= 0 && t.Y < gridHeight)
@@ -335,6 +336,8 @@ namespace XCOM_3
                             wallForFloor = new WallSegment(wall.Start, wall.End, wall.IsHorizontal, WallType.Window, wall.Material);
                     }
 
+                    wallForFloor = ApplyShatteredWindowState(wallForFloor, floor);
+
                     filteredWalls.Add(wallForFloor);
                 }
             }
@@ -355,7 +358,7 @@ namespace XCOM_3
                 : (wall.Start.X == minX || wall.Start.X == maxX);
         }
 
-        private static void AddExteriorWallsForFloor(HashSet<WallSegment> target, int minX, int minY, int maxX, int maxY, int floor)
+        private void AddExteriorWallsForFloor(HashSet<WallSegment> target, int minX, int minY, int maxX, int maxY, int floor)
         {
             if (target == null)
                 return;
@@ -379,8 +382,11 @@ namespace XCOM_3
                         southType = WallType.Window;
                 }
 
-                target.Add(new WallSegment(new Point(x, minY), new Point(x + 1, minY), true, northType, WallMaterial.Brick));
-                target.Add(new WallSegment(new Point(x, maxY), new Point(x + 1, maxY), true, southType, WallMaterial.Brick));
+                WallSegment northWall = new WallSegment(new Point(x, minY), new Point(x + 1, minY), true, northType, WallMaterial.Brick);
+                WallSegment southWall = new WallSegment(new Point(x, maxY), new Point(x + 1, maxY), true, southType, WallMaterial.Brick);
+
+                target.Add(ApplyShatteredWindowState(northWall, floor));
+                target.Add(ApplyShatteredWindowState(southWall, floor));
             }
 
             for (int y = minY; y < maxY; y++)
@@ -399,9 +405,24 @@ namespace XCOM_3
                         eastType = WallType.Window;
                 }
 
-                target.Add(new WallSegment(new Point(minX, y), new Point(minX, y + 1), false, westType, WallMaterial.Brick));
-                target.Add(new WallSegment(new Point(maxX, y), new Point(maxX, y + 1), false, eastType, WallMaterial.Brick));
+                WallSegment westWall = new WallSegment(new Point(minX, y), new Point(minX, y + 1), false, westType, WallMaterial.Brick);
+                WallSegment eastWall = new WallSegment(new Point(maxX, y), new Point(maxX, y + 1), false, eastType, WallMaterial.Brick);
+
+                target.Add(ApplyShatteredWindowState(westWall, floor));
+                target.Add(ApplyShatteredWindowState(eastWall, floor));
             }
+        }
+
+        private WallSegment ApplyShatteredWindowState(WallSegment wall, int floor)
+        {
+            if (wall.Type != WallType.Window)
+                return wall;
+
+            WindowInstance instance = new WindowInstance(floor, wall);
+            if (!shatteredWindows.Contains(instance))
+                return wall;
+
+            return new WallSegment(wall.Start, wall.End, wall.IsHorizontal, WallType.Door, wall.Material);
         }
 
         private HashSet<WallSegment> FilterUpperFloorWallsForLowerView(int sourceFloor, int viewedFloor, HashSet<WallSegment> walls)
