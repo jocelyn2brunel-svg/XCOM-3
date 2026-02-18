@@ -229,6 +229,7 @@ namespace XCOM_3
             public int Floor;
             public int Quantity;
             public float PulseSeed;
+            public bool IsOn;
         }
 
         private struct PlantedSatchelCharge

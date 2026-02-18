@@ -259,7 +259,11 @@ namespace XCOM_3
 
             if (leftClick && throwTarget.X >= 0 && canThrow)
             {
-                LaunchGrenade(selectedUnit, selectedGrenade, throwTarget, viewedFloor);
+                bool flashlightWasOn = false;
+                if (throwModeUsesFlashlight)
+                    flashlightWasOn = throwFlashlightFromRightHand ? selectedUnit.IsRightHandFlashlightOn : selectedUnit.IsLeftHandFlashlightOn;
+
+                LaunchGrenade(selectedUnit, selectedGrenade, throwTarget, viewedFloor, flashlightWasOn);
                 selectedUnit.ActionPoints -= selectedGrenade.AOCost;
                 selectedUnit.RegisterIntenseAction("lancer", 14);
 
@@ -276,7 +280,7 @@ namespace XCOM_3
                         selectedUnit.IsLeftHandFlashlightOn = false;
                     }
 
-                    Console.WriteLine($"{selectedUnit.Name} threw tactical flashlight at {throwTarget}");
+                    Console.WriteLine($"{selectedUnit.Name} threw tactical flashlight at {throwTarget} (light {(flashlightWasOn ? "ON" : "OFF")}).");
                 }
                 else
                 {
@@ -782,7 +786,7 @@ namespace XCOM_3
             return position;
         }
 
-        private void LaunchGrenade(Unit thrower, GrenadeData grenadeData, Point targetCell, int targetFloor)
+        private void LaunchGrenade(Unit thrower, GrenadeData grenadeData, Point targetCell, int targetFloor, bool flashlightEmitsLight = false)
         {
             Point actualLandingCell = ResolveThrowLandingCell(thrower, targetCell, targetFloor);
 
@@ -792,6 +796,7 @@ namespace XCOM_3
                 WorldMetrics.FloorToWorldY(targetFloor, cellSize) + cellSize * 0.5f,
                 actualLandingCell.Y * cellSize + cellSize / 2f);
             Grenade grenade = new Grenade(grenadeData, startPos, targetPos, thrower, targetFloor);
+            grenade.EmitsLight = flashlightEmitsLight;
             activeGrenades.Add(grenade);
             if (actualLandingCell != targetCell)
             {
@@ -1034,7 +1039,7 @@ namespace XCOM_3
 
                     if (string.Equals(grenade.Data?.Name, TacticalFlashlightItemName, StringComparison.OrdinalIgnoreCase))
                     {
-                        RegisterFlashlightLoot(explosionCell, grenade.TargetFloor);
+                        RegisterFlashlightLoot(explosionCell, grenade.TargetFloor, grenade.EmitsLight);
                     }
 
                     TriggerExplosion(explosionCell, grenade.TargetFloor, grenade.Data, grenade.Thrower);
@@ -1047,7 +1052,7 @@ namespace XCOM_3
         }
 
 
-        private void RegisterFlashlightLoot(Point lootCell, int lootFloor)
+        private void RegisterFlashlightLoot(Point lootCell, int lootFloor, bool isOn)
         {
             bool addedToNearbyLoot = RegisterGroundLoot(TacticalFlashlightItemName, lootCell, lootFloor);
             Console.WriteLine(addedToNearbyLoot
@@ -1066,6 +1071,7 @@ namespace XCOM_3
                     continue;
 
                 marker.Quantity += 1;
+                marker.IsOn = marker.IsOn || isOn;
                 marker.PulseSeed = (float)(random.NextDouble() * MathHelper.TwoPi);
                 flashlightLootMarkers[i] = marker;
                 mergedWithExistingCell = true;
@@ -1079,7 +1085,8 @@ namespace XCOM_3
                     Cell = lootCell,
                     Floor = lootFloor,
                     Quantity = 1,
-                    PulseSeed = (float)(random.NextDouble() * MathHelper.TwoPi)
+                    PulseSeed = (float)(random.NextDouble() * MathHelper.TwoPi),
+                    IsOn = isOn
                 });
             }
 
@@ -1101,6 +1108,18 @@ namespace XCOM_3
 
                 float pulse = 0.58f + 0.42f * (float)Math.Sin(gameSeconds * 6f + marker.PulseSeed);
                 Color pulseColor = new Color(255, 230, 80, 235) * pulse;
+
+                if (marker.IsOn)
+                {
+                    Vector3 lightCenter = new Vector3(
+                        marker.Cell.X * cellSize + cellSize * 0.5f,
+                        floorYOffset + cellSize * 0.12f,
+                        marker.Cell.Y * cellSize + cellSize * 0.5f);
+
+                    float haloScale = cellSize * (0.75f + pulse * 0.35f);
+                    renderer3D.DrawPlane(lightCenter, new Vector3(haloScale, 1f, haloScale), new Color(255, 248, 180, 90) * pulse);
+                    renderer3D.DrawCube(lightCenter + new Vector3(0f, cellSize * 0.12f, 0f), new Vector3(cellSize * 0.10f), new Color(255, 252, 210, 225) * pulse);
+                }
 
                 renderer3D.DrawZoneOutline(new[] { marker.Cell }, cellSize, floorYOffset + 0.09f, pulseColor);
             }
