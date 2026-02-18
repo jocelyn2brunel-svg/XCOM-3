@@ -410,7 +410,7 @@ namespace XCOM_3
                 GraphicsDevice);
             characterInfoPanel = new CharacterInfoPanel(font, GraphicsDevice);
 
-            combatSystem = new CombatSystem(random, pathfinding, GetUnitAtCell, unitManager);
+            combatSystem = new CombatSystem(random, pathfinding, GetUnitAtCell, GetFurnitureAtCellOnFloor, unitManager);
             combatUI = new CombatUISystem(GraphicsDevice, _spriteBatch, font, pixel);
             combatSystem.OnUnitKilled += HandleUnitKilled;
             combatSystem.OnFireCompleted += HandleFireCompleted;
@@ -2909,6 +2909,17 @@ namespace XCOM_3
         Unit GetUnitAtCellOnFloor(Point cell, int floor)
         {
             return unitManager.SpatialHash.GetUnitAt(cell, floor);
+        }
+
+        FurnitureData GetFurnitureAtCellOnFloor(Point cell, int floor)
+        {
+            if (currentMap?.Furnitures == null)
+                return null;
+
+            return currentMap.Furnitures.FirstOrDefault(f =>
+                f.Floor == floor &&
+                f.X == cell.X &&
+                f.Y == cell.Y);
         }
 
         Unit GetUnitAtCellAnyFloor(Point cell)
