@@ -400,15 +400,18 @@ namespace XCOM_3
 
         public int GetBallisticDamageReduction()
         {
-            int protectionReduction = GetBestProtectionLevel() switch
+            int nijProtectionPercent = 0;
+
+            foreach (var equipped in GetEquippedArmorItems())
             {
-                ProtectionLevel.Fragmentation => 1,
-                ProtectionLevel.NIJ_II => 2,
-                ProtectionLevel.NIJ_IIIA => 3,
-                ProtectionLevel.NIJ_III => 4,
-                ProtectionLevel.NIJ_IV => 5,
-                _ => 0
-            };
+                if (equipped?.Data == null)
+                    continue;
+
+                nijProtectionPercent += equipped.Data.GetNijProtectionPercent();
+            }
+
+            nijProtectionPercent = Math.Clamp(nijProtectionPercent, 0, 95);
+            int protectionReduction = (int)Math.Round(nijProtectionPercent / 20f);
 
             return protectionReduction + Skills.GetDefenseBonus();
         }

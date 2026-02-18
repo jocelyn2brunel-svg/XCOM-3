@@ -456,18 +456,7 @@ namespace XCOM_3
             if (data == null)
                 return 0;
 
-            if (data.FragmentationProtectionPercent > 0)
-                return data.FragmentationProtectionPercent;
-
-            return data.ProtectionLevel switch
-            {
-                ProtectionLevel.Fragmentation => 12,
-                ProtectionLevel.NIJ_II => 16,
-                ProtectionLevel.NIJ_IIIA => 20,
-                ProtectionLevel.NIJ_III => 24,
-                ProtectionLevel.NIJ_IV => 28,
-                _ => 0
-            };
+            return data.GetEffectiveFragmentationProtectionPercent();
         }
 
         private bool TryGetMk2FragmentHitChancePercent(Point centerCell, int centerFloor, Unit unit, out int hitChancePercent)

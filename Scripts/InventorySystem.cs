@@ -3607,7 +3607,7 @@ namespace XCOM_3
                 string line2 = $"Type: {contextMenuItem.Data.Type}";
                 string line3 = $"Poids: {contextMenuItem.Data.WeightLbs:0.##} lbs";
                 string line4 = contextMenuItem.Data.Type == ItemType.Armor
-                    ? $"Résistance éclats: {contextMenuItem.Data.FragmentationProtectionPercent}%"
+                    ? $"Résistance éclats: {contextMenuItem.Data.GetEffectiveFragmentationProtectionPercent()}%"
                     : string.Empty;
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, line1,
@@ -3685,7 +3685,7 @@ namespace XCOM_3
                     string line2 = $"Type: {contextMenuItem.Data.Type}";
                     string line3 = $"Poids: {contextMenuItem.Data.WeightLbs:0.##} lbs";
                     string line4 = contextMenuItem.Data.Type == ItemType.Armor
-                        ? $"Résistance éclats: {contextMenuItem.Data.FragmentationProtectionPercent}%"
+                        ? $"Résistance éclats: {contextMenuItem.Data.GetEffectiveFragmentationProtectionPercent()}%"
                         : string.Empty;
                     string advantagesLine = string.Empty;
                     string drawbacksLine = string.Empty;
@@ -3882,10 +3882,14 @@ namespace XCOM_3
 
                 if (examinedItemData.Type == ItemType.Armor)
                 {
-                    string fragText = $"Résistance éclats: {examinedItemData.FragmentationProtectionPercent}%";
+                    string fragText = $"Résistance éclats: {examinedItemData.GetEffectiveFragmentationProtectionPercent()}%";
                     Vector2 fragPos = new Vector2(textX, textY + 96);
                     float fragScale = 0.7f;
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, fragText, fragPos, ParasiteEveTheme.TextNormal, fragScale);
+
+                    string nijText = $"Protection NIJ pondérée: {examinedItemData.GetNijProtectionPercent()}% (couverture {examinedItemData.GetEffectiveBodyCoveragePercent()}%)";
+                    Vector2 nijPos = new Vector2(textX, textY + 116);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, nijText, nijPos, ParasiteEveTheme.TextDim, 0.58f);
 
                     if (TryGetFragmentationDeltaText(examinedItemData, out string fragDeltaText, out Color fragDeltaColor))
                     {
@@ -3894,7 +3898,7 @@ namespace XCOM_3
                         ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, fragDeltaText, deltaPos, fragDeltaColor, fragScale);
                     }
 
-                    detailsBottomY = Math.Max(detailsBottomY, fragPos.Y);
+                    detailsBottomY = Math.Max(detailsBottomY, nijPos.Y);
                 }
 
                 if (!string.IsNullOrWhiteSpace(examinedItemData.Description))
@@ -4541,8 +4545,8 @@ namespace XCOM_3
             if (equippedData == null)
                 return;
 
-            int candidateFrag = Math.Max(0, itemData.FragmentationProtectionPercent);
-            int equippedFrag = Math.Max(0, equippedData.FragmentationProtectionPercent);
+            int candidateFrag = Math.Max(0, itemData.GetEffectiveFragmentationProtectionPercent());
+            int equippedFrag = Math.Max(0, equippedData.GetEffectiveFragmentationProtectionPercent());
             float candidateWeight = Math.Max(0f, itemData.WeightLbs);
             float equippedWeight = Math.Max(0f, equippedData.WeightLbs);
 
@@ -4607,8 +4611,8 @@ namespace XCOM_3
             if (equippedData == null)
                 return false;
 
-            int candidateFrag = Math.Max(0, candidateData.FragmentationProtectionPercent);
-            int equippedFrag = Math.Max(0, equippedData.FragmentationProtectionPercent);
+            int candidateFrag = Math.Max(0, candidateData.GetEffectiveFragmentationProtectionPercent());
+            int equippedFrag = Math.Max(0, equippedData.GetEffectiveFragmentationProtectionPercent());
             int delta = candidateFrag - equippedFrag;
             if (delta == 0)
                 return false;
@@ -4660,7 +4664,7 @@ namespace XCOM_3
             List<string> advantageList = new List<string>();
             List<string> drawbackList = new List<string>();
 
-            int fragDelta = Math.Max(0, candidateData.FragmentationProtectionPercent) - Math.Max(0, equippedData.FragmentationProtectionPercent);
+            int fragDelta = Math.Max(0, candidateData.GetEffectiveFragmentationProtectionPercent()) - Math.Max(0, equippedData.GetEffectiveFragmentationProtectionPercent());
             if (fragDelta > 0)
                 advantageList.Add($"+{fragDelta}% éclats");
             else if (fragDelta < 0)
