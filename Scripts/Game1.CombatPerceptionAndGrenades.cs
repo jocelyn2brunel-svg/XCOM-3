@@ -1022,11 +1022,12 @@ namespace XCOM_3
 
         private void UpdateGrenades(GameTime gameTime)
         {
-            float grenadeSpeed = 2.5f;
+            float elapsedSeconds = (float)gameTime.ElapsedGameTime.TotalSeconds;
             for (int i = activeGrenades.Count - 1; i >= 0; i--)
             {
                 var grenade = activeGrenades[i];
-                grenade.Progress += (float)gameTime.ElapsedGameTime.TotalSeconds * grenadeSpeed;
+                float duration = Math.Max(0.001f, grenade.FlightDurationSeconds);
+                grenade.Progress += elapsedSeconds / duration;
                 if (grenade.Progress >= 1f)
                 {
                     Point explosionCell = new Point((int)(grenade.TargetPosition.X / cellSize), (int)(grenade.TargetPosition.Z / cellSize));
