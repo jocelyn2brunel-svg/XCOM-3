@@ -56,6 +56,8 @@ namespace XCOM_3
         private bool useShoulderCamera = false;
         private Vector3 shoulderCameraPosition;
         private Vector3 shoulderCameraTarget;
+        private float antiOcclusionHeightOffset = 0f;
+        private float antiOcclusionOrbitOffset = 0f;
 
         // ═══════════════════════════════════════════════════════════════════════
         // CONSTRUCTEUR
@@ -137,13 +139,14 @@ namespace XCOM_3
 
             // Appliquer le zoom
             float adjustedDistance = cameraDistance / zoomLevel;
-            float adjustedHeight = cameraHeight / zoomLevel;
+            float adjustedHeight = cameraHeight / zoomLevel + antiOcclusionHeightOffset;
+            float effectiveAngle = cameraAngle + antiOcclusionOrbitOffset;
 
             // Position de la caméra en orbite autour du centre
             Position = new Vector3(
-                centerX + (float)Math.Cos(cameraAngle) * adjustedDistance,
+                centerX + (float)Math.Cos(effectiveAngle) * adjustedDistance,
                 adjustedHeight,
-                centerZ + (float)Math.Sin(cameraAngle) * adjustedDistance
+                centerZ + (float)Math.Sin(effectiveAngle) * adjustedDistance
             );
 
             // Matrice de vue
@@ -379,6 +382,12 @@ namespace XCOM_3
         {
             useShoulderCamera = false;
             UpdateCamera();
+        }
+
+        public void SetAntiOcclusionOffsets(float heightOffset, float orbitOffset)
+        {
+            antiOcclusionHeightOffset = MathHelper.Clamp(heightOffset, 0f, cellSize * 1.5f);
+            antiOcclusionOrbitOffset = MathHelper.Clamp(orbitOffset, MathHelper.ToRadians(-10f), MathHelper.ToRadians(10f));
         }
 
         // ═══════════════════════════════════════════════════════════════════════
