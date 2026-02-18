@@ -2480,9 +2480,48 @@ namespace XCOM_3
             }
 
             WeaponData weaponInstance = weaponData.Clone();
+            ApplyRandomWeaponUpgrades(weaponInstance);
             unit.Weapon = weaponInstance.Name;
             unit.WeaponData = weaponInstance;
             unit.EquippedWeapon = new Item(new ItemData(weaponInstance.Name, ItemType.Weapon, weaponInstance), Point.Zero);
+        }
+
+        private void ApplyRandomWeaponUpgrades(WeaponData weapon)
+        {
+            if (weapon == null || weapon.UpgradeSlots == null)
+                return;
+
+            // Une partie des armes reste "stock" pour préserver de la variété.
+            if (random.NextDouble() > 0.72)
+                return;
+
+            if (weapon.UsesAmmo && random.NextDouble() < 0.45)
+            {
+                int extraRounds = weapon.Type switch
+                {
+                    WeaponType.Pistol or WeaponType.Revolver => random.Next(2, 5),
+                    WeaponType.Shotgun => random.Next(1, 3),
+                    WeaponType.MachineGun => random.Next(12, 31),
+                    _ => random.Next(4, 13)
+                };
+                weapon.TryInstallUpgrade(WeaponUpgradeData.ExtendedMagazine(extraRounds));
+            }
+
+            if (random.NextDouble() < 0.40)
+            {
+                int opticBonus = weapon.Type == WeaponType.SniperRifle || weapon.Type == WeaponType.DMR
+                    ? random.Next(8, 14)
+                    : random.Next(4, 10);
+                weapon.TryInstallUpgrade(WeaponUpgradeData.RedDotSight(opticBonus));
+            }
+
+            if (weapon.UsesAmmo && random.NextDouble() < 0.36)
+            {
+                int laserBonus = weapon.Type == WeaponType.SMG || weapon.Type == WeaponType.Pistol
+                    ? random.Next(6, 11)
+                    : random.Next(3, 8);
+                weapon.TryInstallUpgrade(WeaponUpgradeData.LaserSight(laserBonus));
+            }
         }
 
         private WeaponData GetRandomWeaponData(string preferredWeaponName = null, bool enforcePreferred = false)
@@ -2530,17 +2569,20 @@ namespace XCOM_3
                         ? data
                         : GetRandomWeaponData();
                     string weaponName = weaponData?.Name ?? profile.Weapon;
-                    Unit unit = new Unit(playerSpawnCells[i], Team.Player, profile.Name, profile.Job, weaponName, weaponData)
+                    Unit unit = new Unit(playerSpawnCells[i], Team.Player, profile.Name, profile.Job, string.Empty, null)
                     {
                         EyeColor = Unit.ParseEyeColor(profile.EyeColor)
                     };
+                    AssignWeaponToUnit(unit, weaponData);
                     playerUnits.Add(unit);
                 }
                 else
                 {
                     (string callSign, string job) = GenerateRandomRecruitProfile();
                     var randomWeapon = GetRandomWeaponData();
-                    playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, callSign, job, randomWeapon?.Name ?? string.Empty, randomWeapon));
+                    var playerUnit = new Unit(playerSpawnCells[i], Team.Player, callSign, job, string.Empty, null);
+                    AssignWeaponToUnit(playerUnit, randomWeapon);
+                    playerUnits.Add(playerUnit);
                 }
             }
 

@@ -4387,6 +4387,7 @@ namespace XCOM_3
             DrawEquipmentSlot(GetWeaponSlotBounds(), "RIGHT HAND", rightHandItem,
                 highlightRightHand,
                 labelOnLeft: true);
+            DrawWeaponUpgradeSlots(unit.EquippedWeapon);
 
             Item leftHandItem = unit.EquippedShield ?? unit.EquippedLeftHandFlashlight;
             bool highlightLeftHand = isDragging && ((draggedItem.Data.Type == ItemType.Armor && draggedItem.Data.ArmorSlot == ArmorSlot.Shield) || IsHandUtilityItem(draggedItem.Data));
@@ -4463,6 +4464,62 @@ namespace XCOM_3
             }
 
             DrawBackpackUtilityGrid(unit);
+        }
+
+        private void DrawLine(Vector2 start, Vector2 end, Color color)
+        {
+            Vector2 edge = end - start;
+            float angle = (float)Math.Atan2(edge.Y, edge.X);
+            float length = edge.Length();
+            if (length <= 0.5f)
+                return;
+
+            spriteBatch.Draw(pixel, new Rectangle((int)start.X, (int)start.Y, (int)length, 1), null, color, angle, Vector2.Zero, SpriteEffects.None, 0f);
+        }
+
+        private void DrawWeaponUpgradeSlots(Item equippedWeapon)
+        {
+            Rectangle weaponSlot = GetWeaponSlotBounds();
+            DrawWeaponUpgradeSlot(GetWeaponUpgradeSlotBounds(WeaponUpgradeSlotType.Magazine), "MAG", GetUpgradeName(equippedWeapon, WeaponUpgradeSlotType.Magazine), weaponSlot);
+            DrawWeaponUpgradeSlot(GetWeaponUpgradeSlotBounds(WeaponUpgradeSlotType.Optic), "OPT", GetUpgradeName(equippedWeapon, WeaponUpgradeSlotType.Optic), weaponSlot);
+            DrawWeaponUpgradeSlot(GetWeaponUpgradeSlotBounds(WeaponUpgradeSlotType.Underbarrel), "LZR", GetUpgradeName(equippedWeapon, WeaponUpgradeSlotType.Underbarrel), weaponSlot);
+        }
+
+        private void DrawWeaponUpgradeSlot(Rectangle slot, string shortLabel, string installedUpgradeName, Rectangle weaponSlot)
+        {
+            Color slotBackground = ParasiteEveTheme.BackgroundDark * 0.78f;
+            spriteBatch.Draw(pixel, slot, slotBackground);
+
+            Color borderColor = string.IsNullOrWhiteSpace(installedUpgradeName)
+                ? ParasiteEveTheme.BorderColor * 0.9f
+                : Color.Lerp(ParasiteEveTheme.ButtonNormal, Color.LimeGreen, 0.6f);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, slot, borderColor, 1);
+
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, shortLabel,
+                new Vector2(slot.X + 2, slot.Y - 10), ParasiteEveTheme.TextDim, 0.45f);
+
+            if (!string.IsNullOrWhiteSpace(installedUpgradeName))
+            {
+                Rectangle inner = new Rectangle(slot.X + 2, slot.Y + 2, slot.Width - 4, slot.Height - 4);
+                spriteBatch.Draw(pixel, inner, Color.Lerp(ParasiteEveTheme.ButtonNormal, Color.LimeGreen, 0.55f) * 0.7f);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, inner, Color.LimeGreen * 0.85f, 1);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, installedUpgradeName,
+                    new Vector2(inner.X + 3, inner.Y + inner.Height / 2f - 4), ParasiteEveTheme.TextNormal, 0.4f);
+            }
+
+            Vector2 linkStart = new Vector2(weaponSlot.Right, weaponSlot.Center.Y);
+            Vector2 linkEnd = new Vector2(slot.X, slot.Center.Y);
+            DrawLine(linkStart, linkEnd, ParasiteEveTheme.TextDim * 0.22f);
+        }
+
+        private static string GetUpgradeName(Item equippedWeapon, WeaponUpgradeSlotType slotType)
+        {
+            if (equippedWeapon?.Data?.WeaponData?.UpgradeSlots == null)
+                return string.Empty;
+
+            return equippedWeapon.Data.WeaponData.UpgradeSlots.TryGetValue(slotType, out WeaponUpgradeData upgrade)
+                ? upgrade?.Name ?? string.Empty
+                : string.Empty;
         }
 
         private void DrawBackpackUtilityGrid(Unit unit)
@@ -5146,6 +5203,25 @@ namespace XCOM_3
             return new Rectangle(
                 alignedGridOrigin.X + EQUIP_SLOT_LEFT_PADDING,
                 alignedGridOrigin.Y + EQUIP_LABEL_ROW_HEIGHT + row * (CELL_SIZE + EQUIP_SLOT_VERTICAL_SPACING),
+                CELL_SIZE,
+                CELL_SIZE
+            );
+        }
+
+        private Rectangle GetWeaponUpgradeSlotBounds(WeaponUpgradeSlotType slotType)
+        {
+            Rectangle weaponSlot = GetWeaponSlotBounds();
+            int offsetY = slotType switch
+            {
+                WeaponUpgradeSlotType.Magazine => -CELL_SIZE,
+                WeaponUpgradeSlotType.Optic => 0,
+                WeaponUpgradeSlotType.Underbarrel => CELL_SIZE,
+                _ => 0
+            };
+
+            return new Rectangle(
+                weaponSlot.Right + UTILITY_SLOT_GAP,
+                weaponSlot.Y + offsetY,
                 CELL_SIZE,
                 CELL_SIZE
             );
