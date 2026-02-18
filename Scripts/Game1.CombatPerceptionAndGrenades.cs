@@ -249,6 +249,7 @@ namespace XCOM_3
 
             throwMode = false;
             grappleMode = true;
+            floorViewMode = FloorViewMode.AbilityLocked;
             viewedFloor = grappleTargetFloor;
             Console.WriteLine($"[GRAPPLIN] Mode activé: {grappleAnchors.Count} points d'ancrage à l'étage {grappleTargetFloor}.");
         }

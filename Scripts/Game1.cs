@@ -166,6 +166,11 @@ namespace XCOM_3
 
         private Point lastHoveredCell = new Point(-1, -1);
         private int viewedFloor = 0;
+        private enum FloorViewMode { AutoFollow, Manual, AbilityLocked }
+        private FloorViewMode floorViewMode = FloorViewMode.AutoFollow;
+        private double manualFloorViewUntilSeconds = 0d;
+        private bool explicitUpperFloorTargeting = false;
+        private const double ManualFloorViewHoldSeconds = 6d;
         private HashSet<Point> upperFloorCells = new();
         private HashSet<Point> roadCells = new();
         private HashSet<Point> sidewalkCells = new();
@@ -187,6 +192,8 @@ namespace XCOM_3
         private const int TabTopMargin = 12;
         private const float WallHeightRatio = 2.0f;
         private const int HoverRevealRadius = 2;
+        private const int FloorUiButtonY = 88;
+        private const int FloorUiButtonSize = 28;
         private RasterizerState hoveredCellWireframeState;
 
         private struct FlashlightLootMarker
@@ -853,7 +860,7 @@ namespace XCOM_3
             if (combatSystem.CurrentTurn == TurnState.PlayerTurn)
             {
                 ProcessGrappleConcentrationAtTurnStart();
-                HandlePlayerTurn(mouse, leftClick, keyboard);
+                HandlePlayerTurn(mouse, leftClick, keyboard, gameTime);
             }
             else if (combatSystem.CurrentTurn == TurnState.EnemyTurn)
             {
@@ -870,7 +877,7 @@ namespace XCOM_3
             UpdateAimCameraAndPose();
             camera.HandleControls(keyboard, mouse, previousMouseState, gameTime, allowZoom: !statsPanel.IsVisible);
             UpdateDayNightCycle(gameTime);
-            HandleFloorViewControls(keyboard);
+            HandleFloorViewControls(keyboard, gameTime);
 
             if (escapePressed) ReturnToMainMenuWithSave();
         }
@@ -1176,17 +1183,112 @@ namespace XCOM_3
             }
         }
 
-        private void HandleFloorViewControls(KeyboardState keyboard)
+        private void HandleFloorViewControls(KeyboardState keyboard, GameTime gameTime)
         {
             int minFloor = GetMinimumViewFloor();
             int maxFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
 
-            // Désactive le mode de navigation manuelle des étages pour l'instant.
-            // L'étage affiché suit automatiquement l'unité sélectionnée côté joueur.
-            if (selectedUnit != null)
+            bool pageUpPressed = keyboard.IsKeyDown(Keys.PageUp) && previousKeyboardState.IsKeyUp(Keys.PageUp);
+            bool pageDownPressed = keyboard.IsKeyDown(Keys.PageDown) && previousKeyboardState.IsKeyUp(Keys.PageDown);
+
+            if (pageUpPressed)
+                SetManualViewedFloor(viewedFloor + 1, minFloor, maxFloor, gameTime);
+            if (pageDownPressed)
+                SetManualViewedFloor(viewedFloor - 1, minFloor, maxFloor, gameTime);
+
+            if (floorViewMode == FloorViewMode.Manual && gameTime.TotalGameTime.TotalSeconds >= manualFloorViewUntilSeconds)
+                floorViewMode = FloorViewMode.AutoFollow;
+
+            if (floorViewMode == FloorViewMode.AbilityLocked)
+            {
+                if (grappleMode && grappleTargetFloor >= minFloor)
+                    viewedFloor = grappleTargetFloor;
+
+                viewedFloor = Math.Clamp(viewedFloor, minFloor, maxFloor);
+                return;
+            }
+
+            if (selectedUnit != null && floorViewMode == FloorViewMode.AutoFollow)
                 viewedFloor = selectedUnit.Floor;
 
             viewedFloor = Math.Clamp(viewedFloor, minFloor, maxFloor);
+        }
+
+        private void SetManualViewedFloor(int targetFloor, int minFloor, int maxFloor, GameTime gameTime)
+        {
+            floorViewMode = FloorViewMode.Manual;
+            manualFloorViewUntilSeconds = gameTime.TotalGameTime.TotalSeconds + ManualFloorViewHoldSeconds;
+            viewedFloor = Math.Clamp(targetFloor, minFloor, maxFloor);
+        }
+
+        private int ResolveInteractionFloor(int baseFloor)
+        {
+            if (!explicitUpperFloorTargeting)
+                return baseFloor;
+
+            int maxFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
+            return Math.Clamp(baseFloor + 1, GetMinimumViewFloor(), maxFloor);
+        }
+
+        private bool TryResolveAvailableClickedFloor(Point cell, int preferredFloor, out int resolvedFloor)
+        {
+            resolvedFloor = preferredFloor;
+            if (IsCellAvailableOnFloor(cell, preferredFloor))
+                return true;
+
+            int minFloor = GetMinimumViewFloor();
+            int maxFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
+            int upFloor = Math.Clamp(preferredFloor + 1, minFloor, maxFloor);
+            int downFloor = Math.Clamp(preferredFloor - 1, minFloor, maxFloor);
+
+            if (upFloor != preferredFloor && IsCellAvailableOnFloor(cell, upFloor))
+            {
+                resolvedFloor = upFloor;
+                return true;
+            }
+
+            if (downFloor != preferredFloor && IsCellAvailableOnFloor(cell, downFloor))
+            {
+                resolvedFloor = downFloor;
+                return true;
+            }
+
+            return false;
+        }
+
+        private void GetFloorControlButtonRects(out Rectangle downButton, out Rectangle upButton, out Rectangle modeButton)
+        {
+            int x = 10;
+            downButton = new Rectangle(x, FloorUiButtonY, FloorUiButtonSize, FloorUiButtonSize);
+            upButton = new Rectangle(x + FloorUiButtonSize + 4, FloorUiButtonY, FloorUiButtonSize, FloorUiButtonSize);
+            modeButton = new Rectangle(x + (FloorUiButtonSize + 4) * 2, FloorUiButtonY, 90, FloorUiButtonSize);
+        }
+
+        private bool HandleFloorControlButtonClicks(MouseState mouse, GameTime gameTime)
+        {
+            GetFloorControlButtonRects(out Rectangle downButton, out Rectangle upButton, out Rectangle modeButton);
+            if (!downButton.Contains(mouse.Position) && !upButton.Contains(mouse.Position) && !modeButton.Contains(mouse.Position))
+                return false;
+
+            int minFloor = GetMinimumViewFloor();
+            int maxFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
+
+            if (downButton.Contains(mouse.Position))
+            {
+                SetManualViewedFloor(viewedFloor - 1, minFloor, maxFloor, gameTime);
+            }
+            else if (upButton.Contains(mouse.Position))
+            {
+                SetManualViewedFloor(viewedFloor + 1, minFloor, maxFloor, gameTime);
+            }
+            else if (modeButton.Contains(mouse.Position))
+            {
+                floorViewMode = floorViewMode == FloorViewMode.AutoFollow ? FloorViewMode.Manual : FloorViewMode.AutoFollow;
+                if (floorViewMode == FloorViewMode.Manual)
+                    manualFloorViewUntilSeconds = gameTime.TotalGameTime.TotalSeconds + ManualFloorViewHoldSeconds;
+            }
+
+            return true;
         }
 
         private void ReadInputs(out bool leftClick, out bool escapePressed, out bool iPressed,
@@ -1303,17 +1405,37 @@ namespace XCOM_3
 
             if (grappleMode)
             {
-                _spriteBatch.DrawString(font, "Mode grappin: ciblez une fenetre/demi-mur en hauteur", new Vector2(10, 90), new Color(110, 240, 255));
+                _spriteBatch.DrawString(font, "Mode grappin: ciblez une fenetre/demi-mur en hauteur", new Vector2(10, 120), new Color(110, 240, 255));
             }
 
-            _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | PgUp/PgDn: Etage | I: Inventaire | C: Fiche perso", new Vector2(10, 10), Color.White);
+            GetFloorControlButtonRects(out Rectangle floorDownButton, out Rectangle floorUpButton, out Rectangle floorModeButton);
+            DrawFloorControlButton(floorDownButton, "-", Color.IndianRed);
+            DrawFloorControlButton(floorUpButton, "+", Color.CadetBlue);
+            string floorModeLabel = floorViewMode == FloorViewMode.AutoFollow ? "AUTO" : floorViewMode == FloorViewMode.Manual ? "MAN" : "LOCK";
+            DrawFloorControlButton(floorModeButton, floorModeLabel, floorViewMode == FloorViewMode.AutoFollow ? Color.ForestGreen : Color.DarkGoldenrod);
+
+            _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | PgUp/PgDn: Etage | Shift: Cible +1 etage | I: Inventaire | C: Fiche perso", new Vector2(10, 10), Color.White);
             _spriteBatch.DrawString(font, "Escaliers: balises orange/bleu sur la grille", new Vector2(10, 70), new Color(255, 190, 90));
+            _spriteBatch.DrawString(font, $"Mode etage: {floorViewMode} | Ciblage: {(explicitUpperFloorTargeting ? "+1" : "Normal")}", new Vector2(10, 100), Color.LightBlue);
 
             string timeStr = GetTimeOfDayString(timeOfDay);
             _spriteBatch.DrawString(font, $"Heure: {timeStr} | Carte: {gridWidth}x{gridHeight}", new Vector2(10, 30), Color.Yellow);
             string floorLabel = viewedFloor == 0 ? "RDC" : viewedFloor > 0 ? $"+{viewedFloor}" : viewedFloor.ToString();
             int maxBasements = Math.Abs(GetMinimumViewFloor());
             _spriteBatch.DrawString(font, $"Etage affiche: {floorLabel} (Sous-sols: {maxBasements} | Etages: {Math.Max(1, currentMap?.FloorCount ?? 1)})", new Vector2(10, 50), Color.LightGreen);
+        }
+
+        private void DrawFloorControlButton(Rectangle rect, string label, Color accent)
+        {
+            _spriteBatch.Draw(pixel, rect, accent * 0.45f);
+            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Y, rect.Width, 1), accent);
+            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Bottom - 1, rect.Width, 1), accent);
+            _spriteBatch.Draw(pixel, new Rectangle(rect.X, rect.Y, 1, rect.Height), accent);
+            _spriteBatch.Draw(pixel, new Rectangle(rect.Right - 1, rect.Y, 1, rect.Height), accent);
+
+            Vector2 textSize = font.MeasureString(label);
+            Vector2 textPos = new Vector2(rect.X + (rect.Width - textSize.X) * 0.5f, rect.Y + (rect.Height - textSize.Y) * 0.5f);
+            _spriteBatch.DrawString(font, label, textPos, Color.White);
         }
 
         private void DrawMovementDestinationInfoBillboard()
@@ -2806,6 +2928,9 @@ namespace XCOM_3
             LoadMap(); // Génère automatiquement une carte selon selectedMission
 
             CreateUnits(missionType);
+            floorViewMode = FloorViewMode.AutoFollow;
+            manualFloorViewUntilSeconds = 0d;
+            explicitUpperFloorTargeting = false;
             wallSegments = currentMap.GetWalls();
             InvalidateWallsByFloorCache();
             pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallSegments, currentMap.StairConnections, currentMap.RampTiles, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
@@ -2821,17 +2946,24 @@ namespace XCOM_3
         }
 
 
-        private void HandlePlayerTurn(MouseState mouse, bool leftClick, KeyboardState keyboard)
+        private void HandlePlayerTurn(MouseState mouse, bool leftClick, KeyboardState keyboard, GameTime gameTime)
         {
             if (IsTabPressed(keyboard)) SelectNextActiveUnit();
+
+            explicitUpperFloorTargeting = !grappleMode &&
+                (keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift));
+            int interactionFloor = ResolveInteractionFloor(viewedFloor);
+
+            if (leftClick && HandleFloorControlButtonClicks(mouse, gameTime))
+                leftClick = false;
 
             Point rawHoveredCell = camera.GetCellFromMouse(
                 mouse.Position,
                 GraphicsDevice.Viewport.Width,
                 GraphicsDevice.Viewport.Height,
-                WorldMetrics.FloorToWorldY(viewedFloor, cellSize));
+                WorldMetrics.FloorToWorldY(interactionFloor, cellSize));
 
-            isHoveringValidCell = rawHoveredCell.X != -1 && IsCellHoverableOnViewedFloor(rawHoveredCell, viewedFloor);
+            isHoveringValidCell = rawHoveredCell.X != -1 && IsCellHoverableOnViewedFloor(rawHoveredCell, interactionFloor);
             if (isHoveringValidCell)
                 hoveredCell = rawHoveredCell;
 
@@ -2847,7 +2979,7 @@ namespace XCOM_3
                 if (hoveredCell != lastHoveredCell)
                 {
                     Point previewGoal = hoveredCell;
-                    int previewFloor = viewedFloor;
+                    int previewFloor = interactionFloor;
                     if (TryResolveVerticalTransition(selectedUnit.Floor, hoveredCell, out Point transitionGoal, out int transitionFloor))
                     {
                         previewGoal = transitionGoal;
@@ -2897,14 +3029,18 @@ namespace XCOM_3
                 combatUI.UpdateFireTargetHitChances(selectedUnit, selectedUnit.Cell);
             }
 
+            GetFloorControlButtonRects(out Rectangle floorDownButton, out Rectangle floorUpButton, out Rectangle floorModeButton);
             bool clickOnUI = combatUI.EndTurnButton.Contains(mouse.Position) ||
                 combatUI.FireButton.Contains(mouse.Position) ||
                 combatUI.IsMouseOverActionButton(mouse) ||
-                combatUI.IsMouseOverFireTargets(mouse) || showInventory;
+                combatUI.IsMouseOverFireTargets(mouse) ||
+                floorDownButton.Contains(mouse.Position) ||
+                floorUpButton.Contains(mouse.Position) ||
+                floorModeButton.Contains(mouse.Position) || showInventory;
 
             if (leftClick) HandleUnitActionButtons(mouse);
             if (leftClick && combatUI.ShowFireTargets) combatUI.HandleFireTargetClick(mouse, selectedUnit);
-            if (leftClick && !clickOnUI && !throwMode && !grappleMode && isHoveringValidCell) HandleGridClick(hoveredCell);
+            if (leftClick && !clickOnUI && !throwMode && !grappleMode && isHoveringValidCell) HandleGridClick(hoveredCell, interactionFloor, allowSmartFallback: !explicitUpperFloorTargeting);
             if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released) CancelSelection();
 
             if (combatUI.FireButton.Contains(mouse.Position) && leftClick &&
@@ -2982,12 +3118,16 @@ namespace XCOM_3
             return true;
         }
 
-        private void HandleGridClick(Point clickedCell)
+        private void HandleGridClick(Point clickedCell, int clickedFloor, bool allowSmartFallback = true)
         {
-            if (!IsCellAvailableOnFloor(clickedCell, viewedFloor))
-                return;
+            int interactionFloor = clickedFloor;
+            if (!IsCellAvailableOnFloor(clickedCell, interactionFloor))
+            {
+                if (!allowSmartFallback || !TryResolveAvailableClickedFloor(clickedCell, interactionFloor, out interactionFloor))
+                    return;
+            }
 
-            Unit clickedUnit = GetUnitAtCellOnFloor(clickedCell, viewedFloor);
+            Unit clickedUnit = GetUnitAtCellOnFloor(clickedCell, interactionFloor);
 
             if (clickedUnit != null && clickedUnit.Team == Team.Enemy && !IsEnemyVisibleToPlayers(clickedUnit))
             {
@@ -3018,7 +3158,7 @@ namespace XCOM_3
                     cachedMovableCells.Clear();
                     currentPath.Clear();
                     currentPathNodes.Clear();
-                    currentPathEndFloor = viewedFloor;
+                    currentPathEndFloor = interactionFloor;
                     pathCosts.Clear();
                 }
             }
@@ -3028,11 +3168,11 @@ namespace XCOM_3
 
                 // Calculer le chemin
                 Point movementGoal = clickedCell;
-                int goalFloor = viewedFloor;
+                int goalFloor = interactionFloor;
 
                 // Conserver le comportement existant: cliquer directement sur une rampe/
                 // un escalier depuis l'étage de l'unité déclenche la transition immédiate.
-                if (selectedUnit.Floor == viewedFloor &&
+                if (selectedUnit.Floor == interactionFloor &&
                     TryResolveVerticalTransition(selectedUnit.Floor, clickedCell, out Point transitionGoal, out int transitionFloor))
                 {
                     movementGoal = transitionGoal;
@@ -3224,6 +3364,7 @@ namespace XCOM_3
             grappleMode = false;
             grappleTargetFloor = -1;
             grappleAnchors.Clear();
+            floorViewMode = FloorViewMode.AutoFollow;
         }
 
         private void ActivateFlashlightThrowMode(bool fromRightHand)
