@@ -436,7 +436,7 @@ namespace XCOM_3
 
             // Dessiner le corps de base
             DrawUnitBody(device, effect, animatedPos, bodyColor, scale, type, rot, legSwing, armSwing, dims,
-                hasWeapon, isAiming, unit.BodyType, hasPants, unit.DominantHand, hasShirt);
+                hasWeapon, isAiming, unit.BodyType, hasPants, unit.DominantHand, hasShirt, unit.EyeColor);
 
             // Afficher l'équipement porté (armes, armures, vêtements, poches)
             if (drawEquipment)
@@ -1214,7 +1214,8 @@ namespace XCOM_3
                                   Unit.HumanBodyType bodyType = Unit.HumanBodyType.Masculine,
                                   bool hasPants = false,
                                   Unit.Handedness dominantHand = Unit.Handedness.Right,
-                                  bool hasShirt = false)
+                                  bool hasShirt = false,
+                                  Unit.EyeColorOption eyeColor = Unit.EyeColorOption.Brown)
         {
             bool useTPose = false;
             bool useCustomArmPose = (hasWeapon && isAiming) || !hasWeapon;
@@ -1222,7 +1223,7 @@ namespace XCOM_3
 
             switch (type)
             {
-                case UnitType.Soldier: DrawSoldierBody(d, e, p, c, s, r, l, a, dims, bodyType, hasPants, useTPose, drawDefaultArms); break;
+                case UnitType.Soldier: DrawSoldierBody(d, e, p, c, s, r, l, a, dims, bodyType, hasPants, useTPose, drawDefaultArms, eyeColor); break;
                 case UnitType.Alien: DrawAlienBody(d, e, p, c, s, r, l, a, dims, useTPose, drawDefaultArms); break;
                 case UnitType.Zombie: DrawZombieBody(d, e, p, c, s, r, l, a, dims, useTPose, drawDefaultArms); break;
                 case UnitType.Heavy: DrawHeavyBody(d, e, p, c, s, r, l, a, dims, useTPose, drawDefaultArms); break;
@@ -1492,7 +1493,8 @@ namespace XCOM_3
         private void DrawSoldierBody(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r,
                                      float l, float a, UnitDimensions dims, Unit.HumanBodyType bodyType,
                                      bool hasPants = false, bool useKungFuPose = false,
-                                     bool drawDefaultArms = true)
+                                     bool drawDefaultArms = true,
+                                     Unit.EyeColorOption eyeColor = Unit.EyeColorOption.Brown)
         {
             Color skin = new(220, 180, 140);
             Color body = skin * 0.95f;
@@ -1522,8 +1524,34 @@ namespace XCOM_3
             DrawSphere(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0),
                 dims.head * 0.52f, skin, r);
 
+            DrawHumanEyes(d, e, p, r, dims, eyeColor);
+
             // Pas d'accessoires vestimentaires/cosmétiques.
         }
+
+        private void DrawHumanEyes(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r, UnitDimensions dims, Unit.EyeColorOption eyeColor)
+        {
+            Color irisColor = GetEyeIrisColor(eyeColor);
+            float headCenterY = dims.ll + dims.th + dims.head * 0.6f;
+
+            Vector3 leftEye = new Vector3(-dims.head * 0.18f, headCenterY + dims.head * 0.06f, dims.head * 0.45f);
+            Vector3 rightEye = new Vector3(dims.head * 0.18f, headCenterY + dims.head * 0.06f, dims.head * 0.45f);
+
+            DrawSphere(d, e, p, leftEye, dims.head * 0.075f, Color.White, r);
+            DrawSphere(d, e, p, rightEye, dims.head * 0.075f, Color.White, r);
+            DrawSphere(d, e, p, leftEye + new Vector3(0f, 0f, dims.head * 0.03f), dims.head * 0.042f, irisColor, r);
+            DrawSphere(d, e, p, rightEye + new Vector3(0f, 0f, dims.head * 0.03f), dims.head * 0.042f, irisColor, r);
+            DrawSphere(d, e, p, leftEye + new Vector3(0f, 0f, dims.head * 0.05f), dims.head * 0.024f, Color.Black, r);
+            DrawSphere(d, e, p, rightEye + new Vector3(0f, 0f, dims.head * 0.05f), dims.head * 0.024f, Color.Black, r);
+        }
+
+        private static Color GetEyeIrisColor(Unit.EyeColorOption eyeColor)
+            => eyeColor switch
+            {
+                Unit.EyeColorOption.Blue => new Color(76, 140, 220),
+                Unit.EyeColorOption.Green => new Color(70, 165, 88),
+                _ => new Color(118, 74, 42)
+            };
 
         private void DrawStructuredTorso(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
                                          UnitDimensions dims, Color chestColor, Color pelvisColor,

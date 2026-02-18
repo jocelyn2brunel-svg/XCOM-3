@@ -28,6 +28,7 @@ namespace XCOM_3
 
         public enum HumanBodyType { Masculine, Feminine }
         public enum Handedness { Right, Left }
+        public enum EyeColorOption { Brown, Blue, Green }
 
         public Point Cell;
         public int Floor { get; set; } = 0;
@@ -64,6 +65,7 @@ namespace XCOM_3
         public string Class { get; set; }
         public HumanBodyType BodyType { get; set; } = HumanBodyType.Masculine;
         public Handedness DominantHand { get; set; } = Handedness.Right;
+        public EyeColorOption EyeColor { get; set; } = EyeColorOption.Brown;
 
 
         // Système d'inventaire
@@ -142,6 +144,7 @@ namespace XCOM_3
 
             BodyType = DetermineBodyType(team, unitClass, name);
             DominantHand = DetermineHandedness(team, unitClass, name, BodyType);
+            EyeColor = DetermineEyeColor(name);
 
             ActionPoints = 2;
             MaxActionPoints = 2;
@@ -187,6 +190,28 @@ namespace XCOM_3
 
         }
 
+        private static EyeColorOption DetermineEyeColor(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return EyeColorOption.Brown;
+
+            int hash = Math.Abs(name.GetHashCode());
+            return (EyeColorOption)(hash % 3);
+        }
+
+        public static EyeColorOption ParseEyeColor(string eyeColor)
+        {
+            if (string.IsNullOrWhiteSpace(eyeColor))
+                return EyeColorOption.Brown;
+
+            if (eyeColor.Equals("Blue", StringComparison.OrdinalIgnoreCase))
+                return EyeColorOption.Blue;
+            if (eyeColor.Equals("Green", StringComparison.OrdinalIgnoreCase))
+                return EyeColorOption.Green;
+
+            return EyeColorOption.Brown;
+        }
+
         public Unit(Unit other)
         {
             Cell = other.Cell;
@@ -196,6 +221,7 @@ namespace XCOM_3
             Class = other.Class;
             BodyType = other.BodyType;
             DominantHand = other.DominantHand;
+            EyeColor = other.EyeColor;
             Weapon = other.Weapon;
             WeaponData = other.WeaponData;
             CurrentAmmoInMagazine = other.CurrentAmmoInMagazine;

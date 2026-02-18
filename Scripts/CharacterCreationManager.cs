@@ -12,6 +12,7 @@ namespace XCOM_3
         public string Name { get; set; }
         public string Nationality { get; set; }
         public string Job { get; set; }
+        public string EyeColor { get; set; }
         public string Weapon { get; set; }
         public List<string> StartingEquipment { get; set; } = new List<string>();
 
@@ -22,6 +23,7 @@ namespace XCOM_3
                 Name = Name,
                 Nationality = Nationality,
                 Job = Job,
+                EyeColor = EyeColor,
                 Weapon = Weapon,
                 StartingEquipment = new List<string>(StartingEquipment)
             };
@@ -55,10 +57,13 @@ namespace XCOM_3
             ["Firefighter"] = new JobLoadout { Weapon = "Mossberg 590", Equipment = new List<string> { "MK 2" } }
         };
 
+        private readonly string[] _eyeColors = { "Brown", "Blue", "Green" };
+
         private List<CharacterCreationProfile> _profiles = new List<CharacterCreationProfile>();
         private List<Button> _slotButtons = new List<Button>();
         private Button _nextNationalityButton;
         private Button _nextJobButton;
+        private Button _nextEyeColorButton;
         private Button _randomizeButton;
         private Button _startButton;
         private Button _backButton;
@@ -106,6 +111,12 @@ namespace XCOM_3
                 return;
             }
 
+            if (_nextEyeColorButton.IsClicked(mouseState, previousMouseState))
+            {
+                CycleEyeColor();
+                return;
+            }
+
             if (_randomizeButton.IsClicked(mouseState, previousMouseState))
             {
                 RandomizeAll();
@@ -136,6 +147,7 @@ namespace XCOM_3
 
             _nextNationalityButton.Draw(_spriteBatch, _font, mouse);
             _nextJobButton.Draw(_spriteBatch, _font, mouse);
+            _nextEyeColorButton.Draw(_spriteBatch, _font, mouse);
             _randomizeButton.Draw(_spriteBatch, _font, mouse);
             _startButton.Draw(_spriteBatch, _font, mouse);
             _backButton.Draw(_spriteBatch, _font, mouse);
@@ -149,6 +161,8 @@ namespace XCOM_3
             _spriteBatch.DrawString(_font, $"Nationality: {profile.Nationality}", new Vector2(detailsX, y), UIThemeManager.SecondaryColor);
             y += 28;
             _spriteBatch.DrawString(_font, $"Job: {profile.Job}", new Vector2(detailsX, y), UIThemeManager.SecondaryColor);
+            y += 28;
+            _spriteBatch.DrawString(_font, $"Eyes: {profile.EyeColor}", new Vector2(detailsX, y), UIThemeManager.SecondaryColor);
             y += 28;
             _spriteBatch.DrawString(_font, $"Weapon: {profile.Weapon}", new Vector2(detailsX, y), UIThemeManager.SecondaryColor);
             y += 34;
@@ -182,6 +196,7 @@ namespace XCOM_3
                 Name = name,
                 Nationality = nationality,
                 Job = job,
+                EyeColor = _eyeColors[_random.Next(_eyeColors.Length)],
                 Weapon = loadout.Weapon,
                 StartingEquipment = new List<string>(loadout.Equipment)
             };
@@ -195,6 +210,7 @@ namespace XCOM_3
 
             _nextNationalityButton = new Button("Changer Nationality", new Vector2(420, 360));
             _nextJobButton = new Button("Changer Job", new Vector2(420, 396));
+            _nextEyeColorButton = new Button("Changer yeux", new Vector2(420, 432));
             _randomizeButton = new Button("Randomiser l'equipe", new Vector2(420, 452));
             _startButton = new Button("Valider et choisir mission", new Vector2(420, 520));
             _backButton = new Button("Retour menu", new Vector2(420, 556));
@@ -222,6 +238,14 @@ namespace XCOM_3
             RefreshSlotButtonLabels();
         }
 
+        private void CycleEyeColor()
+        {
+            CharacterCreationProfile p = _profiles[_selectedSlot];
+            int index = Array.IndexOf(_eyeColors, p.EyeColor);
+            p.EyeColor = _eyeColors[(index + 1 + _eyeColors.Length) % _eyeColors.Length];
+            RefreshSlotButtonLabels();
+        }
+
         private void RandomizeAll()
         {
             var jobs = _jobLoadouts.Keys.ToList();
@@ -234,6 +258,7 @@ namespace XCOM_3
                 string job = jobs[_random.Next(jobs.Count)];
                 JobLoadout loadout = _jobLoadouts[job];
                 p.Job = job;
+                p.EyeColor = _eyeColors[_random.Next(_eyeColors.Length)];
                 p.Weapon = loadout.Weapon;
                 p.StartingEquipment = new List<string>(loadout.Equipment);
             }
@@ -248,7 +273,7 @@ namespace XCOM_3
                 CharacterCreationProfile p = _profiles[i];
                 string marker = i == _selectedSlot ? "[Selected]" : "";
                 string separator = string.IsNullOrEmpty(marker) ? string.Empty : " ";
-                _slotButtons[i].Text = $"{marker}{separator}{i + 1}. {p.Name} ({p.Nationality}, {p.Job})";
+                _slotButtons[i].Text = $"{marker}{separator}{i + 1}. {p.Name} ({p.Nationality}, {p.Job}, Eyes: {p.EyeColor})";
             }
         }
     }
