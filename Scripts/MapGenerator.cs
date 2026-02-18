@@ -274,7 +274,7 @@ namespace XCOM_3
 
             if (pattern == EdgeWallGenerator.WallPattern.Urban)
             {
-                furnitures.AddRange(GenerateUrbanStreetSedans(mapWidth, mapHeight, buildings, spawnZones, hescoBarriers, furnitures));
+                furnitures.AddRange(GenerateUrbanStreetVehicles(mapWidth, mapHeight, buildings, spawnZones, hescoBarriers, furnitures));
             }
 
             return furnitures;
@@ -379,7 +379,7 @@ namespace XCOM_3
             return furnitures;
         }
 
-        private List<FurnitureData> GenerateUrbanStreetSedans(
+        private List<FurnitureData> GenerateUrbanStreetVehicles(
             int mapWidth,
             int mapHeight,
             List<BuildingFootprintData> buildings,
@@ -387,7 +387,7 @@ namespace XCOM_3
             List<HescoBarrierData> hescoBarriers,
             List<FurnitureData> existingFurniture)
         {
-            var sedans = new List<FurnitureData>();
+            var vehicles = new List<FurnitureData>();
 
             const int blockSize = 14;
             const int streetWidth = 2;
@@ -464,34 +464,37 @@ namespace XCOM_3
             }
 
             if (roadCandidates.Count == 0)
-                return sedans;
+                return vehicles;
 
-            int targetSedanCount = Math.Clamp((mapWidth * mapHeight) / 220, 4, 16);
-            targetSedanCount = Math.Min(targetSedanCount, roadCandidates.Count);
+            int targetVehicleCount = Math.Clamp((mapWidth * mapHeight) / 185, 6, 22);
+            targetVehicleCount = Math.Min(targetVehicleCount, roadCandidates.Count);
             Shuffle(roadCandidates);
 
-            FurnitureType[] sedanTypes =
+            FurnitureType[] vehicleTypes =
             {
                 FurnitureType.SedanToyotaCorolla,
                 FurnitureType.SedanBmwSeries3,
-                FurnitureType.SedanMercedesEClass
+                FurnitureType.SedanMercedesEClass,
+                FurnitureType.PickupToyotaTacoma,
+                FurnitureType.PickupFordF150,
+                FurnitureType.PickupRam3500
             };
 
-            for (int i = 0; i < targetSedanCount; i++)
+            for (int i = 0; i < targetVehicleCount; i++)
             {
                 Point candidate = roadCandidates[i];
-                FurnitureType sedanType = sedanTypes[random.Next(sedanTypes.Length)];
+                FurnitureType vehicleType = vehicleTypes[random.Next(vehicleTypes.Length)];
 
-                sedans.Add(new FurnitureData
+                vehicles.Add(new FurnitureData
                 {
                     X = candidate.X,
                     Y = candidate.Y,
                     Floor = 0,
-                    Type = sedanType
+                    Type = vehicleType
                 });
             }
 
-            return sedans;
+            return vehicles;
         }
 
         private void Shuffle<T>(IList<T> values)

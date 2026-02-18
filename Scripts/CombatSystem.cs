@@ -74,6 +74,9 @@ namespace XCOM_3
                 FurnitureType.SedanToyotaCorolla => 35,
                 FurnitureType.SedanBmwSeries3 => 35,
                 FurnitureType.SedanMercedesEClass => 35,
+                FurnitureType.PickupToyotaTacoma => 40,
+                FurnitureType.PickupFordF150 => 45,
+                FurnitureType.PickupRam3500 => 50,
                 _ => 0
             };
         }
