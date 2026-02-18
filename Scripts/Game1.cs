@@ -226,6 +226,8 @@ namespace XCOM_3
         private readonly string[] gameplaySongAssetNames = { "menu_music_1", "menu_music_2", "menu_music_3", "menu_music_4" };
         private readonly Dictionary<string, Song> gameplaySongCache = new();
         private Song currentGameplaySong;
+        private SoundEffect centreVilleMusicEffect;
+        private SoundEffectInstance centreVilleMusicEffectInstance;
         private SoundEffect gunshotSoundEffect;
         private SoundEffectInstance gunshotSoundEffectInstance;
         private SoundEffect casingClingSoundEffect;
@@ -463,6 +465,8 @@ namespace XCOM_3
         {
             VisualEffects.OnSpentCasingLanded -= HandleSpentCasingLanded;
             gunshotSoundEffectInstance?.Dispose();
+            centreVilleMusicEffectInstance?.Dispose();
+            centreVilleMusicEffect?.Dispose();
             grenadeExplosionSoundEffect?.Dispose();
             casingClingSoundEffect?.Dispose();
             gunshotSoundEffect?.Dispose();
@@ -513,9 +517,49 @@ namespace XCOM_3
         {
             gunshotSoundEffect = CreateProceduralGunshotSound();
             gunshotSoundEffectInstance = gunshotSoundEffect?.CreateInstance();
+            centreVilleMusicEffect = CreateCentreVilleCyberpunkLoop();
             casingClingSoundEffect = CreateProceduralCasingClingSound();
             grenadeExplosionSoundEffect = CreateProceduralGrenadeExplosionSound();
             VisualEffects.OnSpentCasingLanded += HandleSpentCasingLanded;
+        }
+
+        private SoundEffect CreateCentreVilleCyberpunkLoop()
+        {
+            const int sampleRate = 44100;
+            const float durationSeconds = 8f;
+            int sampleCount = (int)(sampleRate * durationSeconds);
+            short[] samples = new short[sampleCount];
+
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float t = i / (float)sampleRate;
+                float beatPhase = t % 0.5f;
+                float barPhase = t % 2f;
+
+                float kickEnvelope = MathF.Max(0f, 1f - beatPhase / 0.16f);
+                float kickFreq = 48f + (beatPhase < 0.08f ? (1f - beatPhase / 0.08f) * 84f : 0f);
+                float kick = MathF.Sin(2f * MathF.PI * kickFreq * beatPhase) * kickEnvelope;
+
+                float bassGate = MathF.Max(0f, 1f - (beatPhase / 0.36f));
+                float bassFundamental = 55f + ((int)(barPhase / 0.5f) % 4) * 7f;
+                float bass = (MathF.Sin(2f * MathF.PI * bassFundamental * t)
+                    + 0.5f * MathF.Sin(2f * MathF.PI * bassFundamental * 2f * t)) * bassGate;
+
+                float hatPhase = t % 0.125f;
+                float hatEnvelope = hatPhase < 0.018f ? (1f - hatPhase / 0.018f) : 0f;
+                float hatNoise = ((float)random.NextDouble() * 2f - 1f) * hatEnvelope;
+
+                float pad = 0.35f * MathF.Sin(2f * MathF.PI * 220f * t)
+                    + 0.20f * MathF.Sin(2f * MathF.PI * 329.63f * t)
+                    + 0.15f * MathF.Sin(2f * MathF.PI * 440f * t);
+
+                float mix = kick * 0.55f + bass * 0.28f + hatNoise * 0.12f + pad * 0.18f;
+                mix = MathF.Tanh(mix * 1.4f);
+
+                samples[i] = (short)(MathHelper.Clamp(mix, -1f, 1f) * short.MaxValue);
+            }
+
+            return new SoundEffect(ConvertPcm16ToBytes(samples), sampleRate, AudioChannels.Mono);
         }
 
         private SoundEffect CreateProceduralGrenadeExplosionSound()
@@ -635,12 +679,48 @@ namespace XCOM_3
             grenadeExplosionSoundEffect.Play(volume, pitch, pan);
         }
 
+        private void StopCentreVilleMusicLoop()
+        {
+            if (centreVilleMusicEffectInstance != null)
+                centreVilleMusicEffectInstance.Stop();
+        }
+
+        private void PlayGameplaySongForMission(string missionType)
+        {
+            if (string.Equals(missionType, "Centre-Ville", StringComparison.OrdinalIgnoreCase))
+            {
+                MediaPlayer.Stop();
+                if (centreVilleMusicEffectInstance == null && centreVilleMusicEffect != null)
+                    centreVilleMusicEffectInstance = centreVilleMusicEffect.CreateInstance();
+
+                if (centreVilleMusicEffectInstance != null)
+                {
+                    centreVilleMusicEffectInstance.IsLooped = true;
+                    centreVilleMusicEffectInstance.Volume = MathHelper.Clamp(optionsMenuManager?.GetMusicVolume() ?? 0.5f, 0f, 1f);
+                    centreVilleMusicEffectInstance.Play();
+                    Console.WriteLine("[AUDIO] In-game music: procedural_centre_ville_cyberpunk_loop");
+                }
+
+                return;
+            }
+
+            StopCentreVilleMusicLoop();
+            PlayRandomGameplaySong();
+        }
+
         private void PlayRandomGameplaySong()
         {
             if (gameplaySongAssetNames.Length == 0)
                 return;
 
             string songAssetName = gameplaySongAssetNames[random.Next(gameplaySongAssetNames.Length)];
+            PlayGameplaySong(songAssetName);
+        }
+
+        private void PlayGameplaySong(string songAssetName)
+        {
+            StopCentreVilleMusicLoop();
+
             if (!gameplaySongCache.TryGetValue(songAssetName, out currentGameplaySong))
             {
                 currentGameplaySong = Content.Load<Song>(songAssetName);
@@ -716,6 +796,7 @@ namespace XCOM_3
 
         private void ReturnToMainMenu()
         {
+            StopCentreVilleMusicLoop();
             currentState = GameState.MainMenu;
             mainMenuManager.ResetToRootMenu();
             mainMenuManager.PlayRandomMenuSong();
@@ -3495,7 +3576,7 @@ namespace XCOM_3
         private void StartMission(string missionType)
         {
             EnsurePremadeMapsGenerated();
-            PlayRandomGameplaySong();
+            PlayGameplaySongForMission(missionType);
             currentState = GameState.Playing;
 
             // ✅ NOUVEAU : Charger une carte (générée aléatoirement)
