@@ -35,7 +35,7 @@ namespace XCOM_3
     /// <summary>
     /// Représente un segment de mur entre deux cases
     /// </summary>
-    public enum WallType { Full, Window, Door }
+    public enum WallType { Full, Window, Door, ShatteredWindow }
     public enum WallMaterial { Standard, Brick, Hesco }
 
     public struct WallSegment

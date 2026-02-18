@@ -962,7 +962,7 @@ namespace XCOM_3
 
                 foreach (var wall in walls)
                 {
-                    if (wall.Type == WallType.Door)
+                    if (wall.Type == WallType.Door || wall.Type == WallType.ShatteredWindow)
                         continue;
 
                     if (!TryGetWallSegment2D(wall, out Vector2 wA, out Vector2 wB, out Vector2 normal))
