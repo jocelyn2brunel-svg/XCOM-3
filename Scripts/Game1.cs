@@ -2743,6 +2743,20 @@ namespace XCOM_3
 
             if (throwMode) HandleGrenadeThrow(mouse, leftClick);
 
+            if (!throwMode && selectedUnit != null && selectedUnit.Team == Team.Player && combatUI.ShowFireTargets)
+            {
+                Point previewFireCell = selectedUnit.Cell;
+
+                if (isHoveringValidCell && currentPath.Count > 0)
+                {
+                    previewFireCell = hoveredCell;
+                    if (TryResolveVerticalTransition(selectedUnit.Floor, hoveredCell, out Point transitionGoal, out int _))
+                        previewFireCell = transitionGoal;
+                }
+
+                combatUI.UpdateFireTargetHitChances(selectedUnit, previewFireCell);
+            }
+
             bool clickOnUI = combatUI.EndTurnButton.Contains(mouse.Position) ||
                 combatUI.FireButton.Contains(mouse.Position) ||
                 combatUI.IsMouseOverActionButton(mouse) ||
