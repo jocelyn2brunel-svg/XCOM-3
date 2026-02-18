@@ -299,8 +299,152 @@ namespace XCOM_3
                     floorHeightOffset + heightWorld / 2f,
                     furniture.Y * cellSize + cellSize / 2f);
 
-                DrawCube(center, scale, GetFurnitureColor(furniture.Type));
+                if (IsVehicleFurniture(furniture.Type))
+                    DrawVehicleFurniture(furniture.Type, center, scale);
+                else
+                    DrawCube(center, scale, GetFurnitureColor(furniture.Type));
             }
+        }
+
+        private static bool IsVehicleFurniture(FurnitureType type)
+        {
+            return type is FurnitureType.SedanToyotaCorolla
+                or FurnitureType.SedanBmwSeries3
+                or FurnitureType.SedanMercedesEClass
+                or FurnitureType.PickupToyotaTacoma
+                or FurnitureType.PickupFordF150
+                or FurnitureType.PickupRam3500;
+        }
+
+        private void DrawVehicleFurniture(FurnitureType type, Vector3 center, Vector3 totalScale)
+        {
+            Color bodyColor = GetFurnitureColor(type);
+            Color trimColor = new Color(36, 38, 44);
+            Color wheelColor = new Color(18, 18, 22);
+            Color rimColor = new Color(136, 142, 156);
+            Color windowColor = new Color(112, 158, 196) * 0.75f;
+            Color doorLineColor = bodyColor * 0.72f;
+
+            bool isPickup = type is FurnitureType.PickupToyotaTacoma
+                or FurnitureType.PickupFordF150
+                or FurnitureType.PickupRam3500;
+
+            float length = totalScale.X;
+            float width = totalScale.Z;
+            float height = totalScale.Y;
+            float bottomY = center.Y - height / 2f;
+
+            float bodyHeight = isPickup ? height * 0.56f : height * 0.50f;
+            float cabinHeight = isPickup ? height * 0.28f : height * 0.30f;
+            float wheelHeight = height * 0.22f;
+
+            // Châssis principal
+            Vector3 bodyScale = new Vector3(length * 0.96f, bodyHeight, width * 0.90f);
+            Vector3 bodyCenter = new Vector3(center.X, bottomY + wheelHeight + bodyHeight / 2f, center.Z);
+            DrawCube(bodyCenter, bodyScale, bodyColor);
+
+            if (isPickup)
+            {
+                // Cabine pickup
+                Vector3 cabinScale = new Vector3(length * 0.38f, cabinHeight, width * 0.78f);
+                Vector3 cabinCenter = new Vector3(
+                    center.X - length * 0.20f,
+                    bodyCenter.Y + bodyHeight / 2f + cabinHeight / 2f - height * 0.03f,
+                    center.Z);
+                DrawCube(cabinCenter, cabinScale, bodyColor * 1.02f);
+
+                // Benne arrière
+                Vector3 bedScale = new Vector3(length * 0.48f, cabinHeight * 0.72f, width * 0.82f);
+                Vector3 bedCenter = new Vector3(
+                    center.X + length * 0.20f,
+                    bodyCenter.Y + bodyHeight / 2f + bedScale.Y / 2f - height * 0.05f,
+                    center.Z);
+                DrawCube(bedCenter, bedScale, bodyColor * 0.92f);
+
+                // Vitres cabine
+                Vector3 frontWindow = new Vector3(
+                    cabinCenter.X - cabinScale.X * 0.22f,
+                    cabinCenter.Y + cabinScale.Y * 0.10f,
+                    cabinCenter.Z);
+                DrawCube(frontWindow, new Vector3(cabinScale.X * 0.30f, cabinScale.Y * 0.36f, cabinScale.Z * 0.75f), windowColor);
+
+                Vector3 sideWindowLeft = new Vector3(cabinCenter.X, cabinCenter.Y + cabinScale.Y * 0.08f, cabinCenter.Z - cabinScale.Z * 0.28f);
+                Vector3 sideWindowRight = new Vector3(cabinCenter.X, cabinCenter.Y + cabinScale.Y * 0.08f, cabinCenter.Z + cabinScale.Z * 0.28f);
+                DrawCube(sideWindowLeft, new Vector3(cabinScale.X * 0.42f, cabinScale.Y * 0.30f, cabinScale.Z * 0.10f), windowColor);
+                DrawCube(sideWindowRight, new Vector3(cabinScale.X * 0.42f, cabinScale.Y * 0.30f, cabinScale.Z * 0.10f), windowColor);
+
+                // Porte cabine + séparation benne
+                float doorX = cabinCenter.X + cabinScale.X * 0.02f;
+                DrawCube(new Vector3(doorX, bodyCenter.Y + bodyHeight * 0.35f, cabinCenter.Z - cabinScale.Z * 0.44f), new Vector3(cabinScale.X * 0.03f, bodyHeight * 0.55f, cabinScale.Z * 0.02f), doorLineColor);
+                DrawCube(new Vector3(doorX, bodyCenter.Y + bodyHeight * 0.35f, cabinCenter.Z + cabinScale.Z * 0.44f), new Vector3(cabinScale.X * 0.03f, bodyHeight * 0.55f, cabinScale.Z * 0.02f), doorLineColor);
+                DrawCube(new Vector3(cabinCenter.X + cabinScale.X * 0.52f, bedCenter.Y, bedCenter.Z), new Vector3(cabinScale.X * 0.03f, bedScale.Y * 0.92f, bedScale.Z * 0.92f), trimColor * 0.9f);
+            }
+            else
+            {
+                // Toit/cabine berline
+                Vector3 cabinScale = new Vector3(length * 0.52f, cabinHeight, width * 0.74f);
+                Vector3 cabinCenter = new Vector3(
+                    center.X - length * 0.02f,
+                    bodyCenter.Y + bodyHeight / 2f + cabinHeight / 2f - height * 0.05f,
+                    center.Z);
+                DrawCube(cabinCenter, cabinScale, bodyColor * 1.04f);
+
+                // Pare-brise et lunette arrière
+                DrawCube(
+                    new Vector3(cabinCenter.X - cabinScale.X * 0.32f, cabinCenter.Y + cabinScale.Y * 0.04f, cabinCenter.Z),
+                    new Vector3(cabinScale.X * 0.26f, cabinScale.Y * 0.45f, cabinScale.Z * 0.74f),
+                    windowColor);
+                DrawCube(
+                    new Vector3(cabinCenter.X + cabinScale.X * 0.32f, cabinCenter.Y + cabinScale.Y * 0.02f, cabinCenter.Z),
+                    new Vector3(cabinScale.X * 0.20f, cabinScale.Y * 0.38f, cabinScale.Z * 0.68f),
+                    windowColor * 0.95f);
+
+                // Vitres latérales
+                float sideZOffset = cabinScale.Z * 0.32f;
+                DrawCube(
+                    new Vector3(cabinCenter.X, cabinCenter.Y + cabinScale.Y * 0.04f, cabinCenter.Z - sideZOffset),
+                    new Vector3(cabinScale.X * 0.74f, cabinScale.Y * 0.34f, cabinScale.Z * 0.10f),
+                    windowColor);
+                DrawCube(
+                    new Vector3(cabinCenter.X, cabinCenter.Y + cabinScale.Y * 0.04f, cabinCenter.Z + sideZOffset),
+                    new Vector3(cabinScale.X * 0.74f, cabinScale.Y * 0.34f, cabinScale.Z * 0.10f),
+                    windowColor);
+
+                // Traits de portes (2 portes par côté)
+                float[] doorBreaks = { -0.12f, 0.16f };
+                foreach (float doorBreak in doorBreaks)
+                {
+                    float doorX = center.X + length * doorBreak;
+                    DrawCube(new Vector3(doorX, bodyCenter.Y + bodyHeight * 0.37f, center.Z - width * 0.43f), new Vector3(length * 0.02f, bodyHeight * 0.6f, width * 0.02f), doorLineColor);
+                    DrawCube(new Vector3(doorX, bodyCenter.Y + bodyHeight * 0.37f, center.Z + width * 0.43f), new Vector3(length * 0.02f, bodyHeight * 0.6f, width * 0.02f), doorLineColor);
+                }
+            }
+
+            // Pare-chocs avant/arrière
+            float bumperHeight = bodyHeight * 0.18f;
+            float bumperLength = length * 0.05f;
+            DrawCube(new Vector3(center.X - length * 0.48f, bodyCenter.Y - bodyHeight * 0.28f, center.Z), new Vector3(bumperLength, bumperHeight, width * 0.84f), trimColor);
+            DrawCube(new Vector3(center.X + length * 0.48f, bodyCenter.Y - bodyHeight * 0.28f, center.Z), new Vector3(bumperLength, bumperHeight, width * 0.84f), trimColor);
+
+            // Roues + jantes
+            float wheelLength = length * 0.16f;
+            float wheelWidth = width * 0.15f;
+            float frontAxle = center.X - length * 0.28f;
+            float rearAxle = center.X + length * (isPickup ? 0.28f : 0.26f);
+            float wheelY = bottomY + wheelHeight * 0.52f;
+            float leftZ = center.Z - width * 0.41f;
+            float rightZ = center.Z + width * 0.41f;
+
+            DrawVehicleWheel(frontAxle, wheelY, leftZ, wheelLength, wheelHeight, wheelWidth, wheelColor, rimColor);
+            DrawVehicleWheel(frontAxle, wheelY, rightZ, wheelLength, wheelHeight, wheelWidth, wheelColor, rimColor);
+            DrawVehicleWheel(rearAxle, wheelY, leftZ, wheelLength, wheelHeight, wheelWidth, wheelColor, rimColor);
+            DrawVehicleWheel(rearAxle, wheelY, rightZ, wheelLength, wheelHeight, wheelWidth, wheelColor, rimColor);
+        }
+
+        private void DrawVehicleWheel(float x, float y, float z, float wheelLength, float wheelHeight, float wheelWidth, Color tireColor, Color rimColor)
+        {
+            DrawCube(new Vector3(x, y, z), new Vector3(wheelLength, wheelHeight, wheelWidth), tireColor);
+            DrawCube(new Vector3(x, y, z), new Vector3(wheelLength * 0.45f, wheelHeight * 0.45f, wheelWidth * 1.05f), rimColor);
         }
 
         private static Vector2 GetFurnitureFootprint(FurnitureType type, int cellSize)
