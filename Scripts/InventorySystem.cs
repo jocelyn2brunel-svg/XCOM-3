@@ -72,6 +72,7 @@ namespace XCOM_3
         private Texture2D flashlightTexture;
         private Dictionary<string, Texture2D> armorTextures;
         private Dictionary<string, Texture2D> weaponTextures;
+        private Dictionary<GrenadeType, Texture2D> grenadeTextures;
         private readonly Dictionary<string, Texture2D> generatedItemTextures = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
         private readonly BasicEffect previewEffect;
         private readonly HumanoidModelAdvanced previewModel;
@@ -206,9 +207,10 @@ namespace XCOM_3
             nearbyLootGrid = new InventoryGrid(8, LOOT_GRID_MAX_ROWS);
             ItemDatabase = new Dictionary<string, ItemData>();
 
-            flashlightTexture = LoadOptionalTexture("Flashlight32x32.jpg");
+            flashlightTexture = CreateFlashlightIconTexture(new Color(140, 156, 170));
             armorTextures = LoadArmorTextures();
             weaponTextures = LoadWeaponTextures();
+            grenadeTextures = LoadGrenadeTextures();
 
             uiClickSound = CreateUiTone(760f, 46, 0.15f);
             uiEquipSound = CreateUiTone(980f, 58, 0.2f);
@@ -283,6 +285,20 @@ namespace XCOM_3
                 ["rifle"] = CreateWeaponIconTexture(new Color(130, 120, 90), WeaponIconKind.Rifle),
                 ["shotgun"] = CreateWeaponIconTexture(new Color(110, 95, 80), WeaponIconKind.Shotgun),
                 ["sniper"] = CreateWeaponIconTexture(new Color(95, 110, 125), WeaponIconKind.Sniper)
+            };
+        }
+
+        private Dictionary<GrenadeType, Texture2D> LoadGrenadeTextures()
+        {
+            return new Dictionary<GrenadeType, Texture2D>
+            {
+                [GrenadeType.Frag] = CreateGrenadeIconTexture(new Color(82, 106, 76), new Color(115, 145, 102)),
+                [GrenadeType.HE] = CreateGrenadeIconTexture(new Color(120, 86, 74), new Color(152, 114, 96)),
+                [GrenadeType.Flashbang] = CreateGrenadeIconTexture(new Color(120, 124, 130), new Color(165, 170, 176)),
+                [GrenadeType.Incendiary] = CreateGrenadeIconTexture(new Color(126, 78, 50), new Color(174, 102, 62)),
+                [GrenadeType.EMP] = CreateGrenadeIconTexture(new Color(68, 96, 128), new Color(94, 130, 172)),
+                [GrenadeType.Smoke] = CreateGrenadeIconTexture(new Color(84, 92, 100), new Color(122, 132, 142)),
+                [GrenadeType.Plasma] = CreateGrenadeIconTexture(new Color(92, 76, 126), new Color(142, 118, 185))
             };
         }
 
@@ -476,6 +492,109 @@ namespace XCOM_3
             return texture;
         }
 
+        private Texture2D CreateFlashlightIconTexture(Color accent)
+        {
+            const int width = 64;
+            const int height = 64;
+            var data = new Color[width * height];
+
+            Color background = Color.Lerp(ParasiteEveTheme.BackgroundDark, Color.Black, 0.35f);
+            Color body = Color.Lerp(accent, Color.Black, 0.25f);
+            Color metal = Color.Lerp(accent, Color.White, 0.25f);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float grain = ((x * 43 + y * 97) % 17) / 16f;
+                    data[y * width + x] = Color.Lerp(background, Color.Black, 0.12f * grain);
+                }
+            }
+
+            void FillRect(int x0, int y0, int x1, int y1, Color color)
+            {
+                for (int y = Math.Max(0, y0); y <= Math.Min(height - 1, y1); y++)
+                    for (int x = Math.Max(0, x0); x <= Math.Min(width - 1, x1); x++)
+                        data[y * width + x] = color;
+            }
+
+            FillRect(12, 24, 46, 40, body);
+            FillRect(44, 22, 54, 42, metal);
+            FillRect(14, 27, 40, 37, Color.Lerp(body, Color.Black, 0.35f));
+
+            for (int rib = 16; rib <= 38; rib += 4)
+                FillRect(rib, 24, rib, 40, Color.Lerp(metal, Color.White, 0.15f));
+
+            for (int y = 20; y <= 44; y++)
+            {
+                int beamEnd = Math.Min(width - 1, 54 + (y > 32 ? (44 - y) : (y - 20)) / 2);
+                for (int x = 54; x <= beamEnd; x++)
+                    data[y * width + x] = Color.Lerp(new Color(250, 242, 190), data[y * width + x], 0.4f);
+            }
+
+            var texture = new Texture2D(graphicsDevice, width, height);
+            texture.SetData(data);
+            return texture;
+        }
+
+        private Texture2D CreateGrenadeIconTexture(Color shell, Color highlight)
+        {
+            const int width = 64;
+            const int height = 64;
+            var data = new Color[width * height];
+
+            Color background = Color.Lerp(ParasiteEveTheme.BackgroundDark, Color.Black, 0.3f);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float grain = ((x * 31 + y * 53) % 23) / 22f;
+                    data[y * width + x] = Color.Lerp(background, Color.Black, 0.15f * grain);
+                }
+            }
+
+            void SetPixel(int x, int y, Color c)
+            {
+                if (x >= 0 && x < width && y >= 0 && y < height)
+                    data[y * width + x] = c;
+            }
+
+            for (int y = 16; y <= 52; y++)
+            {
+                float ny = (y - 34) / 18f;
+                float radius = 16f * (float)Math.Sqrt(Math.Max(0f, 1f - ny * ny));
+                int x0 = (int)Math.Round(32 - radius);
+                int x1 = (int)Math.Round(32 + radius);
+                for (int x = x0; x <= x1; x++)
+                {
+                    float nx = (x - 32) / Math.Max(1f, radius);
+                    float shade = 0.55f + 0.45f * (1f - (nx + 1f) * 0.5f);
+                    SetPixel(x, y, Color.Lerp(shell, highlight, shade * 0.45f));
+                }
+            }
+
+            for (int y = 16; y <= 52; y += 6)
+                for (int x = 18; x <= 46; x++)
+                    SetPixel(x, y, Color.Lerp(shell, Color.Black, 0.4f));
+
+            for (int x = 20; x <= 44; x += 6)
+                for (int y = 17; y <= 51; y++)
+                    SetPixel(x, y, Color.Lerp(shell, Color.Black, 0.35f));
+
+            for (int y = 10; y <= 16; y++)
+                for (int x = 27; x <= 37; x++)
+                    SetPixel(x, y, new Color(120, 120, 120));
+
+            for (int y = 8; y <= 10; y++)
+                for (int x = 29; x <= 35; x++)
+                    SetPixel(x, y, new Color(165, 165, 165));
+
+            var texture = new Texture2D(graphicsDevice, width, height);
+            texture.SetData(data);
+            return texture;
+        }
+
 
         private Texture2D GetArmorTexture(ItemData data)
         {
@@ -628,8 +747,27 @@ namespace XCOM_3
             return null;
         }
 
+        private Texture2D GetGrenadeTexture(ItemData data)
+        {
+            if (data?.Type != ItemType.Grenade || data.GrenadeData == null)
+                return null;
+
+            if (grenadeTextures != null && grenadeTextures.TryGetValue(data.GrenadeData.Type, out Texture2D grenadeTexture))
+                return grenadeTexture;
+
+            return null;
+        }
+
+        private Texture2D GetAccessoryTexture(ItemData data)
+        {
+            if (IsTacticalFlashlight(data))
+                return flashlightTexture;
+
+            return null;
+        }
+
         private Texture2D GetItemPreviewTexture(ItemData data)
-            => GetArmorTexture(data) ?? GetWeaponTexture(data);
+            => GetArmorTexture(data) ?? GetWeaponTexture(data) ?? GetGrenadeTexture(data) ?? GetAccessoryTexture(data);
 
         private void DrawItemPreviewImage(ItemData data, Rectangle targetRect, float alpha = 1f)
         {
@@ -4227,13 +4365,6 @@ namespace XCOM_3
             // Fond du bouton style PE2
             spriteBatch.Draw(pixel, item.PixelBounds, ParasiteEveTheme.ButtonNormal * alpha);
 
-            if (IsTacticalFlashlight(item.Data) && flashlightTexture != null)
-            {
-                Rectangle textureRect = new Rectangle(item.PixelBounds.X + 3, item.PixelBounds.Y + 3,
-                    Math.Max(1, item.PixelBounds.Width - 6), Math.Max(1, item.PixelBounds.Height - 6));
-                spriteBatch.Draw(flashlightTexture, textureRect, Color.White * alpha);
-            }
-
             DrawItemPreviewImage(item.Data, item.PixelBounds, alpha);
 
             // Bordure colorée selon le type (via ta DB)
@@ -4435,13 +4566,6 @@ namespace XCOM_3
                 Rectangle inner = new Rectangle(slot.X + 2, slot.Y + 2, slot.Width - 4, slot.Height - 4);
                 spriteBatch.Draw(pixel, inner, Color.Lerp(ParasiteEveTheme.ButtonNormal, Color.LimeGreen, 0.5f) * 0.75f);
                 ParasiteEveTheme.DrawBorder(spriteBatch, pixel, inner, Color.LimeGreen * 0.9f, 1);
-
-                if (IsTacticalFlashlight(equippedItem.Data) && flashlightTexture != null)
-                {
-                    Rectangle textureRect = new Rectangle(inner.X + 3, inner.Y + 3,
-                        Math.Max(1, inner.Width - 6), Math.Max(1, inner.Height - 6));
-                    spriteBatch.Draw(flashlightTexture, textureRect, Color.White);
-                }
 
                 DrawItemPreviewImage(equippedItem.Data, inner);
 
