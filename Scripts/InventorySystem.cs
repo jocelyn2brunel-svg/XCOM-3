@@ -1008,6 +1008,7 @@ namespace XCOM_3
             var grenadeDB = GrenadeDatabase.GetAllGrenades();
 
             ItemDatabase["MK 2"] = new ItemData("MK 2", grenadeDB["MK 2"], Mk2WeightLbs, "Grenade MK2 (1x1) - 600g");
+            ItemDatabase["Satchel Charge (C4)"] = new ItemData("Satchel Charge (C4)", grenadeDB["Satchel Charge (C4)"], 2.2046f, "Charge C4 (1x1) - télécommande à distance");
             ItemDatabase["Lampe tactique aluminium"] = new ItemData(
                 "Lampe tactique aluminium",
                 ItemType.Accessory,
@@ -1059,6 +1060,7 @@ namespace XCOM_3
                 "Pantalon de Travail",
                 // ✅ Grenades
                 "MK 2",
+                "Satchel Charge (C4)",
                 "Lampe tactique aluminium",
                 "Grappin tactique"
             };

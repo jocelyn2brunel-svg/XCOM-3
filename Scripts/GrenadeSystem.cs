@@ -15,7 +15,8 @@ namespace XCOM_3
         Flashbang,      // Assourdit et aveugle
         EMP,            // Désactive les systèmes électroniques
         HE,             // High Explosive - détruit les murs, creuse le sol
-        Plasma          // Plasma alien - dégâts massifs
+        Plasma,         // Plasma alien - dégâts massifs
+        SatchelC4       // Charge C4 posable avec détonation à distance
     }
 
     /// <summary>

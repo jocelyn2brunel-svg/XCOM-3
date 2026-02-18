@@ -135,8 +135,9 @@ namespace XCOM_3
         {
             grenadeDatabase = GrenadeDatabase.GetAllGrenades();
 
-            // Garder uniquement la MK 2 dans l'inventaire disponible
             availableGrenades.Add(new GrenadeItem(grenadeDatabase["MK 2"], new Point(50, 300)));
+            if (grenadeDatabase.ContainsKey("Satchel Charge (C4)"))
+                availableGrenades.Add(new GrenadeItem(grenadeDatabase["Satchel Charge (C4)"], new Point(95, 300)));
         }
 
         private int GetUnitThrowRange(Unit unit)
@@ -193,6 +194,185 @@ namespace XCOM_3
                 }
 
                 CancelSelection();
+            }
+        }
+
+
+        private void ActivateSatchelPlacementMode()
+        {
+            if (selectedUnit == null || selectedUnit.Team != Team.Player)
+                return;
+
+            GrenadeData satchel = selectedUnit.Grenades.FirstOrDefault(g => g.Type == GrenadeType.SatchelC4);
+            if (satchel == null)
+            {
+                Console.WriteLine("Aucune charge C4 disponible.");
+                return;
+            }
+
+            if (selectedUnit.ActionPoints < satchel.AOCost)
+            {
+                Console.WriteLine("AP insuffisants pour poser une charge C4.");
+                return;
+            }
+
+            ExitThrowMode();
+            ExitGrappleMode();
+            c4PlacementMode = true;
+            selectedGrenade = satchel;
+            throwableCells = GetSatchelPlacementCells(selectedUnit);
+            Console.WriteLine($"Mode pose C4 activé: {throwableCells.Count} cases valides.");
+        }
+
+        private void ExitSatchelPlacementMode()
+        {
+            c4PlacementMode = false;
+            throwableCells.Clear();
+            explosionPreview.Clear();
+            trajectoryPreview.Clear();
+
+            if (selectedGrenade?.Type == GrenadeType.SatchelC4)
+                selectedGrenade = null;
+        }
+
+        private List<Point> GetSatchelPlacementCells(Unit unit)
+        {
+            var cells = new List<Point>();
+            if (unit == null)
+                return cells;
+
+            for (int dx = -SatchelPlacementRange; dx <= SatchelPlacementRange; dx++)
+            {
+                for (int dy = -SatchelPlacementRange; dy <= SatchelPlacementRange; dy++)
+                {
+                    Point cell = new Point(unit.Cell.X + dx, unit.Cell.Y + dy);
+                    if (Math.Abs(dx) + Math.Abs(dy) > SatchelPlacementRange)
+                        continue;
+
+                    if (cell.X < 0 || cell.Y < 0 || cell.X >= gridWidth || cell.Y >= gridHeight)
+                        continue;
+
+                    if (!GetCellsForFloor(viewedFloor).Contains(cell))
+                        continue;
+
+                    if (plantedSatchelCharges.Any(c => c.Cell == cell && c.Floor == viewedFloor && c.Team == unit.Team))
+                        continue;
+
+                    cells.Add(cell);
+                }
+            }
+
+            return cells;
+        }
+
+        private void HandleSatchelPlacement(MouseState mouse, bool leftClick)
+        {
+            if (!c4PlacementMode || selectedUnit == null)
+                return;
+
+            Point targetCell = camera.GetCellFromMouse(
+                mouse.Position,
+                GraphicsDevice.Viewport.Width,
+                GraphicsDevice.Viewport.Height,
+                WorldMetrics.FloorToWorldY(viewedFloor, cellSize));
+
+            if (targetCell.X >= 0)
+                hoveredCell = targetCell;
+
+            if (!leftClick || targetCell.X < 0)
+                return;
+
+            throwableCells = GetSatchelPlacementCells(selectedUnit);
+            if (!throwableCells.Contains(targetCell))
+                return;
+
+            GrenadeData satchel = selectedUnit.Grenades.FirstOrDefault(g => g.Type == GrenadeType.SatchelC4);
+            if (satchel == null || selectedUnit.ActionPoints < satchel.AOCost)
+                return;
+
+            plantedSatchelCharges.Add(new PlantedSatchelCharge
+            {
+                Cell = targetCell,
+                Floor = viewedFloor,
+                Team = selectedUnit.Team,
+                Owner = selectedUnit
+            });
+
+            selectedUnit.ActionPoints -= satchel.AOCost;
+            selectedUnit.RemoveGrenade(satchel);
+            Console.WriteLine($"{selectedUnit.Name} pose une charge C4 sur {targetCell} (étage {viewedFloor}).");
+            ExitSatchelPlacementMode();
+        }
+
+        private bool HasDetonatableSatchelCharges(Unit unit)
+        {
+            return unit != null && plantedSatchelCharges.Any(c => c.Team == unit.Team);
+        }
+
+        private void TriggerSatchelDetonation(Unit detonator)
+        {
+            if (detonator == null)
+                return;
+
+            if (detonator.ActionPoints < SatchelDetonationActionPointCost)
+            {
+                Console.WriteLine("AP insuffisants pour détoner les charges C4.");
+                return;
+            }
+
+            var chargesToDetonate = plantedSatchelCharges
+                .Where(c => c.Team == detonator.Team)
+                .ToList();
+
+            if (chargesToDetonate.Count == 0)
+                return;
+
+            detonator.ActionPoints -= SatchelDetonationActionPointCost;
+
+            foreach (PlantedSatchelCharge charge in chargesToDetonate)
+            {
+                TriggerExplosion(charge.Cell, charge.Floor, grenadeDatabase["Satchel Charge (C4)"], charge.Owner ?? detonator);
+            }
+
+            plantedSatchelCharges.RemoveAll(c => c.Team == detonator.Team);
+            Console.WriteLine($"{detonator.Name} déclenche {chargesToDetonate.Count} charge(s) C4.");
+            ExitSatchelPlacementMode();
+        }
+
+        private void DrawSatchelPlacementMode3D(GameTime gameTime)
+        {
+            if (!c4PlacementMode)
+                return;
+
+            throwableCells = GetSatchelPlacementCells(selectedUnit);
+
+            float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 5f) * 0.3f + 0.7f;
+            float floorYOffset = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
+
+            renderer3D.DrawZoneOutline(
+                throwableCells,
+                cellSize,
+                floorYOffset + 0.05f,
+                new Color(255, 210, 80, 220) * pulse);
+        }
+
+        private void DrawPlantedSatchelCharges3D(GameTime gameTime)
+        {
+            if (plantedSatchelCharges.Count == 0)
+                return;
+
+            float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.25f + 0.75f;
+
+            foreach (PlantedSatchelCharge charge in plantedSatchelCharges)
+            {
+                float floorY = WorldMetrics.FloorToWorldY(charge.Floor, cellSize);
+                Vector3 center = new Vector3(
+                    charge.Cell.X * cellSize + cellSize * 0.5f,
+                    floorY + cellSize * 0.08f,
+                    charge.Cell.Y * cellSize + cellSize * 0.5f);
+
+                renderer3D.DrawCube(center, new Vector3(cellSize * 0.18f, cellSize * 0.08f, cellSize * 0.18f), new Color(230, 30, 30, 240) * pulse);
+                renderer3D.DrawCube(center + new Vector3(0f, cellSize * 0.06f, 0f), new Vector3(cellSize * 0.06f), new Color(255, 250, 170, 235) * pulse);
             }
         }
 
@@ -647,6 +827,8 @@ namespace XCOM_3
                 List<WallSegment> destroyedWalls = explosionManager.GetDestroyedWalls(wallSegments, center, grenadeData.Radius);
                 if (destroyedWalls.Count > 0)
                 {
+                    VisualEffects.PlayWallDestruction(explosionPos, destroyedWalls, cellSize, centerFloor, renderer3D);
+
                     foreach (var wall in destroyedWalls) wallSegments.Remove(wall);
                     InvalidateWallsByFloorCache();
                     unitManager.OnWallsDestroyed();

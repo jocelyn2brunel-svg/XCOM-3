@@ -299,7 +299,7 @@ namespace XCOM_3
         /// <summary>
         /// Dessine les boutons d'action - STYLE PE2
         /// </summary>
-        public void DrawActionButtons(Unit selectedUnit, MouseState mouse)
+        public void DrawActionButtons(Unit selectedUnit, MouseState mouse, bool hasDetonatableCharges = false)
         {
             UnitActionButtons.Clear();
 
@@ -321,9 +321,22 @@ namespace XCOM_3
                 buttons.Add(new Button("OVERWATCH", Vector2.Zero));
             }
 
-            if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
+            bool hasThrowableGrenade = selectedUnit != null && selectedUnit.Grenades.Any(g => g.Type != GrenadeType.SatchelC4);
+            bool hasSatchelCharge = selectedUnit != null && selectedUnit.Grenades.Any(g => g.Type == GrenadeType.SatchelC4);
+
+            if (hasThrowableGrenade)
             {
                 buttons.Add(new Button("GRENADE", Vector2.Zero));
+            }
+
+            if (hasSatchelCharge)
+            {
+                buttons.Add(new Button("C4-POSE", Vector2.Zero));
+            }
+
+            if (hasDetonatableCharges)
+            {
+                buttons.Add(new Button("DETONATE", Vector2.Zero));
             }
 
             if (hasGrapplingHookEquipped)
@@ -414,6 +427,12 @@ namespace XCOM_3
                 case "GRAPPLIN":
                     DrawGrappleIcon(bounds, iconColor);
                     break;
+                case "C4-POSE":
+                    DrawC4Icon(bounds, iconColor);
+                    break;
+                case "DETONATE":
+                    DrawDetonateIcon(bounds, iconColor);
+                    break;
                 default:
                     Vector2 textSize = font.MeasureString(action);
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, action,
@@ -454,6 +473,33 @@ namespace XCOM_3
             spriteBatch.Draw(pixel, new Rectangle(cx + 2, cy - 16, 6, 2), color);
         }
 
+
+
+        private void DrawC4Icon(Rectangle bounds, Color color)
+        {
+            Rectangle satchel = new Rectangle(bounds.Center.X - 11, bounds.Center.Y - 7, 22, 14);
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, satchel, color, 2);
+            spriteBatch.Draw(pixel, new Rectangle(satchel.X + 2, satchel.Y + 2, satchel.Width - 4, satchel.Height - 4), color * 0.25f);
+            spriteBatch.Draw(pixel, new Rectangle(bounds.Center.X - 1, satchel.Y - 6, 2, 6), color);
+            spriteBatch.Draw(pixel, new Rectangle(bounds.Center.X - 5, satchel.Y - 8, 10, 2), color);
+        }
+
+        private void DrawDetonateIcon(Rectangle bounds, Color color)
+        {
+            int cx = bounds.Center.X;
+            int cy = bounds.Center.Y;
+            DrawCircleOutline(cx, cy, 8, color, 2);
+            spriteBatch.Draw(pixel, new Rectangle(cx - 1, cy - 14, 2, 6), color);
+            spriteBatch.Draw(pixel, new Rectangle(cx - 6, cy - 14, 12, 2), color);
+
+            for (int i = 0; i < 6; i++)
+            {
+                float angle = MathHelper.TwoPi * i / 6f;
+                int px = cx + (int)(MathF.Cos(angle) * 14f);
+                int py = cy + (int)(MathF.Sin(angle) * 14f);
+                spriteBatch.Draw(pixel, new Rectangle(px - 1, py - 1, 2, 2), color);
+            }
+        }
 
         private void DrawCircleOutline(int centerX, int centerY, int radius, Color color, int thickness)
         {

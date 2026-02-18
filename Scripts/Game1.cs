@@ -64,9 +64,11 @@ namespace XCOM_3
         private List<Vector3> trajectoryPreview = new List<Vector3>();
         private readonly List<FlashlightLootMarker> flashlightLootMarkers = new List<FlashlightLootMarker>();
         private bool grappleMode = false;
+        private bool c4PlacementMode = false;
         private int grappleTargetFloor = -1;
         private List<GrappleAnchor> grappleAnchors = new List<GrappleAnchor>();
         private int lastProcessedGrapplePlayerTurn = -1;
+        private readonly List<PlantedSatchelCharge> plantedSatchelCharges = new List<PlantedSatchelCharge>();
 
         // Constantes
         private const int BaseThrowRange = 20;
@@ -83,6 +85,8 @@ namespace XCOM_3
         private const int GrappleConcentrationClimbFloorsPerTurn = 2;
         private const float Mk2WeightLbs = 1.3228f; // 600 grammes
         private const float OverwatchShotIntervalSeconds = 3f;
+        private const int SatchelPlacementRange = 1;
+        private const int SatchelDetonationActionPointCost = 1;
 
         // --- Système de cartes ---
         private MapData currentMap;
@@ -202,6 +206,14 @@ namespace XCOM_3
             public int Floor;
             public int Quantity;
             public float PulseSeed;
+        }
+
+        private struct PlantedSatchelCharge
+        {
+            public Point Cell;
+            public int Floor;
+            public Team Team;
+            public Unit Owner;
         }
 
         public Game1()
@@ -1392,7 +1404,7 @@ namespace XCOM_3
 
             combatUI.DrawEndTurnButton(mouse);
             combatUI.DrawUnitInfoPanel(selectedUnit, grenadeDatabase);
-            combatUI.DrawActionButtons(selectedUnit, mouse);
+            combatUI.DrawActionButtons(selectedUnit, mouse, HasDetonatableSatchelCharges(selectedUnit));
 
             if (combatUI.ShowFireTargets && selectedUnit?.Team == Team.Player) combatUI.DrawFireTargets(mouse);
 
@@ -1654,10 +1666,12 @@ namespace XCOM_3
 
             renderer3D.DrawCraters(craters, cellSize);
             renderer3D.DrawGrenades(activeGrenades, cellSize);
+            DrawPlantedSatchelCharges3D(gameTime);
             DrawFlashlightLootHighlights(gameTime);
 
             DrawHoveredCell3D(gameTime);
             DrawThrowMode3D(gameTime);
+            DrawSatchelPlacementMode3D(gameTime);
             DrawGrappleMode3D(gameTime);
 
             if (showCoverIndicators)
@@ -2452,6 +2466,12 @@ namespace XCOM_3
 
             if (unit.Grenades.Count == 0)
                 unit.AddGrenade(grenadeDatabase["MK 2"]);
+
+            if (grenadeDatabase.ContainsKey("Satchel Charge (C4)") &&
+                !unit.Grenades.Any(g => g.Type == GrenadeType.SatchelC4))
+            {
+                unit.AddGrenade(grenadeDatabase["Satchel Charge (C4)"]);
+            }
         }
 
         private void AssignRandomEquipmentToUnits(List<Unit> units)
@@ -2968,7 +2988,7 @@ namespace XCOM_3
                 hoveredCell = rawHoveredCell;
 
             // 1. Check if we have a valid unit and valid cell
-            if (!grappleMode && selectedUnit != null && selectedUnit.ActionPoints > 0 && isHoveringValidCell &&
+            if (!grappleMode && !c4PlacementMode && selectedUnit != null && selectedUnit.ActionPoints > 0 && isHoveringValidCell &&
                 selectedUnit.Team == Team.Player)
             {
                 // 2. Define maxRange here
@@ -3020,6 +3040,7 @@ namespace XCOM_3
             }
 
             if (throwMode) HandleGrenadeThrow(mouse, leftClick);
+            if (c4PlacementMode) HandleSatchelPlacement(mouse, leftClick);
             if (grappleMode) HandleGrappleAction(mouse, leftClick);
 
             if (selectedUnit != null && selectedUnit.Team == Team.Player && combatUI.ShowFireTargets)
@@ -3040,7 +3061,7 @@ namespace XCOM_3
 
             if (leftClick) HandleUnitActionButtons(mouse);
             if (leftClick && combatUI.ShowFireTargets) combatUI.HandleFireTargetClick(mouse, selectedUnit);
-            if (leftClick && !clickOnUI && !throwMode && !grappleMode && isHoveringValidCell) HandleGridClick(hoveredCell, interactionFloor, allowSmartFallback: !explicitUpperFloorTargeting);
+            if (leftClick && !clickOnUI && !throwMode && !c4PlacementMode && !grappleMode && isHoveringValidCell) HandleGridClick(hoveredCell, interactionFloor, allowSmartFallback: !explicitUpperFloorTargeting);
             if (mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released) CancelSelection();
 
             if (combatUI.FireButton.Contains(mouse.Position) && leftClick &&
@@ -3287,15 +3308,28 @@ namespace XCOM_3
                     case "GRENADE":
                         if (selectedUnit != null && selectedUnit.Grenades.Count > 0)
                         {
+                            GrenadeData throwableGrenade = selectedUnit.Grenades.FirstOrDefault(g => g.Type != GrenadeType.SatchelC4);
+                            if (throwableGrenade == null)
+                                break;
+
+                            ExitSatchelPlacementMode();
                             ExitGrappleMode();
                             throwMode = true;
                             throwModeUsesFlashlight = false;
                             throwFlashlightFromRightHand = false;
-                            selectedGrenade = selectedUnit.Grenades[0];
+                            selectedGrenade = throwableGrenade;
                             int throwRange = GetUnitThrowRange(selectedUnit);
                             throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
                             Console.WriteLine($"Mode grenade activé: {selectedGrenade.Name}");
                         }
+                        break;
+
+                    case "C4-POSE":
+                        ActivateSatchelPlacementMode();
+                        break;
+
+                    case "DETONATE":
+                        TriggerSatchelDetonation(selectedUnit);
                         break;
 
                     case "RELOAD":
@@ -3345,6 +3379,7 @@ namespace XCOM_3
             pathCosts.Clear();
 
             ExitThrowMode();
+            ExitSatchelPlacementMode();
             ExitGrappleMode();
         }
 
@@ -3379,6 +3414,7 @@ namespace XCOM_3
             if (selectedUnit.ActionPoints < TacticalFlashlightThrowApCost)
                 return;
 
+            ExitSatchelPlacementMode();
             ExitGrappleMode();
             throwMode = true;
             throwModeUsesFlashlight = true;

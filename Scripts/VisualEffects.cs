@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace XCOM_3
 {
@@ -9,6 +10,7 @@ namespace XCOM_3
     {
         private static List<ExplosionEffect> activeExplosions = new();
         private static List<GibEffect> activeGibs = new();
+        private static List<WallDebrisEffect> activeWallDebris = new();
         private static readonly Random random = new();
 
         public static void PlayExplosion(Vector3 position, float radius, Renderer3D renderer)
@@ -20,6 +22,18 @@ namespace XCOM_3
         public static void PlayGibExplosion(Vector3 position, float force, Renderer3D renderer)
         {
             activeGibs.Add(new GibEffect(position, force, renderer));
+        }
+
+        public static void PlayWallDestruction(Vector3 explosionCenter, IEnumerable<WallSegment> destroyedWalls, int cellSize, int floor, Renderer3D renderer)
+        {
+            if (destroyedWalls == null)
+                return;
+
+            List<WallSegment> walls = destroyedWalls.ToList();
+            if (walls.Count == 0)
+                return;
+
+            activeWallDebris.Add(new WallDebrisEffect(explosionCenter, walls, cellSize, floor, renderer));
         }
 
         // Appel à faire dans ton Update() pour mettre à jour les effets actifs
@@ -38,6 +52,12 @@ namespace XCOM_3
                 activeGibs[i].Update(delta);
                 if (activeGibs[i].IsFinished) activeGibs.RemoveAt(i);
             }
+
+            for (int i = activeWallDebris.Count - 1; i >= 0; i--)
+            {
+                activeWallDebris[i].Update(delta);
+                if (activeWallDebris[i].IsFinished) activeWallDebris.RemoveAt(i);
+            }
         }
 
         // Appel à faire dans ton Draw() pour dessiner les explosions
@@ -48,6 +68,9 @@ namespace XCOM_3
 
             foreach (var gib in activeGibs)
                 gib.Draw();
+
+            foreach (var debris in activeWallDebris)
+                debris.Draw();
         }
 
         // --- Classe interne représentant une explosion ---
@@ -99,6 +122,92 @@ namespace XCOM_3
                     Vector3 pos = position + offset + new Vector3(0, elapsed * radius * 0.5f, 0); // monte légèrement
                     renderer.DrawCube(pos, new Vector3(radius * 0.1f), new Color(200, 100, 50) * alpha);
                 }
+            }
+        }
+
+        private class WallDebrisEffect
+        {
+            private readonly Renderer3D renderer;
+            private readonly List<WallFragment> fragments;
+            private float elapsed;
+            private readonly float lifetime;
+
+            public bool IsFinished => elapsed >= lifetime;
+
+            public WallDebrisEffect(Vector3 explosionCenter, List<WallSegment> destroyedWalls, int cellSize, int floor, Renderer3D renderer)
+            {
+                this.renderer = renderer;
+                fragments = new List<WallFragment>();
+                lifetime = 1.35f;
+
+                float floorYOffset = WorldMetrics.FloorToWorldY(floor, cellSize);
+
+                foreach (WallSegment wall in destroyedWalls)
+                {
+                    Vector3 wallCenter = new Vector3(
+                        (wall.Start.X + wall.End.X) * 0.5f * cellSize,
+                        floorYOffset + cellSize * 0.65f,
+                        (wall.Start.Y + wall.End.Y) * 0.5f * cellSize);
+
+                    int count = 12;
+                    for (int i = 0; i < count; i++)
+                    {
+                        Vector3 blowDirection = wallCenter - explosionCenter;
+                        blowDirection.Y = MathF.Max(0.12f, blowDirection.Y + 0.15f);
+
+                        Vector3 turbulence = new Vector3(
+                            (float)(random.NextDouble() - 0.5f) * 0.75f,
+                            (float)(random.NextDouble() * 0.55f),
+                            (float)(random.NextDouble() - 0.5f) * 0.75f);
+
+                        Vector3 direction = blowDirection + turbulence;
+                        if (direction.LengthSquared() <= 0.0001f)
+                            direction = Vector3.Up;
+                        else
+                            direction.Normalize();
+
+                        float speed = 3.5f + (float)random.NextDouble() * 5.6f;
+                        float size = 0.07f + (float)random.NextDouble() * 0.13f;
+
+                        fragments.Add(new WallFragment
+                        {
+                            StartPosition = wallCenter,
+                            Velocity = direction * speed,
+                            Size = size,
+                            Color = wall.Material == WallMaterial.Hesco
+                                ? new Color(145, 120, 92)
+                                : new Color(160, 140, 130)
+                        });
+                    }
+                }
+            }
+
+            public void Update(float delta)
+            {
+                elapsed += delta;
+            }
+
+            public void Draw()
+            {
+                float t = MathF.Min(1f, elapsed / lifetime);
+                float fade = 1f - t;
+                const float gravity = 12f;
+
+                foreach (WallFragment fragment in fragments)
+                {
+                    Vector3 gravityOffset = new Vector3(0f, -0.5f * gravity * elapsed * elapsed, 0f);
+                    Vector3 position = fragment.StartPosition + fragment.Velocity * elapsed + gravityOffset;
+                    float spinScale = 0.8f + 0.35f * (1f - t);
+                    renderer.DrawCube(position, new Vector3(fragment.Size * spinScale), fragment.Color * fade);
+                }
+            }
+
+            private struct WallFragment
+            {
+                public Vector3 StartPosition;
+                public Vector3 Velocity;
+                public float Size;
+                public Color Color;
             }
         }
 
