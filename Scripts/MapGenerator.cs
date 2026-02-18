@@ -80,7 +80,14 @@ namespace XCOM_3
                     Y = p.Y,
                     Floor = 0
                 });
-            map.Furnitures = GenerateMapFurniture(pattern, map.Buildings, map.GridWidth, map.GridHeight, map.FloorCount, map.SpawnZones, map.HescoBarriers);
+            map.Furnitures = GenerateMapFurniture(
+                pattern,
+                map.Buildings,
+                map.GridWidth,
+                map.GridHeight,
+                map.FloorCount,
+                map.PlayerSpawnZones.Concat(map.EnemySpawnZones).ToList(),
+                map.HescoBarriers);
 
             map.StairConnections = GenerateDefaultStairs(map.GridWidth, map.GridHeight, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
@@ -167,7 +174,14 @@ namespace XCOM_3
                     Y = p.Y,
                     Floor = 0
                 });
-            map.Furnitures = GenerateMapFurniture(pattern, map.Buildings, width, height, map.FloorCount, map.SpawnZones, map.HescoBarriers);
+            map.Furnitures = GenerateMapFurniture(
+                pattern,
+                map.Buildings,
+                width,
+                height,
+                map.FloorCount,
+                map.PlayerSpawnZones.Concat(map.EnemySpawnZones).ToList(),
+                map.HescoBarriers);
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
             map.TerrainHeights = GenerateTerrainRelief(width, height, pattern);

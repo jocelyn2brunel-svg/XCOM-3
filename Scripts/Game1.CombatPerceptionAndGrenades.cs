@@ -1073,13 +1073,13 @@ namespace XCOM_3
 
         private void RegisterFlashlightLoot(Point lootCell, int lootFloor, bool isOn)
         {
-            bool addedToNearbyLoot = RegisterGroundLoot(TacticalFlashlightItemName, lootCell, lootFloor);
+            bool addedToNearbyLoot = RegisterGroundLoot(TacticalFlashlightItemName, lootCell, lootFloor, isOn);
             Console.WriteLine(addedToNearbyLoot
                 ? $"Flashlight landed at {lootCell} (floor {lootFloor}) and added to nearby loot."
                 : $"Flashlight landed at {lootCell} (floor {lootFloor}) but could not be added to nearby loot.");
         }
 
-        private bool RegisterGroundLoot(string itemName, Point lootCell, int lootFloor)
+        private bool RegisterGroundLoot(string itemName, Point lootCell, int lootFloor, bool isOn = false)
         {
             bool mergedWithExistingCell = false;
 
