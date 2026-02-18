@@ -349,6 +349,13 @@ namespace XCOM_3
         RocketLauncher
     }
 
+    public enum FireMode
+    {
+        Single,
+        Burst,
+        Auto
+    }
+
     public enum WeaponUpgradeSlotType
     {
         Magazine,
@@ -405,6 +412,8 @@ namespace XCOM_3
         public int RoundsPerMinute;
         public int MagazineCapacity;
         public Dictionary<WeaponUpgradeSlotType, WeaponUpgradeData> UpgradeSlots;
+        public List<FireMode> SupportedFireModes;
+        public int CurrentFireModeIndex;
 
         // Constructeur de base (pour vos armes existantes - compatibilité totale)
         public WeaponData(string name, int damage, int accuracy, int range)
@@ -422,6 +431,8 @@ namespace XCOM_3
             RoundsPerMinute = GetDefaultRoundsPerMinute(Type);
             MagazineCapacity = GetDefaultMagazineCapacity(Type);
             UpgradeSlots = CreateDefaultUpgradeSlots();
+            SupportedFireModes = GetDefaultFireModes(Type);
+            CurrentFireModeIndex = 0;
         }
 
         // ✅ NOUVEAU : Constructeur étendu (pour les nouvelles armes)
@@ -440,6 +451,8 @@ namespace XCOM_3
             RoundsPerMinute = roundsPerMinute > 0 ? roundsPerMinute : GetDefaultRoundsPerMinute(Type);
             MagazineCapacity = magazineCapacity > 0 ? magazineCapacity : GetDefaultMagazineCapacity(Type);
             UpgradeSlots = CreateDefaultUpgradeSlots();
+            SupportedFireModes = GetDefaultFireModes(Type);
+            CurrentFireModeIndex = 0;
         }
 
         public bool UsesAmmo => Type != WeaponType.Melee;
@@ -456,6 +469,29 @@ namespace XCOM_3
 
                 return Math.Max(1, MagazineCapacity + GetTotalUpgradeBonus(upg => upg.MagazineCapacityBonus));
             }
+        }
+
+        public FireMode CurrentFireMode
+        {
+            get
+            {
+                if (SupportedFireModes == null || SupportedFireModes.Count == 0)
+                    return FireMode.Single;
+
+                CurrentFireModeIndex = Math.Clamp(CurrentFireModeIndex, 0, SupportedFireModes.Count - 1);
+                return SupportedFireModes[CurrentFireModeIndex];
+            }
+        }
+
+        public bool CanCycleFireMode => UsesAmmo && SupportedFireModes != null && SupportedFireModes.Count > 1;
+
+        public bool CycleFireMode()
+        {
+            if (!CanCycleFireMode)
+                return false;
+
+            CurrentFireModeIndex = (CurrentFireModeIndex + 1) % SupportedFireModes.Count;
+            return true;
         }
 
         public bool TryInstallUpgrade(WeaponUpgradeData upgrade)
@@ -484,6 +520,9 @@ namespace XCOM_3
             var clone = new WeaponData(Name, Damage, Accuracy, Range, Type, Caliber, Reference, WeightLbs, RoundsPerMinute, MagazineCapacity);
             foreach (var kv in UpgradeSlots)
                 clone.UpgradeSlots[kv.Key] = kv.Value;
+
+            clone.SupportedFireModes = new List<FireMode>(SupportedFireModes ?? GetDefaultFireModes(Type));
+            clone.CurrentFireModeIndex = Math.Clamp(CurrentFireModeIndex, 0, Math.Max(0, clone.SupportedFireModes.Count - 1));
 
             return clone;
         }
@@ -517,7 +556,29 @@ namespace XCOM_3
 
             // 1 PA = 3 secondes. 3 / 60 = 0.05 minute.
             int roundsByCadence = Math.Max(1, (int)Math.Ceiling(RoundsPerMinute * 0.05f));
+            roundsByCadence = CurrentFireMode switch
+            {
+                FireMode.Single => 1,
+                FireMode.Burst => Math.Max(2, Math.Min(3, roundsByCadence)),
+                _ => roundsByCadence
+            };
+
             return Math.Min(roundsByCadence, EffectiveMagazineCapacity);
+        }
+
+        private static List<FireMode> GetDefaultFireModes(WeaponType weaponType)
+        {
+            return weaponType switch
+            {
+                WeaponType.SMG or WeaponType.AssaultRifle or WeaponType.Carbine or WeaponType.MachineGun
+                    => new List<FireMode> { FireMode.Single, FireMode.Burst, FireMode.Auto },
+                WeaponType.BattleRifle
+                    => new List<FireMode> { FireMode.Single, FireMode.Burst },
+                WeaponType.Melee
+                    => new List<FireMode>(),
+                _
+                    => new List<FireMode> { FireMode.Single }
+            };
         }
 
         private static float GetDefaultWeightLbs(WeaponType weaponType)
