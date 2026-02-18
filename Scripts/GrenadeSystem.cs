@@ -55,16 +55,19 @@ namespace XCOM_3
     {
         public GrenadeData Data;
         public Vector3 Position;
+        public Vector3 StartPosition;
         public Vector3 TargetPosition;
         public float Progress;          // 0.0 à 1.0
         public Unit Thrower;
         public int TargetFloor;         // Étage ciblé pour l'explosion
         public float ArcHeight;         // Hauteur de l'arc parabolique
+        public float FlightDurationSeconds; // Durée totale du vol pour une lecture visuelle claire
 
         public Grenade(GrenadeData data, Vector3 start, Vector3 target, Unit thrower, int targetFloor)
         {
             Data = data;
             Position = start;
+            StartPosition = start;
             TargetPosition = target;
             Progress = 0f;
             Thrower = thrower;
@@ -73,6 +76,7 @@ namespace XCOM_3
             // Calculer la hauteur de l'arc selon la distance
             float distance = Vector3.Distance(start, target);
             ArcHeight = Math.Min(distance * 0.5f, 8f);
+            FlightDurationSeconds = MathHelper.Clamp(0.45f + distance * 0.018f, 0.55f, 1.2f);
         }
 
         /// <summary>
@@ -80,7 +84,7 @@ namespace XCOM_3
         /// </summary>
         public Vector3 GetCurrentPosition()
         {
-            Vector3 linearPos = Vector3.Lerp(Position, TargetPosition, Progress);
+            Vector3 linearPos = Vector3.Lerp(StartPosition, TargetPosition, Progress);
 
             // Ajouter l'arc parabolique
             float arcProgress = 4f * Progress * (1f - Progress);
