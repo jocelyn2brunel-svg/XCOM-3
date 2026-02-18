@@ -45,6 +45,9 @@ namespace XCOM_3
         public int PerceptionRangeCells { get; set; } = DefaultHumanPerceptionFeet / FeetPerCell;
         public int PerceptionRangeFeet => PerceptionRangeCells * FeetPerCell;
         public bool IsSpottedByPlayerTeam { get; set; } = false;
+        public bool IsGrappleConcentrating { get; set; } = false;
+        public Point GrappleAnchorCell { get; set; } = Point.Zero;
+        public int GrappleAnchorFloor { get; set; } = -1;
 
         private static readonly int[] phosphocreatineRegenByRound = { 18, 15, 12, 10, 8, 7, 6, 5, 4, 3 };
         private int phosphocreatineRegenRound = 0;
@@ -246,6 +249,9 @@ namespace XCOM_3
             MaxHealth = other.MaxHealth;
             PerceptionRangeCells = other.PerceptionRangeCells;
             IsSpottedByPlayerTeam = other.IsSpottedByPlayerTeam;
+            IsGrappleConcentrating = other.IsGrappleConcentrating;
+            GrappleAnchorCell = other.GrappleAnchorCell;
+            GrappleAnchorFloor = other.GrappleAnchorFloor;
 
             EquippedWeapon = other.EquippedWeapon;
             EquippedHelmet = other.EquippedHelmet;

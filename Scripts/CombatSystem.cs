@@ -22,6 +22,7 @@ namespace XCOM_3
 
         // État du tour
         public TurnState CurrentTurn { get; private set; } = TurnState.PlayerTurn;
+        public int PlayerTurnNumber { get; private set; } = 0;
         public int EnemyTurnIndex { get; private set; }
         public bool IsActionInProgress { get; set; }
 
@@ -78,6 +79,8 @@ namespace XCOM_3
         /// </summary>
         public void StartPlayerTurn()
         {
+            PlayerTurnNumber++;
+
             foreach (var u in playerUnits)
             {
                 u.ActionPoints = u.MaxActionPoints; // ← Utiliser MaxActionPoints au lieu de 3
