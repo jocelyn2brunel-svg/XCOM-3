@@ -62,6 +62,7 @@ namespace XCOM_3
         private List<Point> throwableCells = new List<Point>();
         private List<Point> explosionPreview = new List<Point>();
         private List<Vector3> trajectoryPreview = new List<Vector3>();
+        private List<Vector3> ricochetPreview = new List<Vector3>();
         private readonly List<FlashlightLootMarker> flashlightLootMarkers = new List<FlashlightLootMarker>();
         private bool grappleMode = false;
         private bool c4PlacementMode = false;
@@ -87,6 +88,12 @@ namespace XCOM_3
         private const float OverwatchShotIntervalSeconds = 3f;
         private const int SatchelPlacementRange = 1;
         private const int SatchelDetonationActionPointCost = 1;
+
+        // Options avancées de lancer de grenade (activables/désactivables facilement).
+        private bool grenadeOptionWallAwareTargeting = true;      // Option 1: validation par murs/fenêtres.
+        private bool grenadeOptionArcCollisionSampling = true;    // Option 2: collisions en échantillonnant l'arc.
+        private bool grenadeOptionRicochet = true;                // Option 3: ricochet sur murs pleins.
+        private bool grenadeOptionThrowFeedback = true;           // Option 4: feedback visuel (arc/ricochet).
 
         // --- Système de cartes ---
         private MapData currentMap;
@@ -3381,7 +3388,10 @@ namespace XCOM_3
                             throwFlashlightFromRightHand = false;
                             selectedGrenade = throwableGrenade;
                             int throwRange = GetUnitThrowRange(selectedUnit);
-                            throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
+                            var rawThrowableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
+            throwableCells = grenadeOptionWallAwareTargeting
+                ? rawThrowableCells.Where(cell => CanThrowToTarget(selectedUnit, cell, viewedFloor)).ToList()
+                : rawThrowableCells;
                             Console.WriteLine($"Mode grenade activé: {selectedGrenade.Name}");
                         }
                         break;
@@ -3459,6 +3469,7 @@ namespace XCOM_3
             throwableCells.Clear();
             explosionPreview.Clear();
             trajectoryPreview.Clear();
+            ricochetPreview.Clear();
         }
 
         private void ExitGrappleMode()
@@ -3489,7 +3500,10 @@ namespace XCOM_3
             selectedGrenade = new GrenadeData(TacticalFlashlightItemName, GrenadeType.Flashbang, 0, 0, aoCost: TacticalFlashlightThrowApCost);
 
             int throwRange = GetUnitThrowRange(selectedUnit);
-            throwableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
+            var rawThrowableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
+            throwableCells = grenadeOptionWallAwareTargeting
+                ? rawThrowableCells.Where(cell => CanThrowToTarget(selectedUnit, cell, viewedFloor)).ToList()
+                : rawThrowableCells;
             Console.WriteLine($"Mode lancer lampe activé ({(fromRightHand ? "main droite" : "main gauche")}).");
         }
     }
