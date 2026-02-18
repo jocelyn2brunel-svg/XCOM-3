@@ -139,21 +139,40 @@ namespace XCOM_3
 
         private bool CanUnitPerceiveTarget(Unit observer, Unit target)
         {
-            if (observer == null || target == null || pathfinding == null)
+            if (observer == null || target == null)
                 return false;
 
-            if (observer.Health <= 0 || target.Health <= 0)
+            if (target.Health <= 0)
                 return false;
 
-            if (observer.Floor != target.Floor)
+            return CanUnitPerceiveCell(observer, target.Cell, target.Floor);
+        }
+
+        private bool CanUnitPerceiveCell(Unit observer, Point targetCell, int targetFloor)
+        {
+            if (observer == null || pathfinding == null)
                 return false;
 
-            float distanceCells = Vector2.Distance(new Vector2(observer.Cell.X, observer.Cell.Y), new Vector2(target.Cell.X, target.Cell.Y));
+            if (observer.Health <= 0)
+                return false;
+
+            if (observer.Floor != targetFloor)
+                return false;
+
+            float distanceCells = Vector2.Distance(new Vector2(observer.Cell.X, observer.Cell.Y), new Vector2(targetCell.X, targetCell.Y));
             if (distanceCells > GetEffectivePerceptionRange(observer))
                 return false;
 
             // Vision 360°: pas de contrainte d'angle, uniquement portée + ligne de vue.
-            return pathfinding.HasLineOfSight(observer.Cell, target.Cell);
+            return pathfinding.HasLineOfSight(observer.Cell, targetCell);
+        }
+
+        private bool IsEnemyCellVisibleToPlayers(Unit enemy, Point cell, int floor)
+        {
+            if (enemy == null || enemy.Health <= 0)
+                return false;
+
+            return playerUnits.Any(player => CanUnitPerceiveCell(player, cell, floor));
         }
 
         private int GetEffectivePerceptionRange(Unit observer)

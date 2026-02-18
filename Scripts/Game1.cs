@@ -446,6 +446,7 @@ namespace XCOM_3
             characterInfoPanel = new CharacterInfoPanel(font, GraphicsDevice);
 
             combatSystem = new CombatSystem(random, pathfinding, GetUnitAtCell, GetFurnitureAtCellOnFloor, unitManager);
+            combatSystem.SetEnemyVisibilityEvaluator((enemy, cell, floor) => IsEnemyCellVisibleToPlayers(enemy, cell, floor));
             combatUI = new CombatUISystem(GraphicsDevice, _spriteBatch, font, pixel);
             combatSystem.OnUnitKilled += HandleUnitKilled;
             combatSystem.OnFireCompleted += HandleFireCompleted;

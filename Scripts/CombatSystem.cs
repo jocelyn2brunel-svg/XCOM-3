@@ -19,6 +19,7 @@ namespace XCOM_3
         private PathfindingSystem pathfinding;
         private Func<Point, Unit> getUnitAtCell;
         private Func<Point, int, FurnitureData> getFurnitureAtCellOnFloor;
+        private Func<Unit, Point, int, bool> isEnemyCellVisibleToPlayers;
         private OptimizedUnitManager unitManager;
 
         // État du tour
@@ -36,6 +37,24 @@ namespace XCOM_3
         private readonly Dictionary<Unit, bool> lineOfSightCache = new Dictionary<Unit, bool>();
         private readonly Dictionary<Unit, float> postHitPauseTimers = new Dictionary<Unit, float>();
         private const float HitConfirmPauseSeconds = 0.5f;
+
+        private enum EnemyIntentType { Fire, Move, EndTurn }
+
+        private readonly struct EnemyIntent
+        {
+            public EnemyIntentType Type { get; }
+            public Unit Target { get; }
+            public List<Point> MovePath { get; }
+
+            public EnemyIntent(EnemyIntentType type, Unit target = null, List<Point> movePath = null)
+            {
+                Type = type;
+                Target = target;
+                MovePath = movePath;
+            }
+        }
+
+        private readonly List<EnemyIntent> enemyIntentQueue = new List<EnemyIntent>();
 
         private static int GetWeaponRange(Unit unit) => unit?.WeaponData?.EffectiveRange ?? 0;
         private static int GetWeaponAccuracy(Unit unit) => unit?.WeaponData?.EffectiveAccuracy ?? 0;
@@ -111,6 +130,11 @@ namespace XCOM_3
             pathfinding = newPathfinding;
         }
 
+        public void SetEnemyVisibilityEvaluator(Func<Unit, Point, int, bool> visibilityEvaluator)
+        {
+            isEnemyCellVisibleToPlayers = visibilityEvaluator;
+        }
+
         /// <summary>
         /// Démarre le tour du joueur
         /// </summary>
@@ -147,6 +171,7 @@ namespace XCOM_3
 
             EnemyTurnIndex = 0;
             CurrentTurn = TurnState.EnemyTurn;
+            enemyIntentQueue.Clear();
             unitManager.OnNewTurn();
 
             Console.WriteLine("[COMBAT] Tour ennemi");
@@ -171,93 +196,206 @@ namespace XCOM_3
 
             if (enemy.ActionPoints <= 0)
             {
+                enemyIntentQueue.Clear();
                 EnemyTurnIndex++;
                 return;
             }
 
-            // Sélectionner une cible
+            if (enemyIntentQueue.Count == 0)
+            {
+                BuildEnemyIntentions(enemy);
+            }
+
+            if (enemyIntentQueue.Count == 0)
+            {
+                enemy.ActionPoints = 0;
+                enemyIntentQueue.Clear();
+                EnemyTurnIndex++;
+                return;
+            }
+
+            EnemyIntent intent = enemyIntentQueue[0];
+            enemyIntentQueue.RemoveAt(0);
+            ExecuteEnemyIntent(enemy, intent, cellSize);
+
+            if (enemy.ActionPoints <= 0)
+            {
+                enemyIntentQueue.Clear();
+                EnemyTurnIndex++;
+            }
+        }
+
+        private void BuildEnemyIntentions(Unit enemy)
+        {
+            enemyIntentQueue.Clear();
+
+            if (enemy == null || enemy.ActionPoints <= 0)
+                return;
+
             BuildTargetPressureCache(enemy);
             Unit target = SelectBestTarget(enemy);
-
             if (target == null)
-            {
-                EnemyTurnIndex++;
                 return;
-            }
 
-            // 10% de chance de changer de cible aléatoirement
             if (random.Next(100) < 10 && playerUnits.Count > 1)
             {
                 target = playerUnits[random.Next(playerUnits.Count)];
                 Console.WriteLine($"[COMBAT] {enemy.Name} change de cible!");
             }
 
-            int distance = Math.Abs(target.Cell.X - enemy.Cell.X) +
-                          Math.Abs(target.Cell.Y - enemy.Cell.Y);
-
-            // Tirer si possible
+            int distance = Math.Abs(target.Cell.X - enemy.Cell.X) + Math.Abs(target.Cell.Y - enemy.Cell.Y);
             bool canSeeTarget = lineOfSightCache.TryGetValue(target, out bool cachedLoS)
                 ? cachedLoS
                 : pathfinding.HasLineOfSight(enemy.Cell, target.Cell);
 
             if (distance <= GetWeaponRange(enemy) && canSeeTarget)
             {
-                float deltaX = target.Cell.X - enemy.Cell.X;
-                float deltaZ = target.Cell.Y - enemy.Cell.Y;
-                enemy.TargetOrientation = Unit.ComputeOrientationFromDelta(deltaX, deltaZ);
-
-                InitiateFire(enemy, target);
+                enemyIntentQueue.Add(new EnemyIntent(EnemyIntentType.Fire, target));
+                if (enemy.ActionPoints > 1)
+                    enemyIntentQueue.Add(new EnemyIntent(EnemyIntentType.Fire, target));
                 return;
             }
 
-            // Sinon se déplacer
-            var path = pathfinding.FindPath(enemy.Cell, target.Cell, int.MaxValue, enemy);
-
-            if (path.Count > 0)
+            var movePath = BuildMovementPathTowardTarget(enemy, target);
+            if (movePath.Count > 0)
             {
-                int steps = Math.Min(enemy.GetMaxMoveRange(), path.Count);
-                Point? validCell = null;
+                enemyIntentQueue.Add(new EnemyIntent(EnemyIntentType.Move, target, movePath));
+            }
 
-                for (int i = steps - 1; i >= 0; i--)
+            if (enemy.ActionPoints > 1)
+            {
+                Point plannedCell = movePath.Count > 0 ? movePath[movePath.Count - 1] : enemy.Cell;
+                int plannedDistance = Math.Abs(target.Cell.X - plannedCell.X) + Math.Abs(target.Cell.Y - plannedCell.Y);
+                bool canSeeAfterMove = pathfinding.HasLineOfSight(plannedCell, target.Cell);
+                if (plannedDistance <= GetWeaponRange(enemy) && canSeeAfterMove)
                 {
-                    if (getUnitAtCell(path[i]) == null)
+                    enemyIntentQueue.Add(new EnemyIntent(EnemyIntentType.Fire, target));
+                }
+            }
+
+            if (enemyIntentQueue.Count == 0)
+                enemyIntentQueue.Add(new EnemyIntent(EnemyIntentType.EndTurn));
+        }
+
+        private void ExecuteEnemyIntent(Unit enemy, EnemyIntent intent, int cellSize)
+        {
+            switch (intent.Type)
+            {
+                case EnemyIntentType.Fire:
+                    if (intent.Target != null && intent.Target.Health > 0)
                     {
-                        validCell = path[i];
+                        float deltaX = intent.Target.Cell.X - enemy.Cell.X;
+                        float deltaZ = intent.Target.Cell.Y - enemy.Cell.Y;
+                        enemy.TargetOrientation = Unit.ComputeOrientationFromDelta(deltaX, deltaZ);
+                        InitiateFire(enemy, intent.Target);
+                    }
+                    else
+                    {
+                        enemy.ActionPoints = Math.Max(0, enemy.ActionPoints - 1);
+                    }
+                    break;
+
+                case EnemyIntentType.Move:
+                    if (intent.Target != null)
+                    {
+                        ExecuteMoveIntent(enemy, intent.Target, intent.MovePath, cellSize);
+                    }
+                    else
+                    {
+                        enemy.ActionPoints = Math.Max(0, enemy.ActionPoints - 1);
+                    }
+                    break;
+
+                default:
+                    enemy.ActionPoints = 0;
+                    break;
+            }
+        }
+
+        private List<Point> BuildMovementPathTowardTarget(Unit enemy, Unit target)
+        {
+            var path = pathfinding.FindPath(enemy.Cell, target.Cell, int.MaxValue, enemy);
+            if (path.Count == 0)
+                return new List<Point>();
+
+            int steps = Math.Min(enemy.GetMaxMoveRange(), path.Count);
+            for (int i = steps - 1; i >= 0; i--)
+            {
+                if (getUnitAtCell(path[i]) == null)
+                {
+                    return path.GetRange(0, i + 1);
+                }
+            }
+
+            return new List<Point>();
+        }
+
+        private void ExecuteMoveIntent(Unit enemy, Unit target, List<Point> movePath, int cellSize)
+        {
+            if (movePath != null && movePath.Count > 0)
+            {
+                ExecuteEnemyMoveWithVisibilityFastForward(enemy, movePath, cellSize);
+                UpdateUnitCover(enemy);
+                enemy.ActionPoints--;
+                return;
+            }
+
+            TrySimpleMove(enemy, target, cellSize);
+        }
+
+        private void ExecuteEnemyMoveWithVisibilityFastForward(Unit enemy, List<Point> movePath, int cellSize)
+        {
+            Point finalCell = movePath[movePath.Count - 1];
+            bool currentlyVisible = IsEnemyVisibleAtCell(enemy, enemy.Cell);
+
+            if (!currentlyVisible)
+            {
+                int firstVisibleIndex = -1;
+                for (int i = 0; i < movePath.Count; i++)
+                {
+                    if (IsEnemyVisibleAtCell(enemy, movePath[i]))
+                    {
+                        firstVisibleIndex = i;
                         break;
                     }
                 }
 
-                if (validCell.HasValue)
+                if (firstVisibleIndex == -1)
                 {
-                    int targetIndex = path.IndexOf(validCell.Value);
-                    if (targetIndex >= 0)
-                    {
-                        enemy.SetMovementStyle(1);
-                        enemy.StartMoveAlongPath(path.GetRange(0, targetIndex + 1), cellSize);
-                    }
-                    else
-                    {
-                        enemy.SetMovementStyle(1);
-                        enemy.StartMoveTo(validCell.Value, cellSize);
-                    }
-                    unitManager.OnUnitMoved(enemy, validCell.Value);
-                    UpdateUnitCover(enemy);
-                    enemy.ActionPoints--;
+                    InstantRelocateEnemy(enemy, finalCell, cellSize);
+                    unitManager.OnUnitMoved(enemy, finalCell);
+                    return;
                 }
-                else
+
+                if (firstVisibleIndex > 0)
                 {
-                    TrySimpleMove(enemy, target, cellSize);
+                    Point lastHiddenCell = movePath[firstVisibleIndex - 1];
+                    InstantRelocateEnemy(enemy, lastHiddenCell, cellSize);
+                    movePath = movePath.GetRange(firstVisibleIndex, movePath.Count - firstVisibleIndex);
                 }
             }
-            else
-            {
-                TrySimpleMove(enemy, target, cellSize);
-            }
 
+            enemy.SetMovementStyle(1);
+            enemy.StartMoveAlongPath(movePath, cellSize);
+            unitManager.OnUnitMoved(enemy, finalCell);
+        }
 
+        private bool IsEnemyVisibleAtCell(Unit enemy, Point cell)
+        {
+            if (isEnemyCellVisibleToPlayers == null)
+                return true;
 
-            if (enemy.ActionPoints <= 0)
-                EnemyTurnIndex++;
+            return isEnemyCellVisibleToPlayers(enemy, cell, enemy.Floor);
+        }
+
+        private static void InstantRelocateEnemy(Unit enemy, Point destination, int cellSize)
+        {
+            enemy.Cell = destination;
+            enemy.IsMoving = false;
+            enemy.MoveProgress = 1f;
+            enemy.WalkCycleTime = 0f;
+            enemy.UpdateVisualPosition(cellSize);
+            enemy.TargetPosition = enemy.VisualPosition;
         }
 
         /// <summary>
@@ -394,8 +532,7 @@ namespace XCOM_3
                     getUnitAtCell(move) == null)
                 {
                     enemy.SetMovementStyle(1);
-                    enemy.StartMoveTo(move, cellSize);
-                    unitManager.OnUnitMoved(enemy, move);
+                    ExecuteEnemyMoveWithVisibilityFastForward(enemy, new List<Point> { move }, cellSize);
                     UpdateUnitCover(enemy);
                     enemy.ActionPoints--;
                     return;
