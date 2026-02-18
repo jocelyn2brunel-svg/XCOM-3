@@ -3860,10 +3860,13 @@ namespace XCOM_3
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Slots bonus: {slotBonusText}", new Vector2(textX, textY + 48), ParasiteEveTheme.TextNormal, 0.7f);
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Mobilite: {mobilityText}", new Vector2(textX, textY + 72), ParasiteEveTheme.TextNormal, 0.7f);
 
+                float detailsBottomY = textY + 96f;
+
                 if (TryGetArmorComparisonSummary(examinedItemData, out string advantages, out string drawbacks))
                 {
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Avantages: {advantages}", new Vector2(textX, textY + 120), Color.LimeGreen, 0.62f);
                     ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, $"Inconvénients: {drawbacks}", new Vector2(textX, textY + 140), Color.Red, 0.62f);
+                    detailsBottomY = Math.Max(detailsBottomY, textY + 140f);
                 }
 
                 if (examinedItemData.Type == ItemType.Armor)
@@ -3879,10 +3882,15 @@ namespace XCOM_3
                         Vector2 deltaPos = new Vector2(fragPos.X + fragWidth + 6f, fragPos.Y);
                         ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, fragDeltaText, deltaPos, fragDeltaColor, fragScale);
                     }
+
+                    detailsBottomY = Math.Max(detailsBottomY, fragPos.Y);
                 }
 
                 if (!string.IsNullOrWhiteSpace(examinedItemData.Description))
-                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, examinedItemData.Description, new Vector2(examinePopupRect.X + 16, examinePopupRect.Y + 190), ParasiteEveTheme.TextDim, 0.6f);
+                {
+                    float descriptionY = Math.Max(examinePopupRect.Y + 190f, detailsBottomY + 24f);
+                    ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, examinedItemData.Description, new Vector2(examinePopupRect.X + 16, descriptionY), ParasiteEveTheme.TextDim, 0.6f);
+                }
 
                 ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, "Click outside to close", new Vector2(examinePopupRect.X + 16, examinePopupRect.Bottom - 26), ParasiteEveTheme.TextWarning, 0.6f);
             }
