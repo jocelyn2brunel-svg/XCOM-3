@@ -3231,7 +3231,13 @@ namespace XCOM_3
 
         private bool IsCellHoverableOnViewedFloor(Point cell, int floor)
         {
-            return IsCellAvailableOnFloor(cell, floor) || IsGroundExteriorCell(cell);
+            if (IsCellAvailableOnFloor(cell, floor))
+                return true;
+
+            // Les cellules extérieures au sol restent valides pour le ciblage/mouvement
+            // seulement au rez-de-chaussée. En étage, on évite le "survol dans le vide"
+            // tant qu'aucune mécanique d'unités volantes dédiée n'est implémentée.
+            return floor == 0 && IsGroundExteriorCell(cell);
         }
 
         private bool IsGroundExteriorCell(Point cell)
