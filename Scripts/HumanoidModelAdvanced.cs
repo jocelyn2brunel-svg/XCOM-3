@@ -416,11 +416,12 @@ namespace XCOM_3
         public void DrawWithEquipment(GraphicsDevice device, BasicEffect effect, Unit unit, float scale,
                                       float orientation = 0f, float legSwing = 0f, float armSwing = 0f,
                                       float bodyBob = 0f, float idleBob = 0f,
-                                      Color? bodyColorOverride = null, bool drawEquipment = true)
+                                      Color? bodyColorOverride = null, bool drawEquipment = true,
+                                      Vector3? positionOverride = null, Matrix? customRotation = null)
         {
-            Vector3 pos = unit.VisualPosition;
+            Vector3 pos = positionOverride ?? unit.VisualPosition;
             Vector3 animatedPos = pos + new Vector3(0, bodyBob + idleBob, 0);
-            Matrix rot = Matrix.CreateRotationY(orientation);
+            Matrix rot = customRotation ?? Matrix.CreateRotationY(orientation);
 
             // Déterminer le type d'unité
             UnitType type = GetUnitType(unit);

@@ -118,6 +118,7 @@ namespace XCOM_3
         // --- Unités et combat ---
         private List<Unit> playerUnits = new List<Unit>();
         private List<Unit> enemyUnits = new List<Unit>();
+        private readonly List<DeadUnitRemains> deadUnitRemains = new List<DeadUnitRemains>();
         private Unit selectedUnit = null;
         private List<Point> cachedMovableCells = new();
         private List<Unit> savedPlayerUnits;
@@ -208,6 +209,15 @@ namespace XCOM_3
         private const int FloorUiButtonY = 88;
         private const int FloorUiButtonSize = 28;
         private RasterizerState hoveredCellWireframeState;
+
+        private sealed class DeadUnitRemains
+        {
+            public Unit UnitSnapshot;
+            public Vector3 BasePosition;
+            public float Yaw;
+            public float FallSide;
+            public float FallProgress;
+        }
 
         private struct FlashlightLootMarker
         {
@@ -855,9 +865,40 @@ namespace XCOM_3
         private void HandleUnitKilled(Unit unit)
         {
             DropUnitLootToGround(unit);
+            RegisterDeadUnitRemains(unit);
             if (unit.Team == Team.Player) { playerUnits.Remove(unit); if (playerUnits.Count == 0) currentState = GameState.GameOver; }
             else enemyUnits.Remove(unit);
             unitManager.OnUnitDied(unit);
+        }
+
+        private void RegisterDeadUnitRemains(Unit unit)
+        {
+            if (unit == null)
+                return;
+
+            Unit snapshot = new Unit(unit)
+            {
+                Health = 0,
+                IsMoving = false,
+                IsAiming = false,
+                IsFiring = false,
+                IdleBobOffset = 0f,
+                BodyBob = 0f,
+                ArmSwing = 0f,
+                LegSwing = 0f
+            };
+
+            deadUnitRemains.Add(new DeadUnitRemains
+            {
+                UnitSnapshot = snapshot,
+                BasePosition = snapshot.VisualPosition,
+                Yaw = snapshot.Orientation,
+                FallSide = random.Next(0, 2) == 0 ? -1f : 1f,
+                FallProgress = 0f
+            });
+
+            if (deadUnitRemains.Count > 60)
+                deadUnitRemains.RemoveAt(0);
         }
 
         private void DropUnitLootToGround(Unit unit)
@@ -1444,6 +1485,10 @@ namespace XCOM_3
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
             foreach (var unit in AllUnits()) unit.UpdateAnimation(dt);
+
+            const float fallAnimationSpeed = 2.8f;
+            foreach (var remains in deadUnitRemains)
+                remains.FallProgress = MathHelper.Clamp(remains.FallProgress + dt * fallAnimationSpeed, 0f, 1f);
         }
 
         private void UpdateDayNightCycle(GameTime gameTime)
@@ -1751,6 +1796,8 @@ namespace XCOM_3
                 .Concat(enemyUnits.Where(u => u.Health > 0 && IsEnemyVisibleToPlayers(u)))
                 .ToList();
 
+            DrawDeadUnitRemains();
+
             foreach (var unit in visibleUnits)
                 renderer3D.DrawUnit(unit, cellSize);
 
@@ -1839,6 +1886,33 @@ namespace XCOM_3
                 GraphicsDevice.DepthStencilState = previousDepth;
             }
 
+        }
+
+        private void DrawDeadUnitRemains()
+        {
+            if (deadUnitRemains.Count == 0)
+                return;
+
+            float tiltAngle = MathHelper.PiOver2 * 0.9f;
+            float restingYOffset = cellSize * 0.11f;
+
+            foreach (var remains in deadUnitRemains)
+            {
+                if (remains?.UnitSnapshot == null)
+                    continue;
+
+                float currentTilt = MathHelper.Lerp(0f, tiltAngle, remains.FallProgress) * remains.FallSide;
+                Matrix rotation = Matrix.CreateRotationX(currentTilt) * Matrix.CreateRotationY(remains.Yaw);
+                Vector3 corpsePosition = remains.BasePosition - new Vector3(0f, restingYOffset * remains.FallProgress, 0f);
+
+                renderer3D.DrawUnit(
+                    remains.UnitSnapshot,
+                    cellSize,
+                    bodyColorOverride: new Color(100, 100, 100),
+                    drawEquipment: true,
+                    positionOverride: corpsePosition,
+                    modelRotationOverride: rotation);
+            }
         }
 
         private static bool HasTacticalFlashlightEquipped(Unit unit)
@@ -2337,6 +2411,7 @@ namespace XCOM_3
         private void CreateUnits(string missionType = "Tutorial")
         {
             playerUnits.Clear(); enemyUnits.Clear();
+            deadUnitRemains.Clear();
 
             List<Point> playerSpawnCells = missionType == "Centre-Ville" || missionType == "Sabotage"
                 ? GetCityCenterSpawnCells(6)
