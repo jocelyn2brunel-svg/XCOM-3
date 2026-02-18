@@ -1264,6 +1264,8 @@ namespace XCOM_3
             if (windowsToShatter.Count == 0)
                 return 0;
 
+            VisualEffects.PlayWindowShatter(windowsToShatter, cellSize, centerFloor, renderer3D);
+
             foreach (WallSegment window in windowsToShatter)
                 shatteredWindows.Add(new WindowInstance(centerFloor, window));
 

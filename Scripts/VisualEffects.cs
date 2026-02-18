@@ -11,6 +11,7 @@ namespace XCOM_3
         private static List<ExplosionEffect> activeExplosions = new();
         private static List<GibEffect> activeGibs = new();
         private static List<WallDebrisEffect> activeWallDebris = new();
+        private static List<WindowShatterEffect> activeWindowShatters = new();
         private static List<SpentCasingEffect> activeSpentCasings = new();
         private static readonly Random random = new();
 
@@ -37,6 +38,21 @@ namespace XCOM_3
                 return;
 
             activeWallDebris.Add(new WallDebrisEffect(explosionCenter, walls, cellSize, floor, renderer));
+        }
+
+        public static void PlayWindowShatter(IEnumerable<WallSegment> shatteredWindows, int cellSize, int floor, Renderer3D renderer)
+        {
+            if (shatteredWindows == null || renderer == null)
+                return;
+
+            List<WallSegment> windows = shatteredWindows
+                .Where(w => w.Type == WallType.Window)
+                .ToList();
+
+            if (windows.Count == 0)
+                return;
+
+            activeWindowShatters.Add(new WindowShatterEffect(windows, cellSize, floor, renderer));
         }
 
         public static void PlaySpentCasingEjection(Unit shooter, int cellSize, Renderer3D renderer)
@@ -73,6 +89,12 @@ namespace XCOM_3
                 if (activeWallDebris[i].IsFinished) activeWallDebris.RemoveAt(i);
             }
 
+            for (int i = activeWindowShatters.Count - 1; i >= 0; i--)
+            {
+                activeWindowShatters[i].Update(delta);
+                if (activeWindowShatters[i].IsFinished) activeWindowShatters.RemoveAt(i);
+            }
+
             for (int i = activeSpentCasings.Count - 1; i >= 0; i--)
             {
                 activeSpentCasings[i].Update(delta);
@@ -91,6 +113,9 @@ namespace XCOM_3
 
             foreach (var debris in activeWallDebris)
                 debris.Draw();
+
+            foreach (var shatter in activeWindowShatters)
+                shatter.Draw();
 
             foreach (var casing in activeSpentCasings)
                 casing.Draw();
@@ -280,6 +305,95 @@ namespace XCOM_3
             }
 
             private struct WallFragment
+            {
+                public Vector3 StartPosition;
+                public Vector3 Velocity;
+                public float Size;
+                public Color Color;
+            }
+        }
+
+        private class WindowShatterEffect
+        {
+            private readonly Renderer3D renderer;
+            private readonly List<GlassParticle> particles;
+            private float elapsed;
+            private readonly float lifetime;
+
+            public bool IsFinished => elapsed >= lifetime;
+
+            public WindowShatterEffect(List<WallSegment> windows, int cellSize, int floor, Renderer3D renderer)
+            {
+                this.renderer = renderer;
+                particles = new List<GlassParticle>();
+                lifetime = 0.95f;
+
+                float floorYOffset = WorldMetrics.FloorToWorldY(floor, cellSize);
+
+                foreach (WallSegment window in windows)
+                {
+                    Vector3 center = new Vector3(
+                        (window.Start.X + window.End.X) * 0.5f * cellSize,
+                        floorYOffset + cellSize * 1.1f,
+                        (window.Start.Y + window.End.Y) * 0.5f * cellSize);
+
+                    Vector3 normal = window.IsHorizontal ? Vector3.UnitZ : Vector3.UnitX;
+                    if (random.NextDouble() < 0.5)
+                        normal = -normal;
+
+                    int shardCount = 18;
+                    for (int i = 0; i < shardCount; i++)
+                    {
+                        Vector3 randomDir = new Vector3(
+                            (float)(random.NextDouble() - 0.5f) * 0.65f,
+                            (float)(random.NextDouble() * 0.7f + 0.15f),
+                            (float)(random.NextDouble() - 0.5f) * 0.65f);
+
+                        Vector3 direction = normal * (0.7f + (float)random.NextDouble() * 0.65f) + randomDir;
+                        if (direction.LengthSquared() < 0.0001f)
+                            direction = Vector3.Up;
+                        else
+                            direction.Normalize();
+
+                        float speed = 2.1f + (float)random.NextDouble() * 3.2f;
+                        float size = cellSize * (0.02f + (float)random.NextDouble() * 0.03f);
+
+                        particles.Add(new GlassParticle
+                        {
+                            StartPosition = center + new Vector3(
+                                (float)(random.NextDouble() - 0.5f) * cellSize * 0.25f,
+                                (float)(random.NextDouble() - 0.5f) * cellSize * 0.35f,
+                                (float)(random.NextDouble() - 0.5f) * cellSize * 0.25f),
+                            Velocity = direction * speed,
+                            Size = size,
+                            Color = new Color(180, 230, 255, 220)
+                        });
+                    }
+                }
+            }
+
+            public void Update(float delta)
+            {
+                elapsed += delta;
+            }
+
+            public void Draw()
+            {
+                float t = MathF.Min(1f, elapsed / lifetime);
+                float fade = 1f - t;
+                const float gravity = 13.8f;
+
+                foreach (GlassParticle particle in particles)
+                {
+                    Vector3 gravityOffset = new Vector3(0f, -0.5f * gravity * elapsed * elapsed, 0f);
+                    Vector3 position = particle.StartPosition + particle.Velocity * elapsed + gravityOffset;
+                    float stretch = 0.8f + 0.6f * (1f - t);
+                    Vector3 scale = new Vector3(particle.Size, particle.Size * 0.25f, particle.Size * stretch);
+                    renderer.DrawCube(position, scale, particle.Color * fade);
+                }
+            }
+
+            private struct GlassParticle
             {
                 public Vector3 StartPosition;
                 public Vector3 Velocity;
