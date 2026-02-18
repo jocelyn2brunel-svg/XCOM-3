@@ -1025,6 +1025,7 @@ namespace XCOM_3
                 center.Y * cellSize + cellSize / 2f  // centre de la cellule Z
             );
             VisualEffects.PlayExplosion(explosionPos, grenadeData.Radius, renderer3D);
+            PlayGrenadeExplosionSound(explosionPos, grenadeData.Radius);
 
             int enemiesHit = 0, totalDamage = 0;
 

@@ -196,6 +196,7 @@ namespace XCOM_3
         private SoundEffect gunshotSoundEffect;
         private SoundEffectInstance gunshotSoundEffectInstance;
         private SoundEffect casingClingSoundEffect;
+        private SoundEffect grenadeExplosionSoundEffect;
 
         private enum UnitPageTab { Inventory, Skills, Info }
         private const int TabWidth = 170;
@@ -408,6 +409,9 @@ namespace XCOM_3
         {
             VisualEffects.OnSpentCasingLanded -= HandleSpentCasingLanded;
             gunshotSoundEffectInstance?.Dispose();
+            grenadeExplosionSoundEffect?.Dispose();
+            casingClingSoundEffect?.Dispose();
+            gunshotSoundEffect?.Dispose();
 
             base.UnloadContent();
         }
@@ -455,7 +459,29 @@ namespace XCOM_3
             gunshotSoundEffect = CreateProceduralGunshotSound();
             gunshotSoundEffectInstance = gunshotSoundEffect?.CreateInstance();
             casingClingSoundEffect = CreateProceduralCasingClingSound();
+            grenadeExplosionSoundEffect = CreateProceduralGrenadeExplosionSound();
             VisualEffects.OnSpentCasingLanded += HandleSpentCasingLanded;
+        }
+
+        private SoundEffect CreateProceduralGrenadeExplosionSound()
+        {
+            const int sampleRate = 44100;
+            const float durationSeconds = 0.58f;
+            int sampleCount = (int)(sampleRate * durationSeconds);
+            short[] samples = new short[sampleCount];
+
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float t = i / (float)sampleRate;
+                float rumble = (float)Math.Sin(2f * Math.PI * 62f * t);
+                float snap = (float)Math.Sin(2f * Math.PI * 430f * t) * (float)Math.Exp(-42f * t);
+                float noise = (float)(random.NextDouble() * 2.0 - 1.0);
+                float envelope = (float)Math.Exp(-4.6f * t);
+                float value = (rumble * 0.45f + snap * 0.25f + noise * 0.65f) * envelope;
+                samples[i] = (short)(MathHelper.Clamp(value, -1f, 1f) * short.MaxValue);
+            }
+
+            return new SoundEffect(samples, sampleRate, AudioChannels.Mono);
         }
 
         private SoundEffect CreateProceduralGunshotSound()
@@ -526,6 +552,22 @@ namespace XCOM_3
             float pan = MathHelper.Clamp((landingPosition.X - camera.Position.X) / Math.Max(1f, cellSize * 16f), -0.7f, 0.7f);
 
             casingClingSoundEffect.Play(volume, pitch, pan);
+        }
+
+        private void PlayGrenadeExplosionSound(Vector3 explosionPosition, float explosionRadius)
+        {
+            if (grenadeExplosionSoundEffect == null)
+                return;
+
+            float distance = Vector3.Distance(explosionPosition, camera.Position);
+            float attenuation = 1f / (1f + distance / Math.Max(cellSize * 8f, 1f));
+            float radiusBoost = MathHelper.Clamp(explosionRadius / 6f, 0.75f, 1.35f);
+            float music = optionsMenuManager?.GetMusicVolume() ?? 0.5f;
+            float volume = MathHelper.Clamp((0.2f + music * 0.4f) * attenuation * radiusBoost, 0.05f, 0.95f);
+            float pitch = MathHelper.Clamp((float)(random.NextDouble() * 0.08 - 0.04), -1f, 1f);
+            float pan = MathHelper.Clamp((explosionPosition.X - camera.Position.X) / Math.Max(1f, cellSize * 14f), -0.85f, 0.85f);
+
+            grenadeExplosionSoundEffect.Play(volume, pitch, pan);
         }
 
         private void PlayRandomGameplaySong()
