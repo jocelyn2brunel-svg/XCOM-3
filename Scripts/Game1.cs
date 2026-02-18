@@ -1813,7 +1813,11 @@ namespace XCOM_3
                         ? data
                         : GetRandomWeaponData();
                     string weaponName = weaponData?.Name ?? profile.Weapon;
-                    playerUnits.Add(new Unit(playerSpawnCells[i], Team.Player, profile.Name, profile.Job, weaponName, weaponData));
+                    Unit unit = new Unit(playerSpawnCells[i], Team.Player, profile.Name, profile.Job, weaponName, weaponData)
+                    {
+                        EyeColor = Unit.ParseEyeColor(profile.EyeColor)
+                    };
+                    playerUnits.Add(unit);
                 }
                 else
                 {
