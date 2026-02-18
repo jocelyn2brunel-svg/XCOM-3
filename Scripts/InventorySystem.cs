@@ -1021,7 +1021,51 @@ namespace XCOM_3
 
             Rectangle imageRect = new Rectangle(targetRect.X + 3, targetRect.Y + 3,
                 Math.Max(1, targetRect.Width - 6), Math.Max(1, targetRect.Height - 6));
+
+            if (data?.Type == ItemType.Weapon)
+            {
+                Color glowColor = GetWeaponAccentColor(data) * (0.2f * alpha);
+                spriteBatch.Draw(pixel, imageRect, glowColor);
+
+                Rectangle metalBand = new Rectangle(imageRect.X + 2, imageRect.Bottom - 10, Math.Max(1, imageRect.Width - 4), 6);
+                spriteBatch.Draw(pixel, metalBand, new Color(70, 80, 95) * (0.65f * alpha));
+            }
+
             spriteBatch.Draw(previewTexture, imageRect, Color.White * alpha);
+
+            if (data?.Type == ItemType.Weapon)
+            {
+                Color accent = GetWeaponAccentColor(data) * (0.9f * alpha);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, imageRect, accent, 1);
+
+                Rectangle diagonalAccent = new Rectangle(imageRect.X + 3, imageRect.Y + 3, Math.Max(1, imageRect.Width / 3), 2);
+                spriteBatch.Draw(pixel, diagonalAccent, accent * 0.8f);
+            }
+        }
+
+        private static string GetWeaponClassLabel(ItemData data)
+        {
+            string name = data?.Name ?? string.Empty;
+            if (name.Contains("Sniper", StringComparison.OrdinalIgnoreCase)) return "SNIPER";
+            if (name.Contains("Shotgun", StringComparison.OrdinalIgnoreCase)) return "SHOTGUN";
+            if (name.Contains("SMG", StringComparison.OrdinalIgnoreCase) || name.Contains("MP5", StringComparison.OrdinalIgnoreCase)) return "SMG";
+            if (name.Contains("Pistol", StringComparison.OrdinalIgnoreCase) || name.Contains("Glock", StringComparison.OrdinalIgnoreCase) || name.Contains("Beretta", StringComparison.OrdinalIgnoreCase)) return "PISTOL";
+            if (name.Contains("Assault", StringComparison.OrdinalIgnoreCase) || name.Contains("M4", StringComparison.OrdinalIgnoreCase) || name.Contains("M16", StringComparison.OrdinalIgnoreCase) || name.Contains("AK", StringComparison.OrdinalIgnoreCase)) return "AR";
+            return "RIFLE";
+        }
+
+        private static Color GetWeaponAccentColor(ItemData data)
+        {
+            string classLabel = GetWeaponClassLabel(data);
+            return classLabel switch
+            {
+                "SNIPER" => new Color(110, 170, 210),
+                "SHOTGUN" => new Color(185, 130, 95),
+                "SMG" => new Color(120, 175, 140),
+                "PISTOL" => new Color(165, 150, 210),
+                "AR" => new Color(175, 155, 95),
+                _ => new Color(130, 150, 165)
+            };
         }
 
         private SoundEffect CreateUiTone(float frequencyHz, int durationMs, float baseVolume)
@@ -4730,6 +4774,30 @@ namespace XCOM_3
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, info,
                 new Vector2(item.PixelBounds.X + 4, item.PixelBounds.Bottom - 15),
                 ParasiteEveTheme.TextHighlight * alpha, 0.4f);
+
+            if (item.Data.Type == ItemType.Weapon)
+            {
+                string weaponClass = GetWeaponClassLabel(item.Data);
+                Color accent = GetWeaponAccentColor(item.Data) * alpha;
+
+                Vector2 badgeSize = font.MeasureString(weaponClass) * 0.36f;
+                Rectangle badgeRect = new Rectangle(
+                    item.PixelBounds.Right - (int)badgeSize.X - 10,
+                    item.PixelBounds.Y + 4,
+                    (int)badgeSize.X + 6,
+                    11);
+                spriteBatch.Draw(pixel, badgeRect, accent * 0.55f);
+                ParasiteEveTheme.DrawBorder(spriteBatch, pixel, badgeRect, accent, 1);
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, weaponClass,
+                    new Vector2(badgeRect.X + 3, badgeRect.Y + 1), Color.White * alpha, 0.36f);
+
+                string caliber = string.IsNullOrWhiteSpace(item.Data.WeaponData?.Caliber)
+                    ? "CAL:?"
+                    : $"CAL:{item.Data.WeaponData.Caliber}";
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, caliber,
+                    new Vector2(item.PixelBounds.X + 4, item.PixelBounds.Bottom - 25),
+                    accent * 0.95f, 0.33f);
+            }
 
             DrawItemComparisonIndicators(item, alpha);
         }
