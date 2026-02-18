@@ -302,8 +302,180 @@ namespace XCOM_3
                 if (IsVehicleFurniture(furniture.Type))
                     DrawVehicleFurniture(furniture.Type, center, scale);
                 else
-                    DrawCube(center, scale, GetFurnitureColor(furniture.Type));
+                    DrawDetailedFurniture(furniture.Type, center, scale);
             }
+        }
+
+        private void DrawDetailedFurniture(FurnitureType type, Vector3 center, Vector3 totalScale)
+        {
+            Color baseColor = GetFurnitureColor(type);
+
+            switch (type)
+            {
+                case FurnitureType.Table:
+                    DrawTableFurniture(center, totalScale, baseColor);
+                    break;
+
+                case FurnitureType.Chair:
+                    DrawChairFurniture(center, totalScale, baseColor);
+                    break;
+
+                case FurnitureType.Bed:
+                    DrawBedFurniture(center, totalScale, baseColor);
+                    break;
+
+                case FurnitureType.Fridge:
+                    DrawFridgeFurniture(center, totalScale, baseColor);
+                    break;
+
+                case FurnitureType.Stove:
+                    DrawStoveFurniture(center, totalScale, baseColor);
+                    break;
+
+                case FurnitureType.Counter:
+                    DrawCounterFurniture(center, totalScale, baseColor);
+                    break;
+
+                default:
+                    DrawCube(center, totalScale, baseColor);
+                    break;
+            }
+        }
+
+        private void DrawCounterFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
+        {
+            float bottomY = center.Y - totalScale.Y / 2f;
+            Vector3 bodyScale = new Vector3(totalScale.X, totalScale.Y * 0.9f, totalScale.Z);
+            Vector3 bodyCenter = new Vector3(center.X, bottomY + bodyScale.Y / 2f, center.Z);
+            DrawCube(bodyCenter, bodyScale, baseColor);
+
+            Vector3 topScale = new Vector3(totalScale.X * 1.05f, totalScale.Y * 0.10f, totalScale.Z * 1.05f);
+            Vector3 topCenter = new Vector3(center.X, bodyCenter.Y + bodyScale.Y / 2f + topScale.Y / 2f, center.Z);
+            DrawCube(topCenter, topScale, baseColor * 1.15f);
+
+            float insetZ = totalScale.Z * 0.47f;
+            DrawCube(new Vector3(center.X, bodyCenter.Y, center.Z - insetZ), new Vector3(totalScale.X * 0.86f, bodyScale.Y * 0.94f, totalScale.Z * 0.04f), baseColor * 0.82f);
+            DrawCube(new Vector3(center.X, bodyCenter.Y, center.Z + insetZ), new Vector3(totalScale.X * 0.86f, bodyScale.Y * 0.94f, totalScale.Z * 0.04f), baseColor * 0.82f);
+        }
+
+        private void DrawTableFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
+        {
+            float bottomY = center.Y - totalScale.Y / 2f;
+            float topThickness = totalScale.Y * 0.14f;
+            Vector3 topScale = new Vector3(totalScale.X, topThickness, totalScale.Z);
+            Vector3 topCenter = new Vector3(center.X, bottomY + totalScale.Y - topThickness / 2f, center.Z);
+            DrawCube(topCenter, topScale, baseColor * 1.08f);
+
+            float legHeight = totalScale.Y - topThickness;
+            Vector3 legScale = new Vector3(totalScale.X * 0.13f, legHeight, totalScale.Z * 0.13f);
+            float legOffsetX = totalScale.X * 0.36f;
+            float legOffsetZ = totalScale.Z * 0.36f;
+
+            DrawCube(new Vector3(center.X - legOffsetX, bottomY + legHeight / 2f, center.Z - legOffsetZ), legScale, baseColor * 0.86f);
+            DrawCube(new Vector3(center.X + legOffsetX, bottomY + legHeight / 2f, center.Z - legOffsetZ), legScale, baseColor * 0.86f);
+            DrawCube(new Vector3(center.X - legOffsetX, bottomY + legHeight / 2f, center.Z + legOffsetZ), legScale, baseColor * 0.86f);
+            DrawCube(new Vector3(center.X + legOffsetX, bottomY + legHeight / 2f, center.Z + legOffsetZ), legScale, baseColor * 0.86f);
+        }
+
+        private void DrawChairFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
+        {
+            float bottomY = center.Y - totalScale.Y / 2f;
+            float seatHeight = totalScale.Y * 0.20f;
+            float seatBottom = bottomY + totalScale.Y * 0.36f;
+
+            Vector3 seatScale = new Vector3(totalScale.X * 0.92f, seatHeight, totalScale.Z * 0.92f);
+            DrawCube(new Vector3(center.X, seatBottom + seatHeight / 2f, center.Z), seatScale, baseColor * 1.06f);
+
+            float backHeight = totalScale.Y * 0.42f;
+            Vector3 backScale = new Vector3(totalScale.X * 0.90f, backHeight, totalScale.Z * 0.15f);
+            DrawCube(new Vector3(center.X, seatBottom + seatHeight + backHeight / 2f, center.Z - totalScale.Z * 0.38f), backScale, baseColor * 0.9f);
+
+            float legHeight = seatBottom - bottomY;
+            Vector3 legScale = new Vector3(totalScale.X * 0.15f, legHeight, totalScale.Z * 0.15f);
+            float legOffsetX = totalScale.X * 0.31f;
+            float legOffsetZ = totalScale.Z * 0.31f;
+
+            DrawCube(new Vector3(center.X - legOffsetX, bottomY + legHeight / 2f, center.Z - legOffsetZ), legScale, baseColor * 0.8f);
+            DrawCube(new Vector3(center.X + legOffsetX, bottomY + legHeight / 2f, center.Z - legOffsetZ), legScale, baseColor * 0.8f);
+            DrawCube(new Vector3(center.X - legOffsetX, bottomY + legHeight / 2f, center.Z + legOffsetZ), legScale, baseColor * 0.8f);
+            DrawCube(new Vector3(center.X + legOffsetX, bottomY + legHeight / 2f, center.Z + legOffsetZ), legScale, baseColor * 0.8f);
+        }
+
+        private void DrawBedFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
+        {
+            float bottomY = center.Y - totalScale.Y / 2f;
+            float frameHeight = totalScale.Y * 0.28f;
+            float mattressHeight = totalScale.Y * 0.46f;
+            float headboardHeight = totalScale.Y * 0.40f;
+
+            DrawCube(
+                new Vector3(center.X, bottomY + frameHeight / 2f, center.Z),
+                new Vector3(totalScale.X, frameHeight, totalScale.Z),
+                new Color(124, 94, 68));
+
+            DrawCube(
+                new Vector3(center.X, bottomY + frameHeight + mattressHeight / 2f, center.Z),
+                new Vector3(totalScale.X * 0.94f, mattressHeight, totalScale.Z * 0.92f),
+                baseColor * 1.16f);
+
+            DrawCube(
+                new Vector3(center.X - totalScale.X * 0.41f, bottomY + frameHeight + mattressHeight + headboardHeight / 2f, center.Z),
+                new Vector3(totalScale.X * 0.16f, headboardHeight, totalScale.Z * 0.96f),
+                new Color(86, 66, 48));
+
+            DrawCube(
+                new Vector3(center.X + totalScale.X * 0.28f, bottomY + frameHeight + mattressHeight * 0.58f, center.Z - totalScale.Z * 0.22f),
+                new Vector3(totalScale.X * 0.24f, mattressHeight * 0.36f, totalScale.Z * 0.28f),
+                new Color(232, 232, 236));
+        }
+
+        private void DrawFridgeFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
+        {
+            float bottomY = center.Y - totalScale.Y / 2f;
+            float bodyHeight = totalScale.Y * 0.95f;
+            Vector3 bodyScale = new Vector3(totalScale.X, bodyHeight, totalScale.Z);
+            Vector3 bodyCenter = new Vector3(center.X, bottomY + bodyHeight / 2f, center.Z);
+            DrawCube(bodyCenter, bodyScale, baseColor);
+
+            DrawCube(
+                new Vector3(center.X, bodyCenter.Y + bodyHeight * 0.06f, center.Z - totalScale.Z * 0.46f),
+                new Vector3(totalScale.X * 0.90f, totalScale.Y * 0.02f, totalScale.Z * 0.05f),
+                baseColor * 0.76f);
+
+            DrawCube(
+                new Vector3(center.X + totalScale.X * 0.34f, bodyCenter.Y + bodyHeight * 0.18f, center.Z - totalScale.Z * 0.47f),
+                new Vector3(totalScale.X * 0.07f, bodyHeight * 0.24f, totalScale.Z * 0.05f),
+                baseColor * 0.62f);
+
+            DrawCube(
+                new Vector3(center.X + totalScale.X * 0.34f, bodyCenter.Y - bodyHeight * 0.20f, center.Z - totalScale.Z * 0.47f),
+                new Vector3(totalScale.X * 0.07f, bodyHeight * 0.18f, totalScale.Z * 0.05f),
+                baseColor * 0.62f);
+        }
+
+        private void DrawStoveFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
+        {
+            float bottomY = center.Y - totalScale.Y / 2f;
+            Vector3 bodyScale = new Vector3(totalScale.X * 0.95f, totalScale.Y * 0.92f, totalScale.Z * 0.95f);
+            Vector3 bodyCenter = new Vector3(center.X, bottomY + bodyScale.Y / 2f, center.Z);
+            DrawCube(bodyCenter, bodyScale, baseColor);
+
+            DrawCube(
+                new Vector3(center.X, bodyCenter.Y + bodyScale.Y / 2f - totalScale.Y * 0.05f, center.Z),
+                new Vector3(bodyScale.X * 0.96f, totalScale.Y * 0.08f, bodyScale.Z * 0.96f),
+                new Color(58, 60, 68));
+
+            float burnerSizeX = bodyScale.X * 0.22f;
+            float burnerSizeZ = bodyScale.Z * 0.22f;
+            float burnerY = bodyCenter.Y + bodyScale.Y / 2f;
+            float offsetX = bodyScale.X * 0.24f;
+            float offsetZ = bodyScale.Z * 0.24f;
+            Color burnerColor = new Color(22, 24, 30);
+
+            DrawCube(new Vector3(center.X - offsetX, burnerY, center.Z - offsetZ), new Vector3(burnerSizeX, totalScale.Y * 0.04f, burnerSizeZ), burnerColor);
+            DrawCube(new Vector3(center.X + offsetX, burnerY, center.Z - offsetZ), new Vector3(burnerSizeX, totalScale.Y * 0.04f, burnerSizeZ), burnerColor);
+            DrawCube(new Vector3(center.X - offsetX, burnerY, center.Z + offsetZ), new Vector3(burnerSizeX, totalScale.Y * 0.04f, burnerSizeZ), burnerColor);
+            DrawCube(new Vector3(center.X + offsetX, burnerY, center.Z + offsetZ), new Vector3(burnerSizeX, totalScale.Y * 0.04f, burnerSizeZ), burnerColor);
         }
 
         private static bool IsVehicleFurniture(FurnitureType type)
