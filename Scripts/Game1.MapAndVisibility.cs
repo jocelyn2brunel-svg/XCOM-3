@@ -618,13 +618,13 @@ namespace XCOM_3
 
             Vector2 r = p2 - p1;
             Vector2 s = q2 - q1;
-            float denominator = Cross(r, s);
+            float denominator = Cross2D(r, s);
             Vector2 delta = q1 - p1;
 
             if (Math.Abs(denominator) <= epsilon)
             {
                 // Segments parallèles (ou colinéaires).
-                if (Math.Abs(Cross(delta, r)) > epsilon)
+                if (Math.Abs(Cross2D(delta, r)) > epsilon)
                     return false;
 
                 float rLenSq = r.LengthSquared();
@@ -643,8 +643,8 @@ namespace XCOM_3
                 return true;
             }
 
-            float t = Cross(delta, s) / denominator;
-            float u = Cross(delta, r) / denominator;
+            float t = Cross2D(delta, s) / denominator;
+            float u = Cross2D(delta, r) / denominator;
 
             if (t < -epsilon || t > 1f + epsilon || u < -epsilon || u > 1f + epsilon)
                 return false;
@@ -653,7 +653,7 @@ namespace XCOM_3
             return true;
         }
 
-        private static float Cross(Vector2 a, Vector2 b)
+        private static float Cross2D(Vector2 a, Vector2 b)
         {
             return a.X * b.Y - a.Y * b.X;
         }
