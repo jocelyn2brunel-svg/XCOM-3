@@ -60,6 +60,10 @@ namespace XCOM_3
         private bool throwFlashlightFromRightHand = false;
         private Point throwTarget = new Point(-1, -1);
         private List<Point> throwableCells = new List<Point>();
+        private Unit throwableCellsCachedUnit = null;
+        private int throwableCellsCachedFloor = -1;
+        private int throwableCellsCachedRange = -1;
+        private bool throwableCellsCacheValid = false;
         private List<Point> explosionPreview = new List<Point>();
         private List<Vector3> trajectoryPreview = new List<Vector3>();
         private List<Vector3> ricochetPreview = new List<Vector3>();

@@ -197,6 +197,35 @@ namespace XCOM_3
             return BaseThrowRange + unit.Skills.GetGrenadeThrowRangeBonus();
         }
 
+        private void RefreshThrowableCellsIfNeeded()
+        {
+            if (!throwMode || selectedUnit == null)
+            {
+                throwableCells.Clear();
+                throwableCellsCacheValid = false;
+                return;
+            }
+
+            int throwRange = GetUnitThrowRange(selectedUnit);
+            bool cacheHit = throwableCellsCacheValid
+                && throwableCellsCachedUnit == selectedUnit
+                && throwableCellsCachedFloor == viewedFloor
+                && throwableCellsCachedRange == throwRange;
+
+            if (cacheHit)
+                return;
+
+            var rawThrowableCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
+            throwableCells = grenadeOptionWallAwareTargeting
+                ? rawThrowableCells.Where(cell => CanThrowToTarget(selectedUnit, cell, viewedFloor)).ToList()
+                : rawThrowableCells;
+
+            throwableCellsCachedUnit = selectedUnit;
+            throwableCellsCachedFloor = viewedFloor;
+            throwableCellsCachedRange = throwRange;
+            throwableCellsCacheValid = true;
+        }
+
         private void HandleGrenadeThrow(MouseState mouse, bool leftClick)
         {
             if (selectedUnit == null || selectedGrenade == null) return;
@@ -1242,14 +1271,7 @@ namespace XCOM_3
         {
             if (!throwMode) return;
 
-            if (selectedUnit != null)
-            {
-                int throwRange = GetUnitThrowRange(selectedUnit);
-                var rawCells = ThrowTrajectoryCalculator.GetThrowableCells(selectedUnit.Cell, throwRange, gridWidth, gridHeight);
-                throwableCells = grenadeOptionWallAwareTargeting
-                    ? rawCells.Where(cell => CanThrowToTarget(selectedUnit, cell, viewedFloor)).ToList()
-                    : rawCells;
-            }
+            RefreshThrowableCellsIfNeeded();
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 4f) * 0.3f + 0.7f;
             float floorYOffset = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
