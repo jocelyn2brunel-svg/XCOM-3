@@ -757,54 +757,8 @@ namespace XCOM_3
         private HashSet<WallSegment> GenerateTrenches(int gridWidth, int gridHeight)
         {
             HashSet<WallSegment> walls = new HashSet<WallSegment>();
-
-            // Tranchée principale horizontale avec zigzag
-            int currentY = gridHeight / 2;
-
-            for (int x = 3; x < gridWidth - 3; x++)
-            {
-                AddHorizontalWall(walls, x, currentY);
-                AddHorizontalWall(walls, x, currentY + 1);
-
-                if (random.Next(100) < 20)
-                    currentY += random.Next(-1, 2);
-
-                currentY = Math.Max(4, Math.Min(gridHeight - 5, currentY));
-            }
-
-            // Tranchées perpendiculaires
-            int numCross = random.Next(2, 5);
-            for (int i = 0; i < numCross; i++)
-            {
-                int crossX = random.Next(5, gridWidth - 5);
-                int length = random.Next(4, 8);
-                int startY = random.Next(4, Math.Max(5, gridHeight - length - 4));
-
-                for (int y = startY; y < startY + length && y < gridHeight - 3; y++)
-                {
-                    AddVerticalWall(walls, crossX, y);
-                }
-            }
-
-            // Sacs de sable (petits segments)
-            for (int i = 0; i < 15; i++)
-            {
-                int x = random.Next(3, gridWidth - 3);
-                int y = random.Next(3, gridHeight - 3);
-                int length = random.Next(2, 4);
-
-                if (random.Next(2) == 0)
-                {
-                    for (int j = 0; j < length && x + j < gridWidth - 2; j++)
-                        AddHorizontalWall(walls, x + j, y);
-                }
-                else
-                {
-                    for (int j = 0; j < length && y + j < gridHeight - 2; j++)
-                        AddVerticalWall(walls, x, y + j);
-                }
-            }
-
+            // Les tranchées sont maintenant matérialisées par le relief du terrain.
+            // On ne place donc plus de murs structurels sur ce pattern.
             return walls;
         }
 
