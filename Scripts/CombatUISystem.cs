@@ -94,6 +94,14 @@ namespace XCOM_3
 
             UpdateFireTargetHitChances(selectedUnit, selectedUnit.Cell);
 
+            if (SelectedFireTarget == null)
+            {
+                SelectedFireTarget = FireTargetsUI
+                    .OrderByDescending(ui => ui.HitChance)
+                    .Select(ui => ui.Target)
+                    .FirstOrDefault();
+            }
+
             UpdateFireTargetsUIPositions(selectedUnit);
         }
 

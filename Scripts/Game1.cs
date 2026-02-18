@@ -2793,18 +2793,11 @@ namespace XCOM_3
 
             if (throwMode) HandleGrenadeThrow(mouse, leftClick);
 
-            if (!throwMode && selectedUnit != null && selectedUnit.Team == Team.Player && combatUI.ShowFireTargets)
+            if (selectedUnit != null && selectedUnit.Team == Team.Player && combatUI.ShowFireTargets)
             {
-                Point previewFireCell = selectedUnit.Cell;
-
-                if (isHoveringValidCell && currentPath.Count > 0)
-                {
-                    previewFireCell = hoveredCell;
-                    if (TryResolveVerticalTransition(selectedUnit.Floor, hoveredCell, out Point transitionGoal, out int _))
-                        previewFireCell = transitionGoal;
-                }
-
-                combatUI.UpdateFireTargetHitChances(selectedUnit, previewFireCell);
+                // En mode sélection de cible (et en mode grenade), la probabilité affichée
+                // reste figée sur la position actuelle de l'unité.
+                combatUI.UpdateFireTargetHitChances(selectedUnit, selectedUnit.Cell);
             }
 
             bool clickOnUI = combatUI.EndTurnButton.Contains(mouse.Position) ||
