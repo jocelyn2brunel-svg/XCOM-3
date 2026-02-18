@@ -188,6 +188,7 @@ namespace XCOM_3
         private Song currentGameplaySong;
         private SoundEffect gunshotSoundEffect;
         private SoundEffectInstance gunshotSoundEffectInstance;
+        private SoundEffect casingClingSoundEffect;
 
         private enum UnitPageTab { Inventory, Skills, Info }
         private const int TabWidth = 170;
@@ -395,6 +396,14 @@ namespace XCOM_3
             // On l'initialise APRÈS InitializeWeapons() et la création de inventorySystem
         }
 
+
+        protected override void UnloadContent()
+        {
+            VisualEffects.OnSpentCasingLanded -= HandleSpentCasingLanded;
+            gunshotSoundEffectInstance?.Dispose();
+
+            base.UnloadContent();
+        }
         private void InitializeGameplaySystems()
         {
             // tileTexture = Content.Load<Texture2D>("TileParchment32x32");
@@ -438,6 +447,8 @@ namespace XCOM_3
         {
             gunshotSoundEffect = CreateProceduralGunshotSound();
             gunshotSoundEffectInstance = gunshotSoundEffect?.CreateInstance();
+            casingClingSoundEffect = CreateProceduralCasingClingSound();
+            VisualEffects.OnSpentCasingLanded += HandleSpentCasingLanded;
         }
 
         private SoundEffect CreateProceduralGunshotSound()
@@ -460,6 +471,27 @@ namespace XCOM_3
             return new SoundEffect(samples, sampleRate, AudioChannels.Mono);
         }
 
+        private SoundEffect CreateProceduralCasingClingSound()
+        {
+            const int sampleRate = 44100;
+            const float durationSeconds = 0.22f;
+            int sampleCount = (int)(sampleRate * durationSeconds);
+            short[] samples = new short[sampleCount];
+
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float t = i / (float)sampleRate;
+                float envelope = (float)Math.Exp(-16f * t);
+                float ringA = (float)Math.Sin(2f * Math.PI * 1750f * t);
+                float ringB = (float)Math.Sin(2f * Math.PI * 2380f * t + 0.35f);
+                float noise = (float)(random.NextDouble() * 2.0 - 1.0);
+                float value = (ringA * 0.45f + ringB * 0.35f + noise * 0.2f) * envelope;
+                samples[i] = (short)(MathHelper.Clamp(value, -1f, 1f) * short.MaxValue);
+            }
+
+            return new SoundEffect(samples, sampleRate, AudioChannels.Mono);
+        }
+
         private void HandleShotFired(Unit shooter)
         {
             if (gunshotSoundEffectInstance == null)
@@ -472,6 +504,21 @@ namespace XCOM_3
             gunshotSoundEffectInstance.Volume = volume;
             gunshotSoundEffectInstance.Pitch = pitch;
             gunshotSoundEffectInstance.Play();
+
+            VisualEffects.PlaySpentCasingEjection(shooter, cellSize, renderer3D);
+        }
+
+        private void HandleSpentCasingLanded(Vector3 landingPosition)
+        {
+            if (casingClingSoundEffect == null)
+                return;
+
+            float music = optionsMenuManager?.GetMusicVolume() ?? 0.5f;
+            float volume = MathHelper.Clamp(0.16f + music * 0.24f, 0.1f, 0.45f);
+            float pitch = MathHelper.Clamp((float)(random.NextDouble() * 0.26 - 0.13), -1f, 1f);
+            float pan = MathHelper.Clamp((landingPosition.X - camera.Position.X) / Math.Max(1f, cellSize * 16f), -0.7f, 0.7f);
+
+            casingClingSoundEffect.Play(volume, pitch, pan);
         }
 
         private void PlayRandomGameplaySong()

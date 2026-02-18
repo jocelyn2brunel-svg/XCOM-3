@@ -11,7 +11,10 @@ namespace XCOM_3
         private static List<ExplosionEffect> activeExplosions = new();
         private static List<GibEffect> activeGibs = new();
         private static List<WallDebrisEffect> activeWallDebris = new();
+        private static List<SpentCasingEffect> activeSpentCasings = new();
         private static readonly Random random = new();
+
+        public static event Action<Vector3> OnSpentCasingLanded;
 
         public static void PlayExplosion(Vector3 position, float radius, Renderer3D renderer)
         {
@@ -36,6 +39,17 @@ namespace XCOM_3
             activeWallDebris.Add(new WallDebrisEffect(explosionCenter, walls, cellSize, floor, renderer));
         }
 
+        public static void PlaySpentCasingEjection(Unit shooter, int cellSize, Renderer3D renderer)
+        {
+            if (shooter == null || renderer == null)
+                return;
+
+            activeSpentCasings.Add(new SpentCasingEffect(shooter, cellSize, renderer, landingPosition =>
+            {
+                OnSpentCasingLanded?.Invoke(landingPosition);
+            }));
+        }
+
         // Appel à faire dans ton Update() pour mettre à jour les effets actifs
         public static void Update(GameTime gameTime)
         {
@@ -58,6 +72,12 @@ namespace XCOM_3
                 activeWallDebris[i].Update(delta);
                 if (activeWallDebris[i].IsFinished) activeWallDebris.RemoveAt(i);
             }
+
+            for (int i = activeSpentCasings.Count - 1; i >= 0; i--)
+            {
+                activeSpentCasings[i].Update(delta);
+                if (activeSpentCasings[i].IsFinished) activeSpentCasings.RemoveAt(i);
+            }
         }
 
         // Appel à faire dans ton Draw() pour dessiner les explosions
@@ -71,6 +91,9 @@ namespace XCOM_3
 
             foreach (var debris in activeWallDebris)
                 debris.Draw();
+
+            foreach (var casing in activeSpentCasings)
+                casing.Draw();
         }
 
         // --- Classe interne représentant une explosion ---
@@ -291,6 +314,97 @@ namespace XCOM_3
                 public Vector3 Velocity;
                 public float Size;
                 public Color Color;
+            }
+        }
+
+        private class SpentCasingEffect
+        {
+            private readonly Renderer3D renderer;
+            private readonly Action<Vector3> onLanded;
+            private readonly Vector3 startPosition;
+            private readonly Vector3 velocity;
+            private readonly float floorY;
+            private readonly float lifetime;
+            private readonly float yawSpin;
+            private readonly float pitchSpin;
+            private readonly float rollSpin;
+            private float elapsed;
+            private bool landed;
+
+            public bool IsFinished => elapsed >= lifetime;
+
+            public SpentCasingEffect(Unit shooter, int cellSize, Renderer3D renderer, Action<Vector3> onLanded)
+            {
+                this.renderer = renderer;
+                this.onLanded = onLanded;
+
+                float handednessSign = shooter.DominantHand == Unit.Handedness.Left ? -1f : 1f;
+                Vector3 side = new Vector3((float)Math.Cos(shooter.Orientation), 0f, -(float)Math.Sin(shooter.Orientation));
+                if (side.LengthSquared() < 0.0001f)
+                    side = Vector3.Right;
+                else
+                    side.Normalize();
+
+                Vector3 up = Vector3.Up;
+                Vector3 forward = new Vector3((float)Math.Sin(shooter.Orientation), 0f, (float)Math.Cos(shooter.Orientation));
+                if (forward.LengthSquared() > 0.0001f)
+                    forward.Normalize();
+
+                float sideOffset = cellSize * (0.18f + (float)random.NextDouble() * 0.06f) * handednessSign;
+                float heightOffset = cellSize * (0.68f + (float)random.NextDouble() * 0.08f);
+                startPosition = shooter.VisualPosition + side * sideOffset + up * heightOffset;
+
+                Vector3 ejectionDirection = side * handednessSign + up * 0.55f + forward * 0.16f;
+                if (ejectionDirection.LengthSquared() > 0.0001f)
+                    ejectionDirection.Normalize();
+
+                float speed = 2.4f + (float)random.NextDouble() * 1.4f;
+                velocity = ejectionDirection * speed;
+
+                yawSpin = (float)(random.NextDouble() * 10f - 5f);
+                pitchSpin = (float)(random.NextDouble() * 12f - 6f);
+                rollSpin = (float)(random.NextDouble() * 14f - 7f);
+                floorY = WorldMetrics.FloorToWorldY(shooter.Floor, cellSize);
+                lifetime = 0.85f + (float)random.NextDouble() * 0.25f;
+            }
+
+            public void Update(float delta)
+            {
+                elapsed += delta;
+
+                if (landed)
+                    return;
+
+                const float gravity = 9.81f;
+                Vector3 gravityOffset = new Vector3(0f, -0.5f * gravity * elapsed * elapsed, 0f);
+                Vector3 position = startPosition + velocity * elapsed + gravityOffset;
+                if (position.Y <= floorY + 0.02f)
+                {
+                    landed = true;
+                    onLanded?.Invoke(position);
+                }
+            }
+
+            public void Draw()
+            {
+                const float gravity = 9.81f;
+                Vector3 gravityOffset = new Vector3(0f, -0.5f * gravity * elapsed * elapsed, 0f);
+                Vector3 position = startPosition + velocity * elapsed + gravityOffset;
+                if (position.Y < floorY + 0.01f)
+                    position.Y = floorY + 0.01f;
+
+                float fade = 1f - MathF.Min(1f, elapsed / lifetime);
+                float yaw = yawSpin * elapsed;
+                float pitch = pitchSpin * elapsed;
+                float roll = rollSpin * elapsed;
+
+                renderer.DrawPlane(
+                    position,
+                    new Vector3(0.05f, 1f, 0.11f),
+                    new Color(198, 158, 74) * fade,
+                    pitch,
+                    yaw,
+                    roll);
             }
         }
     }
