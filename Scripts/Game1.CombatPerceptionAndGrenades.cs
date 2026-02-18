@@ -55,6 +55,36 @@ namespace XCOM_3
             return Math.Max(1, floorsClimbed) * apPerFloor;
         }
 
+        private int GetGrappleClimbPhosphocreatineCost(Unit unit, int climbedFloors)
+        {
+            if (unit == null || climbedFloors <= 0)
+                return 0;
+
+            // Modèle effort maximal continu:
+            // 0-6s -> ~55% PCr consommée
+            // 6-10s -> chute rapide vers ~75%
+            // 10-18s -> quasi-épuisement vers ~85%
+            float climbDurationSeconds = Math.Min(18f, climbedFloors * 6f);
+            float consumedRatio;
+
+            if (climbDurationSeconds <= 6f)
+            {
+                consumedRatio = 0.55f * (climbDurationSeconds / 6f);
+            }
+            else if (climbDurationSeconds <= 10f)
+            {
+                float phaseRatio = (climbDurationSeconds - 6f) / 4f;
+                consumedRatio = MathHelper.Lerp(0.55f, 0.75f, phaseRatio);
+            }
+            else
+            {
+                float phaseRatio = (climbDurationSeconds - 10f) / 8f;
+                consumedRatio = MathHelper.Lerp(0.75f, 0.85f, phaseRatio);
+            }
+
+            return (int)MathF.Ceiling(unit.MaxPhosphocreatine * consumedRatio);
+        }
+
         private readonly struct Mk2FragmentationPreviewInfo
         {
             public Unit Unit { get; }
@@ -593,6 +623,9 @@ namespace XCOM_3
 
             if (climbedFloorsThisTurn > 0)
             {
+                int phosphocreatineCost = GetGrappleClimbPhosphocreatineCost(unit, climbedFloorsThisTurn);
+                unit.ConsumePhosphocreatine(phosphocreatineCost, $"ascension au grappin ({climbedFloorsThisTurn} étage(s))");
+
                 unitManager.OnUnitMoved(unit, unit.Cell, unit.Floor);
                 combatSystem.UpdateUnitCover(unit);
                 Console.WriteLine($"[GRAPPLIN] {unit.Name} grimpe {climbedFloorsThisTurn} étage(s) ce tour (position: {unit.Cell}, étage {unit.Floor}).");

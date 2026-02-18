@@ -1097,14 +1097,27 @@ namespace XCOM_3
             return GetMovementPhosphocreatineCost(distance);
         }
 
+        public int ConsumePhosphocreatine(int cost, string reason = null)
+        {
+            int sanitizedCost = Math.Max(0, cost);
+            Phosphocreatine = Math.Max(0, Phosphocreatine - sanitizedCost);
+            phosphocreatineRegenRound = 0;
+
+            if (!string.IsNullOrWhiteSpace(reason))
+            {
+                Console.WriteLine($"[UNIT] {Name} consomme {sanitizedCost} PCr ({reason}). Phosphocreatine: {Phosphocreatine}/{MaxPhosphocreatine}");
+            }
+
+            return sanitizedCost;
+        }
+
         /// <summary>
         /// Consomme la phosphocréatine pour un sprint
         /// </summary>
         public void ConsumeSprint(int distance)
         {
             int cost = GetMovementPhosphocreatineCost(distance);
-            Phosphocreatine = Math.Max(0, Phosphocreatine - cost);
-            phosphocreatineRegenRound = 0;
+            ConsumePhosphocreatine(cost);
             Console.WriteLine($"[UNIT] {Name} sprints! Phosphocreatine: {Phosphocreatine}/{MaxPhosphocreatine} (cost {cost})");
         }
 
