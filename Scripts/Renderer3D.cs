@@ -689,7 +689,8 @@ namespace XCOM_3
 
 
 
-        public void DrawUnit(Unit unit, int cellSize, Color? bodyColorOverride = null, bool drawEquipment = true)
+        public void DrawUnit(Unit unit, int cellSize, Color? bodyColorOverride = null, bool drawEquipment = true,
+            Vector3? positionOverride = null, Matrix? modelRotationOverride = null)
         {
             if (humanoidModel == null)
             {
@@ -732,7 +733,9 @@ namespace XCOM_3
                 bodyBob,
                 idleBob,
                 bodyColorOverride,
-                drawEquipment
+                drawEquipment,
+                positionOverride,
+                modelRotationOverride
             );
 
         }
