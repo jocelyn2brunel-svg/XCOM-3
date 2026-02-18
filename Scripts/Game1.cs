@@ -3506,6 +3506,9 @@ namespace XCOM_3
 
         private bool IsCellAvailableOnFloor(Point cell, int floor)
         {
+            if (HasBlockingFurnitureOnFloor(cell, floor))
+                return false;
+
             if (floor == 0)
                 return true;
 
@@ -3528,6 +3531,29 @@ namespace XCOM_3
             }
 
             return false;
+        }
+
+        private bool HasBlockingFurnitureOnFloor(Point cell, int floor)
+        {
+            if (currentMap?.Furnitures == null)
+                return false;
+
+            return currentMap.Furnitures.Any(f =>
+                f.Floor == floor &&
+                f.X == cell.X &&
+                f.Y == cell.Y &&
+                IsMovementBlockingFurnitureType(f.Type));
+        }
+
+        private static bool IsMovementBlockingFurnitureType(FurnitureType type)
+        {
+            return type is
+                FurnitureType.SedanToyotaCorolla or
+                FurnitureType.SedanBmwSeries3 or
+                FurnitureType.SedanMercedesEClass or
+                FurnitureType.PickupToyotaTacoma or
+                FurnitureType.PickupFordF150 or
+                FurnitureType.PickupRam3500;
         }
 
         private bool IsCellHoverableOnViewedFloor(Point cell, int floor)
