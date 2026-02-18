@@ -219,6 +219,12 @@ namespace XCOM_3
             if (selectedUnit == null || selectedUnit.Team != Team.Player)
                 return;
 
+            if (selectedUnit.IsGrappleConcentrating)
+            {
+                Console.WriteLine($"[GRAPPLIN] {selectedUnit.Name} est déjà en concentration vers l'étage {selectedUnit.GrappleAnchorFloor}.");
+                return;
+            }
+
             if (!UnitHasGrapplingHookEquipped(selectedUnit) || selectedUnit.ActionPoints < GrappleActionPointCost)
             {
                 Console.WriteLine("[GRAPPLIN] Impossible d'activer le grappin (équipement/AP insuffisant).");
@@ -305,13 +311,11 @@ namespace XCOM_3
                 return;
 
             GrappleAnchor selectedAnchor = grappleAnchors[anchorIndex];
-            int floorsClimbed = Math.Max(1, selectedAnchor.DestinationFloor - selectedUnit.Floor);
-            bool hasSupportingWall = CellHasSupportingWall(selectedAnchor.DestinationCell, selectedAnchor.DestinationFloor);
-            int grappleApCost = GetGrappleActionPointCost(floorsClimbed, hasSupportingWall);
+            int floorsToClimbTotal = Math.Max(1, selectedAnchor.DestinationFloor - selectedUnit.Floor);
 
-            if (selectedUnit.ActionPoints < grappleApCost)
+            if (selectedUnit.ActionPoints < GrappleActionPointCost)
             {
-                Console.WriteLine($"[GRAPPLIN] AP insuffisants: coût {grappleApCost} AP pour {floorsClimbed} case(s) {(hasSupportingWall ? "avec appui" : "sans appui")}. ");
+                Console.WriteLine($"[GRAPPLIN] AP insuffisants: coût {GrappleActionPointCost} AP pour lancer le grappin.");
                 ExitGrappleMode();
                 return;
             }
@@ -319,31 +323,107 @@ namespace XCOM_3
             int hitChance = Math.Clamp(
                 GrappleBaseAccuracyPercent
                 + GetGrappleDexterityAccuracyBonus(selectedUnit)
-                - floorsClimbed * GrappleHeightPenaltyPercentPerFloor,
+                - floorsToClimbTotal * GrappleHeightPenaltyPercentPerFloor,
                 20,
                 98);
 
             int roll = random.Next(100);
+            selectedUnit.ActionPoints = Math.Max(0, selectedUnit.ActionPoints - GrappleActionPointCost);
             if (roll >= hitChance)
             {
-                Console.WriteLine($"[GRAPPLIN] Échec ({hitChance}% / roll {roll}).");
-                selectedUnit.ActionPoints = Math.Max(0, selectedUnit.ActionPoints - grappleApCost);
+                Console.WriteLine($"[GRAPPLIN] Échec du lancer ({hitChance}% / roll {roll}).");
+                selectedUnit.IsGrappleConcentrating = false;
+                selectedUnit.GrappleAnchorCell = Point.Zero;
+                selectedUnit.GrappleAnchorFloor = -1;
                 ExitGrappleMode();
                 return;
             }
 
-            selectedUnit.Cell = selectedAnchor.DestinationCell;
-            selectedUnit.Floor = selectedAnchor.DestinationFloor;
-            selectedUnit.VisualPosition = new Vector3(
-                selectedUnit.Cell.X * cellSize + cellSize / 2f,
-                WorldMetrics.FloorToWorldY(selectedUnit.Floor, cellSize),
-                selectedUnit.Cell.Y * cellSize + cellSize / 2f);
-            selectedUnit.ActionPoints = Math.Max(0, selectedUnit.ActionPoints - grappleApCost);
-            unitManager.OnUnitMoved(selectedUnit, selectedUnit.Cell, selectedUnit.Floor);
-            combatSystem.UpdateUnitCover(selectedUnit);
-
-            Console.WriteLine($"[GRAPPLIN] {selectedUnit.Name} atteint {selectedUnit.Cell} à l'étage {selectedUnit.Floor}.");
+            selectedUnit.IsGrappleConcentrating = true;
+            selectedUnit.GrappleAnchorCell = selectedAnchor.DestinationCell;
+            selectedUnit.GrappleAnchorFloor = selectedAnchor.DestinationFloor;
+            Console.WriteLine($"[GRAPPLIN] {selectedUnit.Name} accroche le grappin vers {selectedAnchor.DestinationCell} (étage {selectedAnchor.DestinationFloor}). Concentration active.");
             ExitGrappleMode();
+        }
+
+        private void ProcessGrappleConcentrationAtTurnStart()
+        {
+            if (combatSystem == null || combatSystem.CurrentTurn != TurnState.PlayerTurn)
+                return;
+
+            if (combatSystem.PlayerTurnNumber == lastProcessedGrapplePlayerTurn)
+                return;
+
+            lastProcessedGrapplePlayerTurn = combatSystem.PlayerTurnNumber;
+
+            foreach (Unit unit in playerUnits)
+            {
+                AdvanceGrappleConcentration(unit);
+            }
+        }
+
+        private void AdvanceGrappleConcentration(Unit unit)
+        {
+            if (unit == null || !unit.IsGrappleConcentrating || unit.Health <= 0)
+                return;
+
+            if (unit.GrappleAnchorFloor <= unit.Floor)
+            {
+                unit.IsGrappleConcentrating = false;
+                unit.GrappleAnchorCell = Point.Zero;
+                unit.GrappleAnchorFloor = -1;
+                return;
+            }
+
+            if (!UnitHasGrapplingHookEquipped(unit))
+            {
+                unit.IsGrappleConcentrating = false;
+                unit.GrappleAnchorCell = Point.Zero;
+                unit.GrappleAnchorFloor = -1;
+                Console.WriteLine($"[GRAPPLIN] {unit.Name} perd sa concentration (grappin non équipé).");
+                return;
+            }
+
+            int climbedFloorsThisTurn = 0;
+            while (climbedFloorsThisTurn < GrappleConcentrationClimbFloorsPerTurn && unit.Floor < unit.GrappleAnchorFloor)
+            {
+                int nextFloor = unit.Floor + 1;
+                if (!IsCellAvailableOnFloor(unit.GrappleAnchorCell, nextFloor))
+                {
+                    Console.WriteLine($"[GRAPPLIN] {unit.Name} ne peut pas continuer l'ascension vers l'étage {nextFloor}.");
+                    break;
+                }
+
+                bool hasSupportingWall = CellHasSupportingWall(unit.GrappleAnchorCell, nextFloor);
+                int climbApCost = GetGrappleActionPointCost(1, hasSupportingWall);
+                if (unit.ActionPoints < climbApCost)
+                    break;
+
+                unit.ActionPoints = Math.Max(0, unit.ActionPoints - climbApCost);
+                unit.Cell = unit.GrappleAnchorCell;
+                unit.Floor = nextFloor;
+                unit.VisualPosition = new Vector3(
+                    unit.Cell.X * cellSize + cellSize / 2f,
+                    WorldMetrics.FloorToWorldY(unit.Floor, cellSize),
+                    unit.Cell.Y * cellSize + cellSize / 2f);
+
+                climbedFloorsThisTurn++;
+            }
+
+            if (climbedFloorsThisTurn > 0)
+            {
+                unitManager.OnUnitMoved(unit, unit.Cell, unit.Floor);
+                combatSystem.UpdateUnitCover(unit);
+                Console.WriteLine($"[GRAPPLIN] {unit.Name} grimpe {climbedFloorsThisTurn} étage(s) ce tour (position: {unit.Cell}, étage {unit.Floor}).");
+            }
+
+            if (unit.Floor >= unit.GrappleAnchorFloor)
+            {
+                unit.IsGrappleConcentrating = false;
+                unit.GrappleAnchorCell = Point.Zero;
+                unit.GrappleAnchorFloor = -1;
+                Console.WriteLine($"[GRAPPLIN] {unit.Name} termine l'ascension au point d'ancrage.");
+            }
         }
 
         private void DrawGrappleMode3D(GameTime gameTime)

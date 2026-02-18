@@ -66,6 +66,7 @@ namespace XCOM_3
         private bool grappleMode = false;
         private int grappleTargetFloor = -1;
         private List<GrappleAnchor> grappleAnchors = new List<GrappleAnchor>();
+        private int lastProcessedGrapplePlayerTurn = -1;
 
         // Constantes
         private const int BaseThrowRange = 20;
@@ -79,6 +80,7 @@ namespace XCOM_3
         private const int GrappleFloorHeightFeet = 10;
         private const int GrappleBaseAccuracyPercent = 78;
         private const int GrappleHeightPenaltyPercentPerFloor = 14;
+        private const int GrappleConcentrationClimbFloorsPerTurn = 2;
         private const float Mk2WeightLbs = 1.3228f; // 600 grammes
         private const float OverwatchShotIntervalSeconds = 3f;
 
@@ -850,6 +852,7 @@ namespace XCOM_3
             UpdateUnitAnimations(gameTime);
             if (combatSystem.CurrentTurn == TurnState.PlayerTurn)
             {
+                ProcessGrappleConcentrationAtTurnStart();
                 HandlePlayerTurn(mouse, leftClick, keyboard);
             }
             else if (combatSystem.CurrentTurn == TurnState.EnemyTurn)
