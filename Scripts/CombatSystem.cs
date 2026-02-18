@@ -754,8 +754,31 @@ namespace XCOM_3
                     shooter.Skills.GainKillXP(target.Class);
                 }
 
-                OnUnitKilled?.Invoke(target);
+                Vector3 impactDirection = ComputeImpactDirection(shooter, target);
+                float impactMagnitude = MathHelper.Clamp(damage * 0.08f, 0.9f, 3.8f);
+                Vector3 kineticImpulse = impactDirection * impactMagnitude;
+
+                OnUnitKilled?.Invoke(target, kineticImpulse);
             }
+        }
+
+        private Vector3 ComputeImpactDirection(Unit shooter, Unit target)
+        {
+            if (shooter == null || target == null)
+                return Vector3.Forward;
+
+            Vector3 shooterWorld = new Vector3(shooter.Cell.X, shooter.Floor * 0.2f, shooter.Cell.Y);
+            Vector3 targetWorld = new Vector3(target.Cell.X, target.Floor * 0.2f, target.Cell.Y);
+            Vector3 direction = targetWorld - shooterWorld;
+
+            if (direction.LengthSquared() < 0.0001f)
+            {
+                direction = new Vector3((float)Math.Sin(shooter.Orientation), 0.08f, (float)Math.Cos(shooter.Orientation));
+            }
+
+            direction.Y = Math.Max(direction.Y, 0.06f);
+            direction.Normalize();
+            return direction;
         }
 
         /// <summary>
@@ -809,7 +832,7 @@ namespace XCOM_3
 
         // Events
         public event Action OnFireCompleted;
-        public event Action<Unit> OnUnitKilled;
+        public event Action<Unit, Vector3> OnUnitKilled;
         public event Action<Unit> OnShotFired;
 
         public void InitializeCoverSystem(int gridWidth, int gridHeight, HashSet<WallSegment> walls)

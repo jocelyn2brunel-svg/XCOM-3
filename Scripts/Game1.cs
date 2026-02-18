@@ -217,10 +217,15 @@ namespace XCOM_3
         private sealed class DeadUnitRemains
         {
             public Unit UnitSnapshot;
-            public Vector3 BasePosition;
+            public Vector3 Position;
+            public Vector3 Velocity;
             public float Yaw;
-            public float FallSide;
-            public float FallProgress;
+            public float Pitch;
+            public float Roll;
+            public float AngularPitchVelocity;
+            public float AngularRollVelocity;
+            public bool IsGrounded;
+            public float SettledTimer;
         }
 
         private struct FlashlightLootMarker
@@ -878,16 +883,22 @@ namespace XCOM_3
         }
 
 
-        private void HandleUnitKilled(Unit unit)
+        private void HandleUnitKilled(Unit unit, Vector3 kineticImpulse)
         {
             DropUnitLootToGround(unit);
-            RegisterDeadUnitRemains(unit);
+            RegisterDeadUnitRemains(unit, kineticImpulse);
             if (unit.Team == Team.Player) { playerUnits.Remove(unit); if (playerUnits.Count == 0) currentState = GameState.GameOver; }
             else enemyUnits.Remove(unit);
             unitManager.OnUnitDied(unit);
         }
 
-        private void RegisterDeadUnitRemains(Unit unit)
+
+        private void HandleUnitKilled(Unit unit)
+        {
+            HandleUnitKilled(unit, Vector3.Zero);
+        }
+
+        private void RegisterDeadUnitRemains(Unit unit, Vector3 kineticImpulse)
         {
             if (unit == null)
                 return;
@@ -904,13 +915,31 @@ namespace XCOM_3
                 LegSwing = 0f
             };
 
+            Vector3 impulse = kineticImpulse;
+            if (impulse.LengthSquared() < 0.0001f)
+            {
+                impulse = new Vector3(
+                    (float)(random.NextDouble() * 2.0 - 1.0),
+                    0.25f,
+                    (float)(random.NextDouble() * 2.0 - 1.0));
+            }
+
+            float impulseStrength = MathHelper.Clamp(impulse.Length(), 0.6f, 4.2f);
+            Vector3 impulseDirection = impulse;
+            impulseDirection.Normalize();
+
             deadUnitRemains.Add(new DeadUnitRemains
             {
                 UnitSnapshot = snapshot,
-                BasePosition = snapshot.VisualPosition,
-                Yaw = snapshot.Orientation,
-                FallSide = random.Next(0, 2) == 0 ? -1f : 1f,
-                FallProgress = 0f
+                Position = snapshot.VisualPosition,
+                Velocity = impulseDirection * (cellSize * (0.55f + impulseStrength * 0.35f)),
+                Yaw = snapshot.Orientation + (float)Math.Atan2(impulseDirection.X, impulseDirection.Z) * 0.18f,
+                Pitch = 0f,
+                Roll = 0f,
+                AngularPitchVelocity = -impulseDirection.Z * (1.2f + impulseStrength * 1.15f),
+                AngularRollVelocity = impulseDirection.X * (1.2f + impulseStrength * 1.15f),
+                IsGrounded = false,
+                SettledTimer = 0f
             });
 
             if (deadUnitRemains.Count > 60)
@@ -1504,9 +1533,56 @@ namespace XCOM_3
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
             foreach (var unit in AllUnits()) unit.UpdateAnimation(dt);
 
-            const float fallAnimationSpeed = 2.8f;
+            const float gravity = -22f;
+            const float linearDrag = 3.6f;
+            const float angularDamping = 4.8f;
+            const float groundFriction = 8.5f;
+            const float bounceFactor = 0.16f;
+            float groundY = cellSize * 0.11f;
+
             foreach (var remains in deadUnitRemains)
-                remains.FallProgress = MathHelper.Clamp(remains.FallProgress + dt * fallAnimationSpeed, 0f, 1f);
+            {
+                if (remains == null)
+                    continue;
+
+                remains.Velocity += new Vector3(0f, gravity * cellSize * dt, 0f);
+                remains.Velocity -= remains.Velocity * Math.Min(0.9f, linearDrag * dt);
+
+                remains.Position += remains.Velocity * dt;
+
+                remains.Pitch += remains.AngularPitchVelocity * dt;
+                remains.Roll += remains.AngularRollVelocity * dt;
+
+                float angularDamp = Math.Max(0f, 1f - angularDamping * dt);
+                remains.AngularPitchVelocity *= angularDamp;
+                remains.AngularRollVelocity *= angularDamp;
+
+                if (remains.Position.Y <= groundY)
+                {
+                    remains.Position = new Vector3(remains.Position.X, groundY, remains.Position.Z);
+                    if (Math.Abs(remains.Velocity.Y) > 0.2f * cellSize)
+                    {
+                        remains.Velocity = new Vector3(remains.Velocity.X * 0.7f, -remains.Velocity.Y * bounceFactor, remains.Velocity.Z * 0.7f);
+                    }
+                    else
+                    {
+                        remains.Velocity = new Vector3(remains.Velocity.X, 0f, remains.Velocity.Z);
+                    }
+
+                    remains.IsGrounded = true;
+
+                    float friction = Math.Max(0f, 1f - groundFriction * dt);
+                    remains.Velocity = new Vector3(remains.Velocity.X * friction, remains.Velocity.Y, remains.Velocity.Z * friction);
+                }
+
+                if (remains.IsGrounded && remains.Velocity.LengthSquared() < 0.01f * cellSize * cellSize &&
+                    Math.Abs(remains.AngularPitchVelocity) < 0.08f && Math.Abs(remains.AngularRollVelocity) < 0.08f)
+                {
+                    remains.SettledTimer = Math.Min(1f, remains.SettledTimer + dt * 2.2f);
+                    remains.Pitch = MathHelper.Lerp(remains.Pitch, MathHelper.Clamp(remains.Pitch, -MathHelper.PiOver2 * 0.95f, MathHelper.PiOver2 * 0.95f), remains.SettledTimer);
+                    remains.Roll = MathHelper.Lerp(remains.Roll, MathHelper.Clamp(remains.Roll, -MathHelper.PiOver2 * 0.95f, MathHelper.PiOver2 * 0.95f), remains.SettledTimer);
+                }
+            }
         }
 
         private void UpdateDayNightCycle(GameTime gameTime)
@@ -1911,24 +1987,22 @@ namespace XCOM_3
             if (deadUnitRemains.Count == 0)
                 return;
 
-            float tiltAngle = MathHelper.PiOver2 * 0.9f;
-            float restingYOffset = cellSize * 0.11f;
-
             foreach (var remains in deadUnitRemains)
             {
                 if (remains?.UnitSnapshot == null)
                     continue;
 
-                float currentTilt = MathHelper.Lerp(0f, tiltAngle, remains.FallProgress) * remains.FallSide;
-                Matrix rotation = Matrix.CreateRotationX(currentTilt) * Matrix.CreateRotationY(remains.Yaw);
-                Vector3 corpsePosition = remains.BasePosition - new Vector3(0f, restingYOffset * remains.FallProgress, 0f);
+                Matrix rotation =
+                    Matrix.CreateRotationZ(remains.Roll) *
+                    Matrix.CreateRotationX(remains.Pitch) *
+                    Matrix.CreateRotationY(remains.Yaw);
 
                 renderer3D.DrawUnit(
                     remains.UnitSnapshot,
                     cellSize,
                     bodyColorOverride: new Color(100, 100, 100),
                     drawEquipment: true,
-                    positionOverride: corpsePosition,
+                    positionOverride: remains.Position,
                     modelRotationOverride: rotation);
             }
         }
