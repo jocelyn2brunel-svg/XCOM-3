@@ -333,6 +333,8 @@ namespace XCOM_3
 
             Color background = ParasiteEveTheme.BackgroundDark;
             Color inner = Color.Lerp(accent, Color.Black, 0.25f);
+            Color edge = Color.Lerp(accent, Color.White, 0.26f);
+            Color shadow = Color.Lerp(inner, Color.Black, 0.34f);
 
             for (int y = 0; y < height; y++)
             {
@@ -351,6 +353,75 @@ namespace XCOM_3
                 return true;
             }
 
+            bool IsInside(int x, int y)
+            {
+                if (x < 0 || y < 0 || x >= width || y >= height)
+                    return false;
+
+                Color pixel = data[y * width + x];
+                return pixel != background;
+            }
+
+            void PaintTextureOverlay(int x0, int y0, int x1, int y1, float strength, int seed)
+            {
+                int minX = Math.Max(0, x0);
+                int minY = Math.Max(0, y0);
+                int maxX = Math.Min(width - 1, x1);
+                int maxY = Math.Min(height - 1, y1);
+
+                for (int y = minY; y <= maxY; y++)
+                {
+                    float verticalShade = MathHelper.Lerp(0.14f, -0.12f, (y - minY) / (float)Math.Max(1, maxY - minY));
+                    for (int x = minX; x <= maxX; x++)
+                    {
+                        if (!IsInside(x, y))
+                            continue;
+
+                        float wave = MathF.Sin((x + seed) * 0.48f) * 0.05f + MathF.Cos((y - seed) * 0.37f) * 0.05f;
+                        float hash = (((x + 11) * 73856093) ^ ((y + 7) * 19349663) ^ seed) & 255;
+                        float microNoise = (hash / 255f - 0.5f) * 0.1f;
+                        float shadeAmount = MathHelper.Clamp((verticalShade + wave + microNoise) * strength, -0.28f, 0.28f);
+                        data[y * width + x] = Color.Lerp(data[y * width + x], shadeAmount > 0f ? edge : shadow, MathF.Abs(shadeAmount));
+                    }
+                }
+            }
+
+            void AddEdgeHighlights()
+            {
+                for (int y = 1; y < height - 1; y++)
+                {
+                    for (int x = 1; x < width - 1; x++)
+                    {
+                        if (!IsInside(x, y))
+                            continue;
+
+                        bool nearVoid = !IsInside(x - 1, y) || !IsInside(x + 1, y) || !IsInside(x, y - 1);
+                        bool deepInside = IsInside(x - 1, y) && IsInside(x + 1, y) && IsInside(x, y + 1);
+
+                        if (nearVoid)
+                            data[y * width + x] = Color.Lerp(data[y * width + x], edge, 0.28f);
+                        else if (deepInside && y > height / 2)
+                            data[y * width + x] = Color.Lerp(data[y * width + x], shadow, 0.12f);
+                    }
+                }
+            }
+
+            void AddStitchLines(int x0, int y0, int x1, int y1, int spacing, bool vertical)
+            {
+                for (int i = vertical ? y0 : x0; i <= (vertical ? y1 : x1); i += Math.Max(2, spacing))
+                {
+                    int sx = vertical ? x0 : i;
+                    int sy = vertical ? i : y0;
+                    for (int j = 0; j < 2; j++)
+                    {
+                        int px = sx + (vertical ? j : 0);
+                        int py = sy + (vertical ? 0 : j);
+                        if (IsInside(px, py))
+                            data[py * width + px] = Color.Lerp(data[py * width + px], edge, 0.45f);
+                    }
+                }
+            }
+
             switch (kind)
             {
                 case ArmorIconKind.Helmet:
@@ -365,6 +436,8 @@ namespace XCOM_3
                         }
                     }
                     FillRect(14, 38, 50, 44);
+                    PaintTextureOverlay(10, 12, 54, 44, 0.95f, 91);
+                    AddStitchLines(16, 38, 48, 38, 4, vertical: false);
                     break;
 
                 case ArmorIconKind.Neck:
@@ -374,6 +447,7 @@ namespace XCOM_3
                     for (int y = 26; y <= 36; y++)
                         for (int x = 26; x <= 38; x++)
                             data[y * width + x] = inner;
+                    PaintTextureOverlay(16, 12, 48, 48, 0.8f, 37);
                     break;
 
                 case ArmorIconKind.Vest:
@@ -382,6 +456,9 @@ namespace XCOM_3
                     for (int y = 24; y <= 46; y++)
                         for (int x = 26; x <= 38; x++)
                             data[y * width + x] = inner;
+                    PaintTextureOverlay(16, 10, 48, 52, 1f, 13);
+                    AddStitchLines(20, 16, 20, 50, 5, vertical: true);
+                    AddStitchLines(44, 16, 44, 50, 5, vertical: true);
                     break;
 
                 case ArmorIconKind.Shield:
@@ -391,18 +468,22 @@ namespace XCOM_3
                         for (int x = 32 - half; x <= 32 + half; x++)
                             data[y * width + x] = accent;
                     }
+                    PaintTextureOverlay(12, 8, 52, 56, 0.72f, 74);
                     break;
 
                 case ArmorIconKind.Shirt:
                     FillRect(18, 16, 46, 52);
                     FillRect(10, 18, 17, 34);
                     FillRect(47, 18, 54, 34);
+                    PaintTextureOverlay(10, 16, 54, 52, 0.75f, 21);
                     break;
 
                 case ArmorIconKind.Pants:
                     FillRect(22, 10, 42, 24);
                     FillRect(22, 24, 30, 54);
                     FillRect(34, 24, 42, 54);
+                    PaintTextureOverlay(22, 10, 42, 54, 0.92f, 56);
+                    AddStitchLines(31, 24, 31, 54, 3, vertical: true);
                     break;
 
                 case ArmorIconKind.ChestRig:
@@ -410,6 +491,7 @@ namespace XCOM_3
                     FillRect(14, 10, 50, 14);
                     for (int i = 0; i < 4; i++)
                         FillRect(18 + i * 8, 26, 22 + i * 8, 42);
+                    PaintTextureOverlay(14, 10, 50, 50, 0.98f, 5);
                     break;
 
                 case ArmorIconKind.Backpack:
@@ -418,8 +500,13 @@ namespace XCOM_3
                     for (int y = 16; y <= 48; y++)
                         for (int x = 22; x <= 42; x++)
                             data[y * width + x] = inner;
+                    PaintTextureOverlay(16, 10, 48, 54, 0.86f, 63);
+                    AddStitchLines(18, 18, 18, 48, 4, vertical: true);
+                    AddStitchLines(46, 18, 46, 48, 4, vertical: true);
                     break;
             }
+
+            AddEdgeHighlights();
 
             var texture = new Texture2D(graphicsDevice, width, height);
             texture.SetData(data);
