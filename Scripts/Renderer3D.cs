@@ -315,6 +315,9 @@ namespace XCOM_3
                 FurnitureType.SedanToyotaCorolla => new Vector2(15.2f * feetToWorld, 5.9f * feetToWorld),
                 FurnitureType.SedanBmwSeries3 => new Vector2(15.6f * feetToWorld, 6.0f * feetToWorld),
                 FurnitureType.SedanMercedesEClass => new Vector2(16.3f * feetToWorld, 6.2f * feetToWorld),
+                FurnitureType.PickupToyotaTacoma => new Vector2(17.9f * feetToWorld, 6.3f * feetToWorld),
+                FurnitureType.PickupFordF150 => new Vector2(19.5f * feetToWorld, 6.7f * feetToWorld),
+                FurnitureType.PickupRam3500 => new Vector2(20.3f * feetToWorld, 6.8f * feetToWorld),
                 _ => new Vector2(baseSize, baseSize)
             };
         }
@@ -332,6 +335,9 @@ namespace XCOM_3
                 FurnitureType.SedanToyotaCorolla => new Color(198, 202, 208),
                 FurnitureType.SedanBmwSeries3 => new Color(60, 64, 76),
                 FurnitureType.SedanMercedesEClass => new Color(26, 26, 30),
+                FurnitureType.PickupToyotaTacoma => new Color(76, 88, 112),
+                FurnitureType.PickupFordF150 => new Color(178, 46, 52),
+                FurnitureType.PickupRam3500 => new Color(220, 220, 228),
                 _ => new Color(130, 130, 130)
             };
         }

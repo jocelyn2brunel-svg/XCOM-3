@@ -289,7 +289,10 @@ namespace XCOM_3
         Bed,
         SedanToyotaCorolla,
         SedanBmwSeries3,
-        SedanMercedesEClass
+        SedanMercedesEClass,
+        PickupToyotaTacoma,
+        PickupFordF150,
+        PickupRam3500
     }
 
     [Serializable]
@@ -314,6 +317,9 @@ namespace XCOM_3
                 FurnitureType.SedanToyotaCorolla => 4.7f,
                 FurnitureType.SedanBmwSeries3 => 4.8f,
                 FurnitureType.SedanMercedesEClass => 4.8f,
+                FurnitureType.PickupToyotaTacoma => 6.0f,
+                FurnitureType.PickupFordF150 => 6.4f,
+                FurnitureType.PickupRam3500 => 6.6f,
                 _ => 3f
             };
         }
