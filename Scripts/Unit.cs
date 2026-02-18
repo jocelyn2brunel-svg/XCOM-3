@@ -61,6 +61,10 @@ namespace XCOM_3
         public int FireActionPointsSpent = 1;
         public float FireAnimationDurationSeconds = 0.25f;
         public Unit PendingTarget = null;
+        public bool IsOnOverwatch = false;
+        public int OverwatchShotsRemaining = 0;
+        public float OverwatchCooldownRemainingSeconds = 0f;
+        public Unit LastOverwatchTarget = null;
         public Vector3 VisualOffset = Vector3.Zero;
         public Vector3 ChargeStart;
         public Vector3 ChargeTarget;
@@ -294,6 +298,10 @@ namespace XCOM_3
             FireRoundsToAnimate = other.FireRoundsToAnimate;
             FireActionPointsSpent = other.FireActionPointsSpent;
             FireAnimationDurationSeconds = other.FireAnimationDurationSeconds;
+            IsOnOverwatch = other.IsOnOverwatch;
+            OverwatchShotsRemaining = other.OverwatchShotsRemaining;
+            OverwatchCooldownRemainingSeconds = other.OverwatchCooldownRemainingSeconds;
+            LastOverwatchTarget = other.LastOverwatchTarget;
 
         }
 
@@ -350,6 +358,26 @@ namespace XCOM_3
             int roundsConsumed = Math.Min(roundsNeeded, CurrentAmmoInMagazine);
             CurrentAmmoInMagazine -= roundsConsumed;
             return roundsConsumed;
+        }
+
+        public void ActivateOverwatch(int actionPointsSpent, int shotsToReserve)
+        {
+            int safeAp = Math.Max(1, actionPointsSpent);
+            int safeShots = Math.Max(0, shotsToReserve);
+
+            ActionPoints = Math.Max(0, ActionPoints - safeAp);
+            IsOnOverwatch = safeShots > 0;
+            OverwatchShotsRemaining = safeShots;
+            OverwatchCooldownRemainingSeconds = 0f;
+            LastOverwatchTarget = null;
+        }
+
+        public void ClearOverwatch()
+        {
+            IsOnOverwatch = false;
+            OverwatchShotsRemaining = 0;
+            OverwatchCooldownRemainingSeconds = 0f;
+            LastOverwatchTarget = null;
         }
 
         public int GetTotalArmor()

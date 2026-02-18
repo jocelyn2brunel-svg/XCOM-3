@@ -82,6 +82,7 @@ namespace XCOM_3
             {
                 u.ActionPoints = u.MaxActionPoints; // ← Utiliser MaxActionPoints au lieu de 3
                 u.RegeneratePhosphocreatine();
+                u.ClearOverwatch();
             }
 
             CurrentTurn = TurnState.PlayerTurn;
