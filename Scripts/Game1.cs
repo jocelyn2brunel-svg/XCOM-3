@@ -3243,11 +3243,6 @@ namespace XCOM_3
             if (IsCellAvailableOnFloor(cell, floor))
                 return true;
 
-            // Depuis un étage, on permet le survol des cellules extérieures du RDC
-            // pour autoriser le clic direct au sol (hors bâtiment).
-            if (floor != 0 && IsGroundExteriorCell(cell) && IsCellAvailableOnFloor(cell, 0))
-                return true;
-
             // Les cellules extérieures au sol restent valides pour le ciblage/mouvement
             // seulement au rez-de-chaussée. En étage, on évite le "survol dans le vide"
             // tant qu'aucune mécanique d'unités volantes dédiée n'est implémentée.
