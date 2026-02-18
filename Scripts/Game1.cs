@@ -834,8 +834,7 @@ namespace XCOM_3
             if (shooter.WeaponData.UsesAmmo)
             {
                 shooter.EnsureAmmoState();
-                int roundsPerShot = Math.Max(1, shooter.WeaponData.GetRoundsConsumedPerActionPoint());
-                int possibleShots = shooter.CurrentAmmoInMagazine / roundsPerShot;
+                int possibleShots = GetActionShotsFromAmmo(shooter.CurrentAmmoInMagazine, shooter.WeaponData.GetRoundsConsumedPerActionPoint());
                 shooter.OverwatchShotsRemaining = Math.Min(shooter.OverwatchShotsRemaining, possibleShots);
 
                 if (shooter.OverwatchShotsRemaining <= 0)
@@ -910,8 +909,7 @@ namespace XCOM_3
             if (unit.WeaponData.UsesAmmo)
             {
                 unit.EnsureAmmoState();
-                int roundsPerShot = Math.Max(1, unit.WeaponData.GetRoundsConsumedPerActionPoint());
-                int shotsFromAmmo = unit.CurrentAmmoInMagazine / roundsPerShot;
+                int shotsFromAmmo = GetActionShotsFromAmmo(unit.CurrentAmmoInMagazine, unit.WeaponData.GetRoundsConsumedPerActionPoint());
                 availableShots = Math.Min(availableShots, shotsFromAmmo);
             }
 
@@ -930,6 +928,16 @@ namespace XCOM_3
             pathCosts.Clear();
 
             Console.WriteLine($"[OVERWATCH] {unit.Name} entre en overwatch ({availableShots} tir(s), coût {apSpent} AP).");
+        }
+
+        private static int GetActionShotsFromAmmo(int currentAmmo, int roundsPerShot)
+        {
+            int safeAmmo = Math.Max(0, currentAmmo);
+            int safeRoundsPerShot = Math.Max(1, roundsPerShot);
+
+            // Arrondi au plus proche pour traduire les munitions restantes en "actions de tir".
+            // Exemple: 30/38 ≈ 0.79 -> 1 tir possible, ce qui évite de bloquer l'overwatch sur les SMG.
+            return (safeAmmo + (safeRoundsPerShot / 2)) / safeRoundsPerShot;
         }
 
 
