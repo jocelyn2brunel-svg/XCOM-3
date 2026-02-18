@@ -4181,7 +4181,8 @@ namespace XCOM_3
 
             int pantsCapacity = unit.GetPantsInventoryCapacity();
             int chestRigCapacity = unit.GetChestRigInventoryCapacity();
-            bool highlightPocket = isDragging && draggedItem.GetCurrentSize().Width == 1 && draggedItem.GetCurrentSize().Height == 1;
+            // Pas de ghost vert sur les emplacements utilitaires (poches / chest rig).
+            bool highlightPocket = false;
             for (int i = 0; i < pantsCapacity; i++)
             {
                 Rectangle pocketSlot = GetPantsPocketSlotByIndex(i);
