@@ -29,6 +29,32 @@ namespace XCOM_3
             }
         }
 
+        private static IEnumerable<Point> GetCellsAdjacentToWall(WallSegment wall)
+        {
+            Point sideA = wall.IsHorizontal
+                ? new Point(Math.Min(wall.Start.X, wall.End.X), wall.Start.Y - 1)
+                : new Point(wall.Start.X - 1, Math.Min(wall.Start.Y, wall.End.Y));
+
+            Point sideB = wall.IsHorizontal
+                ? new Point(Math.Min(wall.Start.X, wall.End.X), wall.Start.Y)
+                : new Point(wall.Start.X, Math.Min(wall.Start.Y, wall.End.Y));
+
+            yield return sideA;
+            yield return sideB;
+        }
+
+        private bool CellHasSupportingWall(Point cell, int floor)
+        {
+            HashSet<WallSegment> wallsOnFloor = GetWallsForFloor(floor);
+            return wallsOnFloor.Any(wall => wall.Type == WallType.Full && GetCellsAdjacentToWall(wall).Contains(cell));
+        }
+
+        private int GetGrappleActionPointCost(int floorsClimbed, bool hasSupportingWall)
+        {
+            int apPerFloor = hasSupportingWall ? 1 : 2;
+            return Math.Max(1, floorsClimbed) * apPerFloor;
+        }
+
         private readonly struct Mk2FragmentationPreviewInfo
         {
             public Unit Unit { get; }
@@ -235,15 +261,7 @@ namespace XCOM_3
                 if (wall.Type == WallType.Full)
                     continue;
 
-                Point sideA = wall.IsHorizontal
-                    ? new Point(Math.Min(wall.Start.X, wall.End.X), wall.Start.Y - 1)
-                    : new Point(wall.Start.X - 1, Math.Min(wall.Start.Y, wall.End.Y));
-
-                Point sideB = wall.IsHorizontal
-                    ? new Point(Math.Min(wall.Start.X, wall.End.X), wall.Start.Y)
-                    : new Point(wall.Start.X, Math.Min(wall.Start.Y, wall.End.Y));
-
-                foreach (Point candidate in new[] { sideA, sideB })
+                foreach (Point candidate in GetCellsAdjacentToWall(wall))
                 {
                     if (!validFloorCells.Contains(candidate))
                         continue;
@@ -288,6 +306,16 @@ namespace XCOM_3
 
             GrappleAnchor selectedAnchor = grappleAnchors[anchorIndex];
             int floorsClimbed = Math.Max(1, selectedAnchor.DestinationFloor - selectedUnit.Floor);
+            bool hasSupportingWall = CellHasSupportingWall(selectedAnchor.DestinationCell, selectedAnchor.DestinationFloor);
+            int grappleApCost = GetGrappleActionPointCost(floorsClimbed, hasSupportingWall);
+
+            if (selectedUnit.ActionPoints < grappleApCost)
+            {
+                Console.WriteLine($"[GRAPPLIN] AP insuffisants: coût {grappleApCost} AP pour {floorsClimbed} case(s) {(hasSupportingWall ? "avec appui" : "sans appui")}. ");
+                ExitGrappleMode();
+                return;
+            }
+
             int hitChance = Math.Clamp(
                 GrappleBaseAccuracyPercent
                 + GetGrappleDexterityAccuracyBonus(selectedUnit)
@@ -299,7 +327,7 @@ namespace XCOM_3
             if (roll >= hitChance)
             {
                 Console.WriteLine($"[GRAPPLIN] Échec ({hitChance}% / roll {roll}).");
-                selectedUnit.ActionPoints = Math.Max(0, selectedUnit.ActionPoints - GrappleActionPointCost);
+                selectedUnit.ActionPoints = Math.Max(0, selectedUnit.ActionPoints - grappleApCost);
                 ExitGrappleMode();
                 return;
             }
@@ -310,7 +338,7 @@ namespace XCOM_3
                 selectedUnit.Cell.X * cellSize + cellSize / 2f,
                 WorldMetrics.FloorToWorldY(selectedUnit.Floor, cellSize),
                 selectedUnit.Cell.Y * cellSize + cellSize / 2f);
-            selectedUnit.ActionPoints = Math.Max(0, selectedUnit.ActionPoints - GrappleActionPointCost);
+            selectedUnit.ActionPoints = Math.Max(0, selectedUnit.ActionPoints - grappleApCost);
             unitManager.OnUnitMoved(selectedUnit, selectedUnit.Cell, selectedUnit.Floor);
             combatSystem.UpdateUnitCover(selectedUnit);
 
