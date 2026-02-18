@@ -272,8 +272,12 @@ namespace XCOM_3
 
             if (floor == 0 || currentMap?.Buildings == null || currentMap.Buildings.Count == 0)
             {
-                wallsByFloorCache[floor] = wallSegments;
-                return wallSegments;
+                var baseFloorWalls = new HashSet<WallSegment>();
+                foreach (var wall in wallSegments)
+                    baseFloorWalls.Add(ApplyShatteredWindowState(wall, floor));
+
+                wallsByFloorCache[floor] = baseFloorWalls;
+                return baseFloorWalls;
             }
 
             var filteredWalls = new HashSet<WallSegment>();
