@@ -80,6 +80,7 @@ namespace XCOM_3
                     Y = p.Y,
                     Floor = 0
                 });
+            map.Furnitures = GenerateBuildingFurniture(map.Buildings, map.GridWidth, map.GridHeight, map.FloorCount);
 
             map.StairConnections = GenerateDefaultStairs(map.GridWidth, map.GridHeight, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
@@ -166,6 +167,7 @@ namespace XCOM_3
                     Y = p.Y,
                     Floor = 0
                 });
+            map.Furnitures = GenerateBuildingFurniture(map.Buildings, width, height, map.FloorCount);
             map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
             map.RampTiles = GenerateDefaultRamps(map.StairConnections);
             map.TerrainHeights = GenerateTerrainRelief(width, height, pattern);
@@ -257,6 +259,128 @@ namespace XCOM_3
             }
 
             return stairs;
+        }
+
+        private List<FurnitureData> GenerateBuildingFurniture(
+            List<BuildingFootprintData> buildings,
+            int mapWidth,
+            int mapHeight,
+            int maxFloors)
+        {
+            var furnitures = new List<FurnitureData>();
+            if (buildings == null || buildings.Count == 0)
+                return furnitures;
+
+            foreach (var building in buildings)
+            {
+                int minX = Math.Clamp(building.X + 1, 1, Math.Max(1, mapWidth - 2));
+                int maxX = Math.Clamp(building.X + building.Width - 2, 1, Math.Max(1, mapWidth - 2));
+                int minY = Math.Clamp(building.Y + 1, 1, Math.Max(1, mapHeight - 2));
+                int maxY = Math.Clamp(building.Y + building.Height - 2, 1, Math.Max(1, mapHeight - 2));
+
+                if (minX > maxX || minY > maxY)
+                    continue;
+
+                int floors = Math.Clamp(building.FloorCount, 1, Math.Max(1, maxFloors));
+                for (int floor = 0; floor < floors; floor++)
+                {
+                    var occupied = new HashSet<Point>();
+
+                    PlaceFurniture(FurnitureType.Counter, 1);
+                    PlaceFurniture(FurnitureType.Fridge, 1);
+                    List<Point> tables = PlaceFurniture(FurnitureType.Table, 1);
+                    Point? tablePos = tables.Count > 0 ? tables[0] : null;
+                    PlaceChairsAroundTable(tablePos);
+                    PlaceFurniture(FurnitureType.Stove, 1);
+                    PlaceFurniture(FurnitureType.Bed, 1);
+
+                    if (building.Width >= 9 && building.Height >= 9)
+                    {
+                        PlaceFurniture(FurnitureType.Counter, 1);
+                        PlaceFurniture(FurnitureType.Table, 1);
+                        PlaceFurniture(FurnitureType.Bed, 1);
+                    }
+
+                    List<Point> PlaceFurniture(FurnitureType type, int count)
+                    {
+                        var placed = new List<Point>();
+                        for (int i = 0; i < count; i++)
+                        {
+                            var point = FindAvailableInteriorCell(minX, maxX, minY, maxY, occupied);
+                            if (point == null)
+                                break;
+
+                            occupied.Add(point.Value);
+                            furnitures.Add(new FurnitureData
+                            {
+                                X = point.Value.X,
+                                Y = point.Value.Y,
+                                Floor = floor,
+                                Type = type
+                            });
+                            placed.Add(point.Value);
+                        }
+
+                        return placed;
+                    }
+
+                    void PlaceChairsAroundTable(Point? table)
+                    {
+                        if (table == null)
+                            return;
+
+                        Point[] candidates =
+                        {
+                            new Point(table.Value.X - 1, table.Value.Y),
+                            new Point(table.Value.X + 1, table.Value.Y),
+                            new Point(table.Value.X, table.Value.Y - 1),
+                            new Point(table.Value.X, table.Value.Y + 1)
+                        };
+
+                        foreach (Point candidate in candidates)
+                        {
+                            if (candidate.X < minX || candidate.X > maxX || candidate.Y < minY || candidate.Y > maxY)
+                                continue;
+                            if (occupied.Contains(candidate))
+                                continue;
+
+                            occupied.Add(candidate);
+                            furnitures.Add(new FurnitureData
+                            {
+                                X = candidate.X,
+                                Y = candidate.Y,
+                                Floor = floor,
+                                Type = FurnitureType.Chair
+                            });
+                        }
+                    }
+                }
+            }
+
+            return furnitures;
+        }
+
+        private Point? FindAvailableInteriorCell(int minX, int maxX, int minY, int maxY, HashSet<Point> occupied)
+        {
+            int width = maxX - minX + 1;
+            int height = maxY - minY + 1;
+            int cells = width * height;
+            if (cells <= 0)
+                return null;
+
+            int start = random.Next(cells);
+            for (int i = 0; i < cells; i++)
+            {
+                int index = (start + i) % cells;
+                int x = minX + (index % width);
+                int y = minY + (index / width);
+                var point = new Point(x, y);
+
+                if (!occupied.Contains(point))
+                    return point;
+            }
+
+            return null;
         }
 
         private static List<RampTileData> GenerateDefaultRamps(IEnumerable<StairConnectionData> stairs)

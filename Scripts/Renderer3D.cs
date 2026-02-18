@@ -281,6 +281,54 @@ namespace XCOM_3
             }
         }
 
+        public void DrawFurniture(IEnumerable<FurnitureData> furnitures, int cellSize, float floorHeightOffset)
+        {
+            if (furnitures == null)
+                return;
+
+            float feetToWorld = cellSize / (float)Unit.FeetPerCell;
+
+            foreach (FurnitureData furniture in furnitures)
+            {
+                float heightWorld = FurnitureData.GetHeightFeet(furniture.Type) * feetToWorld;
+                Vector2 footprint = GetFurnitureFootprint(furniture.Type, cellSize);
+                Vector3 scale = new Vector3(footprint.X, heightWorld, footprint.Y);
+
+                Vector3 center = new Vector3(
+                    furniture.X * cellSize + cellSize / 2f,
+                    floorHeightOffset + heightWorld / 2f,
+                    furniture.Y * cellSize + cellSize / 2f);
+
+                DrawCube(center, scale, GetFurnitureColor(furniture.Type));
+            }
+        }
+
+        private static Vector2 GetFurnitureFootprint(FurnitureType type, int cellSize)
+        {
+            float baseSize = cellSize * 0.78f;
+            return type switch
+            {
+                FurnitureType.Bed => new Vector2(cellSize * 0.95f, cellSize * 0.75f),
+                FurnitureType.Fridge => new Vector2(cellSize * 0.62f, cellSize * 0.62f),
+                FurnitureType.Chair => new Vector2(cellSize * 0.48f, cellSize * 0.48f),
+                _ => new Vector2(baseSize, baseSize)
+            };
+        }
+
+        private static Color GetFurnitureColor(FurnitureType type)
+        {
+            return type switch
+            {
+                FurnitureType.Counter => new Color(146, 115, 88),
+                FurnitureType.Fridge => new Color(188, 196, 208),
+                FurnitureType.Table => new Color(124, 90, 62),
+                FurnitureType.Chair => new Color(95, 72, 50),
+                FurnitureType.Stove => new Color(96, 96, 104),
+                FurnitureType.Bed => new Color(96, 128, 172),
+                _ => new Color(130, 130, 130)
+            };
+        }
+
         private static float ComputeCornerHeight(IReadOnlyDictionary<Point, float> terrainHeights, int vertexX, int vertexZ)
         {
             float sum = 0f;
