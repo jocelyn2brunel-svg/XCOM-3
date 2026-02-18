@@ -18,6 +18,7 @@ namespace XCOM_3
         private Random random;
         private PathfindingSystem pathfinding;
         private Func<Point, Unit> getUnitAtCell;
+        private Func<Point, int, FurnitureData> getFurnitureAtCellOnFloor;
         private OptimizedUnitManager unitManager;
 
         // État du tour
@@ -41,6 +42,20 @@ namespace XCOM_3
         private static int GetWeaponDamage(Unit unit) => unit?.WeaponData?.EffectiveDamage ?? 0;
         private static bool HasUsableWeapon(Unit unit) => unit?.WeaponData != null;
 
+        private static int GetFurnitureCoverBonus(FurnitureType type)
+        {
+            return type switch
+            {
+                FurnitureType.Fridge => 30,
+                FurnitureType.Counter => 20,
+                FurnitureType.Stove => 20,
+                FurnitureType.Table => 15,
+                FurnitureType.Bed => 10,
+                FurnitureType.Chair => 5,
+                _ => 0
+            };
+        }
+
         private static int GetRangeBasedAccuracyPenalty(int distance, int weaponRange)
         {
             if (distance <= 0)
@@ -55,12 +70,34 @@ namespace XCOM_3
         }
 
         public CombatSystem(Random random, PathfindingSystem pathfinding,
-            Func<Point, Unit> getUnitAtCell, OptimizedUnitManager unitManager)
+            Func<Point, Unit> getUnitAtCell,
+            Func<Point, int, FurnitureData> getFurnitureAtCellOnFloor,
+            OptimizedUnitManager unitManager)
         {
             this.random = random;
             this.pathfinding = pathfinding;
             this.getUnitAtCell = getUnitAtCell;
+            this.getFurnitureAtCellOnFloor = getFurnitureAtCellOnFloor;
             this.unitManager = unitManager;
+        }
+
+        private int GetFurnitureDefenseBonus(Unit target, Unit shooter)
+        {
+            if (target == null || shooter == null || getFurnitureAtCellOnFloor == null)
+                return 0;
+
+            if (target.Floor != shooter.Floor)
+                return 0;
+
+            int dx = Math.Sign(target.Cell.X - shooter.Cell.X);
+            int dy = Math.Sign(target.Cell.Y - shooter.Cell.Y);
+            Point blockingCell = new Point(target.Cell.X - dx, target.Cell.Y - dy);
+
+            FurnitureData furniture = getFurnitureAtCellOnFloor(blockingCell, target.Floor);
+            if (furniture == null)
+                return 0;
+
+            return GetFurnitureCoverBonus(furniture.Type);
         }
 
         public void SetUnits(List<Unit> players, List<Unit> enemies)
@@ -440,6 +477,13 @@ namespace XCOM_3
                 {
                     Console.WriteLine($"[COMBAT] {target.Name} is FLANKED! No cover bonus!");
                 }
+            }
+
+            int furnitureBonus = GetFurnitureDefenseBonus(target, shooter);
+            if (furnitureBonus > 0)
+            {
+                effectiveAccuracy -= furnitureBonus;
+                Console.WriteLine($"[COMBAT] {target.Name} is behind furniture: -{furnitureBonus}% to hit");
             }
 
             effectiveAccuracy = Math.Max(effectiveAccuracy, 5);
