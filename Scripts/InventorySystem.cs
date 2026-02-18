@@ -74,6 +74,7 @@ namespace XCOM_3
         private Dictionary<string, Texture2D> weaponTextures;
         private Dictionary<GrenadeType, Texture2D> grenadeTextures;
         private readonly Dictionary<string, Texture2D> generatedItemTextures = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Texture2D> generatedGrenadeTextures = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
         private readonly BasicEffect previewEffect;
         private readonly HumanoidModelAdvanced previewModel;
         private RenderTarget2D previewRenderTarget;
@@ -749,13 +750,47 @@ namespace XCOM_3
 
         private Texture2D GetGrenadeTexture(ItemData data)
         {
-            if (data?.Type != ItemType.Grenade || data.GrenadeData == null)
+            if (data?.Type != ItemType.Grenade)
                 return null;
 
-            if (grenadeTextures != null && grenadeTextures.TryGetValue(data.GrenadeData.Type, out Texture2D grenadeTexture))
+            if (data.GrenadeData != null &&
+                grenadeTextures != null &&
+                grenadeTextures.TryGetValue(data.GrenadeData.Type, out Texture2D grenadeTexture))
+            {
                 return grenadeTexture;
+            }
 
-            return null;
+            if (!string.IsNullOrWhiteSpace(data.Name) &&
+                data.Name.Contains("MK 2", StringComparison.OrdinalIgnoreCase) &&
+                grenadeTextures != null &&
+                grenadeTextures.TryGetValue(GrenadeType.Frag, out Texture2D mk2FallbackTexture))
+            {
+                return mk2FallbackTexture;
+            }
+
+            return GetOrCreateGeneratedGrenadeTexture(data);
+        }
+
+        private Texture2D GetOrCreateGeneratedGrenadeTexture(ItemData data)
+        {
+            if (data == null)
+                return null;
+
+            string textureKey = !string.IsNullOrWhiteSpace(data.GeneratedTextureKey)
+                ? data.GeneratedTextureKey
+                : $"generated_grenade_{data.Name}";
+
+            if (generatedGrenadeTextures.TryGetValue(textureKey, out Texture2D existingTexture))
+                return existingTexture;
+
+            int seed = StringComparer.OrdinalIgnoreCase.GetHashCode(data.Name ?? string.Empty);
+            byte variation = (byte)(Math.Abs(seed) % 35);
+            Color shell = new Color((byte)(80 + variation), (byte)(95 + variation / 2), (byte)(76 + variation / 3));
+            Color highlight = new Color((byte)(115 + variation), (byte)(130 + variation / 2), (byte)(102 + variation / 3));
+
+            Texture2D generated = CreateGrenadeIconTexture(shell, highlight);
+            generatedGrenadeTextures[textureKey] = generated;
+            return generated;
         }
 
         private Texture2D GetAccessoryTexture(ItemData data)
