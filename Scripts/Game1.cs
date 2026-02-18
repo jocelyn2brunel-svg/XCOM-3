@@ -2762,6 +2762,8 @@ namespace XCOM_3
                 [ArmorSlot.Head] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.Head),
                 [ArmorSlot.Neck] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.Neck),
                 [ArmorSlot.Torso] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.Torso),
+                [ArmorSlot.Knees] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.Knees),
+                [ArmorSlot.Feet] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.Feet),
                 [ArmorSlot.ChestRig] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.ChestRig),
                 [ArmorSlot.Backpack] = ArmorDatabase.GetArmorsBySlot(ArmorSlot.Backpack)
             };
@@ -2803,6 +2805,12 @@ namespace XCOM_3
                     break;
                 case ArmorSlot.Pants:
                     unit.EquippedPants = equippedItem;
+                    break;
+                case ArmorSlot.Knees:
+                    unit.EquippedKnees = equippedItem;
+                    break;
+                case ArmorSlot.Feet:
+                    unit.EquippedFeet = equippedItem;
                     break;
                 case ArmorSlot.ChestRig:
                     unit.EquippedChestRig = equippedItem;

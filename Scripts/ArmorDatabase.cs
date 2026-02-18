@@ -47,6 +47,8 @@ namespace XCOM_3
             AddShields(list);
             AddCombatShirts(list);
             AddPants(list);
+            AddKneeArmors(list);
+            AddBoots(list);
             AddChestRigs(list);
             AddBackpacks(list);
 
@@ -219,6 +221,64 @@ namespace XCOM_3
                 4,
                 "Chest rig assaut renforcé, protection limitée contre éclats. Ajoute 4 emplacements utilitaires 1x1.",
                 8
+            ));
+        }
+
+        private static void AddKneeArmors(List<ItemData> list)
+        {
+            list.Add(new ItemData(
+                "Genouilleres Souples",
+                ItemType.Armor,
+                1,
+                ArmorSlot.Knees,
+                ProtectionLevel.Fragmentation,
+                0,
+                0.7f,
+                0,
+                "Genouilleres souples pour patrouille. Confort et protection legere contre les eclats.",
+                6
+            ));
+
+            list.Add(new ItemData(
+                "Genouilleres Renforcees",
+                ItemType.Armor,
+                3,
+                ArmorSlot.Knees,
+                ProtectionLevel.NIJ_II,
+                0,
+                1.1f,
+                0,
+                "Coques renforcees avec mousse interne. Bonne protection en progression urbaine.",
+                12
+            ));
+        }
+
+        private static void AddBoots(List<ItemData> list)
+        {
+            list.Add(new ItemData(
+                "Bottes de Patrouille",
+                ItemType.Armor,
+                1,
+                ArmorSlot.Feet,
+                ProtectionLevel.Fragmentation,
+                0,
+                2.3f,
+                0,
+                "Bottes de patrouille legeres. Maintien correct et protection de base.",
+                5
+            ));
+
+            list.Add(new ItemData(
+                "Bottes Tactiques Renforcees",
+                ItemType.Armor,
+                3,
+                ArmorSlot.Feet,
+                ProtectionLevel.NIJ_II,
+                1,
+                3.1f,
+                0,
+                "Bottes tactiques a embout renforce et semelle anti-perforation. Plus protectrices mais un peu lourdes.",
+                10
             ));
         }
 
