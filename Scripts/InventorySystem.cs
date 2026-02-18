@@ -1596,6 +1596,28 @@ namespace XCOM_3
                 return;
             }
 
+            Rectangle kneesSlot = GetKneesSlotBounds();
+            if (unit.EquippedKnees != null && kneesSlot.Contains(mouse.Position))
+            {
+                StartDragFromEquipment(unit.EquippedKnees, mouse, kneesSlot);
+                unit.EquippedKnees = null;
+                PlayUiSound(uiClickSound, 0.48f);
+
+                Console.WriteLine($"[INVENTORY] Unequipped knees protection: {draggedItem.Data.Name}");
+                return;
+            }
+
+            Rectangle feetSlot = GetFeetSlotBounds();
+            if (unit.EquippedFeet != null && feetSlot.Contains(mouse.Position))
+            {
+                StartDragFromEquipment(unit.EquippedFeet, mouse, feetSlot);
+                unit.EquippedFeet = null;
+                PlayUiSound(uiClickSound, 0.48f);
+
+                Console.WriteLine($"[INVENTORY] Unequipped boots: {draggedItem.Data.Name}");
+                return;
+            }
+
             int pantsCapacity = unit.GetPantsInventoryCapacity();
             for (int i = 0; i < pantsCapacity; i++)
             {

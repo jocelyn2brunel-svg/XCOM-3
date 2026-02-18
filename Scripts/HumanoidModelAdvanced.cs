@@ -509,6 +509,13 @@ namespace XCOM_3
                 DrawPants(device, effect, pos, unit.EquippedPants, unit.PantsInventory, scale, rot, dims, legSwing);
             }
 
+            // CEINTURE (au-dessus du pantalon)
+            Item beltItem = unit.EquippedAccessory ?? unit.EquippedBelt;
+            if (beltItem != null)
+            {
+                DrawBelt(device, effect, pos, beltItem, rot, dims);
+            }
+
             // ✅ NOUVEAU : GRENADES ÉQUIPÉES
             if (unit.Grenades != null && unit.Grenades.Count > 0)
             {
@@ -833,6 +840,63 @@ namespace XCOM_3
             );
             Vector3 barrelScale = new Vector3(weaponScale.X * 0.5f, weaponScale.Y * 0.5f, weaponScale.Z * 0.3f);
             DrawBodyPart(device, effect, pos, barrelPos, barrelScale, new Color(40, 40, 40), rot);
+
+            Dictionary<WeaponUpgradeSlotType, WeaponUpgradeData> upgrades = weapon.Data?.WeaponData?.UpgradeSlots;
+            if (upgrades == null)
+                return;
+
+            if (upgrades.TryGetValue(WeaponUpgradeSlotType.Magazine, out WeaponUpgradeData magazineUpgrade) && magazineUpgrade != null)
+            {
+                Color magColor = new Color(52, 52, 52);
+                Vector3 magPos = new Vector3(
+                    weaponPos.X - handSign * dims.tw * 0.08f,
+                    weaponPos.Y - dims.lw * 0.34f,
+                    weaponPos.Z - weaponScale.Z * 0.12f
+                );
+                Vector3 magScale = new Vector3(weaponScale.X * 0.42f, weaponScale.Y * 1.35f, weaponScale.Z * 0.18f);
+                DrawBodyPart(device, effect, pos, magPos, magScale, magColor, rot);
+            }
+
+            if (upgrades.TryGetValue(WeaponUpgradeSlotType.Optic, out WeaponUpgradeData opticUpgrade) && opticUpgrade != null)
+            {
+                bool isRedDot = opticUpgrade.Name?.Contains("point rouge", StringComparison.OrdinalIgnoreCase) == true
+                    || opticUpgrade.Name?.Contains("red dot", StringComparison.OrdinalIgnoreCase) == true;
+
+                Color opticBody = isRedDot ? new Color(28, 28, 28) : new Color(45, 45, 45);
+                Vector3 opticPos = new Vector3(
+                    weaponPos.X,
+                    weaponPos.Y + dims.lw * 0.28f,
+                    weaponPos.Z + weaponScale.Z * 0.02f
+                );
+                Vector3 opticScale = new Vector3(weaponScale.X * 0.5f, weaponScale.Y * 0.42f, weaponScale.Z * 0.18f);
+                DrawBodyPart(device, effect, pos, opticPos, opticScale, opticBody, rot);
+
+                if (isRedDot)
+                {
+                    Vector3 lensPos = opticPos + new Vector3(0f, 0f, weaponScale.Z * 0.11f);
+                    Vector3 lensScale = new Vector3(opticScale.X * 0.55f, opticScale.Y * 0.55f, opticScale.Z * 0.38f);
+                    DrawBodyPart(device, effect, pos, lensPos, lensScale, new Color(170, 30, 30), rot);
+                }
+            }
+        }
+
+        private void DrawBelt(GraphicsDevice device, BasicEffect effect, Vector3 pos, Item belt,
+                              Matrix rot, UnitDimensions dims)
+        {
+            Color beltColor = new Color(52, 46, 36);
+            string beltName = belt?.Data?.Name ?? string.Empty;
+            if (beltName.Contains("Tan", StringComparison.OrdinalIgnoreCase))
+                beltColor = new Color(126, 108, 76);
+            else if (beltName.Contains("Noir", StringComparison.OrdinalIgnoreCase) || beltName.Contains("Black", StringComparison.OrdinalIgnoreCase))
+                beltColor = new Color(26, 26, 26);
+
+            Vector3 strapPos = new Vector3(0f, dims.ll * 1.18f, dims.td * 0.03f);
+            Vector3 strapScale = new Vector3(dims.tw * 1.02f, dims.ll * 0.11f, dims.td * 1.02f);
+            DrawBodyPart(device, effect, pos, strapPos, strapScale, beltColor, rot);
+
+            Vector3 bucklePos = new Vector3(0f, strapPos.Y, dims.td * 0.57f);
+            Vector3 buckleScale = new Vector3(dims.tw * 0.18f, dims.ll * 0.1f, dims.td * 0.16f);
+            DrawBodyPart(device, effect, pos, bucklePos, buckleScale, new Color(180, 176, 150), rot);
         }
 
         private void DrawShirt(GraphicsDevice device, BasicEffect effect, Vector3 pos, Item shirt,
