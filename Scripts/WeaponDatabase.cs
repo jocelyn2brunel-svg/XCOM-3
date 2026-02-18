@@ -516,7 +516,8 @@ namespace XCOM_3
                 return 0;
 
             // 1 PA = 3 secondes. 3 / 60 = 0.05 minute.
-            return Math.Max(1, (int)Math.Ceiling(RoundsPerMinute * 0.05f));
+            int roundsByCadence = Math.Max(1, (int)Math.Ceiling(RoundsPerMinute * 0.05f));
+            return Math.Min(roundsByCadence, EffectiveMagazineCapacity);
         }
 
         private static float GetDefaultWeightLbs(WeaponType weaponType)
