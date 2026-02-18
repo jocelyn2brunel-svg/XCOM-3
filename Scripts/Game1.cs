@@ -238,9 +238,15 @@ namespace XCOM_3
         private const int TabTopMargin = 12;
         private const float WallHeightRatio = 2.0f;
         private const int HoverRevealRadius = 2;
+        private const int UpperFloorCutoutRadius = 2;
+        private const float AntiOcclusionCameraMaxHeightCells = 1.0f;
+        private const float AntiOcclusionCameraMaxOrbitDegrees = 8f;
+        private const int AntiOcclusionOccluderThreshold = 6;
         private const int FloorUiButtonY = 88;
         private const int FloorUiButtonSize = 28;
         private RasterizerState hoveredCellWireframeState;
+        private float antiOcclusionCameraHeight;
+        private float antiOcclusionCameraOrbit;
 
         private sealed class DeadUnitRemains
         {
@@ -1840,8 +1846,80 @@ namespace XCOM_3
             return false;
         }
 
+        private bool TryGetHoverOcclusionFocus(out Point focusCell, out int focusFloor)
+        {
+            focusCell = hoveredCell;
+            focusFloor = viewedFloor;
+
+            if (focusCell.X < 0 || focusCell.Y < 0)
+                return false;
+
+            if (focusCell.X >= gridWidth || focusCell.Y >= gridHeight)
+                return false;
+
+            return true;
+        }
+
+        private bool IsPointInsideUpperFloorCutout(Point cell, Point centerCell, int radius)
+        {
+            return Math.Abs(cell.X - centerCell.X) <= radius && Math.Abs(cell.Y - centerCell.Y) <= radius;
+        }
+
+        private bool IsWallInsideUpperFloorCutout(WallSegment wall, Point centerCell, int radius)
+        {
+            int minX = Math.Min(wall.Start.X, wall.End.X) - radius;
+            int maxX = Math.Max(wall.Start.X, wall.End.X) + radius;
+            int minY = Math.Min(wall.Start.Y, wall.End.Y) - radius;
+            int maxY = Math.Max(wall.Start.Y, wall.End.Y) + radius;
+
+            return centerCell.X >= minX && centerCell.X <= maxX && centerCell.Y >= minY && centerCell.Y <= maxY;
+        }
+
+        private int CountUpperFloorOccludersNearCell(Point focusCell, int focusFloor)
+        {
+            int floorCount = Math.Max(1, currentMap?.FloorCount ?? 1);
+            int totalOccluders = 0;
+
+            for (int floor = Math.Max(focusFloor + 1, 0); floor < floorCount; floor++)
+            {
+                totalOccluders += GetCellsForFloor(floor).Count(c => IsPointInsideUpperFloorCutout(c, focusCell, UpperFloorCutoutRadius));
+                totalOccluders += GetFurnitureForFloor(floor).Count(f => IsPointInsideUpperFloorCutout(new Point(f.X, f.Y), focusCell, UpperFloorCutoutRadius));
+                totalOccluders += GetWallsForFloor(floor).Count(w => IsWallInsideUpperFloorCutout(w, focusCell, UpperFloorCutoutRadius));
+
+                if (totalOccluders >= AntiOcclusionOccluderThreshold)
+                    return totalOccluders;
+            }
+
+            return totalOccluders;
+        }
+
+        private void UpdateDiscreetAntiOcclusionCamera()
+        {
+            float targetHeight = 0f;
+            float targetOrbit = 0f;
+
+            if (TryGetHoverOcclusionFocus(out Point focusCell, out int focusFloor))
+            {
+                int occluderCount = CountUpperFloorOccludersNearCell(focusCell, focusFloor);
+                if (occluderCount >= AntiOcclusionOccluderThreshold)
+                {
+                    float intensity = MathHelper.Clamp((occluderCount - AntiOcclusionOccluderThreshold + 1) / 8f, 0f, 1f);
+                    targetHeight = cellSize * AntiOcclusionCameraMaxHeightCells * intensity;
+
+                    float orbitMax = MathHelper.ToRadians(AntiOcclusionCameraMaxOrbitDegrees);
+                    float side = focusCell.X >= gridWidth / 2 ? 1f : -1f;
+                    targetOrbit = orbitMax * intensity * side;
+                }
+            }
+
+            antiOcclusionCameraHeight = MathHelper.Lerp(antiOcclusionCameraHeight, targetHeight, 0.12f);
+            antiOcclusionCameraOrbit = MathHelper.Lerp(antiOcclusionCameraOrbit, targetOrbit, 0.12f);
+            camera.SetAntiOcclusionOffsets(antiOcclusionCameraHeight, antiOcclusionCameraOrbit);
+        }
+
         private void DrawWorld3D(GameTime gameTime)
         {
+            UpdateDiscreetAntiOcclusionCamera();
             camera.UpdateCamera();
             renderer3D.SetMatrices(camera.ViewMatrix, camera.ProjectionMatrix);
             renderer3D.SetLighting(ambientLight, directionalLight);
@@ -1852,9 +1930,12 @@ namespace XCOM_3
             int floorCount = Math.Max(1, currentMap?.FloorCount ?? 1);
             int minFloor = GetMinimumViewFloor();
 
+            bool useUpperFloorCutout = TryGetHoverOcclusionFocus(out Point focusCellForCutout, out int focusFloorForCutout);
+
             for (int floor = minFloor; floor < floorCount; floor++)
             {
                 float yOffset = WorldMetrics.FloorToWorldY(floor, cellSize);
+                bool applyUpperFloorCutout = useUpperFloorCutout && floor > focusFloorForCutout;
 
                 if (floor == 0)
                 {
@@ -1869,15 +1950,24 @@ namespace XCOM_3
                 else
                 {
                     var floorCells = GetCellsForFloor(floor);
+                    if (applyUpperFloorCutout && floorCells.Count > 0)
+                        floorCells = floorCells.Where(c => !IsPointInsideUpperFloorCutout(c, focusCellForCutout, UpperFloorCutoutRadius)).ToHashSet();
+
                     if (floorCells.Count > 0)
                         renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, yOffset);
                 }
 
                 var hescoBarriersForFloor = GetHescoBarriersForFloor(floor);
+                if (applyUpperFloorCutout && hescoBarriersForFloor.Count > 0)
+                    hescoBarriersForFloor = hescoBarriersForFloor.Where(b => !IsPointInsideUpperFloorCutout(new Point(b.X, b.Y), focusCellForCutout, UpperFloorCutoutRadius)).ToList();
+
                 if (hescoBarriersForFloor.Count > 0)
                     renderer3D.DrawHescoBarriers(hescoBarriersForFloor, cellSize, yOffset, hescoWallTexture);
 
                 var furnituresForFloor = GetFurnitureForFloor(floor);
+                if (applyUpperFloorCutout && furnituresForFloor.Count > 0)
+                    furnituresForFloor = furnituresForFloor.Where(f => !IsPointInsideUpperFloorCutout(new Point(f.X, f.Y), focusCellForCutout, UpperFloorCutoutRadius)).ToList();
+
                 if (furnituresForFloor.Count > 0)
                     renderer3D.DrawFurniture(furnituresForFloor, cellSize, yOffset);
 
@@ -1888,6 +1978,9 @@ namespace XCOM_3
 
                     if (floor > viewedFloor)
                         renderedWalls = FilterUpperFloorWallsForLowerView(floor, viewedFloor, renderedWalls);
+
+                    if (applyUpperFloorCutout && renderedWalls.Count > 0)
+                        renderedWalls.RemoveWhere(w => IsWallInsideUpperFloorCutout(w, focusCellForCutout, UpperFloorCutoutRadius));
 
                     if (renderedWalls.Count > 0)
                     {
