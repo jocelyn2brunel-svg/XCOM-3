@@ -119,6 +119,7 @@ namespace XCOM_3
         private const float OverwatchShotIntervalSeconds = 3f;
         private const int SatchelPlacementRange = 1;
         private const int SatchelDetonationActionPointCost = 1;
+        private const float UpperFloorWallOpacityWhenLookingBelow = 0.01f;
 
         // Options avancées de lancer de grenade (activables/désactivables facilement).
         private bool grenadeOptionWallAwareTargeting = true;      // Option 1: validation par murs/fenêtres.
@@ -2095,7 +2096,8 @@ namespace XCOM_3
                             ? upperWallTexture ?? brickWallTexture
                             : brickWallTexture;
 
-                        renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture);
+                        float wallOpacity = floor > viewedFloor ? UpperFloorWallOpacityWhenLookingBelow : 1f;
+                        renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture, wallOpacity: wallOpacity);
 
                         if (fadedWalls.Count > 0)
                             DrawWireframeWalls(fadedWalls, yOffset, new Color(245, 225, 140, 170));
