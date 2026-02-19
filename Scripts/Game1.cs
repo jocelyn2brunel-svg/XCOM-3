@@ -530,8 +530,9 @@ namespace XCOM_3
             int sampleCount = (int)(sampleRate * durationSeconds);
             short[] samples = new short[sampleCount];
 
-            float[] rootPattern = { 55f, 65.41f, 73.42f, 82.41f };
-            float[] leadIntervals = { 0f, 3f, 7f, 10f, 12f, 15f, 19f, 22f };
+            // Progression plus sombre en mineur (A1 -> F1 -> D1 -> E1)
+            float[] rootPattern = { 55f, 43.65f, 36.71f, 41.20f };
+            float[] leadIntervals = { 0f, 3f, 7f, 10f, 12f, 10f, 7f, 3f };
 
             for (int i = 0; i < sampleCount; i++)
             {
@@ -541,8 +542,8 @@ namespace XCOM_3
                 int progressionIndex = (int)(sectionPhase / 1f) % rootPattern.Length;
                 float root = rootPattern[progressionIndex];
 
-                float kickEnvelope = MathF.Max(0f, 1f - beatPhase / 0.16f);
-                float kickFreq = 48f + (beatPhase < 0.08f ? (1f - beatPhase / 0.08f) * 84f : 0f);
+                float kickEnvelope = MathF.Max(0f, 1f - beatPhase / 0.2f);
+                float kickFreq = 42f + (beatPhase < 0.08f ? (1f - beatPhase / 0.08f) * 72f : 0f);
                 float kick = MathF.Sin(2f * MathF.PI * kickFreq * beatPhase) * kickEnvelope;
 
                 float snarePhase = (t + 0.25f) % 0.5f;
@@ -551,13 +552,13 @@ namespace XCOM_3
                 float snareTone = MathF.Sin(2f * MathF.PI * 185f * snarePhase) * snareEnvelope * 0.6f;
                 float snare = snareNoise * 0.75f + snareTone;
 
-                float bassGate = MathF.Pow(MathF.Max(0f, 1f - (beatPhase / 0.34f)), 1.3f);
+                float bassGate = MathF.Pow(MathF.Max(0f, 1f - (beatPhase / 0.42f)), 1.5f);
                 float bass = (MathF.Sin(2f * MathF.PI * root * t)
                     + 0.42f * MathF.Sin(2f * MathF.PI * root * 2f * t)
                     + 0.16f * MathF.Sin(2f * MathF.PI * root * 3f * t)) * bassGate;
 
                 float hatPhase = t % 0.125f;
-                float hatEnvelope = hatPhase < 0.022f ? MathF.Exp(-95f * hatPhase) : 0f;
+                float hatEnvelope = hatPhase < 0.016f ? MathF.Exp(-120f * hatPhase) : 0f;
                 float hatNoise = ((float)random.NextDouble() * 2f - 1f) * hatEnvelope;
                 float hatOpenPhase = t % 0.5f;
                 float hatOpenEnvelope = hatOpenPhase > 0.37f && hatOpenPhase < 0.5f
@@ -567,10 +568,15 @@ namespace XCOM_3
 
                 int arpStep = (int)(t / 0.125f) % leadIntervals.Length;
                 float leadFreq = root * MathF.Pow(2f, leadIntervals[arpStep] / 12f);
-                float leadGate = MathF.Pow(MathF.Max(0f, 1f - ((t % 0.125f) / 0.12f)), 2.2f);
+                float leadGate = MathF.Pow(MathF.Max(0f, 1f - ((t % 0.125f) / 0.115f)), 2.8f);
                 float leadDetune = MathF.Sin(2f * MathF.PI * (leadFreq * 1.005f) * t);
                 float leadMain = MathF.Sin(2f * MathF.PI * leadFreq * t);
-                float lead = (leadMain * 0.75f + leadDetune * 0.25f) * leadGate;
+                float lead = (leadMain * 0.7f + leadDetune * 0.3f) * leadGate;
+
+                float drone = (
+                    0.7f * MathF.Sin(2f * MathF.PI * root * 0.5f * t)
+                    + 0.3f * MathF.Sin(2f * MathF.PI * (root * 0.5f * 1.01f) * t)
+                ) * (0.45f + 0.55f * MathF.Sin(2f * MathF.PI * 0.04f * t + 1.7f));
 
                 float padPump = 0.55f + 0.45f * MathF.Pow(MathF.Min(1f, beatPhase / 0.48f), 1.2f);
                 float padLfo = 0.65f + 0.35f * MathF.Sin(2f * MathF.PI * 0.13f * t + 0.8f);
@@ -584,17 +590,18 @@ namespace XCOM_3
                     + 0.18f * MathF.Sin(2f * MathF.PI * octave * t)
                 ) * padPump * padLfo;
 
-                float riser = MathF.Sin(2f * MathF.PI * (620f + sectionPhase * 120f) * t) * MathF.Pow(sectionPhase / 4f, 2f) * 0.08f;
+                float riser = MathF.Sin(2f * MathF.PI * (420f + sectionPhase * 80f) * t) * MathF.Pow(sectionPhase / 4f, 2f) * 0.05f;
 
-                float mix = kick * 0.46f
-                    + snare * 0.18f
-                    + bass * 0.27f
-                    + (hatNoise + hatOpen) * 0.11f
-                    + lead * 0.22f
-                    + pad * 0.17f
+                float mix = kick * 0.42f
+                    + snare * 0.16f
+                    + bass * 0.32f
+                    + (hatNoise + hatOpen) * 0.07f
+                    + lead * 0.16f
+                    + pad * 0.19f
+                    + drone * 0.2f
                     + riser;
 
-                mix = MathF.Tanh(mix * 1.55f);
+                mix = MathF.Tanh(mix * 1.45f);
 
                 samples[i] = (short)(MathHelper.Clamp(mix, -1f, 1f) * short.MaxValue);
             }
