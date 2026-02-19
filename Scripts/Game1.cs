@@ -4010,25 +4010,7 @@ namespace XCOM_3
                 }
             }
 
-            var stair = currentMap?.StairConnections?.FirstOrDefault(st =>
-                (st.FromFloor == fromFloor && st.FromX == clickedCell.X && st.FromY == clickedCell.Y) ||
-                (st.Bidirectional && st.ToFloor == fromFloor && st.ToX == clickedCell.X && st.ToY == clickedCell.Y));
-
-            if (stair == null)
-                return false;
-
-            if (stair.FromFloor == fromFloor)
-            {
-                movementGoal = new Point(stair.ToX, stair.ToY);
-                goalFloor = stair.ToFloor;
-            }
-            else
-            {
-                movementGoal = new Point(stair.FromX, stair.FromY);
-                goalFloor = stair.FromFloor;
-            }
-
-            return true;
+            return false;
         }
 
         private void HandleGridClick(Point clickedCell, int clickedFloor, bool allowSmartFallback = true)
