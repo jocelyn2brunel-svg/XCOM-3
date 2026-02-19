@@ -3048,7 +3048,7 @@ namespace XCOM_3
                 case "Centre-Ville":
                     {
                         var zombie = enemyPool.First(e => e.Name == "Zombie");
-                        var edgeSpawns = GetPerimeterSpawnCells(40);
+                        var edgeSpawns = GetPerimeterSpawnCells(2);
 
                         foreach (var spawn in edgeSpawns)
                         {
