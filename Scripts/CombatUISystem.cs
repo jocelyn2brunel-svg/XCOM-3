@@ -400,6 +400,7 @@ namespace XCOM_3
         public void DrawActionButtons(Unit selectedUnit, MouseState mouse, bool hasDetonatableCharges = false)
         {
             UnitActionButtons.Clear();
+            string hoveredActionTooltip = null;
 
             bool hasFirearmEquipped = selectedUnit?.EquippedWeapon?.Data?.WeaponData != null
                 && selectedUnit.EquippedWeapon.Data.WeaponData.Type != WeaponType.Melee;
@@ -465,6 +466,11 @@ namespace XCOM_3
                 Rectangle r = new Rectangle((int)btn.Position.X, (int)btn.Position.Y, bw, bh);
                 bool isHovered = r.Contains(mouse.Position);
 
+                if (isHovered)
+                {
+                    hoveredActionTooltip = GetActionTooltip(btn.Text);
+                }
+
                 Color bgColor = isHovered ? ParasiteEveTheme.ButtonHover : ParasiteEveTheme.ButtonNormal;
                 spriteBatch.Draw(pixel, r, bgColor);
 
@@ -472,6 +478,11 @@ namespace XCOM_3
                 ParasiteEveTheme.DrawBorder(spriteBatch, pixel, r, borderColor, 2);
 
                 DrawActionIcon(btn.Text, r, isHovered);
+            }
+
+            if (!string.IsNullOrWhiteSpace(hoveredActionTooltip))
+            {
+                DrawActionTooltip(mouse.Position, hoveredActionTooltip);
             }
 
             // Bouton CONFIRMER TIR
@@ -543,6 +554,47 @@ namespace XCOM_3
                         iconColor, 0.6f);
                     break;
             }
+        }
+
+        private string GetActionTooltip(string action)
+        {
+            return action switch
+            {
+                "FIRE" => "Tirer sur la cible sélectionnée (coût: 1 AP)",
+                "RELOAD" => "Recharger l'arme",
+                "OVERWATCH" => "Passer en tir de réaction",
+                "ANAEROBIC" => "Effort anaérobie: +1 AP, mais malus de précision au prochain tour",
+                "GRENADE" => "Lancer une grenade",
+                "C4-POSE" => "Poser une charge C4",
+                "DETONATE" => "Détoner toutes les charges posées",
+                "GRAPPLIN" => "Utiliser le grappin tactique",
+                _ => action
+            };
+        }
+
+        private void DrawActionTooltip(Point mousePosition, string tooltip)
+        {
+            const int padding = 8;
+            Vector2 textSize = font.MeasureString(tooltip);
+
+            int tooltipWidth = (int)MathF.Ceiling(textSize.X + padding * 2);
+            int tooltipHeight = (int)MathF.Ceiling(textSize.Y + padding * 2);
+            int tooltipX = mousePosition.X + 14;
+            int tooltipY = mousePosition.Y - tooltipHeight - 12;
+
+            if (tooltipX + tooltipWidth > graphicsDevice.Viewport.Width - 8)
+                tooltipX = graphicsDevice.Viewport.Width - tooltipWidth - 8;
+
+            if (tooltipY < 8)
+                tooltipY = mousePosition.Y + 14;
+
+            Rectangle tooltipBounds = new Rectangle(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+
+            spriteBatch.Draw(pixel, tooltipBounds, new Color(16, 20, 30, 235));
+            ParasiteEveTheme.DrawBorder(spriteBatch, pixel, tooltipBounds, ParasiteEveTheme.SelectionOutline, 2);
+            ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font, tooltip,
+                new Vector2(tooltipBounds.X + padding, tooltipBounds.Y + padding),
+                ParasiteEveTheme.TextNormal, 0.62f);
         }
 
         private void DrawTargetIcon(Rectangle bounds, Color color)
