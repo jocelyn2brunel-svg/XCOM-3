@@ -1757,8 +1757,8 @@ namespace XCOM_3
 
             DrawRepeatedBorderText(enemyTurnText, top, horizontal: true, scrollOffset, textColor);
             DrawRepeatedBorderText(enemyTurnText, bottom, horizontal: true, -scrollOffset, textColor);
-            DrawRepeatedBorderText(enemyTurnText, left, horizontal: false, scrollOffset, textColor);
-            DrawRepeatedBorderText(enemyTurnText, right, horizontal: false, -scrollOffset, textColor);
+            DrawRepeatedBorderText(enemyTurnText, left, horizontal: false, -scrollOffset, textColor);
+            DrawRepeatedBorderText(enemyTurnText, right, horizontal: false, scrollOffset, textColor);
         }
 
         private void DrawRepeatedBorderText(string text, Rectangle area, bool horizontal, float scrollOffset, Color textColor)
