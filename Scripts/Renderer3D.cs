@@ -814,8 +814,14 @@ namespace XCOM_3
         /// <summary>
         /// ? MURS AMÉLIORÉS - Version avec détails, hauteur et ombres
         /// </summary>
-        public void DrawWalls(HashSet<WallSegment> walls, int size, bool editorMode = false, float floorHeightOffset = 0f, Color? wallOverrideColor = null, Texture2D brickWallTexture = null, Texture2D hescoWallTexture = null)
+        public void DrawWalls(HashSet<WallSegment> walls, int size, bool editorMode = false, float floorHeightOffset = 0f, Color? wallOverrideColor = null, Texture2D brickWallTexture = null, Texture2D hescoWallTexture = null, float wallOpacity = 1f)
         {
+            float clampedOpacity = MathHelper.Clamp(wallOpacity, 0f, 1f);
+            BlendState previousBlend = gd.BlendState;
+
+            if (clampedOpacity < 0.999f)
+                gd.BlendState = BlendState.AlphaBlend;
+
             foreach (var s in walls)
             {
                 Vector3 start = new(s.Start.X * size, floorHeightOffset, s.Start.Y * size);
@@ -837,6 +843,7 @@ namespace XCOM_3
                 Color wallColor = wallOverrideColor ?? (editorMode
                     ? new Color(140, 140, 140)  // Gris clair en mode éditeur
                     : new Color(100, 85, 70));   // Beige/brun en jeu
+                wallColor *= clampedOpacity;
 
                 Texture2D wallTexture = null;
                 if (!editorMode)
@@ -883,8 +890,8 @@ namespace XCOM_3
                             ? new Vector3(size * 0.94f, glassHeight * 0.96f, glassThickness)
                             : new Vector3(glassThickness, glassHeight * 0.96f, size * 0.94f);
 
-                        DrawCube(glassCenter, glassScale, new Color(175, 225, 255, 95));
-                        DrawCube(glassCenter, glassScale * new Vector3(1.02f, 0.08f, 1.02f), new Color(235, 245, 255, 65));
+                        DrawCube(glassCenter, glassScale, new Color(175, 225, 255, 95) * clampedOpacity);
+                        DrawCube(glassCenter, glassScale * new Vector3(1.02f, 0.08f, 1.02f), new Color(235, 245, 255, 65) * clampedOpacity);
                     }
                 }
                 else if (s.Type == WallType.Door)
@@ -973,6 +980,9 @@ namespace XCOM_3
                     DrawCube(endMarker, new Vector3(markerSize), new Color(255, 200, 0));
                 }
             }
+
+            if (clampedOpacity < 0.999f)
+                gd.BlendState = previousBlend;
         }
 
 
