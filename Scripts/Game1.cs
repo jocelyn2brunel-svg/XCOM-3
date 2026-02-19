@@ -2489,9 +2489,44 @@ namespace XCOM_3
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
             float floorYOffset = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
+            float terrainOffset = GetTerrainHeightOffset(hoveredCell);
 
             float pulseBoost = 0.75f + pulse * 0.25f;
-            renderer3D.DrawZoneOutline(new[] { hoveredCell }, cellSize, floorYOffset + 0.14f, new Color(255, 220, 90, 230) * pulseBoost);
+
+            // Contour au sol : suit le relief local de la case.
+            renderer3D.DrawZoneOutline(
+                new[] { hoveredCell },
+                cellSize,
+                floorYOffset + terrainOffset + 0.14f,
+                new Color(255, 220, 90, 230) * pulseBoost);
+
+            // Piliers verticaux : rendent la sélection lisible près des murs et changements d'élévation.
+            DrawHoveredCellVerticalGuides(floorYOffset + terrainOffset, pulseBoost);
+        }
+
+        private float GetTerrainHeightOffset(Point cell)
+        {
+            if (terrainHeights != null && terrainHeights.TryGetValue(cell, out float height))
+                return height;
+
+            return 0f;
+        }
+
+        private void DrawHoveredCellVerticalGuides(float baseY, float pulseBoost)
+        {
+            float guideHeight = cellSize * WallHeightRatio * 0.55f;
+            float xMin = hoveredCell.X * cellSize + cellSize * 0.06f;
+            float xMax = (hoveredCell.X + 1) * cellSize - cellSize * 0.06f;
+            float zMin = hoveredCell.Y * cellSize + cellSize * 0.06f;
+            float zMax = (hoveredCell.Y + 1) * cellSize - cellSize * 0.06f;
+            float centerY = baseY + guideHeight * 0.5f;
+            float thickness = cellSize * 0.02f;
+            Color guideColor = new Color(255, 220, 90, 140) * pulseBoost;
+
+            renderer3D.DrawCube(new Vector3(xMin, centerY, zMin), new Vector3(thickness, guideHeight * 0.5f, thickness), guideColor);
+            renderer3D.DrawCube(new Vector3(xMax, centerY, zMin), new Vector3(thickness, guideHeight * 0.5f, thickness), guideColor);
+            renderer3D.DrawCube(new Vector3(xMin, centerY, zMax), new Vector3(thickness, guideHeight * 0.5f, thickness), guideColor);
+            renderer3D.DrawCube(new Vector3(xMax, centerY, zMax), new Vector3(thickness, guideHeight * 0.5f, thickness), guideColor);
         }
 
 
