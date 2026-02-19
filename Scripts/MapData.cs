@@ -304,6 +304,63 @@ namespace XCOM_3
         public FurnitureType Type { get; set; }
         public float OrientationRadians { get; set; } = 0f;
 
+        public static bool IsVehicle(FurnitureType type)
+        {
+            return type is
+                FurnitureType.SedanToyotaCorolla or
+                FurnitureType.SedanBmwSeries3 or
+                FurnitureType.SedanMercedesEClass or
+                FurnitureType.PickupToyotaTacoma or
+                FurnitureType.PickupFordF150 or
+                FurnitureType.PickupRam3500;
+        }
+
+        public static (float LengthFeet, float WidthFeet) GetFootprintFeet(FurnitureType type)
+        {
+            return type switch
+            {
+                FurnitureType.SedanToyotaCorolla => (15.2f, 5.9f),
+                FurnitureType.SedanBmwSeries3 => (15.6f, 6.0f),
+                FurnitureType.SedanMercedesEClass => (16.3f, 6.2f),
+                FurnitureType.PickupToyotaTacoma => (17.9f, 6.3f),
+                FurnitureType.PickupFordF150 => (19.5f, 6.7f),
+                FurnitureType.PickupRam3500 => (20.3f, 6.8f),
+                _ => (5f, 5f)
+            };
+        }
+
+        public static IEnumerable<Point> GetOccupiedCells(FurnitureData furniture)
+        {
+            const float cellSizeFeet = Unit.FeetPerCell;
+            (float lengthFeet, float widthFeet) = GetFootprintFeet(furniture.Type);
+
+            float lengthCells = lengthFeet / cellSizeFeet;
+            float widthCells = widthFeet / cellSizeFeet;
+
+            float centerX = furniture.X + 0.5f;
+            float centerY = furniture.Y + 0.5f;
+            float minX = centerX - lengthCells / 2f;
+            float maxX = centerX + lengthCells / 2f;
+            float minY = centerY - widthCells / 2f;
+            float maxY = centerY + widthCells / 2f;
+
+            int xStart = (int)MathF.Floor(minX);
+            int xEnd = (int)MathF.Ceiling(maxX) - 1;
+            int yStart = (int)MathF.Floor(minY);
+            int yEnd = (int)MathF.Ceiling(maxY) - 1;
+
+            for (int y = yStart; y <= yEnd; y++)
+            {
+                for (int x = xStart; x <= xEnd; x++)
+                {
+                    if (x + 1 <= minX || x >= maxX || y + 1 <= minY || y >= maxY)
+                        continue;
+
+                    yield return new Point(x, y);
+                }
+            }
+        }
+
         public static float GetHeightFeet(FurnitureType type)
         {
             return type switch

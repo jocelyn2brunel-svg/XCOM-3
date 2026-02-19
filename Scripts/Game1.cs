@@ -3645,20 +3645,13 @@ namespace XCOM_3
 
             return currentMap.Furnitures.Any(f =>
                 f.Floor == floor &&
-                f.X == cell.X &&
-                f.Y == cell.Y &&
-                IsMovementBlockingFurnitureType(f.Type));
+                IsMovementBlockingFurnitureType(f.Type) &&
+                FurnitureData.GetOccupiedCells(f).Contains(cell));
         }
 
         private static bool IsMovementBlockingFurnitureType(FurnitureType type)
         {
-            return type is
-                FurnitureType.SedanToyotaCorolla or
-                FurnitureType.SedanBmwSeries3 or
-                FurnitureType.SedanMercedesEClass or
-                FurnitureType.PickupToyotaTacoma or
-                FurnitureType.PickupFordF150 or
-                FurnitureType.PickupRam3500;
+            return FurnitureData.IsVehicle(type);
         }
 
         private bool IsCellHoverableOnViewedFloor(Point cell, int floor)
@@ -3709,8 +3702,7 @@ namespace XCOM_3
 
             return currentMap.Furnitures.FirstOrDefault(f =>
                 f.Floor == floor &&
-                f.X == cell.X &&
-                f.Y == cell.Y);
+                FurnitureData.GetOccupiedCells(f).Contains(cell));
         }
 
         Unit GetUnitAtCellAnyFloor(Point cell)
