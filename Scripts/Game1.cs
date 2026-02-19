@@ -2202,6 +2202,44 @@ namespace XCOM_3
                 GraphicsDevice.DepthStencilState = previousDepth;
             }
 
+            DrawPerceivedUnitOutlines3D(gameTime);
+
+        }
+
+        private void DrawPerceivedUnitOutlines3D(GameTime gameTime)
+        {
+            float time = (float)gameTime.TotalGameTime.TotalSeconds;
+            float allyPulse = 0.62f + 0.38f * (float)Math.Sin(time * 6f);
+            float enemyPulse = 0.62f + 0.38f * (float)Math.Sin(time * 6f + 0.9f);
+
+            BlendState previousBlend = GraphicsDevice.BlendState;
+            DepthStencilState previousDepth = GraphicsDevice.DepthStencilState;
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+
+            foreach (var ally in playerUnits.Where(u => u.Health > 0))
+            {
+                float height = ally.Floor * cellSize + 0.14f;
+                renderer3D.DrawZoneOutline(
+                    new[] { ally.Cell },
+                    cellSize,
+                    height,
+                    new Color(60, 255, 80, 240) * allyPulse);
+            }
+
+            foreach (var enemy in enemyUnits.Where(u => u.Health > 0 && IsEnemyVisibleToPlayers(u)))
+            {
+                float height = enemy.Floor * cellSize + 0.14f;
+                renderer3D.DrawZoneOutline(
+                    new[] { enemy.Cell },
+                    cellSize,
+                    height,
+                    new Color(255, 50, 50, 245) * enemyPulse);
+            }
+
+            GraphicsDevice.BlendState = previousBlend;
+            GraphicsDevice.DepthStencilState = previousDepth;
         }
 
         private void DrawDeadUnitRemains()
