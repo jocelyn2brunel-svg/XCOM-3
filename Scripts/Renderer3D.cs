@@ -1469,8 +1469,15 @@ namespace XCOM_3
             if (zones.ShortMove != null) floors.UnionWith(zones.ShortMove.Select(n => n.Floor));
             if (zones.MaxMove != null) floors.UnionWith(zones.MaxMove.Select(n => n.Floor));
             if (zones.Sprint != null) floors.UnionWith(zones.Sprint.Select(n => n.Floor));
+
+            // Limiter l'affichage à deux plans : RDC (0) + étage actuellement visualisé.
+            floors = floors
+                .Where(floor => floor == 0 || floor == viewedFloor)
+                .ToHashSet();
+
             if (floors.Count == 0)
             {
+                floors.Add(0);
                 floors.Add(viewedFloor);
             }
 
