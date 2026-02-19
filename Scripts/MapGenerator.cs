@@ -378,12 +378,15 @@ namespace XCOM_3
                                 continue;
 
                             occupied.Add(candidate);
+                            int dxToTable = table.Value.X - candidate.X;
+                            int dyToTable = table.Value.Y - candidate.Y;
                             furnitures.Add(new FurnitureData
                             {
                                 X = candidate.X,
                                 Y = candidate.Y,
                                 Floor = floor,
-                                Type = FurnitureType.Chair
+                                Type = FurnitureType.Chair,
+                                OrientationRadians = (float)Math.Atan2(dxToTable, dyToTable)
                             });
                         }
                     }

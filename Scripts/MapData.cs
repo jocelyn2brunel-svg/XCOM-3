@@ -302,6 +302,7 @@ namespace XCOM_3
         public int Y { get; set; }
         public int Floor { get; set; } = 0;
         public FurnitureType Type { get; set; }
+        public float OrientationRadians { get; set; } = 0f;
 
         public static float GetHeightFeet(FurnitureType type)
         {

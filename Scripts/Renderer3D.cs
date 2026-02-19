@@ -139,8 +139,13 @@ namespace XCOM_3
 
         public void DrawCube(Vector3 pos, Vector3 scale, Color color)
         {
+            DrawCube(pos, scale, color, Matrix.Identity);
+        }
+
+        public void DrawCube(Vector3 pos, Vector3 scale, Color color, Matrix rotation)
+        {
             var verts = cubeVerts.Select(v => new VertexPositionColor(v.Position, color)).ToArray();
-            DrawVertices(verts, cubeIdx, Matrix.CreateScale(scale) * Matrix.CreateTranslation(pos));
+            DrawVertices(verts, cubeIdx, Matrix.CreateScale(scale) * rotation * Matrix.CreateTranslation(pos));
         }
 
         public void DrawLine(Vector3 start, Vector3 end, Color color)
@@ -302,11 +307,11 @@ namespace XCOM_3
                 if (IsVehicleFurniture(furniture.Type))
                     DrawVehicleFurniture(furniture.Type, center, scale);
                 else
-                    DrawDetailedFurniture(furniture.Type, center, scale);
+                    DrawDetailedFurniture(furniture.Type, center, scale, furniture.OrientationRadians);
             }
         }
 
-        private void DrawDetailedFurniture(FurnitureType type, Vector3 center, Vector3 totalScale)
+        private void DrawDetailedFurniture(FurnitureType type, Vector3 center, Vector3 totalScale, float orientationRadians)
         {
             Color baseColor = GetFurnitureColor(type);
 
@@ -317,7 +322,7 @@ namespace XCOM_3
                     break;
 
                 case FurnitureType.Chair:
-                    DrawChairFurniture(center, totalScale, baseColor);
+                    DrawChairFurniture(center, totalScale, baseColor, orientationRadians);
                     break;
 
                 case FurnitureType.Bed:
@@ -377,28 +382,35 @@ namespace XCOM_3
             DrawCube(new Vector3(center.X + legOffsetX, bottomY + legHeight / 2f, center.Z + legOffsetZ), legScale, baseColor * 0.86f);
         }
 
-        private void DrawChairFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
+        private void DrawChairFurniture(Vector3 center, Vector3 totalScale, Color baseColor, float orientationRadians)
         {
             float bottomY = center.Y - totalScale.Y / 2f;
             float seatHeight = totalScale.Y * 0.20f;
             float seatBottom = bottomY + totalScale.Y * 0.36f;
+            Matrix rotation = Matrix.CreateRotationY(orientationRadians);
 
             Vector3 seatScale = new Vector3(totalScale.X * 0.92f, seatHeight, totalScale.Z * 0.92f);
-            DrawCube(new Vector3(center.X, seatBottom + seatHeight / 2f, center.Z), seatScale, baseColor * 1.06f);
+            DrawCube(new Vector3(center.X, seatBottom + seatHeight / 2f, center.Z), seatScale, baseColor * 1.06f, rotation);
 
             float backHeight = totalScale.Y * 0.42f;
             Vector3 backScale = new Vector3(totalScale.X * 0.90f, backHeight, totalScale.Z * 0.15f);
-            DrawCube(new Vector3(center.X, seatBottom + seatHeight + backHeight / 2f, center.Z - totalScale.Z * 0.38f), backScale, baseColor * 0.9f);
+            Vector3 backOffset = Vector3.Transform(new Vector3(0f, 0f, -totalScale.Z * 0.38f), rotation);
+            DrawCube(new Vector3(center.X + backOffset.X, seatBottom + seatHeight + backHeight / 2f, center.Z + backOffset.Z), backScale, baseColor * 0.9f, rotation);
 
             float legHeight = seatBottom - bottomY;
             Vector3 legScale = new Vector3(totalScale.X * 0.15f, legHeight, totalScale.Z * 0.15f);
             float legOffsetX = totalScale.X * 0.31f;
             float legOffsetZ = totalScale.Z * 0.31f;
 
-            DrawCube(new Vector3(center.X - legOffsetX, bottomY + legHeight / 2f, center.Z - legOffsetZ), legScale, baseColor * 0.8f);
-            DrawCube(new Vector3(center.X + legOffsetX, bottomY + legHeight / 2f, center.Z - legOffsetZ), legScale, baseColor * 0.8f);
-            DrawCube(new Vector3(center.X - legOffsetX, bottomY + legHeight / 2f, center.Z + legOffsetZ), legScale, baseColor * 0.8f);
-            DrawCube(new Vector3(center.X + legOffsetX, bottomY + legHeight / 2f, center.Z + legOffsetZ), legScale, baseColor * 0.8f);
+            Vector3 legBackLeft = Vector3.Transform(new Vector3(-legOffsetX, 0f, -legOffsetZ), rotation);
+            Vector3 legBackRight = Vector3.Transform(new Vector3(legOffsetX, 0f, -legOffsetZ), rotation);
+            Vector3 legFrontLeft = Vector3.Transform(new Vector3(-legOffsetX, 0f, legOffsetZ), rotation);
+            Vector3 legFrontRight = Vector3.Transform(new Vector3(legOffsetX, 0f, legOffsetZ), rotation);
+
+            DrawCube(new Vector3(center.X + legBackLeft.X, bottomY + legHeight / 2f, center.Z + legBackLeft.Z), legScale, baseColor * 0.8f, rotation);
+            DrawCube(new Vector3(center.X + legBackRight.X, bottomY + legHeight / 2f, center.Z + legBackRight.Z), legScale, baseColor * 0.8f, rotation);
+            DrawCube(new Vector3(center.X + legFrontLeft.X, bottomY + legHeight / 2f, center.Z + legFrontLeft.Z), legScale, baseColor * 0.8f, rotation);
+            DrawCube(new Vector3(center.X + legFrontRight.X, bottomY + legHeight / 2f, center.Z + legFrontRight.Z), legScale, baseColor * 0.8f, rotation);
         }
 
         private void DrawBedFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
