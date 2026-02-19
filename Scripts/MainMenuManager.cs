@@ -114,12 +114,12 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Coupe toute piste média classique (la musique procédurale est pilotée par Game1)
+        /// Coupe toute piste média classique (aucune musique de menu active).
         /// </summary>
         public void PlayRandomMenuSong()
         {
             MediaPlayer.Stop();
-            Console.WriteLine("[MENU] Media tracks stopped (procedural music handled by Game1)");
+            Console.WriteLine("[MENU] Media tracks stopped");
         }
 
         /// <summary>
