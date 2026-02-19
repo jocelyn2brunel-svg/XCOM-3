@@ -163,12 +163,12 @@ namespace XCOM_3
         /// <summary>
         /// Gère les contrôles de la caméra (clavier + souris)
         /// </summary>
-        public void HandleControls(KeyboardState keyboard, MouseState mouse, MouseState previousMouse, GameTime gameTime, bool allowZoom = true)
+        public void HandleControls(KeyboardState keyboard, MouseState mouse, MouseState previousMouse, GameTime gameTime, bool allowZoom = true, Point? rotationPivotCell = null)
         {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             // ═══ ROTATION (Q/E) ═══
-            HandleRotation(keyboard, deltaTime);
+            HandleRotation(keyboard, deltaTime, rotationPivotCell);
 
             // ═══ ZOOM (Molette) ═══
             HandleZoom(mouse, allowZoom);
@@ -180,7 +180,7 @@ namespace XCOM_3
             UpdateCamera();
         }
 
-        private void HandleRotation(KeyboardState keyboard, float deltaTime)
+        private void HandleRotation(KeyboardState keyboard, float deltaTime, Point? rotationPivotCell)
         {
             float step = MathHelper.ToRadians(45f);
 
@@ -191,6 +191,7 @@ namespace XCOM_3
             // ✅ Appui sur Q → Tourner vers la gauche (angle suivant)
             if (qPressed)
             {
+                ApplyRotationPivot(rotationPivotCell);
                 targetAngle = cameraAngle + step;
                 isRotatingToTarget = true;
                 Console.WriteLine($"[CAMERA] Rotating to {MathHelper.ToDegrees(targetAngle)}°");
@@ -199,6 +200,7 @@ namespace XCOM_3
             // ✅ Appui sur E → Tourner vers la droite (angle suivant)
             if (ePressed)
             {
+                ApplyRotationPivot(rotationPivotCell);
                 targetAngle = cameraAngle - step;
                 isRotatingToTarget = true;
                 Console.WriteLine($"[CAMERA] Rotating to {MathHelper.ToDegrees(targetAngle)}°");
@@ -228,6 +230,26 @@ namespace XCOM_3
 
             // Sauvegarder l'état du clavier
             previousKeyboardState = keyboard;
+        }
+
+        private void ApplyRotationPivot(Point? rotationPivotCell)
+        {
+            if (!rotationPivotCell.HasValue)
+                return;
+
+            Point pivotCell = rotationPivotCell.Value;
+            if (pivotCell.X < 0 || pivotCell.Y < 0)
+                return;
+
+            float centerX = (gridWidth * cellSize) / 2f;
+            float centerZ = (gridHeight * cellSize) / 2f;
+            float pivotWorldX = pivotCell.X * cellSize + cellSize / 2f;
+            float pivotWorldZ = pivotCell.Y * cellSize + cellSize / 2f;
+
+            cameraOffset = new Vector2(
+                pivotWorldX - centerX,
+                pivotWorldZ - centerZ
+            );
         }
 
         private void HandleZoom(MouseState mouse, bool allowZoom)
