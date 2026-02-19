@@ -850,7 +850,7 @@ namespace XCOM_3
                 {
                     wallTexture = s.Material switch
                     {
-                        WallMaterial.Brick => brickWallTexture,
+                        WallMaterial.Brick => null,
                         WallMaterial.Hesco => hescoWallTexture,
                         _ => null
                     };
