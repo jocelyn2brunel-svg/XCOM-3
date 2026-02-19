@@ -740,6 +740,24 @@ namespace XCOM_3
                     }
                 }
 
+                // Réserver une ouverture 2x1 dans le plancher au-dessus de chaque rampe.
+                // Pour un passage entre floor-1 -> floor, on enlève les 2 cases du puits
+                // (la case de départ de la rampe + la case d'arrivée sur l'étage supérieur).
+                if (currentMap?.RampTiles != null && currentMap.RampTiles.Count > 0)
+                {
+                    foreach (var ramp in currentMap.RampTiles)
+                    {
+                        if (ramp.Floor != floor - 1)
+                            continue;
+
+                        int rampDx = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDx : 0;
+                        int rampDy = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDy : -1;
+
+                        cells.Remove(new Point(ramp.X, ramp.Y));
+                        cells.Remove(new Point(ramp.X + rampDx, ramp.Y + rampDy));
+                    }
+                }
+
                 return cells;
             }
 
