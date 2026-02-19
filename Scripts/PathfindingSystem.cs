@@ -207,15 +207,6 @@ namespace XCOM_3
             yield return new GridNode(new Point(node.Cell.X, node.Cell.Y - 1), node.Floor);
             yield return new GridNode(new Point(node.Cell.X, node.Cell.Y + 1), node.Floor);
 
-            foreach (var stair in stairs)
-            {
-                if (stair.FromFloor == node.Floor && stair.FromX == node.Cell.X && stair.FromY == node.Cell.Y)
-                    yield return new GridNode(new Point(stair.ToX, stair.ToY), stair.ToFloor);
-
-                if (stair.Bidirectional && stair.ToFloor == node.Floor && stair.ToX == node.Cell.X && stair.ToY == node.Cell.Y)
-                    yield return new GridNode(new Point(stair.FromX, stair.FromY), stair.FromFloor);
-            }
-
             foreach (var ramp in ramps)
             {
                 int rampDx = GetRampAscendDx(ramp);
