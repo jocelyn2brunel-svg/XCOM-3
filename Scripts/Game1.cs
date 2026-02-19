@@ -213,9 +213,7 @@ namespace XCOM_3
         private int viewedFloor = 0;
         private enum FloorViewMode { AutoFollow, Manual, AbilityLocked }
         private FloorViewMode floorViewMode = FloorViewMode.AutoFollow;
-        private double manualFloorViewUntilSeconds = 0d;
         private bool explicitUpperFloorTargeting = false;
-        private const double ManualFloorViewHoldSeconds = 6d;
         private HashSet<Point> upperFloorCells = new();
         private HashSet<Point> roadCells = new();
         private HashSet<Point> sidewalkCells = new();
@@ -1435,9 +1433,6 @@ namespace XCOM_3
             if (pageDownPressed)
                 SetManualViewedFloor(viewedFloor - 1, minFloor, maxFloor, gameTime);
 
-            if (floorViewMode == FloorViewMode.Manual && gameTime.TotalGameTime.TotalSeconds >= manualFloorViewUntilSeconds)
-                floorViewMode = FloorViewMode.AutoFollow;
-
             if (floorViewMode == FloorViewMode.AbilityLocked)
             {
                 if (grappleMode && grappleTargetFloor >= minFloor)
@@ -1456,7 +1451,6 @@ namespace XCOM_3
         private void SetManualViewedFloor(int targetFloor, int minFloor, int maxFloor, GameTime gameTime)
         {
             floorViewMode = FloorViewMode.Manual;
-            manualFloorViewUntilSeconds = gameTime.TotalGameTime.TotalSeconds + ManualFloorViewHoldSeconds;
             viewedFloor = Math.Clamp(targetFloor, minFloor, maxFloor);
         }
 
@@ -1532,8 +1526,6 @@ namespace XCOM_3
             else if (modeButton.Contains(mouse.Position))
             {
                 floorViewMode = floorViewMode == FloorViewMode.AutoFollow ? FloorViewMode.Manual : FloorViewMode.AutoFollow;
-                if (floorViewMode == FloorViewMode.Manual)
-                    manualFloorViewUntilSeconds = gameTime.TotalGameTime.TotalSeconds + ManualFloorViewHoldSeconds;
             }
 
             return true;
@@ -3752,7 +3744,6 @@ namespace XCOM_3
 
             CreateUnits(missionType);
             floorViewMode = FloorViewMode.AutoFollow;
-            manualFloorViewUntilSeconds = 0d;
             explicitUpperFloorTargeting = false;
             wallSegments = currentMap.GetWalls();
             shatteredWindows.Clear();
