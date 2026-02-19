@@ -199,30 +199,7 @@ namespace XCOM_3
             List<BuildingFootprintData> buildings)
         {
             var stairs = new List<StairConnectionData>();
-            for (int floor = 0; floor < floorCount - 1; floor++)
-            {
-                stairs.Add(new StairConnectionData
-                {
-                    FromX = Math.Max(1, width / 4),
-                    FromY = Math.Max(2, height / 4),
-                    FromFloor = floor,
-                    ToX = Math.Max(1, width / 4),
-                    ToY = Math.Max(1, height / 4 - 1),
-                    ToFloor = floor + 1,
-                    Bidirectional = true
-                });
-
-                stairs.Add(new StairConnectionData
-                {
-                    FromX = Math.Max(1, (width * 3) / 4),
-                    FromY = Math.Max(2, (height * 3) / 4),
-                    FromFloor = floor,
-                    ToX = Math.Max(1, (width * 3) / 4),
-                    ToY = Math.Max(1, (height * 3) / 4 - 1),
-                    ToFloor = floor + 1,
-                    Bidirectional = true
-                });
-            }
+            var occupiedStairCells = new HashSet<(int Floor, int X, int Y)>();
 
             // Ajouter des cages d'escaliers internes sur chaque bâtiment multi-étage.
             // Cela garantit une circulation verticale cohérente dans les bâtiments urbains.
@@ -246,7 +223,7 @@ namespace XCOM_3
                     int radiusY = Math.Min(1, Math.Min(centerY - minY, maxY - centerY));
 
                     var centralSpiral = BuildSpiralPoints(centerX, centerY, minX, maxX, minY, maxY, radiusX, radiusY);
-                    AddStairShaftConnections(stairs, centralSpiral, maxBuildingFloor);
+                    AddStairShaftConnections(stairs, centralSpiral, maxBuildingFloor, occupiedStairCells);
 
                     // Bâtiments suffisamment grands: ajouter une deuxième cage proche d'une façade.
                     if (building.Width >= 8 || building.Height >= 8)
@@ -267,7 +244,7 @@ namespace XCOM_3
                             secondaryRadiusX,
                             secondaryRadiusY);
 
-                        AddStairShaftConnections(stairs, secondarySpiral, maxBuildingFloor);
+                        AddStairShaftConnections(stairs, secondarySpiral, maxBuildingFloor, occupiedStairCells);
                     }
                 }
             }
@@ -611,7 +588,11 @@ namespace XCOM_3
             .ToList();
         }
 
-        private static void AddStairShaftConnections(List<StairConnectionData> stairs, List<Point> shaftPoints, int maxBuildingFloor)
+        private static void AddStairShaftConnections(
+            List<StairConnectionData> stairs,
+            List<Point> shaftPoints,
+            int maxBuildingFloor,
+            HashSet<(int Floor, int X, int Y)> occupiedStairCells)
         {
             if (shaftPoints == null || shaftPoints.Count == 0 || maxBuildingFloor <= 1)
                 return;
@@ -620,6 +601,16 @@ namespace XCOM_3
             {
                 Point from = shaftPoints[floor % shaftPoints.Count];
                 Point to = shaftPoints[(floor + 1) % shaftPoints.Count];
+
+                // Empêche un escalier vertical sur exactement la même cellule
+                // et interdit le chevauchement avec un autre escalier au même étage.
+                if (from == to)
+                    continue;
+
+                bool fromOccupied = occupiedStairCells != null && occupiedStairCells.Contains((floor, from.X, from.Y));
+                bool toOccupied = occupiedStairCells != null && occupiedStairCells.Contains((floor + 1, to.X, to.Y));
+                if (fromOccupied || toOccupied)
+                    continue;
 
                 bool duplicate = stairs.Any(st =>
                     st.FromFloor == floor &&
@@ -642,6 +633,9 @@ namespace XCOM_3
                     ToFloor = floor + 1,
                     Bidirectional = true
                 });
+
+                occupiedStairCells?.Add((floor, from.X, from.Y));
+                occupiedStairCells?.Add((floor + 1, to.X, to.Y));
             }
         }
 
