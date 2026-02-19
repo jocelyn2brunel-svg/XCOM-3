@@ -2601,6 +2601,12 @@ namespace XCOM_3
             if (hoveredCell.X < 0 || hoveredCell.Y < 0)
                 return;
 
+            BlendState previousBlend = GraphicsDevice.BlendState;
+            DepthStencilState previousDepth = GraphicsDevice.DepthStencilState;
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
             float floorYOffset = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
             float terrainOffset = GetTerrainHeightOffset(hoveredCell);
@@ -2616,6 +2622,9 @@ namespace XCOM_3
 
             // Piliers verticaux : rendent la sélection lisible près des murs et changements d'élévation.
             DrawHoveredCellVerticalGuides(floorYOffset + terrainOffset, pulseBoost);
+
+            GraphicsDevice.BlendState = previousBlend;
+            GraphicsDevice.DepthStencilState = previousDepth;
         }
 
         private float GetTerrainHeightOffset(Point cell)
