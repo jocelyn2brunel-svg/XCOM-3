@@ -32,15 +32,6 @@ namespace XCOM_3
 
         // --- Musique de menu ---
         private ContentManager _content;
-        private readonly string[] _menuSongAssetNames =
-        {
-            "menu_music_1",
-            "menu_music_2",
-            "menu_music_3",
-            "menu_music_4"
-        };
-        private readonly Dictionary<string, Song> _songCache = new();
-        private Song _currentSong;
 
         // --- État de sauvegarde ---
         private bool _hasSavedGame;
@@ -123,24 +114,12 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Joue une musique de menu aléatoire
+        /// Désactive la musique du menu (seule la mission Centre-Ville conserve une musique)
         /// </summary>
         public void PlayRandomMenuSong()
         {
-            if (_content == null || _menuSongAssetNames.Length == 0)
-                return;
-
-            string songAssetName = _menuSongAssetNames[_random.Next(_menuSongAssetNames.Length)];
-            if (!_songCache.TryGetValue(songAssetName, out _currentSong))
-            {
-                _currentSong = _content.Load<Song>(songAssetName);
-                _songCache[songAssetName] = _currentSong;
-            }
-
-            MediaPlayer.Play(_currentSong);
-            MediaPlayer.Volume = 0.5f;
-            
-            Console.WriteLine($"[MENU] Playing: {_currentSong.Name}");
+            MediaPlayer.Stop();
+            Console.WriteLine("[MENU] Music disabled outside Centre-Ville mission");
         }
 
         /// <summary>
