@@ -223,9 +223,6 @@ namespace XCOM_3
         private Unit movementCinematicUnit = null;
         private readonly Dictionary<Unit, bool> firingShoulderCameraDecisions = new Dictionary<Unit, bool>();
         private HashSet<Unit> currentlySpottedEnemies = new HashSet<Unit>();
-        private readonly string[] gameplaySongAssetNames = { "menu_music_1", "menu_music_2", "menu_music_3", "menu_music_4" };
-        private readonly Dictionary<string, Song> gameplaySongCache = new();
-        private Song currentGameplaySong;
         private SoundEffect centreVilleMusicEffect;
         private SoundEffectInstance centreVilleMusicEffectInstance;
         private SoundEffect gunshotSoundEffect;
@@ -528,6 +525,8 @@ namespace XCOM_3
             casingClingSoundEffect = CreateProceduralCasingClingSound();
             grenadeExplosionSoundEffect = CreateProceduralGrenadeExplosionSound();
             VisualEffects.OnSpentCasingLanded += HandleSpentCasingLanded;
+
+            StartProceduralMusicLoop(ambienceLevel: 0.18f, soundtrackLabel: "main_menu");
         }
 
         private SoundEffect CreateCentreVilleCyberpunkLoop(float ambienceLevel)
@@ -658,6 +657,29 @@ namespace XCOM_3
                 centreVilleMusicEffectInstance.Stop();
         }
 
+        private void StartProceduralMusicLoop(float ambienceLevel, string soundtrackLabel)
+        {
+            MediaPlayer.Stop();
+            usingProceduralMissionMusic = true;
+            proceduralMusicRegenerationTimer = 0f;
+            proceduralMusicAmbienceLevel = MathHelper.Clamp(ambienceLevel, 0f, 1f);
+
+            centreVilleMusicEffectInstance?.Stop();
+            centreVilleMusicEffectInstance?.Dispose();
+            centreVilleMusicEffect?.Dispose();
+
+            centreVilleMusicEffect = CreateCentreVilleCyberpunkLoop(proceduralMusicAmbienceLevel);
+            centreVilleMusicEffectInstance = centreVilleMusicEffect?.CreateInstance();
+
+            if (centreVilleMusicEffectInstance == null)
+                return;
+
+            centreVilleMusicEffectInstance.IsLooped = true;
+            centreVilleMusicEffectInstance.Volume = MathHelper.Clamp(optionsMenuManager?.GetMusicVolume() ?? 0.5f, 0f, 1f);
+            centreVilleMusicEffectInstance.Play();
+            Console.WriteLine($"[AUDIO] Procedural music ({soundtrackLabel}, ambience={proceduralMusicAmbienceLevel:F2})");
+        }
+
         private float EstimateMissionAmbienceLevel()
         {
             float spottedEnemies = MathHelper.Clamp(currentlySpottedEnemies.Count / 8f, 0f, 1f);
@@ -704,61 +726,8 @@ namespace XCOM_3
 
         private void PlayGameplaySongForMission(string missionType)
         {
-            if (string.Equals(missionType, "Centre-Ville", StringComparison.OrdinalIgnoreCase))
-            {
-                MediaPlayer.Stop();
-                usingProceduralMissionMusic = true;
-                proceduralMusicRegenerationTimer = 0f;
-                proceduralMusicAmbienceLevel = EstimateMissionAmbienceLevel();
-
-                centreVilleMusicEffectInstance?.Stop();
-                centreVilleMusicEffectInstance?.Dispose();
-                centreVilleMusicEffect?.Dispose();
-
-                centreVilleMusicEffect = CreateCentreVilleCyberpunkLoop(proceduralMusicAmbienceLevel);
-                centreVilleMusicEffectInstance = centreVilleMusicEffect?.CreateInstance();
-
-                if (centreVilleMusicEffectInstance != null)
-                {
-                    centreVilleMusicEffectInstance.IsLooped = true;
-                    centreVilleMusicEffectInstance.Volume = MathHelper.Clamp(optionsMenuManager?.GetMusicVolume() ?? 0.5f, 0f, 1f);
-                    centreVilleMusicEffectInstance.Play();
-                    Console.WriteLine($"[AUDIO] In-game music: procedural_markov_perlin_loop (ambience={proceduralMusicAmbienceLevel:F2})");
-                }
-
-                return;
-            }
-
-            usingProceduralMissionMusic = false;
-            StopCentreVilleMusicLoop();
-            MediaPlayer.Stop();
-            Console.WriteLine("[AUDIO] In-game music disabled for this mission");
-        }
-
-        private void PlayRandomGameplaySong()
-        {
-            if (gameplaySongAssetNames.Length == 0)
-                return;
-
-            string songAssetName = gameplaySongAssetNames[random.Next(gameplaySongAssetNames.Length)];
-            PlayGameplaySong(songAssetName);
-        }
-
-        private void PlayGameplaySong(string songAssetName)
-        {
-            usingProceduralMissionMusic = false;
-            StopCentreVilleMusicLoop();
-
-            if (!gameplaySongCache.TryGetValue(songAssetName, out currentGameplaySong))
-            {
-                currentGameplaySong = Content.Load<Song>(songAssetName);
-                gameplaySongCache[songAssetName] = currentGameplaySong;
-            }
-
-            MediaPlayer.IsRepeating = true;
-            MediaPlayer.Volume = optionsMenuManager.GetMusicVolume();
-            MediaPlayer.Play(currentGameplaySong);
-            Console.WriteLine($"[AUDIO] In-game music: {songAssetName}");
+            float ambience = EstimateMissionAmbienceLevel();
+            StartProceduralMusicLoop(ambience, $"mission:{missionType}");
         }
 
         private void EnsurePremadeMapsGenerated()
@@ -828,6 +797,7 @@ namespace XCOM_3
             currentState = GameState.MainMenu;
             mainMenuManager.ResetToRootMenu();
             mainMenuManager.PlayRandomMenuSong();
+            StartProceduralMusicLoop(ambienceLevel: 0.18f, soundtrackLabel: "main_menu");
         }
 
         private void HandleCharacterCreationCompleted(List<CharacterCreationProfile> profiles)

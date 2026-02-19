@@ -114,12 +114,12 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Désactive la musique du menu (seule la mission Centre-Ville conserve une musique)
+        /// Coupe toute piste média classique (la musique procédurale est pilotée par Game1)
         /// </summary>
         public void PlayRandomMenuSong()
         {
             MediaPlayer.Stop();
-            Console.WriteLine("[MENU] Music disabled outside Centre-Ville mission");
+            Console.WriteLine("[MENU] Media tracks stopped (procedural music handled by Game1)");
         }
 
         /// <summary>
