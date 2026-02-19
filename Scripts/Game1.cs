@@ -212,6 +212,7 @@ namespace XCOM_3
         private bool premadeMapsChecked = false;
 
         private Point lastHoveredCell = new Point(-1, -1);
+        private int lastHoveredInteractionFloor = -1;
         private int viewedFloor = 0;
         private enum FloorViewMode { AutoFollow, Manual, AbilityLocked }
         private FloorViewMode floorViewMode = FloorViewMode.AutoFollow;
@@ -3868,7 +3869,7 @@ namespace XCOM_3
                     selectedUnit.GetSprintRange() : selectedUnit.GetMaxMoveRange();
 
                 // 3. ONLY recalculate the path if the mouse moved to a new cell
-                if (hoveredCell != lastHoveredCell)
+                if (hoveredCell != lastHoveredCell || interactionFloor != lastHoveredInteractionFloor)
                 {
                     Point previewGoal = hoveredCell;
                     int previewFloor = interactionFloor;
@@ -3887,6 +3888,7 @@ namespace XCOM_3
                     currentPathNodes = previewPath.Nodes;
                     currentPathEndFloor = previewPath.EndFloor;
                     lastHoveredCell = hoveredCell;
+                    lastHoveredInteractionFloor = interactionFloor;
 
                     pathCosts.Clear();
 
@@ -3913,6 +3915,7 @@ namespace XCOM_3
                 // If the mouse isn't on a valid movement cell, update the last hovered cell anyway
                 // so it recalculates correctly when it re-enters a valid cell
                 lastHoveredCell = isHoveringValidCell ? hoveredCell : new Point(-1, -1);
+                lastHoveredInteractionFloor = isHoveringValidCell ? interactionFloor : -1;
             }
 
             if (throwMode) HandleGrenadeThrow(mouse, leftClick);
