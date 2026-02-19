@@ -2195,7 +2195,8 @@ namespace XCOM_3
                 var zones = pathfinding.GetMovementZones(selectedUnit);
                 renderer3D.DrawMovementZones(zones, cellSize,
                     (float)gameTime.TotalGameTime.TotalSeconds,
-                    viewedFloor);
+                    viewedFloor,
+                    terrainHeights);
             }
 
             if (!throwMode && currentPathNodes.Count > 0 && selectedUnit != null)
@@ -2207,7 +2208,8 @@ namespace XCOM_3
                 GraphicsDevice.DepthStencilState = DepthStencilState.None;
 
                 renderer3D.DrawMovementPath(currentPathNodes, selectedUnit, cellSize,
-                    (float)gameTime.TotalGameTime.TotalSeconds);
+                    (float)gameTime.TotalGameTime.TotalSeconds,
+                    terrainHeights);
 
                 GraphicsDevice.BlendState = previousBlend;
                 GraphicsDevice.DepthStencilState = previousDepth;

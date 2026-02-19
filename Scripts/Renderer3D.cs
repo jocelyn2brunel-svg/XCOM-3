@@ -1460,7 +1460,7 @@ namespace XCOM_3
         /// <summary>
         /// Dessine les 3 zones de mouvement (court, max, sprint)
         /// </summary>
-        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime, int viewedFloor)
+        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime, int viewedFloor, IReadOnlyDictionary<Point, float> terrainHeights = null)
         {
             if (zones == null) return;
 
@@ -1493,21 +1493,21 @@ namespace XCOM_3
                 }
 
                 // Zone 1 : contour externe du mouvement court (1 AP) - VERT
-                DrawZonePerimeter(shortZone, cellSize, floorYOffset + 0.02f, new Color(0, 255, 0, 220) * pulse);
+                DrawZonePerimeter(shortZone, cellSize, floorYOffset, 0.02f, new Color(0, 255, 0, 220) * pulse, terrainHeights);
 
                 // Zone 2 : contour externe du mouvement max (2 AP) - BLEU
-                DrawZonePerimeter(maxZone, cellSize, floorYOffset + 0.03f, new Color(0, 150, 255, 210) * pulse);
+                DrawZonePerimeter(maxZone, cellSize, floorYOffset, 0.03f, new Color(0, 150, 255, 210) * pulse, terrainHeights);
 
                 // Zone 3 : contour externe du sprint (2 AP + phosphocréatine) - JAUNE
                 float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
-                DrawZonePerimeter(sprintZone, cellSize, floorYOffset + 0.04f, new Color(255, 200, 0, 215) * sprintPulse);
+                DrawZonePerimeter(sprintZone, cellSize, floorYOffset, 0.04f, new Color(255, 200, 0, 215) * sprintPulse, terrainHeights);
 
                 // Indicateur sprint uniquement sur les cellules de frontière
                 foreach (var cell in sprintZone)
                 {
                     if (IsBoundaryCell(cell, sprintZone))
                     {
-                        DrawSprintIndicator(cell, cellSize, gameTime, floorYOffset);
+                        DrawSprintIndicator(cell, cellSize, gameTime, floorYOffset, terrainHeights);
                     }
                 }
             }
@@ -1536,37 +1536,45 @@ namespace XCOM_3
             return false;
         }
 
-        private void DrawZonePerimeter(HashSet<Point> zone, int cellSize, float height, Color color)
+        private void DrawZonePerimeter(HashSet<Point> zone, int cellSize, float floorYOffset, float lift, Color color, IReadOnlyDictionary<Point, float> terrainHeights)
         {
             if (zone == null || zone.Count == 0) return;
 
-            float edgeThickness = Math.Max(cellSize * 0.09f, 0.06f);
-            float edgeLength = cellSize * 0.9f;
-            float halfLength = edgeLength / 2f;
-
             foreach (Point cell in zone)
             {
-                float centerX = cell.X * cellSize + cellSize / 2f;
-                float centerZ = cell.Y * cellSize + cellSize / 2f;
+                float xMin = cell.X * cellSize;
+                float xMax = (cell.X + 1) * cellSize;
+                float zMin = cell.Y * cellSize;
+                float zMax = (cell.Y + 1) * cellSize;
+
+                float yNW = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X, cell.Y) + lift;
+                float ySW = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X, cell.Y + 1) + lift;
+                float ySE = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X + 1, cell.Y + 1) + lift;
+                float yNE = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X + 1, cell.Y) + lift;
+
+                Vector3 nw = new Vector3(xMin, yNW, zMin);
+                Vector3 sw = new Vector3(xMin, ySW, zMax);
+                Vector3 se = new Vector3(xMax, ySE, zMax);
+                Vector3 ne = new Vector3(xMax, yNE, zMin);
 
                 if (!zone.Contains(new Point(cell.X, cell.Y - 1)))
                 {
-                    DrawCube(new Vector3(centerX, height, centerZ - halfLength), new Vector3(edgeLength, 0.03f, edgeThickness), color);
+                    DrawLine(nw, ne, color);
                 }
 
                 if (!zone.Contains(new Point(cell.X + 1, cell.Y)))
                 {
-                    DrawCube(new Vector3(centerX + halfLength, height, centerZ), new Vector3(edgeThickness, 0.03f, edgeLength), color);
+                    DrawLine(ne, se, color);
                 }
 
                 if (!zone.Contains(new Point(cell.X, cell.Y + 1)))
                 {
-                    DrawCube(new Vector3(centerX, height, centerZ + halfLength), new Vector3(edgeLength, 0.03f, edgeThickness), color);
+                    DrawLine(sw, se, color);
                 }
 
                 if (!zone.Contains(new Point(cell.X - 1, cell.Y)))
                 {
-                    DrawCube(new Vector3(centerX - halfLength, height, centerZ), new Vector3(edgeThickness, 0.03f, edgeLength), color);
+                    DrawLine(nw, sw, color);
                 }
             }
         }
@@ -1580,19 +1588,20 @@ namespace XCOM_3
             if (zone.Count == 0)
                 return;
 
-            DrawZonePerimeter(zone, cellSize, height, color);
+            DrawZonePerimeter(zone, cellSize, height, 0f, color, null);
         }
 
         /// <summary>
         /// Dessine un indicateur de sprint (petit symbole au centre de la case)
         /// </summary>
-        private void DrawSprintIndicator(Point cell, int cellSize, float gameTime, float floorYOffset)
+        private void DrawSprintIndicator(Point cell, int cellSize, float gameTime, float floorYOffset, IReadOnlyDictionary<Point, float> terrainHeights)
         {
             float pulse = (float)Math.Sin(gameTime * 6f) * 0.3f + 0.7f;
+            float terrainOffset = GetCellTerrainHeight(terrainHeights, cell);
 
             Vector3 pos = new Vector3(
                 cell.X * cellSize + cellSize / 2f,
-                floorYOffset + 0.15f,
+                floorYOffset + terrainOffset + 0.15f,
                 cell.Y * cellSize + cellSize / 2f
             );
 
@@ -1605,7 +1614,7 @@ namespace XCOM_3
         /// <summary>
         /// Dessine le chemin avec coloration selon le coût (VERSION SIMPLIFIÉE)
         /// </summary>
-        public void DrawMovementPath(List<GridNode> path, Unit unit, int cellSize, float gameTime)
+        public void DrawMovementPath(List<GridNode> path, Unit unit, int cellSize, float gameTime, IReadOnlyDictionary<Point, float> terrainHeights = null)
         {
             if (path == null || path.Count == 0 || unit == null) return;
 
@@ -1640,7 +1649,7 @@ namespace XCOM_3
 
                     Vector3 pos = new Vector3(
                         cell.X * cellSize + cellSize / 2f,
-                        WorldMetrics.FloorToWorldY(node.Floor, cellSize) + 0.09f,
+                        WorldMetrics.FloorToWorldY(node.Floor, cellSize) + GetCellTerrainHeight(terrainHeights, cell) + 0.09f,
                         cell.Y * cellSize + cellSize / 2f
                     );
 
@@ -1656,7 +1665,7 @@ namespace XCOM_3
                         Point nextCell = nextNode.Cell;
                         Vector3 nextPos = new Vector3(
                             nextCell.X * cellSize + cellSize / 2f,
-                            WorldMetrics.FloorToWorldY(nextNode.Floor, cellSize) + 0.09f,
+                            WorldMetrics.FloorToWorldY(nextNode.Floor, cellSize) + GetCellTerrainHeight(terrainHeights, nextCell) + 0.09f,
                             nextCell.Y * cellSize + cellSize / 2f
                         );
 
@@ -1681,6 +1690,36 @@ namespace XCOM_3
                 Vector3 pos = Vector3.Lerp(start, end, t);
                 DrawCube(pos, new Vector3(cellSize * 0.1f, 0.03f, cellSize * 0.1f), color);
             }
+        }
+
+        private static float GetCellTerrainHeight(IReadOnlyDictionary<Point, float> terrainHeights, Point cell)
+            => terrainHeights != null && terrainHeights.TryGetValue(cell, out float height) ? height : 0f;
+
+        private static float ComputeCornerHeight(IReadOnlyDictionary<Point, float> terrainHeights, int vertexX, int vertexZ)
+        {
+            if (terrainHeights == null || terrainHeights.Count == 0)
+            {
+                return 0f;
+            }
+
+            float sum = 0f;
+            int count = 0;
+
+            for (int dx = -1; dx <= 0; dx++)
+            {
+                for (int dz = -1; dz <= 0; dz++)
+                {
+                    int cellX = vertexX + dx;
+                    int cellZ = vertexZ + dz;
+                    if (terrainHeights.TryGetValue(new Point(cellX, cellZ), out float height))
+                    {
+                        sum += height;
+                        count++;
+                    }
+                }
+            }
+
+            return count > 0 ? sum / count : 0f;
         }
 
 
