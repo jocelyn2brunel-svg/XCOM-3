@@ -623,7 +623,12 @@ namespace XCOM_3
                     + 0.10f * MathF.Sin(2f * MathF.PI * ninth * t + 0.3f)
                 ) * padPump * padLfo;
 
-                float riser = MathF.Sin(2f * MathF.PI * (360f + sectionPhase * 42f) * t) * MathF.Pow(sectionProgress, 2f) * 0.07f;
+                float riserPulse = MathF.Max(0f, MathF.Sin(2f * MathF.PI * 0.25f * sectionPhase));
+                float riserFreq = 340f + 30f * MathF.Sin(2f * MathF.PI * 0.125f * sectionPhase);
+                float riser = MathF.Sin(2f * MathF.PI * riserFreq * t)
+                    * MathF.Pow(sectionProgress, 1.6f)
+                    * riserPulse
+                    * 0.05f;
                 float texture = MathF.Sin(2f * MathF.PI * (root * 4f + 1.5f * progressionIndex) * t + 0.5f)
                     * (0.05f + 0.04f * MathF.Sin(2f * MathF.PI * 0.09f * t));
 
