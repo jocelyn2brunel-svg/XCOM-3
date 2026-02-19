@@ -2622,12 +2622,8 @@ namespace XCOM_3
 
             float pulseBoost = 0.75f + pulse * 0.25f;
 
-            // Contour au sol : suit le relief local de la case.
-            renderer3D.DrawZoneOutline(
-                new[] { hoveredCell },
-                cellSize,
-                floorYOffset + terrainOffset + 0.14f,
-                new Color(255, 220, 90, 230) * pulseBoost);
+            // Contour au sol : suit la géométrie de la tuile (coins interpolés) pour rester collé au relief.
+            DrawHoveredCellTerrainOutline(floorYOffset, pulseBoost);
 
             // Piliers verticaux : rendent la sélection lisible près des murs et changements d'élévation.
             DrawHoveredCellVerticalGuides(floorYOffset + terrainOffset, pulseBoost);
@@ -2642,6 +2638,53 @@ namespace XCOM_3
                 return height;
 
             return 0f;
+        }
+
+        private void DrawHoveredCellTerrainOutline(float floorYOffset, float pulseBoost)
+        {
+            const float outlineLift = 0.14f;
+            Color outlineColor = new Color(255, 220, 90, 230) * pulseBoost;
+
+            float xMin = hoveredCell.X * cellSize;
+            float xMax = (hoveredCell.X + 1) * cellSize;
+            float zMin = hoveredCell.Y * cellSize;
+            float zMax = (hoveredCell.Y + 1) * cellSize;
+
+            // Même règle que le rendu de terrain: chaque sommet prend la moyenne des tuiles adjacentes.
+            float yNW = floorYOffset + ComputeHoveredCornerHeight(hoveredCell.X, hoveredCell.Y) + outlineLift;
+            float ySW = floorYOffset + ComputeHoveredCornerHeight(hoveredCell.X, hoveredCell.Y + 1) + outlineLift;
+            float ySE = floorYOffset + ComputeHoveredCornerHeight(hoveredCell.X + 1, hoveredCell.Y + 1) + outlineLift;
+            float yNE = floorYOffset + ComputeHoveredCornerHeight(hoveredCell.X + 1, hoveredCell.Y) + outlineLift;
+
+            Vector3 nw = new Vector3(xMin, yNW, zMin);
+            Vector3 sw = new Vector3(xMin, ySW, zMax);
+            Vector3 se = new Vector3(xMax, ySE, zMax);
+            Vector3 ne = new Vector3(xMax, yNE, zMin);
+
+            renderer3D.DrawLine(nw, sw, outlineColor);
+            renderer3D.DrawLine(sw, se, outlineColor);
+            renderer3D.DrawLine(se, ne, outlineColor);
+            renderer3D.DrawLine(ne, nw, outlineColor);
+        }
+
+        private float ComputeHoveredCornerHeight(int vertexX, int vertexZ)
+        {
+            float sum = 0f;
+            int count = 0;
+
+            for (int cellX = vertexX - 1; cellX <= vertexX; cellX++)
+            {
+                for (int cellZ = vertexZ - 1; cellZ <= vertexZ; cellZ++)
+                {
+                    if (terrainHeights != null && terrainHeights.TryGetValue(new Point(cellX, cellZ), out float height))
+                    {
+                        sum += height;
+                        count++;
+                    }
+                }
+            }
+
+            return count > 0 ? sum / count : 0f;
         }
 
         private void DrawHoveredCellVerticalGuides(float baseY, float pulseBoost)
