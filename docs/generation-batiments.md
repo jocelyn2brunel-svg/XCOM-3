@@ -21,6 +21,7 @@ Pipeline simplifié :
 - Le nombre d'étages des bâtiments urbains est fixé aléatoirement entre `1` et `8`.
 - Les sous-sols sont plus probables pour les grandes empreintes.
 - Les bâtiments multi-étages reçoivent désormais au moins une cage d'escalier interne, et les grands bâtiments peuvent en recevoir deux pour éviter les goulots d'étranglement.
+- Quand un bâtiment possède des sous-sols, les cages d'escalier internes relient aussi les niveaux négatifs (`-N ... -1`) au RDC pour garantir l'accès.
 - Les rampes sont déduites des escaliers cardinaux quelle que soit l'orientation (nord/sud/est/ouest) pour conserver un accès vertical jouable.
 
 ## Types d'intérieurs

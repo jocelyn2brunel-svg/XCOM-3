@@ -223,7 +223,13 @@ namespace XCOM_3
                     int radiusY = Math.Min(1, Math.Min(centerY - minY, maxY - centerY));
 
                     var centralSpiral = BuildSpiralPoints(centerX, centerY, minX, maxX, minY, maxY, radiusX, radiusY);
-                    AddStairShaftConnections(stairs, centralSpiral, maxBuildingFloor, occupiedStairCells);
+                    AddStairShaftConnections(stairs, centralSpiral, 0, maxBuildingFloor - 1, occupiedStairCells);
+
+                    int basementLevels = Math.Max(0, building.BasementCount);
+                    if (basementLevels > 0)
+                    {
+                        AddStairShaftConnections(stairs, centralSpiral, -basementLevels, 0, occupiedStairCells);
+                    }
 
                     // Bâtiments suffisamment grands: ajouter une deuxième cage proche d'une façade.
                     if (building.Width >= 8 || building.Height >= 8)
@@ -244,7 +250,12 @@ namespace XCOM_3
                             secondaryRadiusX,
                             secondaryRadiusY);
 
-                        AddStairShaftConnections(stairs, secondarySpiral, maxBuildingFloor, occupiedStairCells);
+                        AddStairShaftConnections(stairs, secondarySpiral, 0, maxBuildingFloor - 1, occupiedStairCells);
+
+                        if (basementLevels > 0)
+                        {
+                            AddStairShaftConnections(stairs, secondarySpiral, -basementLevels, 0, occupiedStairCells);
+                        }
                     }
                 }
             }
@@ -591,16 +602,18 @@ namespace XCOM_3
         private static void AddStairShaftConnections(
             List<StairConnectionData> stairs,
             List<Point> shaftPoints,
-            int maxBuildingFloor,
+            int minFloor,
+            int maxFloor,
             HashSet<(int Floor, int X, int Y)> occupiedStairCells)
         {
-            if (shaftPoints == null || shaftPoints.Count == 0 || maxBuildingFloor <= 1)
+            if (shaftPoints == null || shaftPoints.Count == 0 || minFloor >= maxFloor)
                 return;
 
-            for (int floor = 0; floor < maxBuildingFloor - 1; floor++)
+            for (int floor = minFloor; floor < maxFloor; floor++)
             {
-                Point from = shaftPoints[floor % shaftPoints.Count];
-                Point to = shaftPoints[(floor + 1) % shaftPoints.Count];
+                int floorOffset = floor - minFloor;
+                Point from = shaftPoints[floorOffset % shaftPoints.Count];
+                Point to = shaftPoints[(floorOffset + 1) % shaftPoints.Count];
 
                 // Empêche un escalier vertical sur exactement la même cellule
                 // et interdit le chevauchement avec un autre escalier au même étage.
