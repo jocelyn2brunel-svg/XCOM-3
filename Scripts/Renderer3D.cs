@@ -1045,25 +1045,32 @@ namespace XCOM_3
 
         private void DrawDirectionalRamp(int cellX, int cellY, int ascendDx, int ascendDy, float floorYOffset, int cellSize)
         {
-            const int slices = 6;
-            float sliceDepth = cellSize / (float)slices;
+            // Règle métier: 1 étage = 2 cases de hauteur.
+            // La rampe visuelle doit donc s'étendre sur 2 cases en longueur
+            // (de la case de départ à la case adjacente dans la direction montante).
+            const float rampLengthInCells = 2f;
+            const int slices = 12;
+            float rampLength = cellSize * rampLengthInCells;
+            float sliceDepth = rampLength / slices;
+            float baseCenterX = cellX * cellSize + cellSize / 2f + ascendDx * (cellSize * 0.5f);
+            float baseCenterZ = cellY * cellSize + cellSize / 2f + ascendDy * (cellSize * 0.5f);
 
             for (int i = 0; i < slices; i++)
             {
                 float t = (i + 1f) / slices;
-                float sliceHeight = t * cellSize;
+                float sliceHeight = t * (cellSize * WorldMetrics.FloorHeightInCells);
                 float offsetAlongAxis = i * sliceDepth;
 
-                float centerX = cellX * cellSize + cellSize / 2f;
-                float centerZ = cellY * cellSize + cellSize / 2f;
+                float centerX = baseCenterX;
+                float centerZ = baseCenterZ;
 
                 if (ascendDx != 0)
                 {
-                    centerX += -ascendDx * (offsetAlongAxis - (cellSize * 0.5f - sliceDepth * 0.5f));
+                    centerX += -ascendDx * (offsetAlongAxis - (rampLength * 0.5f - sliceDepth * 0.5f));
                 }
                 else
                 {
-                    centerZ += -ascendDy * (offsetAlongAxis - (cellSize * 0.5f - sliceDepth * 0.5f));
+                    centerZ += -ascendDy * (offsetAlongAxis - (rampLength * 0.5f - sliceDepth * 0.5f));
                 }
 
                 Vector3 pos = new Vector3(
