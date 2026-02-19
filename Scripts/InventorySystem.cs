@@ -141,6 +141,7 @@ namespace XCOM_3
         private readonly List<Rectangle> nearbyLootSlotRects = new List<Rectangle>();
         private readonly List<GridItem> nearbyLootSlotItems = new List<GridItem>();
         private int nearbyLootScrollRow = 0;
+        private bool isNearbyLootAccessible = true;
         private Point draggedNearbyLootSourcePosition = Point.Zero;
         private bool hasDraggedNearbyLootSourcePosition = false;
         private ItemContextInfo draggedItemSourceInfo;
@@ -191,6 +192,11 @@ namespace XCOM_3
             if (added)
                 ClampNearbyLootScroll();
             return added;
+        }
+
+        public void SetNearbyLootAccess(bool isAccessible)
+        {
+            isNearbyLootAccessible = isAccessible;
         }
 
 
@@ -1910,6 +1916,9 @@ namespace XCOM_3
 
         private bool TryStartDragFromNearbyLoot(Point mousePosition)
         {
+            if (!isNearbyLootAccessible)
+                return false;
+
             if (!TryGetNearbyLootEntryAt(mousePosition, out GridItem lootItem, out Rectangle lootSlot))
                 return false;
 
@@ -1938,6 +1947,9 @@ namespace XCOM_3
 
         private bool TryPickupNearbyLoot(Point mousePosition)
         {
+            if (!isNearbyLootAccessible)
+                return false;
+
             if (!IsMainInventoryGridVisible)
                 return false;
 
@@ -4632,6 +4644,28 @@ namespace XCOM_3
 
             DrawLootGridBackdrop(gridArea);
             Point alignedGridOrigin = GetAlignedLootGridOrigin(gridArea);
+
+            if (!isNearbyLootAccessible)
+            {
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                    "Placez-vous sur une case contenant du loot",
+                    new Vector2(content.X + 8, content.Y + 10),
+                    ParasiteEveTheme.TextDim,
+                    0.6f);
+
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                    "pour acceder au panneau de proximite.",
+                    new Vector2(content.X + 8, content.Y + 32),
+                    ParasiteEveTheme.TextNormal,
+                    0.58f);
+
+                ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
+                    "Glissez/deposez pour organiser le loot.",
+                    new Vector2(content.X + 8, content.Bottom - 22),
+                    ParasiteEveTheme.TextDim,
+                    0.5f);
+                return;
+            }
 
             if (lootItems.Count == 0)
             {

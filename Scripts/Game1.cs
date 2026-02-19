@@ -1196,6 +1196,7 @@ namespace XCOM_3
         {
             if (showInventory)
             {
+                inventorySystem.SetNearbyLootAccess(IsSelectedUnitStandingOnLoot());
                 inventorySystem.Update(mouse, previousMouseState, leftClick, keyboard, selectedUnit);
                 if (inventorySystem.TryConsumeFlashlightThrowRequest(out bool isRightHand))
                 {
@@ -1237,6 +1238,24 @@ namespace XCOM_3
             HandleFloorViewControls(keyboard, gameTime);
 
             if (escapePressed) ReturnToMainMenuWithSave();
+        }
+
+        private bool IsSelectedUnitStandingOnLoot()
+        {
+            if (selectedUnit == null)
+                return false;
+
+            for (int i = 0; i < flashlightLootMarkers.Count; i++)
+            {
+                FlashlightLootMarker marker = flashlightLootMarkers[i];
+                if (marker.Quantity <= 0)
+                    continue;
+
+                if (marker.Floor == selectedUnit.Floor && marker.Cell == selectedUnit.Cell)
+                    return true;
+            }
+
+            return false;
         }
 
 
