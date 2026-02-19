@@ -2194,11 +2194,20 @@ namespace XCOM_3
 
             if (!throwMode && selectedUnit != null && selectedUnit.Team == Team.Player)
             {
+                BlendState previousBlend = GraphicsDevice.BlendState;
+                DepthStencilState previousDepth = GraphicsDevice.DepthStencilState;
+
+                GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                GraphicsDevice.DepthStencilState = DepthStencilState.None;
+
                 var zones = pathfinding.GetMovementZones(selectedUnit);
                 renderer3D.DrawMovementZones(zones, cellSize,
                     (float)gameTime.TotalGameTime.TotalSeconds,
                     viewedFloor,
                     terrainHeights);
+
+                GraphicsDevice.BlendState = previousBlend;
+                GraphicsDevice.DepthStencilState = previousDepth;
             }
 
             if (!throwMode && currentPathNodes.Count > 0 && selectedUnit != null)
