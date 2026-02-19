@@ -745,7 +745,8 @@ namespace XCOM_3
             }
 
             StopCentreVilleMusicLoop();
-            PlayRandomGameplaySong();
+            MediaPlayer.Stop();
+            Console.WriteLine("[AUDIO] In-game music disabled for this mission");
         }
 
         private void PlayRandomGameplaySong()
