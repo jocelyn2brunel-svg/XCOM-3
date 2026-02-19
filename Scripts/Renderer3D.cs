@@ -187,6 +187,24 @@ namespace XCOM_3
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, texturedPlaneVerts, 0, 4, texturedPlaneIdx, 0, 2);
         }
 
+        private void DrawTexturedFloorVolumeTop(Vector3 topCenter, Vector3 topScale, Texture2D tex, int cellSize)
+        {
+            float slabThickness = Math.Max(0.001f, cellSize * WorldMetrics.FloorSlabThicknessInCells);
+
+            // Volume extrudé vers le bas: la face supérieure reste alignée sur topCenter.Y.
+            Vector3 slabCenter = new Vector3(
+                topCenter.X,
+                topCenter.Y - slabThickness / 2f,
+                topCenter.Z);
+            DrawCube(slabCenter, new Vector3(topScale.X, slabThickness, topScale.Z), new Color(96, 96, 96));
+
+            // Dessiner la texture légèrement au-dessus pour éviter le z-fighting avec la face du volume.
+            DrawTexturedPlane(
+                new Vector3(topCenter.X, topCenter.Y + 0.001f, topCenter.Z),
+                topScale,
+                tex);
+        }
+
         private void DrawTexturedVerticalQuad(Vector3 center, float width, float height, bool facesX, float axisCoord, Texture2D tex)
         {
             float halfWidth = width / 2f;
@@ -752,18 +770,22 @@ namespace XCOM_3
         public void DrawGrid(int w, int h, int size, Texture2D tex, float floorHeightOffset = 0f)
         {
             for (int x = 0; x < w; x++) for (int z = 0; z < h; z++)
-                    DrawTexturedPlane(new Vector3(x * size + size / 2f, floorHeightOffset, z * size + size / 2f),
-                                      new Vector3(size * TileFillRatio, 1, size * TileFillRatio), tex);
+                    DrawTexturedFloorVolumeTop(
+                        new Vector3(x * size + size / 2f, floorHeightOffset, z * size + size / 2f),
+                        new Vector3(size * TileFillRatio, 1, size * TileFillRatio),
+                        tex,
+                        size);
         }
 
         public void DrawGridCells(IEnumerable<Point> cells, int size, Texture2D tex, float floorHeightOffset = 0f)
         {
             foreach (var cell in cells)
             {
-                DrawTexturedPlane(
+                DrawTexturedFloorVolumeTop(
                     new Vector3(cell.X * size + size / 2f, floorHeightOffset, cell.Y * size + size / 2f),
                     new Vector3(size * TileFillRatio, 1, size * TileFillRatio),
-                    tex);
+                    tex,
+                    size);
             }
         }
 
