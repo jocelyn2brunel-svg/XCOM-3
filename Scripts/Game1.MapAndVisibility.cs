@@ -257,8 +257,8 @@ namespace XCOM_3
         {
             return missionType switch
             {
-                // Mission très dense (IA + bâtiments + étages) : limiter la taille évite les chutes de FPS.
-                "Centre-Ville" => (30, 60),
+                // Mission très dense (IA + bâtiments + étages) : taille augmentée pour doubler la superficie jouable.
+                "Centre-Ville" => (42, 85),
                 "Sabotage" => (32, 68),
                 "Blackout" => (24, 52),
                 _ => (20, 100)
