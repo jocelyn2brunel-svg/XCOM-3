@@ -229,11 +229,6 @@ namespace XCOM_3
         private SoundEffectInstance gunshotSoundEffectInstance;
         private SoundEffect casingClingSoundEffect;
         private SoundEffect grenadeExplosionSoundEffect;
-        private ProceduralMusicGenerator proceduralMusicGenerator;
-        private bool usingProceduralMissionMusic;
-        private float proceduralMusicAmbienceLevel;
-        private float proceduralMusicRegenerationTimer;
-        private const float ProceduralMusicRegenerationIntervalSeconds = 12f;
 
         private enum UnitPageTab { Inventory, Skills, Info }
         private const int TabWidth = 170;
@@ -518,21 +513,11 @@ namespace XCOM_3
 
         private void InitializeAudioSystems()
         {
-            proceduralMusicGenerator = new ProceduralMusicGenerator(random.Next());
             gunshotSoundEffect = CreateProceduralGunshotSound();
             gunshotSoundEffectInstance = gunshotSoundEffect?.CreateInstance();
-            proceduralMusicAmbienceLevel = EstimateMissionAmbienceLevel();
-            centreVilleMusicEffect = CreateCentreVilleCyberpunkLoop(proceduralMusicAmbienceLevel);
             casingClingSoundEffect = CreateProceduralCasingClingSound();
             grenadeExplosionSoundEffect = CreateProceduralGrenadeExplosionSound();
             VisualEffects.OnSpentCasingLanded += HandleSpentCasingLanded;
-
-            StartProceduralMusicLoop(ambienceLevel: 0.18f, soundtrackLabel: "main_menu");
-        }
-
-        private SoundEffect CreateCentreVilleCyberpunkLoop(float ambienceLevel)
-        {
-            return proceduralMusicGenerator?.GenerateCombatLoop(ambienceLevel);
         }
 
         private SoundEffect CreateProceduralGrenadeExplosionSound()
@@ -658,79 +643,6 @@ namespace XCOM_3
                 centreVilleMusicEffectInstance.Stop();
         }
 
-        private void StartProceduralMusicLoop(float ambienceLevel, string soundtrackLabel)
-        {
-            MediaPlayer.Stop();
-            usingProceduralMissionMusic = true;
-            proceduralMusicRegenerationTimer = 0f;
-            proceduralMusicAmbienceLevel = MathHelper.Clamp(ambienceLevel, 0f, 1f);
-
-            centreVilleMusicEffectInstance?.Stop();
-            centreVilleMusicEffectInstance?.Dispose();
-            centreVilleMusicEffect?.Dispose();
-
-            centreVilleMusicEffect = CreateCentreVilleCyberpunkLoop(proceduralMusicAmbienceLevel);
-            centreVilleMusicEffectInstance = centreVilleMusicEffect?.CreateInstance();
-
-            if (centreVilleMusicEffectInstance == null)
-                return;
-
-            centreVilleMusicEffectInstance.IsLooped = true;
-            centreVilleMusicEffectInstance.Volume = MathHelper.Clamp(optionsMenuManager?.GetMusicVolume() ?? 0.5f, 0f, 1f);
-            centreVilleMusicEffectInstance.Play();
-            Console.WriteLine($"[AUDIO] Procedural music ({soundtrackLabel}, ambience={proceduralMusicAmbienceLevel:F2})");
-        }
-
-        private float EstimateMissionAmbienceLevel()
-        {
-            float spottedEnemies = MathHelper.Clamp(currentlySpottedEnemies.Count / 8f, 0f, 1f);
-            float explosivePressure = MathHelper.Clamp(activeGrenades.Count / 3f, 0f, 1f);
-            float tacticalPressure = throwMode || grappleMode || c4PlacementMode ? 0.18f : 0f;
-            float nightFactor = MathHelper.Clamp((0.5f - timeOfDay) * 2f, 0f, 1f) * 0.2f;
-
-            float ambience = 0.25f + spottedEnemies * 0.5f + explosivePressure * 0.25f + tacticalPressure + nightFactor;
-            return MathHelper.Clamp(ambience, 0f, 1f);
-        }
-
-        private void UpdateProceduralMissionMusic(GameTime gameTime)
-        {
-            if (!usingProceduralMissionMusic || centreVilleMusicEffectInstance == null)
-                return;
-
-            centreVilleMusicEffectInstance.Volume = MathHelper.Clamp(optionsMenuManager?.GetMusicVolume() ?? 0.5f, 0f, 1f);
-
-            proceduralMusicRegenerationTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
-            if (proceduralMusicRegenerationTimer < ProceduralMusicRegenerationIntervalSeconds)
-                return;
-
-            proceduralMusicRegenerationTimer = 0f;
-            float newAmbience = EstimateMissionAmbienceLevel();
-            if (MathF.Abs(newAmbience - proceduralMusicAmbienceLevel) < 0.18f)
-                return;
-
-            proceduralMusicAmbienceLevel = newAmbience;
-            centreVilleMusicEffectInstance.Stop();
-            centreVilleMusicEffectInstance.Dispose();
-            centreVilleMusicEffect?.Dispose();
-
-            centreVilleMusicEffect = CreateCentreVilleCyberpunkLoop(proceduralMusicAmbienceLevel);
-            centreVilleMusicEffectInstance = centreVilleMusicEffect?.CreateInstance();
-
-            if (centreVilleMusicEffectInstance != null)
-            {
-                centreVilleMusicEffectInstance.IsLooped = true;
-                centreVilleMusicEffectInstance.Volume = MathHelper.Clamp(optionsMenuManager?.GetMusicVolume() ?? 0.5f, 0f, 1f);
-                centreVilleMusicEffectInstance.Play();
-                Console.WriteLine($"[AUDIO] Procedural soundtrack regenerated (ambience={proceduralMusicAmbienceLevel:F2})");
-            }
-        }
-
-        private void PlayGameplaySongForMission(string missionType)
-        {
-            float ambience = EstimateMissionAmbienceLevel();
-            StartProceduralMusicLoop(ambience, $"mission:{missionType}");
-        }
-
         private void EnsurePremadeMapsGenerated()
         {
             if (premadeMapsChecked)
@@ -798,7 +710,6 @@ namespace XCOM_3
             currentState = GameState.MainMenu;
             mainMenuManager.ResetToRootMenu();
             mainMenuManager.PlayRandomMenuSong();
-            StartProceduralMusicLoop(ambienceLevel: 0.18f, soundtrackLabel: "main_menu");
         }
 
         private void HandleCharacterCreationCompleted(List<CharacterCreationProfile> profiles)
@@ -835,7 +746,6 @@ namespace XCOM_3
             UpdateGrenades(gameTime);
 
             UpdateCurrentState(gameTime, mouse, keyboard, leftClick, escapePressed);
-            UpdateProceduralMissionMusic(gameTime);
 
             previousMouseState = mouse;
             previousKeyboardState = keyboard;
@@ -3688,7 +3598,6 @@ namespace XCOM_3
         private void StartMission(string missionType)
         {
             EnsurePremadeMapsGenerated();
-            PlayGameplaySongForMission(missionType);
             currentState = GameState.Playing;
 
             // ✅ NOUVEAU : Charger une carte (générée aléatoirement)
