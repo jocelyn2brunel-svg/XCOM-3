@@ -3659,9 +3659,14 @@ namespace XCOM_3
             return FurnitureData.IsVehicle(type);
         }
 
-        private bool IsCellHoverableOnViewedFloor(Point cell, int floor)
+        private bool TryResolveHoverableCellFloor(Point cell, int preferredFloor, out int resolvedFloor)
         {
-            return IsCellAvailableOnFloor(cell, floor);
+            resolvedFloor = preferredFloor;
+
+            if (IsCellAvailableOnFloor(cell, preferredFloor))
+                return true;
+
+            return TryResolveAvailableClickedFloor(cell, preferredFloor, out resolvedFloor);
         }
 
         Unit GetUnitAtCell(Point cell)
@@ -3759,7 +3764,9 @@ namespace XCOM_3
                 GraphicsDevice.Viewport.Height,
                 WorldMetrics.FloorToWorldY(interactionFloor, cellSize));
 
-            isHoveringValidCell = rawHoveredCell.X != -1 && IsCellHoverableOnViewedFloor(rawHoveredCell, interactionFloor);
+            int hoveredInteractionFloor = interactionFloor;
+            isHoveringValidCell = rawHoveredCell.X != -1 &&
+                TryResolveHoverableCellFloor(rawHoveredCell, interactionFloor, out hoveredInteractionFloor);
             if (isHoveringValidCell)
                 hoveredCell = rawHoveredCell;
 
@@ -3841,7 +3848,7 @@ namespace XCOM_3
 
             if (leftClick) HandleUnitActionButtons(mouse);
             if (leftClick && combatUI.ShowFireTargets) combatUI.HandleFireTargetClick(mouse, selectedUnit);
-            if (leftClick && !clickOnUI && !throwMode && !c4PlacementMode && !grappleMode && isHoveringValidCell) HandleGridClick(hoveredCell, interactionFloor, allowSmartFallback: !explicitUpperFloorTargeting);
+            if (leftClick && !clickOnUI && !throwMode && !c4PlacementMode && !grappleMode && isHoveringValidCell) HandleGridClick(hoveredCell, hoveredInteractionFloor, allowSmartFallback: !explicitUpperFloorTargeting);
 
             bool rightClick = mouse.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released;
             if (rightClick)
