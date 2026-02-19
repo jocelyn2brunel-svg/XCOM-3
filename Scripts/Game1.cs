@@ -240,6 +240,7 @@ namespace XCOM_3
         private const float WallHeightRatio = 2.0f;
         private const int HoverRevealRadius = 2;
         private const int UpperFloorCutoutRadius = 2;
+        private const bool AlwaysDrawUnitGhostOutline = true;
         private const bool AntiOcclusionCameraEnabled = false;
         private const float AntiOcclusionCameraMaxHeightCells = 1.0f;
         private const float AntiOcclusionCameraMaxOrbitDegrees = 8f;
@@ -2129,6 +2130,9 @@ namespace XCOM_3
 
             DrawDeadUnitRemains();
 
+            if (AlwaysDrawUnitGhostOutline)
+                DrawVisibleUnitGhostOutlines(visibleUnits);
+
             foreach (var unit in visibleUnits)
                 renderer3D.DrawUnit(unit, cellSize);
 
@@ -2735,6 +2739,36 @@ namespace XCOM_3
             GraphicsDevice.RasterizerState = previousRasterizer;
             GraphicsDevice.BlendState = BlendState.Opaque;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+        }
+
+        private void DrawVisibleUnitGhostOutlines(IEnumerable<Unit> units)
+        {
+            if (units == null)
+                return;
+
+            BlendState previousBlend = GraphicsDevice.BlendState;
+            DepthStencilState previousDepth = GraphicsDevice.DepthStencilState;
+
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+
+            foreach (Unit unit in units)
+            {
+                if (unit == null || unit.Health <= 0)
+                    continue;
+
+                if (unit.Floor != viewedFloor)
+                    continue;
+
+                Color ghostColor = unit.Team == Team.Player
+                    ? new Color(90, 210, 255, 70)
+                    : new Color(255, 120, 120, 65);
+
+                renderer3D.DrawUnitSilhouette(unit, cellSize, ghostColor);
+            }
+
+            GraphicsDevice.BlendState = previousBlend;
+            GraphicsDevice.DepthStencilState = previousDepth;
         }
 
         private void ComputeOcclusionFromHoveredArea(
