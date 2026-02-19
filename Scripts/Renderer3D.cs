@@ -350,12 +350,13 @@ namespace XCOM_3
                     Vector2 footprint = GetFurnitureFootprint(furniture.Type, cellSize);
                     Vector3 scale = new Vector3(footprint.X, heightWorld, footprint.Y);
 
+                    bool isVehicle = IsVehicleFurniture(furniture.Type);
                     Vector3 center = new Vector3(
-                        furniture.X * cellSize + cellSize / 2f,
+                        furniture.X * cellSize + (isVehicle ? 0f : cellSize / 2f),
                         floorHeightOffset + heightWorld / 2f,
-                        furniture.Y * cellSize + cellSize / 2f);
+                        furniture.Y * cellSize + (isVehicle ? 0f : cellSize / 2f));
 
-                    if (IsVehicleFurniture(furniture.Type))
+                    if (isVehicle)
                         DrawVehicleFurniture(furniture.Type, center, scale);
                     else
                         DrawDetailedFurniture(furniture.Type, center, scale, furniture.OrientationRadians);

@@ -311,7 +311,7 @@ namespace XCOM_3
                 FurnitureType.SedanMercedesEClass => (16.3f, 6.2f),
                 FurnitureType.PickupToyotaTacoma => (17.9f, 6.3f),
                 FurnitureType.PickupFordF150 => (19.5f, 6.7f),
-                FurnitureType.PickupRam3500 => (20.3f, 6.8f),
+                FurnitureType.PickupRam3500 => (19.9f, 6.8f),
                 _ => (5f, 5f)
             };
         }
@@ -324,8 +324,9 @@ namespace XCOM_3
             float lengthCells = lengthFeet / cellSizeFeet;
             float widthCells = widthFeet / cellSizeFeet;
 
-            float centerX = furniture.X + 0.5f;
-            float centerY = furniture.Y + 0.5f;
+            bool isVehicle = IsVehicle(furniture.Type);
+            float centerX = furniture.X + (isVehicle ? 0f : 0.5f);
+            float centerY = furniture.Y + (isVehicle ? 0f : 0.5f);
             float minX = centerX - lengthCells / 2f;
             float maxX = centerX + lengthCells / 2f;
             float minY = centerY - widthCells / 2f;
