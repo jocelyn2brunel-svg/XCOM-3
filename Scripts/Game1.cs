@@ -2033,13 +2033,18 @@ namespace XCOM_3
 
                 if (floor == 0)
                 {
-                    renderer3D.DrawGridWithTerrain(gridWidth, gridHeight, cellSize, tileTexture, terrainHeights, yOffset);
+                    // En vue sous-sol, ne dessine pas la dalle du RDC au-dessus de la caméra
+                    // pour éviter de masquer visuellement les niveaux négatifs.
+                    if (viewedFloor >= 0)
+                    {
+                        renderer3D.DrawGridWithTerrain(gridWidth, gridHeight, cellSize, tileTexture, terrainHeights, yOffset);
 
-                    if (sidewalkCells.Count > 0)
-                        renderer3D.DrawTerrainCells(sidewalkCells, cellSize, sidewalkTexture, terrainHeights, yOffset + 0.005f);
+                        if (sidewalkCells.Count > 0)
+                            renderer3D.DrawTerrainCells(sidewalkCells, cellSize, sidewalkTexture, terrainHeights, yOffset + 0.005f);
 
-                    if (roadCells.Count > 0)
-                        renderer3D.DrawTerrainCells(roadCells, cellSize, asphaltTexture, terrainHeights, yOffset + 0.01f);
+                        if (roadCells.Count > 0)
+                            renderer3D.DrawTerrainCells(roadCells, cellSize, asphaltTexture, terrainHeights, yOffset + 0.01f);
+                    }
                 }
                 else
                 {
