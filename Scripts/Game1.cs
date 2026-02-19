@@ -1473,15 +1473,6 @@ namespace XCOM_3
             if (IsCellAvailableOnFloor(cell, preferredFloor))
                 return true;
 
-            // Qualité de vie: depuis un étage supérieur, autoriser explicitement
-            // le clic vers le sol extérieur (RDC), même si l'étage visé n'a pas
-            // de cellule navigable à ces coordonnées.
-            if (preferredFloor != 0 && IsGroundExteriorCell(cell) && IsCellAvailableOnFloor(cell, 0))
-            {
-                resolvedFloor = 0;
-                return true;
-            }
-
             int minFloor = GetMinimumViewFloor();
             int maxFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
             int upFloor = Math.Clamp(preferredFloor + 1, minFloor, maxFloor);
@@ -3670,34 +3661,7 @@ namespace XCOM_3
 
         private bool IsCellHoverableOnViewedFloor(Point cell, int floor)
         {
-            if (IsCellAvailableOnFloor(cell, floor))
-                return true;
-
-            // Qualité de vie: autoriser le survol des cellules extérieures même
-            // lorsqu'on observe/interagit depuis un étage supérieur. Le fallback
-            // de prévisualisation et de clic résout ensuite automatiquement vers
-            // l'étage navigable approprié (souvent le RDC).
-            return IsGroundExteriorCell(cell);
-        }
-
-        private bool IsGroundExteriorCell(Point cell)
-        {
-            if (cell.X < 0 || cell.Y < 0 || cell.X >= gridWidth || cell.Y >= gridHeight)
-                return false;
-
-            if (currentMap?.Buildings == null || currentMap.Buildings.Count == 0)
-                return true;
-
-            foreach (var building in currentMap.Buildings)
-            {
-                if (cell.X >= building.X && cell.X < building.X + building.Width &&
-                    cell.Y >= building.Y && cell.Y < building.Y + building.Height)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return IsCellAvailableOnFloor(cell, floor);
         }
 
         Unit GetUnitAtCell(Point cell)
