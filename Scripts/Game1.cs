@@ -1467,6 +1467,18 @@ namespace XCOM_3
             return Math.Clamp(baseFloor + 1, GetMinimumViewFloor(), maxFloor);
         }
 
+        private int ResolveHoveredCellPreferredFloor(Point hoveredCell, int defaultInteractionFloor)
+        {
+            if (hoveredCell.X < 0 || hoveredCell.Y < 0)
+                return defaultInteractionFloor;
+
+            // En dehors d'un bâtiment, le survol reste toujours au rez-de-chaussée.
+            if (!IsInsideBuildingFootprint(hoveredCell))
+                return 0;
+
+            return defaultInteractionFloor;
+        }
+
         private bool TryResolveAvailableClickedFloor(Point cell, int preferredFloor, out int resolvedFloor)
         {
             resolvedFloor = preferredFloor;
@@ -3764,9 +3776,9 @@ namespace XCOM_3
                 GraphicsDevice.Viewport.Height,
                 WorldMetrics.FloorToWorldY(interactionFloor, cellSize));
 
-            int hoveredInteractionFloor = interactionFloor;
+            int hoveredInteractionFloor = ResolveHoveredCellPreferredFloor(rawHoveredCell, interactionFloor);
             isHoveringValidCell = rawHoveredCell.X != -1 &&
-                TryResolveHoverableCellFloor(rawHoveredCell, interactionFloor, out hoveredInteractionFloor);
+                TryResolveHoverableCellFloor(rawHoveredCell, hoveredInteractionFloor, out hoveredInteractionFloor);
             if (isHoveringValidCell)
                 hoveredCell = rawHoveredCell;
 
