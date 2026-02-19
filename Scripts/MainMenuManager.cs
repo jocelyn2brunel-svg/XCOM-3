@@ -152,8 +152,9 @@ namespace XCOM_3
                 "options",
                 "quit"
             };
-            int startY = 100;
-            int step = 28;
+            int titleBottom = (int)(_font.MeasureString("XCOM 3").Y * 3f);
+            int startY = titleBottom + 24;
+            int step = _font.LineSpacing + 10;
 
             List<Button> buttons = buttonActions.Select((action, index) =>
                 new Button(LocalizationManager.Get($"menu.{action}"), new Vector2(0, startY + index * step))
