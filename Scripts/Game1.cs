@@ -2803,9 +2803,10 @@ namespace XCOM_3
             playerUnits.Clear(); enemyUnits.Clear();
             deadUnitRemains.Clear();
 
+            int playerUnitCount = missionType == "Sprint" ? 1 : 6;
             List<Point> playerSpawnCells = missionType == "Centre-Ville" || missionType == "Sabotage"
-                ? GetCityCenterSpawnCells(6)
-                : Enumerable.Range(0, 6).Select(i => new Point(2 + i, gridHeight - 2)).ToList();
+                ? GetCityCenterSpawnCells(playerUnitCount)
+                : Enumerable.Range(0, playerUnitCount).Select(i => new Point(2 + i, gridHeight - 2)).ToList();
 
             for (int i = 0; i < playerSpawnCells.Count; i++)
             {
@@ -3014,7 +3015,7 @@ namespace XCOM_3
             foreach (var unit in playerUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
             foreach (var unit in enemyUnits) { unit.UpdateVisualPosition(cellSize); unit.TargetPosition = unit.VisualPosition; }
 
-            Console.WriteLine($"Units created for {missionType}: 6 player, {enemyUnits.Count} enemy");
+            Console.WriteLine($"Units created for {missionType}: {playerUnits.Count} player, {enemyUnits.Count} enemy");
         }
 
         private void ApplyStartingEquipment(Unit unit, CharacterCreationProfile profile)

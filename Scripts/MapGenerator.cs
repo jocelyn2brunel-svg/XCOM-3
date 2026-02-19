@@ -772,6 +772,7 @@ namespace XCOM_3
                 "Extraction" => EdgeWallGenerator.WallPattern.Scattered,
                 "Sabotage" => EdgeWallGenerator.WallPattern.Maze,
                 "Blackout" => EdgeWallGenerator.WallPattern.Bunker,
+                "Sprint" => EdgeWallGenerator.WallPattern.Trenches,
                 _ => (EdgeWallGenerator.WallPattern)random.Next(0, 6)
             };
         }
