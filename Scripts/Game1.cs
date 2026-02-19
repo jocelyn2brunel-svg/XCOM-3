@@ -3673,10 +3673,11 @@ namespace XCOM_3
             if (IsCellAvailableOnFloor(cell, floor))
                 return true;
 
-            // Les cellules extérieures au sol restent valides pour le ciblage/mouvement
-            // seulement au rez-de-chaussée. En étage, on évite le "survol dans le vide"
-            // tant qu'aucune mécanique d'unités volantes dédiée n'est implémentée.
-            return floor == 0 && IsGroundExteriorCell(cell);
+            // Qualité de vie: autoriser le survol des cellules extérieures même
+            // lorsqu'on observe/interagit depuis un étage supérieur. Le fallback
+            // de prévisualisation et de clic résout ensuite automatiquement vers
+            // l'étage navigable approprié (souvent le RDC).
+            return IsGroundExteriorCell(cell);
         }
 
         private bool IsGroundExteriorCell(Point cell)
@@ -3811,6 +3812,10 @@ namespace XCOM_3
                 {
                     Point previewGoal = hoveredCell;
                     int previewFloor = interactionFloor;
+
+                    if (!IsCellAvailableOnFloor(previewGoal, previewFloor))
+                        TryResolveAvailableClickedFloor(previewGoal, previewFloor, out previewFloor);
+
                     if (TryResolveVerticalTransition(selectedUnit.Floor, hoveredCell, out Point transitionGoal, out int transitionFloor))
                     {
                         previewGoal = transitionGoal;
