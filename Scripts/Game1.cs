@@ -243,6 +243,7 @@ namespace XCOM_3
         private const float WallHeightRatio = 2.0f;
         private const int HoverRevealRadius = 2;
         private const int UpperFloorCutoutRadius = 2;
+        private const bool AntiOcclusionCameraEnabled = false;
         private const float AntiOcclusionCameraMaxHeightCells = 1.0f;
         private const float AntiOcclusionCameraMaxOrbitDegrees = 8f;
         private const int AntiOcclusionOccluderThreshold = 6;
@@ -1996,6 +1997,14 @@ namespace XCOM_3
         {
             float targetHeight = 0f;
             float targetOrbit = 0f;
+
+            if (!AntiOcclusionCameraEnabled)
+            {
+                antiOcclusionCameraHeight = 0f;
+                antiOcclusionCameraOrbit = 0f;
+                camera.SetAntiOcclusionOffsets(0f, 0f);
+                return;
+            }
 
             if (TryGetHoverOcclusionFocus(out Point focusCell, out int focusFloor))
             {
