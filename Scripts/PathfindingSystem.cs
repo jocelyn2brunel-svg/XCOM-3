@@ -33,7 +33,8 @@ namespace XCOM_3
         public const int VerticalTransitionExtraCost = 1;
 
         private int gridW, gridH;
-        private int floorCount;
+        private int minFloor;
+        private int maxFloor;
         private HashSet<WallSegment> walls;
         private Dictionary<(Point A, Point B), WallSegment> wallLookup = new();
         private readonly Func<Point, Unit> getUnit;
@@ -64,10 +65,29 @@ namespace XCOM_3
         {
             gridW = w;
             gridH = h;
-            floorCount = Math.Max(1, floors);
-            this.walls = walls;
+            int configuredFloorCount = Math.Max(1, floors);
+            int computedMinFloor = 0;
+            int computedMaxFloor = configuredFloorCount - 1;
+
             this.stairs = stairs ?? new List<StairConnectionData>();
             this.ramps = ramps ?? new List<RampTileData>();
+
+            if (this.stairs.Count > 0)
+            {
+                computedMinFloor = Math.Min(computedMinFloor, this.stairs.Min(st => Math.Min(st.FromFloor, st.ToFloor)));
+                computedMaxFloor = Math.Max(computedMaxFloor, this.stairs.Max(st => Math.Max(st.FromFloor, st.ToFloor)));
+            }
+
+            if (this.ramps.Count > 0)
+            {
+                computedMinFloor = Math.Min(computedMinFloor, this.ramps.Min(r => r.Floor));
+                computedMaxFloor = Math.Max(computedMaxFloor, this.ramps.Max(r => r.Floor + 1));
+            }
+
+            minFloor = computedMinFloor;
+            maxFloor = computedMaxFloor;
+
+            this.walls = walls;
             this.getUnit = getUnit;
             this.getUnitByFloor = getUnitByFloor;
             this.isCellAvailableOnFloor = isCellAvailableOnFloor;
@@ -168,7 +188,7 @@ namespace XCOM_3
 
         private bool CanTraverseNeighbor(GridNode current, GridNode neighbor, GridNode goalNode, Unit movingUnit)
         {
-            if (neighbor.Floor < 0 || neighbor.Floor >= floorCount)
+            if (!IsFloorInBounds(neighbor.Floor))
                 return false;
 
             if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell))
@@ -274,7 +294,7 @@ namespace XCOM_3
 
                 foreach (var neighbor in GetNeighbors(current))
                 {
-                    if (neighbor.Floor < 0 || neighbor.Floor >= floorCount)
+                    if (!IsFloorInBounds(neighbor.Floor))
                         continue;
 
                     if (!IsWalkable(neighbor.Cell, neighbor.Floor, u))
@@ -431,7 +451,7 @@ namespace XCOM_3
 
         public bool IsWalkable(Point c, int floor, Unit movingUnit = null)
         {
-            if (c.X < 0 || c.Y < 0 || c.X >= gridW || c.Y >= gridH || floor < 0 || floor >= floorCount) return false;
+            if (c.X < 0 || c.Y < 0 || c.X >= gridW || c.Y >= gridH || !IsFloorInBounds(floor)) return false;
 
             if (isCellAvailableOnFloor != null && !isCellAvailableOnFloor(c, floor))
                 return false;
@@ -484,6 +504,12 @@ namespace XCOM_3
                     }
                 }
             }
+        }
+
+
+        private bool IsFloorInBounds(int floor)
+        {
+            return floor >= minFloor && floor <= maxFloor;
         }
 
         public int ManhattanDistance(Point a, Point b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
