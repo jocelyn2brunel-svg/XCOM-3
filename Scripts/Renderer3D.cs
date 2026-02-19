@@ -1465,38 +1465,50 @@ namespace XCOM_3
             if (zones == null) return;
 
             float pulse = (float)Math.Sin(gameTime * 3f) * 0.15f + 0.85f;
-            float floorYOffset = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
-
-            HashSet<Point> shortZone = zones.ShortMove != null
-                ? zones.ShortMove.Where(node => node.Floor == viewedFloor).Select(node => node.Cell).ToHashSet()
-                : new HashSet<Point>();
-            HashSet<Point> maxZone = new HashSet<Point>(shortZone);
-            if (zones.MaxMove != null)
+            var floors = new HashSet<int>();
+            if (zones.ShortMove != null) floors.UnionWith(zones.ShortMove.Select(n => n.Floor));
+            if (zones.MaxMove != null) floors.UnionWith(zones.MaxMove.Select(n => n.Floor));
+            if (zones.Sprint != null) floors.UnionWith(zones.Sprint.Select(n => n.Floor));
+            if (floors.Count == 0)
             {
-                maxZone.UnionWith(zones.MaxMove.Where(node => node.Floor == viewedFloor).Select(node => node.Cell));
-            }
-            HashSet<Point> sprintZone = new HashSet<Point>(maxZone);
-            if (zones.Sprint != null)
-            {
-                sprintZone.UnionWith(zones.Sprint.Where(node => node.Floor == viewedFloor).Select(node => node.Cell));
+                floors.Add(viewedFloor);
             }
 
-            // Zone 1 : contour externe du mouvement court (1 AP) - VERT
-            DrawZonePerimeter(shortZone, cellSize, floorYOffset + 0.02f, new Color(0, 255, 0, 220) * pulse);
-
-            // Zone 2 : contour externe du mouvement max (2 AP) - BLEU
-            DrawZonePerimeter(maxZone, cellSize, floorYOffset + 0.03f, new Color(0, 150, 255, 210) * pulse);
-
-            // Zone 3 : contour externe du sprint (2 AP + phosphocréatine) - JAUNE
-            float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
-            DrawZonePerimeter(sprintZone, cellSize, floorYOffset + 0.04f, new Color(255, 200, 0, 215) * sprintPulse);
-
-            // Indicateur sprint uniquement sur les cellules de frontière
-            foreach (var cell in sprintZone)
+            foreach (int floor in floors)
             {
-                if (IsBoundaryCell(cell, sprintZone))
+                float floorYOffset = WorldMetrics.FloorToWorldY(floor, cellSize);
+
+                HashSet<Point> shortZone = zones.ShortMove != null
+                    ? zones.ShortMove.Where(node => node.Floor == floor).Select(node => node.Cell).ToHashSet()
+                    : new HashSet<Point>();
+                HashSet<Point> maxZone = new HashSet<Point>(shortZone);
+                if (zones.MaxMove != null)
                 {
-                    DrawSprintIndicator(cell, cellSize, gameTime, floorYOffset);
+                    maxZone.UnionWith(zones.MaxMove.Where(node => node.Floor == floor).Select(node => node.Cell));
+                }
+                HashSet<Point> sprintZone = new HashSet<Point>(maxZone);
+                if (zones.Sprint != null)
+                {
+                    sprintZone.UnionWith(zones.Sprint.Where(node => node.Floor == floor).Select(node => node.Cell));
+                }
+
+                // Zone 1 : contour externe du mouvement court (1 AP) - VERT
+                DrawZonePerimeter(shortZone, cellSize, floorYOffset + 0.02f, new Color(0, 255, 0, 220) * pulse);
+
+                // Zone 2 : contour externe du mouvement max (2 AP) - BLEU
+                DrawZonePerimeter(maxZone, cellSize, floorYOffset + 0.03f, new Color(0, 150, 255, 210) * pulse);
+
+                // Zone 3 : contour externe du sprint (2 AP + phosphocréatine) - JAUNE
+                float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
+                DrawZonePerimeter(sprintZone, cellSize, floorYOffset + 0.04f, new Color(255, 200, 0, 215) * sprintPulse);
+
+                // Indicateur sprint uniquement sur les cellules de frontière
+                foreach (var cell in sprintZone)
+                {
+                    if (IsBoundaryCell(cell, sprintZone))
+                    {
+                        DrawSprintIndicator(cell, cellSize, gameTime, floorYOffset);
+                    }
                 }
             }
         }

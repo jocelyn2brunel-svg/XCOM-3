@@ -2194,7 +2194,7 @@ namespace XCOM_3
                     viewedFloor);
             }
 
-            if (!throwMode && currentPathNodes.Count > 0 && selectedUnit != null && currentPathNodes.Any(n => n.Floor == viewedFloor))
+            if (!throwMode && currentPathNodes.Count > 0 && selectedUnit != null)
             {
                 BlendState previousBlend = GraphicsDevice.BlendState;
                 DepthStencilState previousDepth = GraphicsDevice.DepthStencilState;
