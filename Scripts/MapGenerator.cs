@@ -89,8 +89,7 @@ namespace XCOM_3
                 map.PlayerSpawnZones.Concat(map.EnemySpawnZones).ToList(),
                 map.HescoBarriers);
 
-            map.StairConnections = GenerateDefaultStairs(map.GridWidth, map.GridHeight, map.FloorCount, map.Buildings);
-            map.RampTiles = GenerateDefaultRamps(map.StairConnections);
+            map.RampTiles = GenerateDefaultRamps(map.GridWidth, map.GridHeight, map.FloorCount, map.Buildings);
             map.TerrainHeights = GenerateTerrainRelief(map.GridWidth, map.GridHeight, pattern);
 
             Console.WriteLine($"[MAP GEN] Generated {map.Name}: {map.GridWidth}x{map.GridHeight}, floors={map.FloorCount}, {map.Walls.Count} walls");
@@ -192,14 +191,14 @@ namespace XCOM_3
         }
 
 
-        private List<StairConnectionData> GenerateDefaultStairs(
+        private List<RampTileData> GenerateDefaultRamps(
             int width,
             int height,
             int floorCount,
             List<BuildingFootprintData> buildings)
         {
-            var stairs = new List<StairConnectionData>();
-            var occupiedStairCells = new HashSet<(int Floor, int X, int Y)>();
+            var ramps = new List<RampTileData>();
+            var occupiedRampCells = new HashSet<(int Floor, int X, int Y)>();
 
             // Ajouter des cages d'escaliers internes sur chaque bâtiment multi-étage.
             // Cela garantit une circulation verticale cohérente dans les bâtiments urbains.
@@ -223,12 +222,12 @@ namespace XCOM_3
                     int radiusY = Math.Min(1, Math.Min(centerY - minY, maxY - centerY));
 
                     var centralSpiral = BuildSpiralPoints(centerX, centerY, minX, maxX, minY, maxY, radiusX, radiusY);
-                    AddStairShaftConnections(stairs, centralSpiral, 0, maxBuildingFloor - 1, occupiedStairCells);
+                    AddRampShaftConnections(ramps, centralSpiral, 0, maxBuildingFloor - 1, occupiedRampCells);
 
                     int basementLevels = Math.Max(0, building.BasementCount);
                     if (basementLevels > 0)
                     {
-                        AddStairShaftConnections(stairs, centralSpiral, -basementLevels, 0, occupiedStairCells);
+                        AddRampShaftConnections(ramps, centralSpiral, -basementLevels, 0, occupiedRampCells);
                     }
 
                     // Bâtiments suffisamment grands: ajouter une deuxième cage proche d'une façade.
@@ -250,17 +249,17 @@ namespace XCOM_3
                             secondaryRadiusX,
                             secondaryRadiusY);
 
-                        AddStairShaftConnections(stairs, secondarySpiral, 0, maxBuildingFloor - 1, occupiedStairCells);
+                        AddRampShaftConnections(ramps, secondarySpiral, 0, maxBuildingFloor - 1, occupiedRampCells);
 
                         if (basementLevels > 0)
                         {
-                            AddStairShaftConnections(stairs, secondarySpiral, -basementLevels, 0, occupiedStairCells);
+                            AddRampShaftConnections(ramps, secondarySpiral, -basementLevels, 0, occupiedRampCells);
                         }
                     }
                 }
             }
 
-            return stairs;
+            return ramps;
         }
 
         private List<FurnitureData> GenerateMapFurniture(
@@ -548,35 +547,6 @@ namespace XCOM_3
             return null;
         }
 
-        private static List<RampTileData> GenerateDefaultRamps(IEnumerable<StairConnectionData> stairs)
-        {
-            var ramps = new List<RampTileData>();
-            if (stairs == null)
-                return ramps;
-
-            foreach (var stair in stairs)
-            {
-                bool climbsToUpperFloor = stair.ToFloor == stair.FromFloor + 1;
-                int dx = stair.ToX - stair.FromX;
-                int dy = stair.ToY - stair.FromY;
-                bool cardinalStep = Math.Abs(dx) + Math.Abs(dy) == 1;
-
-                if (!climbsToUpperFloor || !cardinalStep)
-                    continue;
-
-                ramps.Add(new RampTileData
-                {
-                    X = stair.FromX,
-                    Y = stair.FromY,
-                    Floor = stair.FromFloor,
-                    AscendDx = dx,
-                    AscendDy = dy,
-                    Bidirectional = stair.Bidirectional
-                });
-            }
-
-            return ramps;
-        }
 
         private static List<Point> BuildSpiralPoints(
             int centerX,
@@ -599,12 +569,12 @@ namespace XCOM_3
             .ToList();
         }
 
-        private static void AddStairShaftConnections(
-            List<StairConnectionData> stairs,
+        private static void AddRampShaftConnections(
+            List<RampTileData> ramps,
             List<Point> shaftPoints,
             int minFloor,
             int maxFloor,
-            HashSet<(int Floor, int X, int Y)> occupiedStairCells)
+            HashSet<(int Floor, int X, int Y)> occupiedRampCells)
         {
             if (shaftPoints == null || shaftPoints.Count == 0 || minFloor >= maxFloor)
                 return;
@@ -615,40 +585,43 @@ namespace XCOM_3
                 Point from = shaftPoints[floorOffset % shaftPoints.Count];
                 Point to = shaftPoints[(floorOffset + 1) % shaftPoints.Count];
 
-                // Empêche un escalier vertical sur exactement la même cellule
-                // et interdit le chevauchement avec un autre escalier au même étage.
                 if (from == to)
                     continue;
 
-                bool fromOccupied = occupiedStairCells != null && occupiedStairCells.Contains((floor, from.X, from.Y));
-                bool toOccupied = occupiedStairCells != null && occupiedStairCells.Contains((floor + 1, to.X, to.Y));
+                int dx = to.X - from.X;
+                int dy = to.Y - from.Y;
+
+                // Seules les directions cardinales sont utilisables comme rampe.
+                if (Math.Abs(dx) + Math.Abs(dy) != 1)
+                    continue;
+
+                bool fromOccupied = occupiedRampCells != null && occupiedRampCells.Contains((floor, from.X, from.Y));
+                bool toOccupied = occupiedRampCells != null && occupiedRampCells.Contains((floor + 1, to.X, to.Y));
                 if (fromOccupied || toOccupied)
                     continue;
 
-                bool duplicate = stairs.Any(st =>
-                    st.FromFloor == floor &&
-                    st.ToFloor == floor + 1 &&
-                    st.FromX == from.X &&
-                    st.FromY == from.Y &&
-                    st.ToX == to.X &&
-                    st.ToY == to.Y);
+                bool duplicate = ramps.Any(r =>
+                    r.Floor == floor &&
+                    r.X == from.X &&
+                    r.Y == from.Y &&
+                    r.AscendDx == dx &&
+                    r.AscendDy == dy);
 
                 if (duplicate)
                     continue;
 
-                stairs.Add(new StairConnectionData
+                ramps.Add(new RampTileData
                 {
-                    FromX = from.X,
-                    FromY = from.Y,
-                    FromFloor = floor,
-                    ToX = to.X,
-                    ToY = to.Y,
-                    ToFloor = floor + 1,
+                    X = from.X,
+                    Y = from.Y,
+                    Floor = floor,
+                    AscendDx = dx,
+                    AscendDy = dy,
                     Bidirectional = true
                 });
 
-                occupiedStairCells?.Add((floor, from.X, from.Y));
-                occupiedStairCells?.Add((floor + 1, to.X, to.Y));
+                occupiedRampCells?.Add((floor, from.X, from.Y));
+                occupiedRampCells?.Add((floor + 1, to.X, to.Y));
             }
         }
 

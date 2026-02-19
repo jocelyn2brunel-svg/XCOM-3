@@ -30,29 +30,7 @@ namespace XCOM_3
             currentMap.HescoBarriers ??= new List<HescoBarrierData>();
             currentMap.Furnitures ??= new List<FurnitureData>();
 
-            if (currentMap.RampTiles.Count == 0 && currentMap.StairConnections != null)
-            {
-                foreach (var stair in currentMap.StairConnections)
-                {
-                    if (stair.ToFloor == stair.FromFloor + 1)
-                    {
-                        int dx = stair.ToX - stair.FromX;
-                        int dy = stair.ToY - stair.FromY;
-                        if (Math.Abs(dx) + Math.Abs(dy) != 1)
-                            continue;
 
-                        currentMap.RampTiles.Add(new RampTileData
-                        {
-                            X = stair.FromX,
-                            Y = stair.FromY,
-                            Floor = stair.FromFloor,
-                            AscendDx = dx,
-                            AscendDy = dy,
-                            Bidirectional = stair.Bidirectional
-                        });
-                    }
-                }
-            }
             viewedFloor = 0;
             gridWidth = map.GridWidth;
             gridHeight = map.GridHeight;

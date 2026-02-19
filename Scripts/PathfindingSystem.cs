@@ -40,7 +40,6 @@ namespace XCOM_3
         private readonly Func<Point, Unit> getUnit;
         private readonly Func<Point, int, Unit> getUnitByFloor;
         private readonly Func<Point, int, bool> isCellAvailableOnFloor;
-        private readonly List<StairConnectionData> stairs;
         private readonly List<RampTileData> ramps;
 
         public PathfindingSystem(int w, int h, HashSet<WallSegment> walls, Func<Point, Unit> getUnit)
@@ -49,7 +48,6 @@ namespace XCOM_3
                 h,
                 1,
                 walls,
-                new List<StairConnectionData>(),
                 new List<RampTileData>(),
                 getUnit,
                 (cell, floor) => floor == 0 ? getUnit(cell) : null,
@@ -57,7 +55,6 @@ namespace XCOM_3
         { }
 
         public PathfindingSystem(int w, int h, int floors, HashSet<WallSegment> walls,
-            List<StairConnectionData> stairs,
             List<RampTileData> ramps,
             Func<Point, Unit> getUnit,
             Func<Point, int, Unit> getUnitByFloor,
@@ -69,14 +66,7 @@ namespace XCOM_3
             int computedMinFloor = 0;
             int computedMaxFloor = configuredFloorCount - 1;
 
-            this.stairs = stairs ?? new List<StairConnectionData>();
             this.ramps = ramps ?? new List<RampTileData>();
-
-            if (this.stairs.Count > 0)
-            {
-                computedMinFloor = Math.Min(computedMinFloor, this.stairs.Min(st => Math.Min(st.FromFloor, st.ToFloor)));
-                computedMaxFloor = Math.Max(computedMaxFloor, this.stairs.Max(st => Math.Max(st.FromFloor, st.ToFloor)));
-            }
 
             if (this.ramps.Count > 0)
             {
