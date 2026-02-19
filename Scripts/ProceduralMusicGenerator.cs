@@ -6,11 +6,11 @@ using System.Collections.Generic;
 namespace XCOM_3
 {
     /// <summary>
-    /// Générateur procédural de boucles musicales orientées tension/combat.
-    /// Mélodie: chaîne de Markov sur degrés de gamme.
-    /// Rythme: modulation issue d'un bruit de Perlin 1D.
-    /// Harmonie: progression adaptée au niveau d'ambiance (0..1).
-    /// Texture: couche "inspiration" (pulse + sous-basse + sidechain) pour un rendu plus cinématique.
+    /// Générateur procédural de boucles musicales orientées jazz-fusion / acid jazz.
+    /// Mélodie: chaîne de Markov avec accent sur notes de couleur (7e, 9e, 11e).
+    /// Rythme: groove syncopé (kick/snare ghost notes/charley shuffle).
+    /// Harmonie: progression modale enrichie selon le niveau d'ambiance (0..1).
+    /// Texture: electric piano + clavinet + basse ronde + bruit analogique subtil.
     /// </summary>
     public sealed class ProceduralMusicGenerator
     {
@@ -30,7 +30,7 @@ namespace XCOM_3
             int sampleCount = (int)(sampleRate * durationSeconds);
             short[] samples = new short[sampleCount];
 
-            float bpm = MathHelper.Lerp(90f, 124f, ambienceLevel);
+            float bpm = MathHelper.Lerp(96f, 114f, ambienceLevel);
             float beatsPerSecond = bpm / 60f;
             float secondsPerBeat = 1f / beatsPerSecond;
 
@@ -59,32 +59,51 @@ namespace XCOM_3
                 float snare = 0f;
                 float hat = 0f;
 
-                if (beatPhase < 0.12f)
+                if (beatPhase < 0.1f)
                 {
-                    float env = MathF.Exp(-36f * beatPhase);
-                    float freq = 44f + (1f - beatPhase / 0.12f) * 55f;
+                    float env = MathF.Exp(-30f * beatPhase);
+                    float freq = 52f + (1f - beatPhase / 0.1f) * 38f;
                     kick = MathF.Sin(2f * MathF.PI * freq * beatPhase * secondsPerBeat) * env;
                 }
 
-                float snareStart = 0.5f;
-                if (beatPhase > snareStart && beatPhase < snareStart + 0.09f)
+                if (beatPhase > 0.74f && beatPhase < 0.8f)
                 {
-                    float local = beatPhase - snareStart;
-                    float env = MathF.Exp(-28f * local);
-                    snare = (((float)random.NextDouble() * 2f) - 1f) * env * 0.9f;
+                    float local = beatPhase - 0.74f;
+                    float env = MathF.Exp(-45f * local);
+                    kick += MathF.Sin(2f * MathF.PI * 64f * local * secondsPerBeat) * env * 0.32f;
                 }
 
-                float hatSubdivision = (t / (secondsPerBeat * 0.5f)) % 1f;
-                if (hatSubdivision < 0.12f)
+                float snareStart = 0.5f;
+                if (beatPhase > snareStart && beatPhase < snareStart + 0.08f)
                 {
-                    float env = MathF.Exp(-65f * hatSubdivision);
+                    float local = beatPhase - snareStart;
+                    float env = MathF.Exp(-24f * local);
+                    snare = (((float)random.NextDouble() * 2f) - 1f) * env * 0.72f;
+                }
+
+                if (beatPhase > 0.32f && beatPhase < 0.36f)
+                {
+                    float local = beatPhase - 0.32f;
+                    float env = MathF.Exp(-52f * local);
+                    snare += ((((float)random.NextDouble() * 2f) - 1f) * env) * 0.2f;
+                }
+
+                float hatSubdivision = (t / (secondsPerBeat * 0.33333334f)) % 1f;
+                if (hatSubdivision < 0.09f)
+                {
+                    float swing = ((beatIndex & 1) == 0) ? 1f : 0.82f;
+                    float env = MathF.Exp(-58f * hatSubdivision);
                     hat = ((((float)random.NextDouble() * 2f) - 1f) * env) * (0.25f + 0.7f * hatGate);
+                    hat *= swing;
                 }
 
                 float bassFreq = FrequencyFromDegree(scale, chordIndex, octaveOffset: -2);
                 float bassEnvelope = MathF.Pow(MathF.Max(0f, 1f - beatPhase), 1.8f);
-                float bass = (MathF.Sin(2f * MathF.PI * bassFreq * t)
-                            + 0.35f * MathF.Sin(2f * MathF.PI * bassFreq * 2f * t)) * bassEnvelope;
+                float bass = (
+                    MathF.Sin(2f * MathF.PI * bassFreq * t) +
+                    0.22f * MathF.Sin(2f * MathF.PI * bassFreq * 2f * t) +
+                    0.12f * MathF.Sin(2f * MathF.PI * bassFreq * 3f * t)
+                ) * bassEnvelope;
 
                 float subBassFreq = FrequencyFromDegree(scale, chordIndex, octaveOffset: -3);
                 float subBass = MathF.Sin(2f * MathF.PI * subBassFreq * t) * (0.38f + ambienceLevel * 0.18f);
@@ -95,7 +114,15 @@ namespace XCOM_3
                 float melodyLocal = MelodyLocalPhase(t, secondsPerBeat, melodyRhythm);
                 float melodyEnv = MathF.Exp(-5.2f * melodyLocal) * MathHelper.Lerp(0.5f, 1f, ambienceLevel);
                 float vibrato = MathF.Sin(2f * MathF.PI * (5.5f + ambienceLevel * 2f) * t) * (0.0025f + 0.0035f * ambienceLevel);
-                float melody = MathF.Sin(2f * MathF.PI * melodyFreq * (t + vibrato)) * melodyEnv;
+                float electricPiano = (
+                    MathF.Sin(2f * MathF.PI * melodyFreq * (t + vibrato)) +
+                    0.35f * MathF.Sin(2f * MathF.PI * melodyFreq * 2f * (t + vibrato))
+                ) * melodyEnv;
+
+                float clav = MathF.Sign(MathF.Sin(2f * MathF.PI * melodyFreq * 0.5f * t))
+                    * MathF.Sin(2f * MathF.PI * melodyFreq * t) * melodyEnv * (0.22f + ambienceLevel * 0.12f);
+
+                float melody = electricPiano + clav;
 
                 int pulseIndex = FindMelodyIndex(t, secondsPerBeat, pulseRhythm);
                 int pulseDegree = chordIndex + (pulseIndex % 2 == 0 ? 0 : 4);
@@ -122,24 +149,24 @@ namespace XCOM_3
                 float padNinth = FrequencyFromDegree(scale, chordIndex + 8, octaveOffset: -1);
                 pad += MathF.Sin(2f * MathF.PI * padNinth * t * (1.003f - padNoise * 0.003f)) * 0.14f;
 
-                float sidechain = 1f - MathF.Exp(-12f * MathF.Max(0f, 0.22f - beatPhase));
-                float ambienceTexture = (FractalPerlin1D(t * 8.4f, perlinSeeds[1] + 4.2f) * 0.08f) * (0.2f + ambienceLevel * 0.8f);
+                float sidechain = 1f - MathF.Exp(-8.5f * MathF.Max(0f, 0.16f - beatPhase));
+                float ambienceTexture = (FractalPerlin1D(t * 7.2f, perlinSeeds[1] + 4.2f) * 0.06f) * (0.2f + ambienceLevel * 0.8f);
 
                 float mix =
-                    kick * 0.48f +
-                    snare * 0.26f +
-                    hat * 0.18f +
-                    bass * 0.24f +
-                    subBass * 0.14f +
-                    melody * 0.33f +
-                    pulse * 0.24f +
-                    pad * 0.21f +
+                    kick * 0.38f +
+                    snare * 0.24f +
+                    hat * 0.2f +
+                    bass * 0.3f +
+                    subBass * 0.1f +
+                    melody * 0.36f +
+                    pulse * 0.18f +
+                    pad * 0.24f +
                     ambienceTexture;
 
                 mix *= sidechain;
 
                 mix = MathHelper.Clamp(mix, -1f, 1f);
-                samples[i] = (short)(mix * short.MaxValue * 0.88f);
+                samples[i] = (short)(mix * short.MaxValue * 0.84f);
             }
 
             return new SoundEffect(ConvertPcm16ToBytes(samples), sampleRate, AudioChannels.Mono);
@@ -148,23 +175,23 @@ namespace XCOM_3
         private static int[] BuildAdaptiveScale(float ambienceLevel)
         {
             if (ambienceLevel > 0.66f)
-                return new[] { 0, 2, 3, 6, 7, 8, 10 }; // plus instable / sombre
+                return new[] { 0, 2, 3, 5, 7, 9, 10 }; // dorien tendu (acid-jazz nocturne)
 
             if (ambienceLevel > 0.33f)
-                return new[] { 0, 2, 3, 5, 7, 8, 10 }; // mineur naturel
+                return new[] { 0, 2, 4, 5, 7, 9, 10 }; // mixolydien dominant souple
 
-            return new[] { 0, 2, 3, 5, 7, 9, 10 }; // dorien (un peu d'espoir)
+            return new[] { 0, 2, 4, 5, 7, 9, 11 }; // majeur 7/9 lumineux
         }
 
         private static int[] BuildAdaptiveProgression(float ambienceLevel)
         {
             if (ambienceLevel > 0.66f)
-                return new[] { 0, 5, 3, 6, 0, 2, 5, 1 };
+                return new[] { 0, 4, 1, 5, 0, 6, 3, 5 };
 
             if (ambienceLevel > 0.33f)
-                return new[] { 0, 3, 5, 4, 0, 2, 5, 3 };
+                return new[] { 0, 4, 5, 3, 0, 2, 6, 4 };
 
-            return new[] { 0, 4, 3, 5, 0, 2, 4, 3 };
+            return new[] { 0, 5, 3, 4, 0, 2, 5, 4 };
         }
 
         private int[] BuildMarkovMelodyDegrees(float ambienceLevel, int bars)
@@ -216,19 +243,19 @@ namespace XCOM_3
         private static float[] BuildMelodyRhythm(float ambienceLevel)
         {
             return ambienceLevel > 0.66f
-                ? new[] { 0.5f, 0.5f, 0.25f, 0.75f, 0.5f, 0.5f }
+                ? new[] { 0.5f, 0.25f, 0.25f, 0.75f, 0.5f, 0.75f }
                 : ambienceLevel > 0.33f
-                    ? new[] { 0.75f, 0.5f, 0.25f, 0.5f, 1f }
-                    : new[] { 1f, 0.5f, 0.5f, 1f };
+                    ? new[] { 0.75f, 0.25f, 0.5f, 0.5f, 1f }
+                    : new[] { 1f, 0.5f, 0.25f, 0.75f };
         }
 
         private static float[] BuildPulseRhythm(float ambienceLevel)
         {
             return ambienceLevel > 0.66f
-                ? new[] { 0.25f, 0.25f, 0.5f, 0.25f, 0.75f }
+                ? new[] { 0.25f, 0.25f, 0.5f, 0.25f, 0.25f, 0.5f }
                 : ambienceLevel > 0.33f
-                    ? new[] { 0.5f, 0.5f, 0.25f, 0.75f }
-                    : new[] { 0.75f, 0.25f, 1f };
+                    ? new[] { 0.5f, 0.25f, 0.25f, 0.75f, 0.25f }
+                    : new[] { 0.75f, 0.25f, 0.5f, 0.5f };
         }
 
         private static int FindMelodyIndex(float t, float secondsPerBeat, IReadOnlyList<float> rhythm)
