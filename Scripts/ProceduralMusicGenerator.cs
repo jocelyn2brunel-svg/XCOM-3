@@ -10,6 +10,7 @@ namespace XCOM_3
     /// Mélodie: chaîne de Markov sur degrés de gamme.
     /// Rythme: modulation issue d'un bruit de Perlin 1D.
     /// Harmonie: progression adaptée au niveau d'ambiance (0..1).
+    /// Texture: couche "inspiration" (pulse + sous-basse + sidechain) pour un rendu plus cinématique.
     /// </summary>
     public sealed class ProceduralMusicGenerator
     {
@@ -37,6 +38,7 @@ namespace XCOM_3
             int[] progression = BuildAdaptiveProgression(ambienceLevel);
             int[] melodyDegrees = BuildMarkovMelodyDegrees(ambienceLevel, bars: 12);
             float[] melodyRhythm = BuildMelodyRhythm(ambienceLevel);
+            float[] pulseRhythm = BuildPulseRhythm(ambienceLevel);
 
             float[] perlinSeeds = { (float)random.NextDouble() * 9f, (float)random.NextDouble() * 9f + 10f };
 
@@ -84,6 +86,9 @@ namespace XCOM_3
                 float bass = (MathF.Sin(2f * MathF.PI * bassFreq * t)
                             + 0.35f * MathF.Sin(2f * MathF.PI * bassFreq * 2f * t)) * bassEnvelope;
 
+                float subBassFreq = FrequencyFromDegree(scale, chordIndex, octaveOffset: -3);
+                float subBass = MathF.Sin(2f * MathF.PI * subBassFreq * t) * (0.38f + ambienceLevel * 0.18f);
+
                 int melodyIndex = FindMelodyIndex(t, secondsPerBeat, melodyRhythm);
                 int melodyDegree = melodyDegrees[melodyIndex % melodyDegrees.Length];
                 float melodyFreq = FrequencyFromDegree(scale, melodyDegree + chordIndex, octaveOffset: 0);
@@ -91,6 +96,16 @@ namespace XCOM_3
                 float melodyEnv = MathF.Exp(-5.2f * melodyLocal) * MathHelper.Lerp(0.5f, 1f, ambienceLevel);
                 float vibrato = MathF.Sin(2f * MathF.PI * (5.5f + ambienceLevel * 2f) * t) * (0.0025f + 0.0035f * ambienceLevel);
                 float melody = MathF.Sin(2f * MathF.PI * melodyFreq * (t + vibrato)) * melodyEnv;
+
+                int pulseIndex = FindMelodyIndex(t, secondsPerBeat, pulseRhythm);
+                int pulseDegree = chordIndex + (pulseIndex % 2 == 0 ? 0 : 4);
+                float pulseFreq = FrequencyFromDegree(scale, pulseDegree, octaveOffset: 0);
+                float pulseLocal = MelodyLocalPhase(t, secondsPerBeat, pulseRhythm);
+                float pulseGate = pulseLocal < 0.18f ? 1f - (pulseLocal / 0.18f) : 0f;
+                float pulse = (
+                    MathF.Sin(2f * MathF.PI * pulseFreq * t) +
+                    0.5f * MathF.Sin(2f * MathF.PI * pulseFreq * 2.01f * t)
+                ) * pulseGate * (0.24f + ambienceLevel * 0.25f);
 
                 float padNoise = FractalPerlin1D(t * 0.22f, perlinSeeds[1]);
                 float padDetune = 1f + padNoise * 0.01f;
@@ -104,13 +119,24 @@ namespace XCOM_3
                 ) / 3f;
                 pad *= 0.42f + 0.28f * (1f - ambienceLevel);
 
+                float padNinth = FrequencyFromDegree(scale, chordIndex + 8, octaveOffset: -1);
+                pad += MathF.Sin(2f * MathF.PI * padNinth * t * (1.003f - padNoise * 0.003f)) * 0.14f;
+
+                float sidechain = 1f - MathF.Exp(-12f * MathF.Max(0f, 0.22f - beatPhase));
+                float ambienceTexture = (FractalPerlin1D(t * 8.4f, perlinSeeds[1] + 4.2f) * 0.08f) * (0.2f + ambienceLevel * 0.8f);
+
                 float mix =
                     kick * 0.48f +
                     snare * 0.26f +
                     hat * 0.18f +
-                    bass * 0.28f +
+                    bass * 0.24f +
+                    subBass * 0.14f +
                     melody * 0.33f +
-                    pad * 0.24f;
+                    pulse * 0.24f +
+                    pad * 0.21f +
+                    ambienceTexture;
+
+                mix *= sidechain;
 
                 mix = MathHelper.Clamp(mix, -1f, 1f);
                 samples[i] = (short)(mix * short.MaxValue * 0.88f);
@@ -194,6 +220,15 @@ namespace XCOM_3
                 : ambienceLevel > 0.33f
                     ? new[] { 0.75f, 0.5f, 0.25f, 0.5f, 1f }
                     : new[] { 1f, 0.5f, 0.5f, 1f };
+        }
+
+        private static float[] BuildPulseRhythm(float ambienceLevel)
+        {
+            return ambienceLevel > 0.66f
+                ? new[] { 0.25f, 0.25f, 0.5f, 0.25f, 0.75f }
+                : ambienceLevel > 0.33f
+                    ? new[] { 0.5f, 0.5f, 0.25f, 0.75f }
+                    : new[] { 0.75f, 0.25f, 1f };
         }
 
         private static int FindMelodyIndex(float t, float secondsPerBeat, IReadOnlyList<float> rhythm)
