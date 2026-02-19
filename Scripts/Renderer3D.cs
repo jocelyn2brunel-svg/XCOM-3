@@ -1547,42 +1547,52 @@ namespace XCOM_3
         {
             if (zone == null || zone.Count == 0) return;
 
-            foreach (Point cell in zone)
+            bool previousLighting = basic.LightingEnabled;
+            basic.LightingEnabled = false;
+
+            try
             {
-                float xMin = cell.X * cellSize;
-                float xMax = (cell.X + 1) * cellSize;
-                float zMin = cell.Y * cellSize;
-                float zMax = (cell.Y + 1) * cellSize;
-
-                float yNW = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X, cell.Y) + lift;
-                float ySW = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X, cell.Y + 1) + lift;
-                float ySE = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X + 1, cell.Y + 1) + lift;
-                float yNE = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X + 1, cell.Y) + lift;
-
-                Vector3 nw = new Vector3(xMin, yNW, zMin);
-                Vector3 sw = new Vector3(xMin, ySW, zMax);
-                Vector3 se = new Vector3(xMax, ySE, zMax);
-                Vector3 ne = new Vector3(xMax, yNE, zMin);
-
-                if (!zone.Contains(new Point(cell.X, cell.Y - 1)))
+                foreach (Point cell in zone)
                 {
-                    DrawLine(nw, ne, color);
-                }
+                    float xMin = cell.X * cellSize;
+                    float xMax = (cell.X + 1) * cellSize;
+                    float zMin = cell.Y * cellSize;
+                    float zMax = (cell.Y + 1) * cellSize;
 
-                if (!zone.Contains(new Point(cell.X + 1, cell.Y)))
-                {
-                    DrawLine(ne, se, color);
-                }
+                    float yNW = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X, cell.Y) + lift;
+                    float ySW = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X, cell.Y + 1) + lift;
+                    float ySE = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X + 1, cell.Y + 1) + lift;
+                    float yNE = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X + 1, cell.Y) + lift;
 
-                if (!zone.Contains(new Point(cell.X, cell.Y + 1)))
-                {
-                    DrawLine(sw, se, color);
-                }
+                    Vector3 nw = new Vector3(xMin, yNW, zMin);
+                    Vector3 sw = new Vector3(xMin, ySW, zMax);
+                    Vector3 se = new Vector3(xMax, ySE, zMax);
+                    Vector3 ne = new Vector3(xMax, yNE, zMin);
 
-                if (!zone.Contains(new Point(cell.X - 1, cell.Y)))
-                {
-                    DrawLine(nw, sw, color);
+                    if (!zone.Contains(new Point(cell.X, cell.Y - 1)))
+                    {
+                        DrawPathSegment(nw, ne, color, cellSize);
+                    }
+
+                    if (!zone.Contains(new Point(cell.X + 1, cell.Y)))
+                    {
+                        DrawPathSegment(ne, se, color, cellSize);
+                    }
+
+                    if (!zone.Contains(new Point(cell.X, cell.Y + 1)))
+                    {
+                        DrawPathSegment(sw, se, color, cellSize);
+                    }
+
+                    if (!zone.Contains(new Point(cell.X - 1, cell.Y)))
+                    {
+                        DrawPathSegment(nw, sw, color, cellSize);
+                    }
                 }
+            }
+            finally
+            {
+                basic.LightingEnabled = previousLighting;
             }
         }
 
