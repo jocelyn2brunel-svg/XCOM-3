@@ -40,7 +40,6 @@ namespace XCOM_3
 
         // Points d'intérêt
         public List<ObjectivePoint> Objectives { get; set; } = new List<ObjectivePoint>();
-        public List<StairConnectionData> StairConnections { get; set; } = new List<StairConnectionData>();
         public List<RampTileData> RampTiles { get; set; } = new List<RampTileData>();
         public List<BuildingFootprintData> Buildings { get; set; } = new List<BuildingFootprintData>();
         public List<TerrainHeightData> TerrainHeights { get; set; } = new List<TerrainHeightData>();
@@ -224,18 +223,6 @@ namespace XCOM_3
             error = null;
             return true;
         }
-    }
-
-    [Serializable]
-    public class StairConnectionData
-    {
-        public int FromX { get; set; }
-        public int FromY { get; set; }
-        public int FromFloor { get; set; }
-        public int ToX { get; set; }
-        public int ToY { get; set; }
-        public int ToFloor { get; set; }
-        public bool Bidirectional { get; set; } = true;
     }
 
     [Serializable]

@@ -483,7 +483,7 @@ namespace XCOM_3
             inventorySystem = new InventorySystem(GraphicsDevice, _spriteBatch, font, pixel);
             unitManager = new OptimizedUnitManager();
 
-            pathfinding = new PathfindingSystem(gridWidth, gridHeight, 1, new HashSet<WallSegment>(), new List<StairConnectionData>(), new List<RampTileData>(), GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, 1, new HashSet<WallSegment>(), new List<RampTileData>(), GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
             statsPanel = new StatsPanel(
                 Content.Load<SpriteFont>("Arial"),
                 GraphicsDevice);
@@ -3839,7 +3839,7 @@ namespace XCOM_3
             wallSegments = currentMap.GetWalls();
             shatteredWindows.Clear();
             InvalidateWallsByFloorCache();
-            pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallSegments, currentMap.StairConnections, currentMap.RampTiles, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallSegments, currentMap.RampTiles, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
             combatSystem.SetPathfinding(pathfinding);
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
             unitManager.InitializeForMission(playerUnits, enemyUnits);
