@@ -1499,20 +1499,6 @@ namespace XCOM_3
                     sprintZone.UnionWith(zones.Sprint.Where(node => node.Floor == floor).Select(node => node.Cell));
                 }
 
-                // Zones exclusives pour le remplissage de couleur
-                HashSet<Point> shortExclusive = shortZone;
-                HashSet<Point> maxExclusive = maxZone.Except(shortZone).ToHashSet();
-                HashSet<Point> sprintExclusive = sprintZone.Except(maxZone).ToHashSet();
-
-                // Remplissage semi-transparent des zones (pour une meilleure lisibilité)
-                float fillPulse = (float)Math.Sin(gameTime * 2.5f) * 0.12f + 0.88f;
-                ExecuteWithOpacity(0.38f, () =>
-                {
-                    DrawZoneFill(shortExclusive, cellSize, floorYOffset, new Color(0, 255, 80) * fillPulse, terrainHeights);
-                    DrawZoneFill(maxExclusive, cellSize, floorYOffset, new Color(50, 150, 255) * fillPulse, terrainHeights);
-                    DrawZoneFill(sprintExclusive, cellSize, floorYOffset, new Color(255, 200, 0) * fillPulse, terrainHeights);
-                });
-
                 // Zone 1 : contour externe du mouvement court (1 AP) - VERT
                 DrawZonePerimeter(shortZone, cellSize, floorYOffset, 0.02f, new Color(0, 255, 0, 255) * pulse, terrainHeights);
 
@@ -1561,59 +1547,52 @@ namespace XCOM_3
         {
             if (zone == null || zone.Count == 0) return;
 
+            float borderDepth  = cellSize * 0.07f;
+            float borderHeight = cellSize * 0.04f;
+            float xLen = cellSize + borderDepth; // couvre les coins sans trou
+            float zLen = cellSize + borderDepth;
+
             foreach (Point cell in zone)
             {
                 float xMin = cell.X * cellSize;
                 float xMax = (cell.X + 1) * cellSize;
+                float xMid = (xMin + xMax) * 0.5f;
                 float zMin = cell.Y * cellSize;
                 float zMax = (cell.Y + 1) * cellSize;
+                float zMid = (zMin + zMax) * 0.5f;
 
                 float yNW = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X, cell.Y) + lift;
                 float ySW = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X, cell.Y + 1) + lift;
                 float ySE = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X + 1, cell.Y + 1) + lift;
                 float yNE = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X + 1, cell.Y) + lift;
 
-                Vector3 nw = new Vector3(xMin, yNW, zMin);
-                Vector3 sw = new Vector3(xMin, ySW, zMax);
-                Vector3 se = new Vector3(xMax, ySE, zMax);
-                Vector3 ne = new Vector3(xMax, yNE, zMin);
-
+                // Bord nord
                 if (!zone.Contains(new Point(cell.X, cell.Y - 1)))
                 {
-                    DrawLine(nw, ne, color);
+                    float y = (yNW + yNE) * 0.5f;
+                    DrawCube(new Vector3(xMid, y, zMin), new Vector3(xLen, borderHeight, borderDepth), color);
                 }
 
+                // Bord est
                 if (!zone.Contains(new Point(cell.X + 1, cell.Y)))
                 {
-                    DrawLine(ne, se, color);
+                    float y = (yNE + ySE) * 0.5f;
+                    DrawCube(new Vector3(xMax, y, zMid), new Vector3(borderDepth, borderHeight, zLen), color);
                 }
 
+                // Bord sud
                 if (!zone.Contains(new Point(cell.X, cell.Y + 1)))
                 {
-                    DrawLine(sw, se, color);
+                    float y = (ySW + ySE) * 0.5f;
+                    DrawCube(new Vector3(xMid, y, zMax), new Vector3(xLen, borderHeight, borderDepth), color);
                 }
 
+                // Bord ouest
                 if (!zone.Contains(new Point(cell.X - 1, cell.Y)))
                 {
-                    DrawLine(nw, sw, color);
+                    float y = (yNW + ySW) * 0.5f;
+                    DrawCube(new Vector3(xMin, y, zMid), new Vector3(borderDepth, borderHeight, zLen), color);
                 }
-            }
-        }
-
-        private void DrawZoneFill(IEnumerable<Point> cells, int cellSize, float floorYOffset, Color color, IReadOnlyDictionary<Point, float> terrainHeights)
-        {
-            if (cells == null) return;
-
-            float fillSize = cellSize * 0.94f;
-            foreach (Point cell in cells)
-            {
-                float terrainH = GetCellTerrainHeight(terrainHeights, cell);
-                Vector3 pos = new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
-                    floorYOffset + terrainH + 0.01f,
-                    cell.Y * cellSize + cellSize / 2f
-                );
-                DrawPlane(pos, new Vector3(fillSize, 1f, fillSize), color);
             }
         }
 
