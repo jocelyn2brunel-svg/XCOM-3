@@ -2194,8 +2194,7 @@ namespace XCOM_3
                 GraphicsDevice.DepthStencilState = DepthStencilState.None;
 
                 renderer3D.DrawMovementPath(currentPathNodes, selectedUnit, cellSize,
-                    (float)gameTime.TotalGameTime.TotalSeconds,
-                    viewedFloor);
+                    (float)gameTime.TotalGameTime.TotalSeconds);
 
                 GraphicsDevice.BlendState = previousBlend;
                 GraphicsDevice.DepthStencilState = previousDepth;
