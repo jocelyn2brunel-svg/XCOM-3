@@ -1466,20 +1466,6 @@ namespace XCOM_3
                     sprintZone.UnionWith(zones.Sprint.Where(node => node.Floor == floor).Select(node => node.Cell));
                 }
 
-                // Zones exclusives pour le remplissage de couleur
-                HashSet<Point> shortExclusive = shortZone;
-                HashSet<Point> maxExclusive = maxZone.Except(shortZone).ToHashSet();
-                HashSet<Point> sprintExclusive = sprintZone.Except(maxZone).ToHashSet();
-
-                // Remplissage semi-transparent des zones (pour une meilleure lisibilité)
-                float fillPulse = (float)Math.Sin(gameTime * 2.5f) * 0.12f + 0.88f;
-                ExecuteWithOpacity(0.38f, () =>
-                {
-                    DrawZoneFill(shortExclusive, cellSize, floorYOffset, new Color(0, 255, 80) * fillPulse, terrainHeights);
-                    DrawZoneFill(maxExclusive, cellSize, floorYOffset, new Color(50, 150, 255) * fillPulse, terrainHeights);
-                    DrawZoneFill(sprintExclusive, cellSize, floorYOffset, new Color(255, 200, 0) * fillPulse, terrainHeights);
-                });
-
                 // Zone 1 : contour externe du mouvement court (1 AP) - VERT
                 DrawZonePerimeter(shortZone, cellSize, floorYOffset, 0.02f, new Color(0, 255, 0, 255) * pulse, terrainHeights);
 
