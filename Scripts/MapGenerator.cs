@@ -117,8 +117,7 @@ namespace XCOM_3
 
             map.GenerateDefaultSpawnZones();
             map.FloorCount = 3;
-            map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
-            map.RampTiles = GenerateDefaultRamps(map.StairConnections);
+            map.RampTiles = GenerateDefaultRamps(width, height, map.FloorCount, map.Buildings);
             map.TerrainHeights = GenerateTerrainRelief(width, height, null);
 
             Console.WriteLine($"[MAP GEN] Created empty map: {width}x{height}, floors={map.FloorCount}");
@@ -181,8 +180,7 @@ namespace XCOM_3
                 map.FloorCount,
                 map.PlayerSpawnZones.Concat(map.EnemySpawnZones).ToList(),
                 map.HescoBarriers);
-            map.StairConnections = GenerateDefaultStairs(width, height, map.FloorCount, map.Buildings);
-            map.RampTiles = GenerateDefaultRamps(map.StairConnections);
+            map.RampTiles = GenerateDefaultRamps(width, height, map.FloorCount, map.Buildings);
             map.TerrainHeights = GenerateTerrainRelief(width, height, pattern);
 
             Console.WriteLine($"[MAP GEN] Generated {pattern} map: {width}x{height}, floors={map.FloorCount}");
