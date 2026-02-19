@@ -232,6 +232,11 @@ namespace XCOM_3
         private SoundEffectInstance gunshotSoundEffectInstance;
         private SoundEffect casingClingSoundEffect;
         private SoundEffect grenadeExplosionSoundEffect;
+        private ProceduralMusicGenerator proceduralMusicGenerator;
+        private bool usingProceduralMissionMusic;
+        private float proceduralMusicAmbienceLevel;
+        private float proceduralMusicRegenerationTimer;
+        private const float ProceduralMusicRegenerationIntervalSeconds = 12f;
 
         private enum UnitPageTab { Inventory, Skills, Info }
         private const int TabWidth = 170;
@@ -515,139 +520,19 @@ namespace XCOM_3
 
         private void InitializeAudioSystems()
         {
+            proceduralMusicGenerator = new ProceduralMusicGenerator(random.Next());
             gunshotSoundEffect = CreateProceduralGunshotSound();
             gunshotSoundEffectInstance = gunshotSoundEffect?.CreateInstance();
-            centreVilleMusicEffect = CreateCentreVilleCyberpunkLoop();
+            proceduralMusicAmbienceLevel = EstimateMissionAmbienceLevel();
+            centreVilleMusicEffect = CreateCentreVilleCyberpunkLoop(proceduralMusicAmbienceLevel);
             casingClingSoundEffect = CreateProceduralCasingClingSound();
             grenadeExplosionSoundEffect = CreateProceduralGrenadeExplosionSound();
             VisualEffects.OnSpentCasingLanded += HandleSpentCasingLanded;
         }
 
-        private SoundEffect CreateCentreVilleCyberpunkLoop()
+        private SoundEffect CreateCentreVilleCyberpunkLoop(float ambienceLevel)
         {
-            const int sampleRate = 44100;
-            const float durationSeconds = 16f;
-            int sampleCount = (int)(sampleRate * durationSeconds);
-            short[] samples = new short[sampleCount];
-
-            // Progression plus longue et moins répétitive (16 mesures) en La mineur.
-            float[] rootPattern =
-            {
-                55f, 43.65f, 36.71f, 41.20f,
-                49f, 41.20f, 46.25f, 55f,
-                55f, 43.65f, 46.25f, 49f,
-                41.20f, 36.71f, 43.65f, 55f
-            };
-            float[] leadIntervals = { 0f, 3f, 7f, 10f, 12f, 15f, 10f, 7f, 3f, 5f, 8f, 10f };
-            float[] leadRhythmSteps = { 0.125f, 0.125f, 0.25f, 0.125f, 0.1875f, 0.1875f, 0.25f };
-
-            for (int i = 0; i < sampleCount; i++)
-            {
-                float t = i / (float)sampleRate;
-                float beatPhase = t % 0.5f;
-                float barPhase = t % 1f;
-                float sectionPhase = t % durationSeconds;
-                int progressionIndex = (int)sectionPhase % rootPattern.Length;
-                float root = rootPattern[progressionIndex];
-                float sectionProgress = sectionPhase / durationSeconds;
-
-                float kickEnvelope = MathF.Max(0f, 1f - beatPhase / 0.2f);
-                float kickFreq = 42f + (beatPhase < 0.08f ? (1f - beatPhase / 0.08f) * 72f : 0f);
-                float kickGhostPhase = (t + 0.125f) % 0.5f;
-                float kickGhost = kickGhostPhase < 0.04f ? MathF.Sin(2f * MathF.PI * 76f * kickGhostPhase) * MathF.Exp(-35f * kickGhostPhase) * 0.25f : 0f;
-                float kick = MathF.Sin(2f * MathF.PI * kickFreq * beatPhase) * kickEnvelope + kickGhost;
-
-                float snarePhase = (t + 0.25f) % 0.5f;
-                float snareEnvelope = snarePhase < 0.055f ? MathF.Exp(-38f * snarePhase) : 0f;
-                float snareNoise = ((float)random.NextDouble() * 2f - 1f) * snareEnvelope;
-                float snareTone = MathF.Sin(2f * MathF.PI * 185f * snarePhase) * snareEnvelope * 0.6f;
-                float snare = snareNoise * 0.75f + snareTone;
-
-                float bassSwell = 0.82f + 0.18f * MathF.Sin(2f * MathF.PI * (0.031f + sectionProgress * 0.02f) * t + 1.2f);
-                float bassGate = MathF.Pow(MathF.Max(0f, 1f - (beatPhase / 0.42f)), 1.5f) * bassSwell;
-                float bass = (MathF.Sin(2f * MathF.PI * root * t)
-                    + 0.42f * MathF.Sin(2f * MathF.PI * root * 2f * t)
-                    + 0.16f * MathF.Sin(2f * MathF.PI * root * 3f * t)) * bassGate;
-
-                float hatPhase = t % 0.125f;
-                float hatEnvelope = hatPhase < 0.016f ? MathF.Exp(-120f * hatPhase) : 0f;
-                float hatNoise = ((float)random.NextDouble() * 2f - 1f) * hatEnvelope;
-                float hatOpenPhase = t % 0.5f;
-                float hatOpenEnvelope = hatOpenPhase > 0.37f && hatOpenPhase < 0.5f
-                    ? MathF.Exp(-12f * (hatOpenPhase - 0.37f)) * 0.3f
-                    : 0f;
-                float hatOpen = ((float)random.NextDouble() * 2f - 1f) * hatOpenEnvelope;
-                float hatAccent = (barPhase > 0.74f && barPhase < 0.86f)
-                    ? ((float)random.NextDouble() * 2f - 1f) * MathF.Exp(-25f * (barPhase - 0.74f)) * 0.22f
-                    : 0f;
-
-                float leadCycleDuration = 0f;
-                foreach (float step in leadRhythmSteps)
-                    leadCycleDuration += step;
-
-                float leadCyclePhase = t % leadCycleDuration;
-                int rhythmIndex = 0;
-                float accumulated = leadRhythmSteps[0];
-                while (leadCyclePhase > accumulated && rhythmIndex < leadRhythmSteps.Length - 1)
-                {
-                    rhythmIndex++;
-                    accumulated += leadRhythmSteps[rhythmIndex];
-                }
-
-                int arpStep = ((int)(t / 0.5f) + rhythmIndex) % leadIntervals.Length;
-                float leadFreq = root * MathF.Pow(2f, leadIntervals[arpStep] / 12f);
-                float localStepLength = leadRhythmSteps[rhythmIndex];
-                float stepStart = accumulated - localStepLength;
-                float stepPhase = (leadCyclePhase - stepStart) / MathF.Max(localStepLength, 0.01f);
-                float leadGate = MathF.Pow(MathF.Max(0f, 1f - stepPhase), 2.4f);
-                float leadDetune = MathF.Sin(2f * MathF.PI * (leadFreq * 1.005f) * t);
-                float leadMain = MathF.Sin(2f * MathF.PI * leadFreq * t);
-                float lead = (leadMain * 0.7f + leadDetune * 0.3f) * leadGate;
-
-                float drone = (
-                    0.7f * MathF.Sin(2f * MathF.PI * root * 0.5f * t)
-                    + 0.3f * MathF.Sin(2f * MathF.PI * (root * 0.5f * 1.01f) * t)
-                ) * (0.45f + 0.55f * MathF.Sin(2f * MathF.PI * 0.04f * t + 1.7f));
-
-                float padPump = 0.55f + 0.45f * MathF.Pow(MathF.Min(1f, beatPhase / 0.48f), 1.2f);
-                float padLfo = 0.65f + 0.35f * MathF.Sin(2f * MathF.PI * 0.13f * t + 0.8f);
-                float minorThird = root * MathF.Pow(2f, 3f / 12f);
-                float fifth = root * MathF.Pow(2f, 7f / 12f);
-                float octave = root * 2f;
-                float ninth = root * MathF.Pow(2f, 14f / 12f);
-                float pad = (
-                    0.32f * MathF.Sin(2f * MathF.PI * root * t)
-                    + 0.26f * MathF.Sin(2f * MathF.PI * minorThird * t)
-                    + 0.22f * MathF.Sin(2f * MathF.PI * fifth * t)
-                    + 0.18f * MathF.Sin(2f * MathF.PI * octave * t)
-                    + 0.10f * MathF.Sin(2f * MathF.PI * ninth * t + 0.3f)
-                ) * padPump * padLfo;
-
-                float riserPulse = MathF.Max(0f, MathF.Sin(2f * MathF.PI * 0.25f * sectionPhase));
-                float riserFreq = 340f + 30f * MathF.Sin(2f * MathF.PI * 0.125f * sectionPhase);
-                float riser = MathF.Sin(2f * MathF.PI * riserFreq * t)
-                    * MathF.Pow(sectionProgress, 1.6f)
-                    * riserPulse
-                    * 0.05f;
-                float texture = MathF.Sin(2f * MathF.PI * (root * 4f + 1.5f * progressionIndex) * t + 0.5f)
-                    * (0.05f + 0.04f * MathF.Sin(2f * MathF.PI * 0.09f * t));
-
-                float mix = kick * 0.42f
-                    + snare * 0.16f
-                    + bass * 0.32f
-                    + (hatNoise + hatOpen + hatAccent) * 0.07f
-                    + lead * 0.16f
-                    + pad * 0.19f
-                    + drone * 0.2f
-                    + riser
-                    + texture;
-
-                mix = MathF.Tanh(mix * 1.45f);
-
-                samples[i] = (short)(MathHelper.Clamp(mix, -1f, 1f) * short.MaxValue);
-            }
-
-            return new SoundEffect(ConvertPcm16ToBytes(samples), sampleRate, AudioChannels.Mono);
+            return proceduralMusicGenerator?.GenerateCombatLoop(ambienceLevel);
         }
 
         private SoundEffect CreateProceduralGrenadeExplosionSound()
@@ -773,25 +658,78 @@ namespace XCOM_3
                 centreVilleMusicEffectInstance.Stop();
         }
 
+        private float EstimateMissionAmbienceLevel()
+        {
+            float spottedEnemies = MathHelper.Clamp(currentlySpottedEnemies.Count / 8f, 0f, 1f);
+            float explosivePressure = MathHelper.Clamp(activeGrenades.Count / 3f, 0f, 1f);
+            float tacticalPressure = throwMode || grappleMode || c4PlacementMode ? 0.18f : 0f;
+            float nightFactor = MathHelper.Clamp((0.5f - timeOfDay) * 2f, 0f, 1f) * 0.2f;
+
+            float ambience = 0.25f + spottedEnemies * 0.5f + explosivePressure * 0.25f + tacticalPressure + nightFactor;
+            return MathHelper.Clamp(ambience, 0f, 1f);
+        }
+
+        private void UpdateProceduralMissionMusic(GameTime gameTime)
+        {
+            if (!usingProceduralMissionMusic || centreVilleMusicEffectInstance == null)
+                return;
+
+            centreVilleMusicEffectInstance.Volume = MathHelper.Clamp(optionsMenuManager?.GetMusicVolume() ?? 0.5f, 0f, 1f);
+
+            proceduralMusicRegenerationTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            if (proceduralMusicRegenerationTimer < ProceduralMusicRegenerationIntervalSeconds)
+                return;
+
+            proceduralMusicRegenerationTimer = 0f;
+            float newAmbience = EstimateMissionAmbienceLevel();
+            if (MathF.Abs(newAmbience - proceduralMusicAmbienceLevel) < 0.18f)
+                return;
+
+            proceduralMusicAmbienceLevel = newAmbience;
+            centreVilleMusicEffectInstance.Stop();
+            centreVilleMusicEffectInstance.Dispose();
+            centreVilleMusicEffect?.Dispose();
+
+            centreVilleMusicEffect = CreateCentreVilleCyberpunkLoop(proceduralMusicAmbienceLevel);
+            centreVilleMusicEffectInstance = centreVilleMusicEffect?.CreateInstance();
+
+            if (centreVilleMusicEffectInstance != null)
+            {
+                centreVilleMusicEffectInstance.IsLooped = true;
+                centreVilleMusicEffectInstance.Volume = MathHelper.Clamp(optionsMenuManager?.GetMusicVolume() ?? 0.5f, 0f, 1f);
+                centreVilleMusicEffectInstance.Play();
+                Console.WriteLine($"[AUDIO] Procedural soundtrack regenerated (ambience={proceduralMusicAmbienceLevel:F2})");
+            }
+        }
+
         private void PlayGameplaySongForMission(string missionType)
         {
             if (string.Equals(missionType, "Centre-Ville", StringComparison.OrdinalIgnoreCase))
             {
                 MediaPlayer.Stop();
-                if (centreVilleMusicEffectInstance == null && centreVilleMusicEffect != null)
-                    centreVilleMusicEffectInstance = centreVilleMusicEffect.CreateInstance();
+                usingProceduralMissionMusic = true;
+                proceduralMusicRegenerationTimer = 0f;
+                proceduralMusicAmbienceLevel = EstimateMissionAmbienceLevel();
+
+                centreVilleMusicEffectInstance?.Stop();
+                centreVilleMusicEffectInstance?.Dispose();
+                centreVilleMusicEffect?.Dispose();
+
+                centreVilleMusicEffect = CreateCentreVilleCyberpunkLoop(proceduralMusicAmbienceLevel);
+                centreVilleMusicEffectInstance = centreVilleMusicEffect?.CreateInstance();
 
                 if (centreVilleMusicEffectInstance != null)
                 {
                     centreVilleMusicEffectInstance.IsLooped = true;
                     centreVilleMusicEffectInstance.Volume = MathHelper.Clamp(optionsMenuManager?.GetMusicVolume() ?? 0.5f, 0f, 1f);
                     centreVilleMusicEffectInstance.Play();
-                    Console.WriteLine("[AUDIO] In-game music: procedural_centre_ville_cyberpunk_loop");
+                    Console.WriteLine($"[AUDIO] In-game music: procedural_markov_perlin_loop (ambience={proceduralMusicAmbienceLevel:F2})");
                 }
 
                 return;
             }
 
+            usingProceduralMissionMusic = false;
             StopCentreVilleMusicLoop();
             MediaPlayer.Stop();
             Console.WriteLine("[AUDIO] In-game music disabled for this mission");
@@ -808,6 +746,7 @@ namespace XCOM_3
 
         private void PlayGameplaySong(string songAssetName)
         {
+            usingProceduralMissionMusic = false;
             StopCentreVilleMusicLoop();
 
             if (!gameplaySongCache.TryGetValue(songAssetName, out currentGameplaySong))
@@ -925,6 +864,7 @@ namespace XCOM_3
             UpdateGrenades(gameTime);
 
             UpdateCurrentState(gameTime, mouse, keyboard, leftClick, escapePressed);
+            UpdateProceduralMissionMusic(gameTime);
 
             previousMouseState = mouse;
             previousKeyboardState = keyboard;
