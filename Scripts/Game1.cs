@@ -142,6 +142,7 @@ namespace XCOM_3
         private int gridWidth = 50;
         private int gridHeight = 50;
         private Point hoveredCell = new Point(-1, -1);
+        private int hoveredCellFloor = 0;
         private bool isHoveringValidCell;
 
         // --- Murs sur les edges des cases ---
@@ -2616,7 +2617,7 @@ namespace XCOM_3
             GraphicsDevice.DepthStencilState = DepthStencilState.None;
 
             float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 6f) * 0.3f + 0.7f;
-            float floorYOffset = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
+            float floorYOffset = WorldMetrics.FloorToWorldY(hoveredCellFloor, cellSize);
             float terrainOffset = GetTerrainHeightOffset(hoveredCell);
 
             float pulseBoost = 0.75f + pulse * 0.25f;
@@ -3780,7 +3781,10 @@ namespace XCOM_3
             isHoveringValidCell = rawHoveredCell.X != -1 &&
                 TryResolveHoverableCellFloor(rawHoveredCell, hoveredInteractionFloor, out hoveredInteractionFloor);
             if (isHoveringValidCell)
+            {
                 hoveredCell = rawHoveredCell;
+                hoveredCellFloor = hoveredInteractionFloor;
+            }
 
             // 1. Check if we have a valid unit and valid cell
             if (!grappleMode && !c4PlacementMode && selectedUnit != null && selectedUnit.ActionPoints > 0 && isHoveringValidCell &&
