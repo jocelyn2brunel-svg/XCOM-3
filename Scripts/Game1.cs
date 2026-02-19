@@ -1688,6 +1688,11 @@ namespace XCOM_3
 
         private void DrawPlayingUI()
         {
+            if (combatSystem.CurrentTurn == TurnState.EnemyTurn)
+            {
+                DrawEnemyTurnScreenBorder();
+            }
+
             MouseState mouse = Mouse.GetState();
 
             combatUI.DrawEndTurnButton(mouse);
@@ -1723,6 +1728,73 @@ namespace XCOM_3
             string floorLabel = viewedFloor == 0 ? "RDC" : viewedFloor > 0 ? $"+{viewedFloor}" : viewedFloor.ToString();
             int maxBasements = Math.Abs(GetMinimumViewFloor());
             _spriteBatch.DrawString(font, $"Etage affiche: {floorLabel} (Sous-sols: {maxBasements} | Etages: {Math.Max(1, currentMap?.FloorCount ?? 1)})", new Vector2(10, 50), Color.LightGreen);
+        }
+
+        private void DrawEnemyTurnScreenBorder()
+        {
+            Viewport viewport = GraphicsDevice.Viewport;
+            Rectangle screen = viewport.Bounds;
+
+            const int borderThickness = 44;
+            Color borderFill = new Color(140, 15, 20, 150);
+            Color borderLine = new Color(255, 90, 90, 220);
+            string enemyTurnText = "TOUR ENNEMI";
+
+            Rectangle top = new Rectangle(screen.X, screen.Y, screen.Width, borderThickness);
+            Rectangle bottom = new Rectangle(screen.X, screen.Bottom - borderThickness, screen.Width, borderThickness);
+            Rectangle left = new Rectangle(screen.X, screen.Y, borderThickness, screen.Height);
+            Rectangle right = new Rectangle(screen.Right - borderThickness, screen.Y, borderThickness, screen.Height);
+
+            _spriteBatch.Draw(pixel, top, borderFill);
+            _spriteBatch.Draw(pixel, bottom, borderFill);
+            _spriteBatch.Draw(pixel, left, borderFill);
+            _spriteBatch.Draw(pixel, right, borderFill);
+
+            _spriteBatch.Draw(pixel, new Rectangle(screen.X, screen.Y, screen.Width, 2), borderLine);
+            _spriteBatch.Draw(pixel, new Rectangle(screen.X, screen.Bottom - 2, screen.Width, 2), borderLine);
+            _spriteBatch.Draw(pixel, new Rectangle(screen.X, screen.Y, 2, screen.Height), borderLine);
+            _spriteBatch.Draw(pixel, new Rectangle(screen.Right - 2, screen.Y, 2, screen.Height), borderLine);
+
+            DrawRepeatedBorderText(enemyTurnText, top, horizontal: true);
+            DrawRepeatedBorderText(enemyTurnText, bottom, horizontal: true);
+            DrawRepeatedBorderText(enemyTurnText, left, horizontal: false);
+            DrawRepeatedBorderText(enemyTurnText, right, horizontal: false);
+        }
+
+        private void DrawRepeatedBorderText(string text, Rectangle area, bool horizontal)
+        {
+            Vector2 textSize = font.MeasureString(text);
+
+            if (horizontal)
+            {
+                float step = textSize.X + 30f;
+                float y = area.Y + (area.Height - textSize.Y) * 0.5f;
+
+                for (float x = area.X + 8f; x < area.Right - textSize.X; x += step)
+                {
+                    _spriteBatch.DrawString(font, text, new Vector2(x, y), Color.White);
+                }
+
+                return;
+            }
+
+            float rotatedHeight = textSize.X;
+            float stepVertical = rotatedHeight + 30f;
+
+            for (float y = area.Y + 8f; y < area.Bottom - rotatedHeight; y += stepVertical)
+            {
+                Vector2 position = new Vector2(area.X + area.Width * 0.5f, y);
+                _spriteBatch.DrawString(
+                    font,
+                    text,
+                    position,
+                    Color.White,
+                    -MathHelper.PiOver2,
+                    new Vector2(textSize.X * 0.5f, 0f),
+                    1f,
+                    SpriteEffects.None,
+                    0f);
+            }
         }
 
         private void DrawFloorControlButton(Rectangle rect, string label, Color accent)
