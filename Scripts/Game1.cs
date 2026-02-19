@@ -2028,6 +2028,7 @@ namespace XCOM_3
             {
                 float yOffset = WorldMetrics.FloorToWorldY(floor, cellSize);
                 bool applyUpperFloorCutout = useUpperFloorCutout && floor > focusFloorForCutout;
+                float upperFloorOpacity = floor > viewedFloor ? UpperFloorWallOpacityWhenLookingBelow : 1f;
 
                 if (floor == 0)
                 {
@@ -2046,7 +2047,7 @@ namespace XCOM_3
                         floorCells = floorCells.Where(c => !IsPointInsideUpperFloorCutout(c, focusCellForCutout, UpperFloorCutoutRadius)).ToHashSet();
 
                     if (floorCells.Count > 0)
-                        renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, yOffset);
+                        renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, yOffset, upperFloorOpacity);
                 }
 
                 var hescoBarriersForFloor = GetHescoBarriersForFloor(floor);
@@ -2061,7 +2062,7 @@ namespace XCOM_3
                     furnituresForFloor = furnituresForFloor.Where(f => !IsPointInsideUpperFloorCutout(new Point(f.X, f.Y), focusCellForCutout, UpperFloorCutoutRadius)).ToList();
 
                 if (furnituresForFloor.Count > 0)
-                    renderer3D.DrawFurniture(furnituresForFloor, cellSize, yOffset);
+                    renderer3D.DrawFurniture(furnituresForFloor, cellSize, yOffset, upperFloorOpacity);
 
                 var wallsForFloor = GetWallsForFloor(floor);
                 if (wallsForFloor.Count > 0)
@@ -2097,16 +2098,15 @@ namespace XCOM_3
                             ? upperWallTexture ?? brickWallTexture
                             : brickWallTexture;
 
-                        float wallOpacity = floor > viewedFloor ? UpperFloorWallOpacityWhenLookingBelow : 1f;
-                        renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture, wallOpacity: wallOpacity);
+                        renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture, wallOpacity: upperFloorOpacity);
 
                         if (fadedWalls.Count > 0)
                             DrawWireframeWalls(fadedWalls, yOffset, new Color(245, 225, 140, 170));
                     }
                 }
 
-                renderer3D.DrawRampTiles(currentMap?.RampTiles, floor, cellSize);
-                renderer3D.DrawStairConnections(currentMap?.StairConnections, floor, cellSize);
+                renderer3D.DrawRampTiles(currentMap?.RampTiles, floor, cellSize, upperFloorOpacity);
+                renderer3D.DrawStairConnections(currentMap?.StairConnections, floor, cellSize, upperFloorOpacity);
             }
 
             var visibleUnits = playerUnits.Where(u => u.Health > 0)

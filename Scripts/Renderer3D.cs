@@ -20,6 +20,8 @@ namespace XCOM_3
         private VertexPositionNormalTexture[] texturedPlaneVerts;
         private short[] texturedPlaneIdx;
         private HumanoidModelAdvanced humanoidModel;
+        private float geometryOpacityMultiplier = 1f;
+        private float textureOpacityMultiplier = 1f;
 
         // Dans Renderer3D.cs, ajoutez :
         private float globalAnimationTime = 0f;
@@ -144,16 +146,18 @@ namespace XCOM_3
 
         public void DrawCube(Vector3 pos, Vector3 scale, Color color, Matrix rotation)
         {
-            var verts = cubeVerts.Select(v => new VertexPositionColor(v.Position, color)).ToArray();
+            Color effectiveColor = color * geometryOpacityMultiplier;
+            var verts = cubeVerts.Select(v => new VertexPositionColor(v.Position, effectiveColor)).ToArray();
             DrawVertices(verts, cubeIdx, Matrix.CreateScale(scale) * rotation * Matrix.CreateTranslation(pos));
         }
 
         public void DrawLine(Vector3 start, Vector3 end, Color color)
         {
+            Color effectiveColor = color * geometryOpacityMultiplier;
             VertexPositionColor[] lineVertices = new[]
             {
-                new VertexPositionColor(start, color),
-                new VertexPositionColor(end, color)
+                new VertexPositionColor(start, effectiveColor),
+                new VertexPositionColor(end, effectiveColor)
             };
 
             basic.World = Matrix.Identity;
@@ -169,7 +173,8 @@ namespace XCOM_3
 
         public void DrawPlane(Vector3 pos, Vector3 scale, Color color, float rotationX, float rotationY, float rotationZ)
         {
-            var verts = planeVerts.Select(v => new VertexPositionColor(v.Position, color)).ToArray();
+            Color effectiveColor = color * geometryOpacityMultiplier;
+            var verts = planeVerts.Select(v => new VertexPositionColor(v.Position, effectiveColor)).ToArray();
             Matrix world = Matrix.CreateScale(scale)
                 * Matrix.CreateRotationX(rotationX)
                 * Matrix.CreateRotationY(rotationY)
@@ -182,9 +187,11 @@ namespace XCOM_3
         {
             textured.World = Matrix.CreateScale(scale) * Matrix.CreateTranslation(pos);
             textured.Texture = tex;
+            textured.Alpha = textureOpacityMultiplier;
             foreach (var pass in textured.CurrentTechnique.Passes)
                 pass.Apply();
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, texturedPlaneVerts, 0, 4, texturedPlaneIdx, 0, 2);
+            textured.Alpha = 1f;
         }
 
         private void DrawTexturedFloorVolumeTop(Vector3 topCenter, Vector3 topScale, Texture2D tex, int cellSize)
@@ -234,11 +241,36 @@ namespace XCOM_3
 
             textured.World = Matrix.Identity;
             textured.Texture = tex;
+            textured.Alpha = textureOpacityMultiplier;
             gd.SamplerStates[0] = SamplerState.LinearWrap;
             foreach (var pass in textured.CurrentTechnique.Passes)
                 pass.Apply();
 
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, 4, texturedPlaneIdx, 0, 2);
+            textured.Alpha = 1f;
+        }
+
+        private void ExecuteWithOpacity(float opacity, Action drawAction, bool affectTextures = false)
+        {
+            float clamped = MathHelper.Clamp(opacity, 0f, 1f);
+            BlendState previousBlend = gd.BlendState;
+            float previousGeometryOpacity = geometryOpacityMultiplier;
+            float previousTextureOpacity = textureOpacityMultiplier;
+
+            if (clamped < 0.999f)
+                gd.BlendState = BlendState.AlphaBlend;
+
+            geometryOpacityMultiplier = clamped;
+            if (affectTextures)
+                textureOpacityMultiplier = clamped;
+
+            drawAction?.Invoke();
+
+            geometryOpacityMultiplier = previousGeometryOpacity;
+            textureOpacityMultiplier = previousTextureOpacity;
+
+            if (clamped < 0.999f)
+                gd.BlendState = previousBlend;
         }
 
         private void DrawWallSection(Vector3 center, Vector3 scale, bool isHorizontal, Color color, Texture2D wallTexture)
@@ -304,29 +336,31 @@ namespace XCOM_3
             }
         }
 
-        public void DrawFurniture(IEnumerable<FurnitureData> furnitures, int cellSize, float floorHeightOffset)
+        public void DrawFurniture(IEnumerable<FurnitureData> furnitures, int cellSize, float floorHeightOffset, float opacity = 1f)
         {
             if (furnitures == null)
                 return;
 
             float feetToWorld = cellSize / (float)Unit.FeetPerCell;
-
-            foreach (FurnitureData furniture in furnitures)
+            ExecuteWithOpacity(opacity, () =>
             {
-                float heightWorld = FurnitureData.GetHeightFeet(furniture.Type) * feetToWorld;
-                Vector2 footprint = GetFurnitureFootprint(furniture.Type, cellSize);
-                Vector3 scale = new Vector3(footprint.X, heightWorld, footprint.Y);
+                foreach (FurnitureData furniture in furnitures)
+                {
+                    float heightWorld = FurnitureData.GetHeightFeet(furniture.Type) * feetToWorld;
+                    Vector2 footprint = GetFurnitureFootprint(furniture.Type, cellSize);
+                    Vector3 scale = new Vector3(footprint.X, heightWorld, footprint.Y);
 
-                Vector3 center = new Vector3(
-                    furniture.X * cellSize + cellSize / 2f,
-                    floorHeightOffset + heightWorld / 2f,
-                    furniture.Y * cellSize + cellSize / 2f);
+                    Vector3 center = new Vector3(
+                        furniture.X * cellSize + cellSize / 2f,
+                        floorHeightOffset + heightWorld / 2f,
+                        furniture.Y * cellSize + cellSize / 2f);
 
-                if (IsVehicleFurniture(furniture.Type))
-                    DrawVehicleFurniture(furniture.Type, center, scale);
-                else
-                    DrawDetailedFurniture(furniture.Type, center, scale, furniture.OrientationRadians);
-            }
+                    if (IsVehicleFurniture(furniture.Type))
+                        DrawVehicleFurniture(furniture.Type, center, scale);
+                    else
+                        DrawDetailedFurniture(furniture.Type, center, scale, furniture.OrientationRadians);
+                }
+            });
         }
 
         private void DrawDetailedFurniture(FurnitureType type, Vector3 center, Vector3 totalScale, float orientationRadians)
@@ -777,16 +811,19 @@ namespace XCOM_3
                         size);
         }
 
-        public void DrawGridCells(IEnumerable<Point> cells, int size, Texture2D tex, float floorHeightOffset = 0f)
+        public void DrawGridCells(IEnumerable<Point> cells, int size, Texture2D tex, float floorHeightOffset = 0f, float opacity = 1f)
         {
-            foreach (var cell in cells)
+            ExecuteWithOpacity(opacity, () =>
             {
-                DrawTexturedFloorVolumeTop(
-                    new Vector3(cell.X * size + size / 2f, floorHeightOffset, cell.Y * size + size / 2f),
-                    new Vector3(size * TileFillRatio, 1, size * TileFillRatio),
-                    tex,
-                    size);
-            }
+                foreach (var cell in cells)
+                {
+                    DrawTexturedFloorVolumeTop(
+                        new Vector3(cell.X * size + size / 2f, floorHeightOffset, cell.Y * size + size / 2f),
+                        new Vector3(size * TileFillRatio, 1, size * TileFillRatio),
+                        tex,
+                        size);
+                }
+            }, affectTextures: true);
         }
 
         public void DrawGridWithTerrain(int w, int h, int size, Texture2D tex, IReadOnlyDictionary<Point, float> terrainHeights, float floorHeightOffset = 0f)
@@ -986,21 +1023,24 @@ namespace XCOM_3
         }
 
 
-        public void DrawRampTiles(IEnumerable<RampTileData> ramps, int floorToRender, int cellSize)
+        public void DrawRampTiles(IEnumerable<RampTileData> ramps, int floorToRender, int cellSize, float opacity = 1f)
         {
             if (ramps == null)
                 return;
 
             float floorYOffset = WorldMetrics.FloorToWorldY(floorToRender, cellSize);
-            foreach (var ramp in ramps)
+            ExecuteWithOpacity(opacity, () =>
             {
-                if (ramp.Floor != floorToRender)
-                    continue;
+                foreach (var ramp in ramps)
+                {
+                    if (ramp.Floor != floorToRender)
+                        continue;
 
-                int dx = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDx : 0;
-                int dy = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDy : -1;
-                DrawDirectionalRamp(ramp.X, ramp.Y, dx, dy, floorYOffset, cellSize);
-            }
+                    int dx = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDx : 0;
+                    int dy = (Math.Abs(ramp.AscendDx) + Math.Abs(ramp.AscendDy) == 1) ? ramp.AscendDy : -1;
+                    DrawDirectionalRamp(ramp.X, ramp.Y, dx, dy, floorYOffset, cellSize);
+                }
+            });
         }
 
         private void DrawDirectionalRamp(int cellX, int cellY, int ascendDx, int ascendDy, float floorYOffset, int cellSize)
@@ -1040,25 +1080,27 @@ namespace XCOM_3
             }
         }
 
-        public void DrawStairConnections(IEnumerable<StairConnectionData> stairs, int floorToRender, int cellSize)
+        public void DrawStairConnections(IEnumerable<StairConnectionData> stairs, int floorToRender, int cellSize, float opacity = 1f)
         {
             if (stairs == null) return;
 
             float floorYOffset = WorldMetrics.FloorToWorldY(floorToRender, cellSize);
             float pulse = 0.8f + 0.2f * (float)Math.Sin(globalAnimationTime * 4f);
-
-            foreach (var stair in stairs)
+            ExecuteWithOpacity(opacity, () =>
             {
-                if (stair.FromFloor == floorToRender)
+                foreach (var stair in stairs)
                 {
-                    DrawStairMarker(stair.FromX, stair.FromY, floorYOffset, cellSize, new Color(255, 170, 40) * pulse);
-                }
+                    if (stair.FromFloor == floorToRender)
+                    {
+                        DrawStairMarker(stair.FromX, stair.FromY, floorYOffset, cellSize, new Color(255, 170, 40) * pulse);
+                    }
 
-                if (stair.Bidirectional && stair.ToFloor == floorToRender)
-                {
-                    DrawStairMarker(stair.ToX, stair.ToY, floorYOffset, cellSize, new Color(60, 210, 255) * pulse);
+                    if (stair.Bidirectional && stair.ToFloor == floorToRender)
+                    {
+                        DrawStairMarker(stair.ToX, stair.ToY, floorYOffset, cellSize, new Color(60, 210, 255) * pulse);
+                    }
                 }
-            }
+            });
         }
 
         private void DrawStairMarker(int cellX, int cellY, float floorYOffset, int cellSize, Color color)
