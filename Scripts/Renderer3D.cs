@@ -1695,34 +1695,5 @@ namespace XCOM_3
         private static float GetCellTerrainHeight(IReadOnlyDictionary<Point, float> terrainHeights, Point cell)
             => terrainHeights != null && terrainHeights.TryGetValue(cell, out float height) ? height : 0f;
 
-        private static float ComputeCornerHeight(IReadOnlyDictionary<Point, float> terrainHeights, int vertexX, int vertexZ)
-        {
-            if (terrainHeights == null || terrainHeights.Count == 0)
-            {
-                return 0f;
-            }
-
-            float sum = 0f;
-            int count = 0;
-
-            for (int dx = -1; dx <= 0; dx++)
-            {
-                for (int dz = -1; dz <= 0; dz++)
-                {
-                    int cellX = vertexX + dx;
-                    int cellZ = vertexZ + dz;
-                    if (terrainHeights.TryGetValue(new Point(cellX, cellZ), out float height))
-                    {
-                        sum += height;
-                        count++;
-                    }
-                }
-            }
-
-            return count > 0 ? sum / count : 0f;
-        }
-
-
-
     }
 }
