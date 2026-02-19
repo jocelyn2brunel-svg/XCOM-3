@@ -1443,6 +1443,7 @@ namespace XCOM_3
                     viewedFloor = grappleTargetFloor;
 
                 viewedFloor = Math.Clamp(viewedFloor, minFloor, maxFloor);
+                camera?.SetVerticalFocus(WorldMetrics.FloorToWorldY(viewedFloor, cellSize));
                 return;
             }
 
@@ -1450,6 +1451,7 @@ namespace XCOM_3
                 viewedFloor = selectedUnit.Floor;
 
             viewedFloor = Math.Clamp(viewedFloor, minFloor, maxFloor);
+            camera?.SetVerticalFocus(WorldMetrics.FloorToWorldY(viewedFloor, cellSize));
         }
 
         private void SetManualViewedFloor(int targetFloor, int minFloor, int maxFloor, GameTime gameTime)

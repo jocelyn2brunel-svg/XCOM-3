@@ -58,6 +58,7 @@ namespace XCOM_3
         private Vector3 shoulderCameraTarget;
         private float antiOcclusionHeightOffset = 0f;
         private float antiOcclusionOrbitOffset = 0f;
+        private float verticalFocusY = 0f;
 
         // ═══════════════════════════════════════════════════════════════════════
         // CONSTRUCTEUR
@@ -135,7 +136,7 @@ namespace XCOM_3
             float centerX = (gridWidth * cellSize) / 2f + cameraOffset.X;
             float centerZ = (gridHeight * cellSize) / 2f + cameraOffset.Y;
 
-            Target = new Vector3(centerX, 0, centerZ);
+            Target = new Vector3(centerX, verticalFocusY, centerZ);
 
             // Appliquer le zoom
             float adjustedDistance = cameraDistance / zoomLevel;
@@ -145,7 +146,7 @@ namespace XCOM_3
             // Position de la caméra en orbite autour du centre
             Position = new Vector3(
                 centerX + (float)Math.Cos(effectiveAngle) * adjustedDistance,
-                adjustedHeight,
+                verticalFocusY + adjustedHeight,
                 centerZ + (float)Math.Sin(effectiveAngle) * adjustedDistance
             );
 
@@ -154,6 +155,11 @@ namespace XCOM_3
 
             // Frustum culling
             ViewFrustum = new BoundingFrustum(ViewMatrix * ProjectionMatrix);
+        }
+
+        public void SetVerticalFocus(float worldY)
+        {
+            verticalFocusY = worldY;
         }
 
         // ═══════════════════════════════════════════════════════════════════════
