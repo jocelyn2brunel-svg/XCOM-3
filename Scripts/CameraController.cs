@@ -192,7 +192,8 @@ namespace XCOM_3
             if (qPressed)
             {
                 ApplyRotationPivot(rotationPivotCell);
-                targetAngle = cameraAngle + step;
+                float baseAngle = isRotatingToTarget ? targetAngle : SnapAngleToStep(cameraAngle, step);
+                targetAngle = NormalizeAngle(baseAngle + step);
                 isRotatingToTarget = true;
                 Console.WriteLine($"[CAMERA] Rotating to {MathHelper.ToDegrees(targetAngle)}°");
             }
@@ -201,7 +202,8 @@ namespace XCOM_3
             if (ePressed)
             {
                 ApplyRotationPivot(rotationPivotCell);
-                targetAngle = cameraAngle - step;
+                float baseAngle = isRotatingToTarget ? targetAngle : SnapAngleToStep(cameraAngle, step);
+                targetAngle = NormalizeAngle(baseAngle - step);
                 isRotatingToTarget = true;
                 Console.WriteLine($"[CAMERA] Rotating to {MathHelper.ToDegrees(targetAngle)}°");
             }
@@ -210,14 +212,10 @@ namespace XCOM_3
             if (isRotatingToTarget)
             {
                 // Calculer la différence angulaire
-                float angleDiff = targetAngle - cameraAngle;
-
-                // Normaliser l'angle dans [-π, π]
-                while (angleDiff > MathHelper.Pi) angleDiff -= MathHelper.TwoPi;
-                while (angleDiff < -MathHelper.Pi) angleDiff += MathHelper.TwoPi;
+                float angleDiff = GetShortestAngleDelta(cameraAngle, targetAngle);
 
                 // Lerp vers la cible
-                cameraAngle += angleDiff * rotationLerpSpeed * deltaTime;
+                cameraAngle = NormalizeAngle(cameraAngle + angleDiff * rotationLerpSpeed * deltaTime);
 
                 // Arrivé à destination ?
                 if (Math.Abs(angleDiff) < 0.01f)
@@ -230,6 +228,23 @@ namespace XCOM_3
 
             // Sauvegarder l'état du clavier
             previousKeyboardState = keyboard;
+        }
+
+        private static float NormalizeAngle(float angle)
+        {
+            while (angle > MathHelper.Pi) angle -= MathHelper.TwoPi;
+            while (angle < -MathHelper.Pi) angle += MathHelper.TwoPi;
+            return angle;
+        }
+
+        private static float GetShortestAngleDelta(float from, float to)
+        {
+            return NormalizeAngle(to - from);
+        }
+
+        private static float SnapAngleToStep(float angle, float step)
+        {
+            return NormalizeAngle((float)Math.Round(angle / step) * step);
         }
 
         private void ApplyRotationPivot(Point? rotationPivotCell)

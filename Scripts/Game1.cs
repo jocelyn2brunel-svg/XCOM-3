@@ -1098,7 +1098,9 @@ namespace XCOM_3
 
             combatSystem.UpdateFiringAnimations(gameTime);
             UpdateAimCameraAndPose();
-            Point? rotationPivotCell = isHoveringValidCell ? hoveredCell : null;
+            Point? rotationPivotCell = selectedUnit?.Cell;
+            if (!rotationPivotCell.HasValue && isHoveringValidCell)
+                rotationPivotCell = hoveredCell;
             camera.HandleControls(keyboard, mouse, previousMouseState, gameTime, allowZoom: !statsPanel.IsVisible, rotationPivotCell: rotationPivotCell);
             UpdateDayNightCycle(gameTime);
             HandleFloorViewControls(keyboard, gameTime);
