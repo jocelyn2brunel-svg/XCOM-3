@@ -377,6 +377,7 @@ namespace XCOM_3
             const int longitudeStep = 2;
             Vector3 lightDirection = Vector3.Normalize(new Vector3(-0.65f, -0.35f, 0.67f));
             Vector3 viewDirection = Vector3.UnitZ;
+            Color coastColor = new Color(201, 198, 140);
 
             for (int latitude = -88; latitude <= 88; latitude += latitudeStep)
             {
@@ -390,15 +391,24 @@ namespace XCOM_3
                         continue;
 
                     float lighting = ComputeLighting(world, lightDirection, viewDirection, ambient: 0.24f, diffuseStrength: 0.70f, specularStrength: 0.08f, shininess: 14f);
-                    Color landBase = GetLandColor(latitude);
+                    float roughness = ComputeLandRoughness(latitude, longitude);
+                    Color landBase = GetLandColor(latitude, roughness);
+                    Color terrainTint = GetTerrainTint(latitude, roughness);
+
                     Color landColor = Color.Lerp(new Color(44, 80, 40), landBase, lighting);
+                    landColor = Color.Lerp(landColor, terrainTint, 0.22f + roughness * 0.12f);
+
+                    if (IsNearCoast(latitude, longitude))
+                    {
+                        landColor = Color.Lerp(landColor, coastColor, 0.3f + roughness * 0.15f);
+                    }
 
                     Vector2 screen = new Vector2(
                         center.X + world.X * radius,
                         center.Y - world.Y * radius
                     );
 
-                    int patchSize = world.Z > 0.6f ? 3 : 2;
+                    int patchSize = world.Z > 0.65f ? 3 : 2;
                     _spriteBatch.Draw(_pixel, new Rectangle((int)screen.X, (int)screen.Y, patchSize, patchSize), landColor);
                 }
             }
@@ -422,16 +432,60 @@ namespace XCOM_3
             return MathHelper.Clamp(lighting, 0f, 1f);
         }
 
-        private static Color GetLandColor(float latitude)
+        private static Color GetLandColor(float latitude, float roughness)
         {
             if (MathF.Abs(latitude) > 62f)
-                return new Color(215, 226, 210);
+                return Color.Lerp(new Color(215, 226, 210), new Color(185, 199, 176), roughness * 0.45f);
             if (MathF.Abs(latitude) > 45f)
-                return new Color(122, 155, 90);
+                return Color.Lerp(new Color(122, 155, 90), new Color(104, 134, 74), roughness * 0.5f);
             if (MathF.Abs(latitude) < 18f)
-                return new Color(79, 141, 71);
+                return Color.Lerp(new Color(79, 141, 71), new Color(94, 158, 84), roughness * 0.35f);
 
-            return new Color(104, 146, 82);
+            return Color.Lerp(new Color(104, 146, 82), new Color(89, 123, 69), roughness * 0.5f);
+        }
+
+        private static Color GetTerrainTint(float latitude, float roughness)
+        {
+            if (MathF.Abs(latitude) < 24f)
+                return Color.Lerp(new Color(90, 120, 62), new Color(121, 153, 89), roughness);
+
+            if (MathF.Abs(latitude) > 55f)
+                return Color.Lerp(new Color(145, 155, 134), new Color(198, 208, 190), roughness);
+
+            return Color.Lerp(new Color(103, 127, 77), new Color(152, 170, 118), roughness);
+        }
+
+        private float ComputeLandRoughness(float latitude, float longitude)
+        {
+            float waveA = MathF.Sin(MathHelper.ToRadians(longitude * 2.1f + latitude * 0.9f));
+            float waveB = MathF.Cos(MathHelper.ToRadians(longitude * 0.85f - latitude * 2.6f));
+            float waveC = MathF.Sin(MathHelper.ToRadians(longitude * 3.7f + latitude * 1.4f));
+
+            float blended = waveA * 0.45f + waveB * 0.35f + waveC * 0.2f;
+            return MathHelper.Clamp(blended * 0.5f + 0.5f, 0f, 1f);
+        }
+
+        private bool IsNearCoast(float latitude, float longitude)
+        {
+            const float coastBand = 3.2f;
+            foreach (var continent in _continentMasks)
+            {
+                float latitudeOffset = latitude - continent.CenterLatitude;
+                float longitudeOffset = WrapLongitudeDifference(longitude - continent.CenterLongitude);
+
+                float latFactor = latitudeOffset / continent.HalfLatitudeSpan;
+                float lonFactor = longitudeOffset / continent.HalfLongitudeSpan;
+                float distance = latFactor * latFactor + lonFactor * lonFactor;
+
+                float latBand = coastBand / MathF.Max(6f, continent.HalfLatitudeSpan);
+                float lonBand = coastBand / MathF.Max(6f, continent.HalfLongitudeSpan);
+                float outerDistance = MathF.Pow(MathF.Abs(latFactor) + latBand, 2f) + MathF.Pow(MathF.Abs(lonFactor) + lonBand, 2f);
+
+                if (distance <= 1f && outerDistance >= 1f)
+                    return true;
+            }
+
+            return false;
         }
 
         private bool IsLand(float latitude, float longitude)
