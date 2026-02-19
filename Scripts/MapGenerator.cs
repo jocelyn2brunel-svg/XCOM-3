@@ -445,7 +445,10 @@ namespace XCOM_3
                     if (furniture.Floor != 0)
                         continue;
 
-                    blockedCells.Add(new Point(furniture.X, furniture.Y));
+                    foreach (Point occupiedCell in FurnitureData.GetOccupiedCells(furniture))
+                    {
+                        blockedCells.Add(occupiedCell);
+                    }
                 }
             }
 
@@ -497,18 +500,29 @@ namespace XCOM_3
                 FurnitureType.PickupRam3500
             };
 
-            for (int i = 0; i < targetVehicleCount; i++)
+            foreach (Point candidate in roadCandidates)
             {
-                Point candidate = roadCandidates[i];
-                FurnitureType vehicleType = vehicleTypes[random.Next(vehicleTypes.Length)];
+                if (vehicles.Count >= targetVehicleCount)
+                    break;
 
-                vehicles.Add(new FurnitureData
+                FurnitureType vehicleType = vehicleTypes[random.Next(vehicleTypes.Length)];
+                var vehicle = new FurnitureData
                 {
                     X = candidate.X,
                     Y = candidate.Y,
                     Floor = 0,
                     Type = vehicleType
-                });
+                };
+
+                var occupiedCells = FurnitureData.GetOccupiedCells(vehicle).ToList();
+                if (occupiedCells.Any(c => c.X < 0 || c.Y < 0 || c.X >= mapWidth || c.Y >= mapHeight || blockedCells.Contains(c)))
+                    continue;
+
+                vehicles.Add(vehicle);
+                foreach (Point occupiedCell in occupiedCells)
+                {
+                    blockedCells.Add(occupiedCell);
+                }
             }
 
             return vehicles;
