@@ -67,6 +67,7 @@ namespace XCOM_3
         private float dayNightSpeed = 0.01f;
         private Color ambientLight = Color.White;
         private Color directionalLight = Color.White;
+        private float uiAnimationTimeSeconds = 0f;
 
         // --- NOUVEAU: Système d'inventaire ---
         private bool showInventory = false;
@@ -756,6 +757,8 @@ namespace XCOM_3
 
         protected override void Draw(GameTime gameTime)
         {
+            uiAnimationTimeSeconds = (float)gameTime.TotalGameTime.TotalSeconds;
+
             renderer3D.SetMatrices(camera.ViewMatrix, camera.ProjectionMatrix);
 
             GraphicsDevice.Clear(GetSkyColor(timeOfDay));
@@ -1732,6 +1735,10 @@ namespace XCOM_3
             Color borderFill = new Color(140, 15, 20, 150);
             Color borderLine = new Color(255, 90, 90, 220);
             string enemyTurnText = "TOUR ENNEMI";
+            float scrollSpeed = 120f;
+            float scrollOffset = (uiAnimationTimeSeconds * scrollSpeed) % (font.MeasureString(enemyTurnText).X + 30f);
+            float textPulse = 0.68f + 0.32f * (float)Math.Sin(uiAnimationTimeSeconds * 6f);
+            Color textColor = Color.White * textPulse;
 
             Rectangle top = new Rectangle(screen.X, screen.Y, screen.Width, borderThickness);
             Rectangle bottom = new Rectangle(screen.X, screen.Bottom - borderThickness, screen.Width, borderThickness);
@@ -1748,13 +1755,13 @@ namespace XCOM_3
             _spriteBatch.Draw(pixel, new Rectangle(screen.X, screen.Y, 2, screen.Height), borderLine);
             _spriteBatch.Draw(pixel, new Rectangle(screen.Right - 2, screen.Y, 2, screen.Height), borderLine);
 
-            DrawRepeatedBorderText(enemyTurnText, top, horizontal: true);
-            DrawRepeatedBorderText(enemyTurnText, bottom, horizontal: true);
-            DrawRepeatedBorderText(enemyTurnText, left, horizontal: false);
-            DrawRepeatedBorderText(enemyTurnText, right, horizontal: false);
+            DrawRepeatedBorderText(enemyTurnText, top, horizontal: true, scrollOffset, textColor);
+            DrawRepeatedBorderText(enemyTurnText, bottom, horizontal: true, -scrollOffset, textColor);
+            DrawRepeatedBorderText(enemyTurnText, left, horizontal: false, scrollOffset, textColor);
+            DrawRepeatedBorderText(enemyTurnText, right, horizontal: false, -scrollOffset, textColor);
         }
 
-        private void DrawRepeatedBorderText(string text, Rectangle area, bool horizontal)
+        private void DrawRepeatedBorderText(string text, Rectangle area, bool horizontal, float scrollOffset, Color textColor)
         {
             Vector2 textSize = font.MeasureString(text);
 
@@ -1762,10 +1769,11 @@ namespace XCOM_3
             {
                 float step = textSize.X + 30f;
                 float y = area.Y + (area.Height - textSize.Y) * 0.5f;
+                float startX = area.X + 8f - step + (scrollOffset % step);
 
-                for (float x = area.X + 8f; x < area.Right - textSize.X; x += step)
+                for (float x = startX; x < area.Right; x += step)
                 {
-                    _spriteBatch.DrawString(font, text, new Vector2(x, y), Color.White);
+                    _spriteBatch.DrawString(font, text, new Vector2(x, y), textColor);
                 }
 
                 return;
@@ -1773,15 +1781,16 @@ namespace XCOM_3
 
             float rotatedHeight = textSize.X;
             float stepVertical = rotatedHeight + 30f;
+            float startY = area.Y + 8f - stepVertical + (scrollOffset % stepVertical);
 
-            for (float y = area.Y + 8f; y < area.Bottom - rotatedHeight; y += stepVertical)
+            for (float y = startY; y < area.Bottom; y += stepVertical)
             {
                 Vector2 position = new Vector2(area.X + area.Width * 0.5f, y);
                 _spriteBatch.DrawString(
                     font,
                     text,
                     position,
-                    Color.White,
+                    textColor,
                     -MathHelper.PiOver2,
                     new Vector2(textSize.X * 0.5f, 0f),
                     1f,
