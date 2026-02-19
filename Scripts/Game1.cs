@@ -1724,7 +1724,7 @@ namespace XCOM_3
             DrawFloorControlButton(floorModeButton, floorModeLabel, floorViewMode == FloorViewMode.AutoFollow ? Color.ForestGreen : Color.DarkGoldenrod);
 
             _spriteBatch.DrawString(font, "Q/E: Rotation | Molette: Zoom | WASD/Middle: Deplacement | PgUp/PgDn: Etage | Shift: Cible +1 etage | I: Inventaire | C: Fiche perso", new Vector2(10, 10), Color.White);
-            _spriteBatch.DrawString(font, "Escaliers: balises orange/bleu sur la grille", new Vector2(10, 70), new Color(255, 190, 90));
+            _spriteBatch.DrawString(font, "Escaliers: montez/descendez en cliquant la case d'acces", new Vector2(10, 70), new Color(255, 190, 90));
             _spriteBatch.DrawString(font, $"Mode etage: {floorViewMode} | Ciblage: {(explicitUpperFloorTargeting ? "+1" : "Normal")}", new Vector2(10, 100), Color.LightBlue);
 
             string timeStr = GetTimeOfDayString(timeOfDay);
@@ -2119,7 +2119,8 @@ namespace XCOM_3
                 }
 
                 renderer3D.DrawRampTiles(currentMap?.RampTiles, floor, cellSize, upperFloorOpacity);
-                renderer3D.DrawStairConnections(currentMap?.StairConnections, floor, cellSize, upperFloorOpacity);
+                // Stair traversal remains enabled via pathfinding/click handling,
+                // but grid stair markers are intentionally hidden.
             }
 
             var visibleUnits = playerUnits.Where(u => u.Health > 0)
