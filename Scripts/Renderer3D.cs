@@ -1499,15 +1499,29 @@ namespace XCOM_3
                     sprintZone.UnionWith(zones.Sprint.Where(node => node.Floor == floor).Select(node => node.Cell));
                 }
 
+                // Zones exclusives pour le remplissage de couleur
+                HashSet<Point> shortExclusive = shortZone;
+                HashSet<Point> maxExclusive = maxZone.Except(shortZone).ToHashSet();
+                HashSet<Point> sprintExclusive = sprintZone.Except(maxZone).ToHashSet();
+
+                // Remplissage semi-transparent des zones (pour une meilleure lisibilité)
+                float fillPulse = (float)Math.Sin(gameTime * 2.5f) * 0.12f + 0.88f;
+                ExecuteWithOpacity(0.38f, () =>
+                {
+                    DrawZoneFill(shortExclusive, cellSize, floorYOffset, new Color(0, 255, 80) * fillPulse, terrainHeights);
+                    DrawZoneFill(maxExclusive, cellSize, floorYOffset, new Color(50, 150, 255) * fillPulse, terrainHeights);
+                    DrawZoneFill(sprintExclusive, cellSize, floorYOffset, new Color(255, 200, 0) * fillPulse, terrainHeights);
+                });
+
                 // Zone 1 : contour externe du mouvement court (1 AP) - VERT
-                DrawZonePerimeter(shortZone, cellSize, floorYOffset, 0.02f, new Color(0, 255, 0, 220) * pulse, terrainHeights);
+                DrawZonePerimeter(shortZone, cellSize, floorYOffset, 0.02f, new Color(0, 255, 0, 255) * pulse, terrainHeights);
 
                 // Zone 2 : contour externe du mouvement max (2 AP) - BLEU
-                DrawZonePerimeter(maxZone, cellSize, floorYOffset, 0.03f, new Color(0, 150, 255, 210) * pulse, terrainHeights);
+                DrawZonePerimeter(maxZone, cellSize, floorYOffset, 0.03f, new Color(0, 150, 255, 255) * pulse, terrainHeights);
 
                 // Zone 3 : contour externe du sprint (2 AP + phosphocréatine) - JAUNE
                 float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
-                DrawZonePerimeter(sprintZone, cellSize, floorYOffset, 0.04f, new Color(255, 200, 0, 215) * sprintPulse, terrainHeights);
+                DrawZonePerimeter(sprintZone, cellSize, floorYOffset, 0.04f, new Color(255, 200, 0, 255) * sprintPulse, terrainHeights);
 
                 // Indicateur sprint uniquement sur les cellules de frontière
                 foreach (var cell in sprintZone)
@@ -1583,6 +1597,23 @@ namespace XCOM_3
                 {
                     DrawLine(nw, sw, color);
                 }
+            }
+        }
+
+        private void DrawZoneFill(IEnumerable<Point> cells, int cellSize, float floorYOffset, Color color, IReadOnlyDictionary<Point, float> terrainHeights)
+        {
+            if (cells == null) return;
+
+            float fillSize = cellSize * 0.94f;
+            foreach (Point cell in cells)
+            {
+                float terrainH = GetCellTerrainHeight(terrainHeights, cell);
+                Vector3 pos = new Vector3(
+                    cell.X * cellSize + cellSize / 2f,
+                    floorYOffset + terrainH + 0.01f,
+                    cell.Y * cellSize + cellSize / 2f
+                );
+                DrawPlane(pos, new Vector3(fillSize, 1f, fillSize), color);
             }
         }
 
