@@ -556,15 +556,19 @@ namespace XCOM_3
             int radiusX,
             int radiusY)
         {
-            return new List<Point>
-            {
-                new Point(centerX, Math.Clamp(centerY - radiusY, minY, maxY)),
-                new Point(Math.Clamp(centerX + radiusX, minX, maxX), centerY),
-                new Point(centerX, Math.Clamp(centerY + radiusY, minY, maxY)),
-                new Point(Math.Clamp(centerX - radiusX, minX, maxX), centerY)
-            }
-            .Distinct()
-            .ToList();
+            // Retourne la cellule de base et son voisin cardinal (nord, puis est, sud, ouest).
+            // Les deux points forment un puits d'escalier fixe: tous les étages utilisent
+            // la même direction, garantissant des rampes cardinales valides (|dx|+|dy|==1).
+            Point center = new Point(centerX, centerY);
+            if (centerY - 1 >= minY)
+                return new List<Point> { center, new Point(centerX, centerY - 1) };
+            if (centerX + 1 <= maxX)
+                return new List<Point> { center, new Point(centerX + 1, centerY) };
+            if (centerY + 1 <= maxY)
+                return new List<Point> { center, new Point(centerX, centerY + 1) };
+            if (centerX - 1 >= minX)
+                return new List<Point> { center, new Point(centerX - 1, centerY) };
+            return new List<Point>();
         }
 
         private static void AddRampShaftConnections(
@@ -574,25 +578,24 @@ namespace XCOM_3
             int maxFloor,
             HashSet<(int Floor, int X, int Y)> occupiedRampCells)
         {
-            if (shaftPoints == null || shaftPoints.Count == 0 || minFloor >= maxFloor)
+            if (shaftPoints == null || shaftPoints.Count < 2 || minFloor >= maxFloor)
+                return;
+
+            // Utilise une paire fixe (base, voisin) pour tous les étages.
+            // La rotation par étage générait des déplacements diagonaux (|dx|+|dy|==2)
+            // qui étaient tous rejetés, ne produisant aucun escalier.
+            Point from = shaftPoints[0];
+            Point to = shaftPoints[1];
+
+            int dx = to.X - from.X;
+            int dy = to.Y - from.Y;
+
+            // Seules les directions cardinales sont utilisables comme rampe.
+            if (Math.Abs(dx) + Math.Abs(dy) != 1)
                 return;
 
             for (int floor = minFloor; floor < maxFloor; floor++)
             {
-                int floorOffset = floor - minFloor;
-                Point from = shaftPoints[floorOffset % shaftPoints.Count];
-                Point to = shaftPoints[(floorOffset + 1) % shaftPoints.Count];
-
-                if (from == to)
-                    continue;
-
-                int dx = to.X - from.X;
-                int dy = to.Y - from.Y;
-
-                // Seules les directions cardinales sont utilisables comme rampe.
-                if (Math.Abs(dx) + Math.Abs(dy) != 1)
-                    continue;
-
                 bool fromOccupied = occupiedRampCells != null && occupiedRampCells.Contains((floor, from.X, from.Y));
                 bool toOccupied = occupiedRampCells != null && occupiedRampCells.Contains((floor + 1, to.X, to.Y));
                 if (fromOccupied || toOccupied)
