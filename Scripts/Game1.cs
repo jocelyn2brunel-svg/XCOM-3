@@ -3884,11 +3884,12 @@ namespace XCOM_3
                 GraphicsDevice.Viewport.Height,
                 WorldMetrics.FloorToWorldY(interactionFloor, cellSize));
 
-            // Quand on vise un étage élevé, le raycast sur ce plan décale la cellule au sol
-            // (effet de parallaxe) pour les zones extérieures. Reprojeter sur le sol corrige
-            // l'alignement curseur/case hors empreinte des bâtiments.
+            // Quand on vise un étage différent du rez-de-chaussée (au-dessus ou en dessous),
+            // le raycast sur ce plan décale la cellule au sol (effet de parallaxe) pour les
+            // zones extérieures. Reprojeter sur le sol corrige l'alignement curseur/case
+            // hors empreinte des bâtiments.
             if (rawHoveredCell.X >= 0 && rawHoveredCell.Y >= 0 &&
-                interactionFloor > 0 &&
+                interactionFloor != 0 &&
                 !IsInsideBuildingFootprint(rawHoveredCell))
             {
                 Point groundHoveredCell = camera.GetCellFromMouse(
