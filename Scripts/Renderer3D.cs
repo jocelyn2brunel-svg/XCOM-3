@@ -1448,42 +1448,51 @@ namespace XCOM_3
                 floors.Add(viewedFloor);
             }
 
-            foreach (int floor in floors)
+            bool prevLighting = basic.LightingEnabled;
+            basic.LightingEnabled = false;
+            try
             {
-                float floorYOffset = WorldMetrics.FloorToWorldY(floor, cellSize);
-
-                HashSet<Point> shortZone = zones.ShortMove != null
-                    ? zones.ShortMove.Where(node => node.Floor == floor).Select(node => node.Cell).ToHashSet()
-                    : new HashSet<Point>();
-                HashSet<Point> maxZone = new HashSet<Point>(shortZone);
-                if (zones.MaxMove != null)
+                foreach (int floor in floors)
                 {
-                    maxZone.UnionWith(zones.MaxMove.Where(node => node.Floor == floor).Select(node => node.Cell));
-                }
-                HashSet<Point> sprintZone = new HashSet<Point>(maxZone);
-                if (zones.Sprint != null)
-                {
-                    sprintZone.UnionWith(zones.Sprint.Where(node => node.Floor == floor).Select(node => node.Cell));
-                }
+                    float floorYOffset = WorldMetrics.FloorToWorldY(floor, cellSize);
 
-                // Zone 1 : contour externe du mouvement court (1 AP) - VERT
-                DrawZonePerimeter(shortZone, cellSize, floorYOffset, 0.02f, new Color(0, 255, 0, 255) * pulse, terrainHeights);
-
-                // Zone 2 : contour externe du mouvement max (2 AP) - BLEU
-                DrawZonePerimeter(maxZone, cellSize, floorYOffset, 0.03f, new Color(0, 150, 255, 255) * pulse, terrainHeights);
-
-                // Zone 3 : contour externe du sprint (2 AP + phosphocréatine) - JAUNE
-                float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
-                DrawZonePerimeter(sprintZone, cellSize, floorYOffset, 0.04f, new Color(255, 200, 0, 255) * sprintPulse, terrainHeights);
-
-                // Indicateur sprint uniquement sur les cellules de frontière
-                foreach (var cell in sprintZone)
-                {
-                    if (IsBoundaryCell(cell, sprintZone))
+                    HashSet<Point> shortZone = zones.ShortMove != null
+                        ? zones.ShortMove.Where(node => node.Floor == floor).Select(node => node.Cell).ToHashSet()
+                        : new HashSet<Point>();
+                    HashSet<Point> maxZone = new HashSet<Point>(shortZone);
+                    if (zones.MaxMove != null)
                     {
-                        DrawSprintIndicator(cell, cellSize, gameTime, floorYOffset, terrainHeights);
+                        maxZone.UnionWith(zones.MaxMove.Where(node => node.Floor == floor).Select(node => node.Cell));
+                    }
+                    HashSet<Point> sprintZone = new HashSet<Point>(maxZone);
+                    if (zones.Sprint != null)
+                    {
+                        sprintZone.UnionWith(zones.Sprint.Where(node => node.Floor == floor).Select(node => node.Cell));
+                    }
+
+                    // Zone 1 : contour externe du mouvement court (1 AP) - VERT
+                    DrawZonePerimeter(shortZone, cellSize, floorYOffset, 0.02f, new Color(0, 255, 0, 255) * pulse, terrainHeights);
+
+                    // Zone 2 : contour externe du mouvement max (2 AP) - BLEU
+                    DrawZonePerimeter(maxZone, cellSize, floorYOffset, 0.03f, new Color(0, 150, 255, 255) * pulse, terrainHeights);
+
+                    // Zone 3 : contour externe du sprint (2 AP + phosphocréatine) - JAUNE
+                    float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
+                    DrawZonePerimeter(sprintZone, cellSize, floorYOffset, 0.04f, new Color(255, 200, 0, 255) * sprintPulse, terrainHeights);
+
+                    // Indicateur sprint uniquement sur les cellules de frontière
+                    foreach (var cell in sprintZone)
+                    {
+                        if (IsBoundaryCell(cell, sprintZone))
+                        {
+                            DrawSprintIndicator(cell, cellSize, gameTime, floorYOffset, terrainHeights);
+                        }
                     }
                 }
+            }
+            finally
+            {
+                basic.LightingEnabled = prevLighting;
             }
         }
 
@@ -1526,29 +1535,31 @@ namespace XCOM_3
                 float ySE = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X + 1, cell.Y + 1) + lift;
                 float yNE = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X + 1, cell.Y) + lift;
 
-                Vector3 nw = new Vector3(xMin, yNW, zMin);
-                Vector3 sw = new Vector3(xMin, ySW, zMax);
-                Vector3 se = new Vector3(xMax, ySE, zMax);
-                Vector3 ne = new Vector3(xMax, yNE, zMin);
+                float lw = cellSize * 0.12f;
+                float lh = 0.04f;
 
                 if (!zone.Contains(new Point(cell.X, cell.Y - 1)))
                 {
-                    DrawLine(nw, ne, color);
+                    Vector3 mid = new Vector3((xMin + xMax) / 2f, (yNW + yNE) / 2f, zMin);
+                    DrawCube(mid, new Vector3(cellSize, lh, lw), color);
                 }
 
                 if (!zone.Contains(new Point(cell.X + 1, cell.Y)))
                 {
-                    DrawLine(ne, se, color);
+                    Vector3 mid = new Vector3(xMax, (yNE + ySE) / 2f, (zMin + zMax) / 2f);
+                    DrawCube(mid, new Vector3(lw, lh, cellSize), color);
                 }
 
                 if (!zone.Contains(new Point(cell.X, cell.Y + 1)))
                 {
-                    DrawLine(sw, se, color);
+                    Vector3 mid = new Vector3((xMin + xMax) / 2f, (ySW + ySE) / 2f, zMax);
+                    DrawCube(mid, new Vector3(cellSize, lh, lw), color);
                 }
 
                 if (!zone.Contains(new Point(cell.X - 1, cell.Y)))
                 {
-                    DrawLine(nw, sw, color);
+                    Vector3 mid = new Vector3(xMin, (yNW + ySW) / 2f, (zMin + zMax) / 2f);
+                    DrawCube(mid, new Vector3(lw, lh, cellSize), color);
                 }
             }
         }
