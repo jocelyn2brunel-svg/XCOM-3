@@ -33,7 +33,6 @@ namespace XCOM_3
 
         // --- Missions disponibles ---
         private readonly List<MissionPoint> _missionPoints = new();
-        private readonly List<GeoEllipse> _continentMasks = new();
 
         // --- Mission sélectionnée ---
         private string _selectedMission = "";
@@ -53,7 +52,6 @@ namespace XCOM_3
             _font = font;
             _pixel = pixel;
 
-            CreateContinentMasks();
             CreateMissionPoints();
         }
 
@@ -104,26 +102,6 @@ namespace XCOM_3
             _missionPoints.Add(new MissionPoint("Forêt", "Algérie", 36.7538f, 3.0588f, Color.ForestGreen));
         }
 
-        private void CreateContinentMasks()
-        {
-            _continentMasks.Clear();
-
-            // Ellipses géographiques (lat/lon) pour dessiner une carte terrestre stylisée.
-            _continentMasks.AddRange(new[]
-            {
-                new GeoEllipse(52f, -105f, 34f, 56f), // Amérique du Nord
-                new GeoEllipse(22f, -100f, 16f, 22f), // Mexique
-                new GeoEllipse(-14f, -60f, 28f, 18f), // Amérique du Sud
-                new GeoEllipse(3f, 20f, 36f, 34f),    // Afrique
-                new GeoEllipse(54f, 18f, 20f, 14f),   // Europe
-                new GeoEllipse(46f, 82f, 30f, 82f),   // Asie
-                new GeoEllipse(21f, 78f, 9f, 8f),     // Inde
-                new GeoEllipse(64f, 100f, 8f, 18f),   // Sibérie nord
-                new GeoEllipse(-25f, 134f, 14f, 17f), // Australie
-                new GeoEllipse(72f, -40f, 10f, 12f),  // Groenland
-                new GeoEllipse(-78f, 0f, 11f, 180f),  // Antarctique
-            });
-        }
 
         private void HandleGlobeRotation(MouseState mouseState, MouseState previousMouseState)
         {
@@ -253,6 +231,7 @@ namespace XCOM_3
 
             DrawSphere(center, radius);
             DrawEarthTexture(center, radius, rotation);
+            DrawNationalBorders(center, radius, rotation);
             DrawLatitudeLongitudeGrid(center, radius, rotation, false);
             DrawLatitudeLongitudeGrid(center, radius, rotation, true);
             DrawCircleOutline(center, radius, 2f, new Color(100, 170, 255));
@@ -374,8 +353,8 @@ namespace XCOM_3
 
         private void DrawEarthTexture(Vector2 center, float radius, Matrix rotation)
         {
-            const int latitudeStep = 2;
-            const int longitudeStep = 2;
+            const int latitudeStep = 1;
+            const int longitudeStep = 1;
             Vector3 lightDirection = Vector3.Normalize(new Vector3(-0.65f, -0.35f, 0.67f));
             Vector3 viewDirection = Vector3.UnitZ;
             Color coastColor = new Color(201, 198, 140);
@@ -384,7 +363,7 @@ namespace XCOM_3
             {
                 for (int longitude = -180; longitude <= 180; longitude += longitudeStep)
                 {
-                    if (!IsLand(latitude, longitude))
+                    if (!WorldData.IsLand(latitude, longitude))
                         continue;
 
                     Vector3 world = Vector3.Transform(LatLonToSphere(latitude, longitude), rotation);
@@ -468,41 +447,30 @@ namespace XCOM_3
 
         private bool IsNearCoast(float latitude, float longitude)
         {
-            const float coastBand = 3.2f;
-            foreach (var continent in _continentMasks)
-            {
-                float latitudeOffset = latitude - continent.CenterLatitude;
-                float longitudeOffset = WrapLongitudeDifference(longitude - continent.CenterLongitude);
-
-                float latFactor = latitudeOffset / continent.HalfLatitudeSpan;
-                float lonFactor = longitudeOffset / continent.HalfLongitudeSpan;
-                float distance = latFactor * latFactor + lonFactor * lonFactor;
-
-                float latBand = coastBand / MathF.Max(6f, continent.HalfLatitudeSpan);
-                float lonBand = coastBand / MathF.Max(6f, continent.HalfLongitudeSpan);
-                float outerDistance = MathF.Pow(MathF.Abs(latFactor) + latBand, 2f) + MathF.Pow(MathF.Abs(lonFactor) + lonBand, 2f);
-
-                if (distance <= 1f && outerDistance >= 1f)
-                    return true;
-            }
-
+            bool center = WorldData.IsLand(latitude, longitude);
+            if (WorldData.IsLand(latitude + 1.5f, longitude) != center) return true;
+            if (WorldData.IsLand(latitude - 1.5f, longitude) != center) return true;
+            if (WorldData.IsLand(latitude, longitude + 1.5f) != center) return true;
+            if (WorldData.IsLand(latitude, longitude - 1.5f) != center) return true;
             return false;
         }
 
-        private bool IsLand(float latitude, float longitude)
+        private void DrawNationalBorders(Vector2 center, float radius, Matrix rotation)
         {
-            foreach (var continent in _continentMasks)
+            Color borderColor = new Color(255, 255, 255, 100); // Lignes blanches fines (semi-transparentes)
+            foreach (var border in WorldData.CountryBorders)
             {
-                float latitudeOffset = latitude - continent.CenterLatitude;
-                float longitudeOffset = WrapLongitudeDifference(longitude - continent.CenterLongitude);
+                for (int i = 0; i < border.Length - 3; i += 2)
+                {
+                    Vector3 startPos = LatLonToSphere(border[i], border[i + 1]);
+                    Vector3 endPos = LatLonToSphere(border[i + 2], border[i + 3]);
 
-                float latFactor = latitudeOffset / continent.HalfLatitudeSpan;
-                float lonFactor = longitudeOffset / continent.HalfLongitudeSpan;
-                if (latFactor * latFactor + lonFactor * lonFactor <= 1f)
-                    return true;
+                    Vector3 startRot = Vector3.Transform(startPos, rotation);
+                    Vector3 endRot = Vector3.Transform(endPos, rotation);
+
+                    DrawGridSegment(center, radius, startRot, endRot, borderColor, true);
+                }
             }
-
-            return false;
         }
 
         private static float WrapLongitudeDifference(float diff)
@@ -583,7 +551,6 @@ namespace XCOM_3
         }
 
         private record MissionPoint(string Name, string City, float Latitude, float Longitude, Color Color);
-        private record GeoEllipse(float CenterLatitude, float CenterLongitude, float HalfLatitudeSpan, float HalfLongitudeSpan);
         private record MissionRenderData(MissionPoint Mission, Vector2 ScreenPosition, float Radius, float Depth, bool IsFront);
         private record GlobeRenderData(Vector2 Center, float Radius, List<MissionRenderData> Missions);
     }
