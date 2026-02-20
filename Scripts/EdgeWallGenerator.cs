@@ -84,7 +84,8 @@ namespace XCOM_3
             Scattered,      // Murs éparpillés
             Bunker,         // Structure défensive
             Urban,          // Bâtiments urbains
-            Trenches        // Tranchées de guerre
+            Trenches,       // Tranchées de guerre
+            Forest          // Forêt avec cabanes
         }
 
         public EdgeWallGenerator(Random rng)
@@ -122,6 +123,8 @@ namespace XCOM_3
                         return GenerateUrban(gridWidth, gridHeight);
                     case WallPattern.Trenches:
                         return GenerateTrenches(gridWidth, gridHeight);
+                    case WallPattern.Forest:
+                        return GenerateForest(gridWidth, gridHeight);
                     default:
                         return GenerateRooms(gridWidth, gridHeight, density);
                 }
@@ -759,6 +762,55 @@ namespace XCOM_3
             HashSet<WallSegment> walls = new HashSet<WallSegment>();
             // Les tranchées sont maintenant matérialisées par le relief du terrain.
             // On ne place donc plus de murs structurels sur ce pattern.
+            return walls;
+        }
+
+        /// <summary>
+        /// Génère une forêt avec quelques cabanes éparpillées
+        /// </summary>
+        private HashSet<WallSegment> GenerateForest(int gridWidth, int gridHeight)
+        {
+            HashSet<WallSegment> walls = new HashSet<WallSegment>();
+
+            // Générer 1 à 3 petites cabanes
+            int numCabins = random.Next(1, 4);
+            for (int i = 0; i < numCabins; i++)
+            {
+                int cabinWidth = random.Next(4, 7);
+                int cabinHeight = random.Next(4, 7);
+
+                int startX = random.Next(5, gridWidth - cabinWidth - 5);
+                int startY = random.Next(5, gridHeight - cabinHeight - 5);
+
+                // Vérifier qu'on n'est pas dans les zones de spawn
+                if (startY < 6 || startY > gridHeight - cabinHeight - 6)
+                    continue;
+
+                LastGeneratedBuildings.Add(new GeneratedBuilding(startX, startY, cabinWidth, cabinHeight, 1));
+
+                // Murs extérieurs
+                for (int x = startX; x < startX + cabinWidth; x++)
+                {
+                    AddHorizontalWall(walls, x, startY, WallType.Full, true, 20, WallMaterial.Standard);
+                    AddHorizontalWall(walls, x, startY + cabinHeight, WallType.Full, true, 20, WallMaterial.Standard);
+                }
+                for (int y = startY; y < startY + cabinHeight; y++)
+                {
+                    AddVerticalWall(walls, startX, y, WallType.Full, true, 20, WallMaterial.Standard);
+                    AddVerticalWall(walls, startX + cabinWidth, y, WallType.Full, true, 20, WallMaterial.Standard);
+                }
+
+                // Une porte
+                int side = random.Next(4);
+                switch (side)
+                {
+                    case 0: AddHorizontalDoor(walls, startX + cabinWidth / 2, startY); break;
+                    case 1: AddHorizontalDoor(walls, startX + cabinWidth / 2, startY + cabinHeight); break;
+                    case 2: AddVerticalDoor(walls, startX, startY + cabinHeight / 2); break;
+                    case 3: AddVerticalDoor(walls, startX + cabinWidth, startY + cabinHeight / 2); break;
+                }
+            }
+
             return walls;
         }
 

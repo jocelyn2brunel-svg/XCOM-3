@@ -428,9 +428,46 @@ namespace XCOM_3
                     DrawCounterFurniture(center, totalScale, baseColor);
                     break;
 
+                case FurnitureType.TreePine:
+                    DrawTreePineFurniture(center, totalScale, baseColor);
+                    break;
+
                 default:
                     DrawCube(center, totalScale, baseColor);
                     break;
+            }
+        }
+
+        private void DrawTreePineFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
+        {
+            float bottomY = center.Y - totalScale.Y / 2f;
+            float trunkHeight = totalScale.Y * 0.25f;
+            float trunkWidth = totalScale.X * 0.18f;
+
+            // Trunk (Tronc)
+            Vector3 trunkScale = new Vector3(trunkWidth, trunkHeight, trunkWidth);
+            Vector3 trunkCenter = new Vector3(center.X, bottomY + trunkHeight / 2f, center.Z);
+            DrawCube(trunkCenter, trunkScale, new Color(90, 60, 40)); // Dark brown
+
+            // Foliage (Aiguilles) - 4 tiers for a pine shape
+            int tiers = 4;
+            float foliageHeight = totalScale.Y - trunkHeight;
+            float tierHeight = (foliageHeight / tiers) * 1.3f; // Slight overlap
+
+            for (int i = 0; i < tiers; i++)
+            {
+                float t = i / (float)(tiers - 1);
+                // The tier width gets smaller as we go up
+                float tierWidth = MathHelper.Lerp(totalScale.X, totalScale.X * 0.2f, t);
+                Vector3 tierScale = new Vector3(tierWidth, tierHeight, tierWidth);
+
+                // Position each tier slightly above the previous one
+                float tierBottomY = bottomY + trunkHeight + (i * (foliageHeight / tiers));
+                Vector3 tierCenter = new Vector3(center.X, tierBottomY + tierHeight / 2f, center.Z);
+
+                // Alternate greens for a bit of variety
+                Color foliageColor = Color.Lerp(new Color(34, 110, 34), new Color(20, 70, 20), t);
+                DrawCube(tierCenter, tierScale, foliageColor);
             }
         }
 
@@ -733,6 +770,7 @@ namespace XCOM_3
                 FurnitureType.PickupToyotaTacoma => new Vector2(17.9f * feetToWorld, 6.3f * feetToWorld),
                 FurnitureType.PickupFordF150 => new Vector2(19.5f * feetToWorld, 6.7f * feetToWorld),
                 FurnitureType.PickupRam3500 => new Vector2(20.3f * feetToWorld, 6.8f * feetToWorld),
+                FurnitureType.TreePine => new Vector2(8f * feetToWorld, 8f * feetToWorld),
                 _ => new Vector2(baseSize, baseSize)
             };
         }
@@ -753,6 +791,7 @@ namespace XCOM_3
                 FurnitureType.PickupToyotaTacoma => new Color(76, 88, 112),
                 FurnitureType.PickupFordF150 => new Color(178, 46, 52),
                 FurnitureType.PickupRam3500 => new Color(220, 220, 228),
+                FurnitureType.TreePine => new Color(34, 139, 34),
                 _ => new Color(130, 130, 130)
             };
         }

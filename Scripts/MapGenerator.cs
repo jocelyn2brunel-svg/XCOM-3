@@ -291,6 +291,10 @@ namespace XCOM_3
             {
                 furnitures.AddRange(GenerateUrbanStreetVehicles(mapWidth, mapHeight, buildings, spawnZones, hescoBarriers, furnitures));
             }
+            else if (pattern == EdgeWallGenerator.WallPattern.Forest)
+            {
+                furnitures.AddRange(GenerateForestFurniture(mapWidth, mapHeight, buildings, spawnZones, hescoBarriers, furnitures));
+            }
 
             return furnitures;
         }
@@ -395,6 +399,81 @@ namespace XCOM_3
             }
 
             return furnitures;
+        }
+
+        private List<FurnitureData> GenerateForestFurniture(
+            int mapWidth,
+            int mapHeight,
+            List<BuildingFootprintData> buildings,
+            List<SpawnZone> spawnZones,
+            List<HescoBarrierData> hescoBarriers,
+            List<FurnitureData> existingFurniture)
+        {
+            var nature = new List<FurnitureData>();
+            var blockedCells = new HashSet<Point>();
+
+            // Marquer les bâtiments comme bloqués
+            if (buildings != null)
+            {
+                foreach (var b in buildings)
+                {
+                    for (int x = b.X; x < b.X + b.Width; x++)
+                        for (int y = b.Y; y < b.Y + b.Height; y++)
+                            blockedCells.Add(new Point(x, y));
+                }
+            }
+
+            // Marquer les zones de spawn comme bloquées (un peu plus larges pour laisser de la place)
+            if (spawnZones != null)
+            {
+                foreach (var zone in spawnZones)
+                {
+                    for (int x = zone.MinX - 1; x <= zone.MaxX + 1; x++)
+                        for (int y = zone.MinY - 1; y <= zone.MaxY + 1; y++)
+                            blockedCells.Add(new Point(x, y));
+                }
+            }
+
+            // Placer des pins éparpillés
+            int targetTreeCount = (mapWidth * mapHeight) / 25; // Densité "scattered"
+            int attempts = 0;
+            while (nature.Count < targetTreeCount && attempts < 500)
+            {
+                attempts++;
+                int x = random.Next(2, mapWidth - 2);
+                int y = random.Next(2, mapHeight - 2);
+                Point p = new Point(x, y);
+
+                if (blockedCells.Contains(p)) continue;
+
+                var tree = new FurnitureData
+                {
+                    X = x,
+                    Y = y,
+                    Floor = 0,
+                    Type = FurnitureType.TreePine,
+                    OrientationRadians = (float)(random.NextDouble() * Math.PI * 2)
+                };
+
+                bool overlapping = false;
+                foreach (Point cell in FurnitureData.GetOccupiedCells(tree))
+                {
+                    if (cell.X < 0 || cell.X >= mapWidth || cell.Y < 0 || cell.Y >= mapHeight || blockedCells.Contains(cell))
+                    {
+                        overlapping = true;
+                        break;
+                    }
+                }
+
+                if (!overlapping)
+                {
+                    nature.Add(tree);
+                    foreach (Point cell in FurnitureData.GetOccupiedCells(tree))
+                        blockedCells.Add(cell);
+                }
+            }
+
+            return nature;
         }
 
         private List<FurnitureData> GenerateUrbanStreetVehicles(
@@ -647,8 +726,10 @@ namespace XCOM_3
             if (pattern == EdgeWallGenerator.WallPattern.Trenches)
                 return GenerateTrenchTerrain(width, height);
 
-            // Temporairement désactivé: pas de collines ni de fossés.
-            if (!terrainReliefEnabled)
+            // Toujours activer le relief pour la forêt (collines)
+            bool forceRelief = pattern == EdgeWallGenerator.WallPattern.Forest;
+
+            if (!terrainReliefEnabled && !forceRelief)
                 return new List<TerrainHeightData>();
 
             var heightMap = new float[width, height];
@@ -787,7 +868,8 @@ namespace XCOM_3
                 "Sabotage" => EdgeWallGenerator.WallPattern.Maze,
                 "Blackout" => EdgeWallGenerator.WallPattern.Bunker,
                 "Sprint" => EdgeWallGenerator.WallPattern.Trenches,
-                _ => (EdgeWallGenerator.WallPattern)random.Next(0, 6)
+                "Forêt" => EdgeWallGenerator.WallPattern.Forest,
+                _ => (EdgeWallGenerator.WallPattern)random.Next(0, 7)
             };
         }
 
@@ -798,6 +880,7 @@ namespace XCOM_3
                 "Assault" => 8,
                 "Centre-Ville" => 8,
                 "Blackout" => random.Next(2, 4),
+                "Forêt" => 1,
                 _ => random.Next(2, 4)
             };
         }
@@ -845,7 +928,13 @@ namespace XCOM_3
             large.Description = "Large open arena for epic battles";
             MapCatalog.SaveMap(large);
 
-            Console.WriteLine("[MAP GEN] Created 6 premade maps");
+            // Forest Mission - Algeria
+            var forest = generator.GenerateMap(50, 50, EdgeWallGenerator.WallPattern.Forest, "Forêt");
+            forest.Description = "Pine forest in Algeria with scattered cabins and hills";
+            forest.BiomeType = "Forest";
+            MapCatalog.SaveMap(forest);
+
+            Console.WriteLine("[MAP GEN] Created 7 premade maps");
         }
     }
 }

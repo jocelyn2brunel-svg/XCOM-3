@@ -279,7 +279,8 @@ namespace XCOM_3
         SedanMercedesEClass,
         PickupToyotaTacoma,
         PickupFordF150,
-        PickupRam3500
+        PickupRam3500,
+        TreePine
     }
 
     [Serializable]
@@ -312,6 +313,7 @@ namespace XCOM_3
                 FurnitureType.PickupToyotaTacoma => (17.9f, 6.3f),
                 FurnitureType.PickupFordF150 => (19.5f, 6.7f),
                 FurnitureType.PickupRam3500 => (19.9f, 6.8f),
+                FurnitureType.TreePine => (8f, 8f),
                 _ => (5f, 5f)
             };
         }
@@ -366,6 +368,7 @@ namespace XCOM_3
                 FurnitureType.PickupToyotaTacoma => 6.0f,
                 FurnitureType.PickupFordF150 => 6.4f,
                 FurnitureType.PickupRam3500 => 6.6f,
+                FurnitureType.TreePine => 16.0f,
                 _ => 3f
             };
         }
