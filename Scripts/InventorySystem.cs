@@ -3841,7 +3841,7 @@ namespace XCOM_3
                 int deltaX = mouse.X - lastDragMouseX;
                 int deltaY = mouse.Y - lastDragMouseY;
                 previewRotation += deltaX * PreviewMouseRotationSensitivity;
-                previewPanY = MathHelper.Clamp(previewPanY - deltaY * PreviewMousePanSensitivity, PreviewPanYMin, PreviewPanYMax);
+                previewPanY = MathHelper.Clamp(previewPanY + deltaY * PreviewMousePanSensitivity, PreviewPanYMin, PreviewPanYMax);
                 lastDragMouseX = mouse.X;
                 lastDragMouseY = mouse.Y;
             }
