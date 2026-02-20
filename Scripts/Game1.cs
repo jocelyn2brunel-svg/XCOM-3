@@ -2657,9 +2657,6 @@ namespace XCOM_3
             // Contour au sol : suit la géométrie de la tuile (coins interpolés) pour rester collé au relief.
             DrawHoveredCellTerrainOutline(floorYOffset, pulseBoost);
 
-            // Piliers verticaux : rendent la sélection lisible près des murs et changements d'élévation.
-            DrawHoveredCellVerticalGuides(floorYOffset + terrainOffset, pulseBoost);
-
             GraphicsDevice.BlendState = previousBlend;
             GraphicsDevice.DepthStencilState = previousDepth;
         }
@@ -2721,24 +2718,6 @@ namespace XCOM_3
 
             return count > 0 ? sum / count : 0f;
         }
-
-        private void DrawHoveredCellVerticalGuides(float baseY, float pulseBoost)
-        {
-            float guideHeight = cellSize * WallHeightRatio * 0.55f;
-            float xMin = hoveredCell.X * cellSize + cellSize * 0.06f;
-            float xMax = (hoveredCell.X + 1) * cellSize - cellSize * 0.06f;
-            float zMin = hoveredCell.Y * cellSize + cellSize * 0.06f;
-            float zMax = (hoveredCell.Y + 1) * cellSize - cellSize * 0.06f;
-            float centerY = baseY + guideHeight * 0.5f;
-            float thickness = cellSize * 0.02f;
-            Color guideColor = new Color(255, 220, 90, 140) * pulseBoost;
-
-            renderer3D.DrawCube(new Vector3(xMin, centerY, zMin), new Vector3(thickness, guideHeight * 0.5f, thickness), guideColor);
-            renderer3D.DrawCube(new Vector3(xMax, centerY, zMin), new Vector3(thickness, guideHeight * 0.5f, thickness), guideColor);
-            renderer3D.DrawCube(new Vector3(xMin, centerY, zMax), new Vector3(thickness, guideHeight * 0.5f, thickness), guideColor);
-            renderer3D.DrawCube(new Vector3(xMax, centerY, zMax), new Vector3(thickness, guideHeight * 0.5f, thickness), guideColor);
-        }
-
 
         private void DrawWireframeWalls(HashSet<WallSegment> walls, float floorHeightOffset, Color wireColor)
         {
