@@ -2689,16 +2689,17 @@ namespace XCOM_3
             float yNE = floorYOffset + ComputeHoveredCornerHeight(hoveredCell.X + 1, hoveredCell.Y) + outlineLift;
 
             float lw = cellSize * 0.12f;
-            float lh = 0.04f;
 
-            // Nord
-            renderer3D.DrawCube(new Vector3((xMin + xMax) / 2f, (yNW + yNE) / 2f, zMin), new Vector3(cellSize, lh, lw), outlineColor);
-            // Est
-            renderer3D.DrawCube(new Vector3(xMax, (yNE + ySE) / 2f, (zMin + zMax) / 2f), new Vector3(lw, lh, cellSize), outlineColor);
-            // Sud
-            renderer3D.DrawCube(new Vector3((xMin + xMax) / 2f, (ySW + ySE) / 2f, zMax), new Vector3(cellSize, lh, lw), outlineColor);
-            // Ouest
-            renderer3D.DrawCube(new Vector3(xMin, (yNW + ySW) / 2f, (zMin + zMax) / 2f), new Vector3(lw, lh, cellSize), outlineColor);
+            // Chaque arête est un quad incliné entre ses deux coins exacts,
+            // épousant parfaitement la pente du terrain au lieu d'un cube plat à hauteur moyenne.
+            // Nord : NW → NE
+            renderer3D.DrawSlopedEdge(new Vector3(xMin, yNW, zMin), new Vector3(xMax, yNE, zMin), outlineColor, lw);
+            // Est  : NE → SE
+            renderer3D.DrawSlopedEdge(new Vector3(xMax, yNE, zMin), new Vector3(xMax, ySE, zMax), outlineColor, lw);
+            // Sud  : SE → SW
+            renderer3D.DrawSlopedEdge(new Vector3(xMax, ySE, zMax), new Vector3(xMin, ySW, zMax), outlineColor, lw);
+            // Ouest: SW → NW
+            renderer3D.DrawSlopedEdge(new Vector3(xMin, ySW, zMax), new Vector3(xMin, yNW, zMin), outlineColor, lw);
         }
 
         private float ComputeHoveredCornerHeight(int vertexX, int vertexZ)

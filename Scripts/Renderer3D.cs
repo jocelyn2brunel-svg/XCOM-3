@@ -168,6 +168,40 @@ namespace XCOM_3
             }
         }
 
+        /// <summary>
+        /// Rend un segment incliné entre deux points 3D (world-space) sous forme de quad
+        /// plat suivi le slope du terrain. Remplace DrawCube pour les arêtes du hover outline,
+        /// garantissant une correspondance exacte avec la géométrie des tuiles.
+        /// </summary>
+        public void DrawSlopedEdge(Vector3 start, Vector3 end, Color color, float width)
+        {
+            Color effectiveColor = color * geometryOpacityMultiplier;
+
+            Vector3 dir = end - start;
+            float length = dir.Length();
+            if (length < 0.0001f) return;
+            dir /= length;
+
+            // Direction perpendiculaire dans le plan horizontal (rotation 90° en XZ)
+            Vector3 perp = Vector3.Normalize(new Vector3(-dir.Z, 0f, dir.X)) * (width * 0.5f);
+
+            VertexPositionColor[] verts = new[]
+            {
+                new VertexPositionColor(start - perp, effectiveColor),
+                new VertexPositionColor(start + perp, effectiveColor),
+                new VertexPositionColor(end   + perp, effectiveColor),
+                new VertexPositionColor(end   - perp, effectiveColor),
+            };
+            short[] idx = new short[] { 0, 1, 2, 0, 2, 3 };
+
+            basic.World = Matrix.Identity;
+            foreach (var pass in basic.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, 4, idx, 0, 2);
+            }
+        }
+
         public void DrawPlane(Vector3 pos, Vector3 scale, Color color)
             => DrawPlane(pos, scale, color, 0f, 0f, 0f);
 
