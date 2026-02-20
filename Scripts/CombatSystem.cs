@@ -77,6 +77,7 @@ namespace XCOM_3
                 FurnitureType.PickupToyotaTacoma => 40,
                 FurnitureType.PickupFordF150 => 45,
                 FurnitureType.PickupRam3500 => 50,
+                FurnitureType.TreePine => 40,
                 _ => 0
             };
         }
