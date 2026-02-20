@@ -3665,31 +3665,28 @@ namespace XCOM_3
         {
             int centerX = gridWidth / 2;
             int centerY = gridHeight / 2;
-            var offsets = new[]
-            {
-                new Point(0, 0),
-                new Point(1, 0),
-                new Point(-1, 0),
-                new Point(0, 1),
-                new Point(0, -1),
-                new Point(1, 1),
-                new Point(-1, -1),
-                new Point(1, -1),
-                new Point(-1, 1)
-            };
 
             var cells = new List<Point>();
-            foreach (var offset in offsets)
+            int maxRadius = Math.Max(gridWidth, gridHeight);
+
+            for (int radius = 0; radius <= maxRadius && cells.Count < count; radius++)
             {
-                if (cells.Count >= count)
-                    break;
+                for (int dx = -radius; dx <= radius && cells.Count < count; dx++)
+                {
+                    for (int dy = -radius; dy <= radius && cells.Count < count; dy++)
+                    {
+                        // Ne parcourir que l'anneau extérieur du rayon courant
+                        if (Math.Abs(dx) != radius && Math.Abs(dy) != radius)
+                            continue;
 
-                int x = Math.Clamp(centerX + offset.X, 0, gridWidth - 1);
-                int y = Math.Clamp(centerY + offset.Y, 0, gridHeight - 1);
-                var point = new Point(x, y);
+                        int x = Math.Clamp(centerX + dx, 0, gridWidth - 1);
+                        int y = Math.Clamp(centerY + dy, 0, gridHeight - 1);
+                        var point = new Point(x, y);
 
-                if (!cells.Contains(point))
-                    cells.Add(point);
+                        if (!cells.Contains(point) && !HasBlockingFurnitureOnFloor(point, 0))
+                            cells.Add(point);
+                    }
+                }
             }
 
             return cells;
