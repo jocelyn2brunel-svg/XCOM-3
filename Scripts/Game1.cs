@@ -3885,6 +3885,24 @@ namespace XCOM_3
                 GraphicsDevice.Viewport.Height,
                 WorldMetrics.FloorToWorldY(interactionFloor, cellSize));
 
+            // Correction de parallaxe terrain : le raycast vise un plan plat à y=floorY,
+            // mais les cases avec relief (tranchées, collines) ont une surface à une autre
+            // hauteur. On re-projette sur le vrai plan de la case pour corriger le décalage.
+            if (rawHoveredCell.X >= 0 && rawHoveredCell.Y >= 0)
+            {
+                float terrainOffset = GetTerrainHeightOffset(rawHoveredCell);
+                if (MathF.Abs(terrainOffset) > 0.05f)
+                {
+                    Point refined = camera.GetCellFromMouse(
+                        mouse.Position,
+                        GraphicsDevice.Viewport.Width,
+                        GraphicsDevice.Viewport.Height,
+                        WorldMetrics.FloorToWorldY(interactionFloor, cellSize) + terrainOffset);
+                    if (refined.X >= 0 && refined.Y >= 0)
+                        rawHoveredCell = refined;
+                }
+            }
+
             // Quand on vise un étage différent du rez-de-chaussée (au-dessus ou en dessous),
             // le raycast sur ce plan décale la cellule au sol (effet de parallaxe) pour les
             // zones extérieures. Reprojeter sur le sol corrige l'alignement curseur/case
