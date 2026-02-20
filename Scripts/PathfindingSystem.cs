@@ -42,6 +42,13 @@ namespace XCOM_3
         private readonly Func<Point, int, bool> isCellAvailableOnFloor;
         private readonly List<RampTileData> ramps;
 
+        // Cache for GetMovementZones — invalidated when unit state changes
+        private MovementZones _cachedZones;
+        private Unit _cachedZonesUnit;
+        private Point _cachedZonesCell;
+        private int _cachedZonesFloor;
+        private int _cachedZonesActionPoints = -1;
+
         public PathfindingSystem(int w, int h, HashSet<WallSegment> walls, Func<Point, Unit> getUnit)
             : this(
                 w,
@@ -92,40 +99,40 @@ namespace XCOM_3
             var goalNode = new GridNode(goal, goalFloor);
 
             if (startNode.Equals(goalNode))
-            {
                 return new PathResult { Cells = new List<Point>(), EndFloor = goalFloor };
-            }
 
-            var open = new List<GridNode> { startNode };
-            var openSet = new HashSet<GridNode> { startNode };
+            // PriorityQueue + lazy deletion: O(log n) dequeue instead of O(n) linear scan
+            var open = new PriorityQueue<GridNode, int>();
+            var closed = new HashSet<GridNode>();
             var came = new Dictionary<GridNode, GridNode>();
             var g = new Dictionary<GridNode, int> { { startNode, 0 } };
-            var f = new Dictionary<GridNode, int> { { startNode, Heuristic(startNode, goalNode) } };
+
+            open.Enqueue(startNode, Heuristic(startNode, goalNode));
 
             while (open.Count > 0)
             {
-                GridNode cur = GetLowestCostNode(open, f);
+                GridNode cur = open.Dequeue();
+                if (closed.Contains(cur)) continue; // stale entry from a cost update
+                closed.Add(cur);
+
                 if (cur.Equals(goalNode))
                     return ReconstructPath(came, cur);
 
-                open.Remove(cur);
-                openSet.Remove(cur);
-
+                int gCur = g.GetValueOrDefault(cur, int.MaxValue);
                 foreach (var n in GetNeighbors(cur))
                 {
+                    if (closed.Contains(n)) continue;
                     if (!CanTraverseNeighbor(cur, n, goalNode, movingUnit))
                         continue;
 
-                    int tentative = g[cur] + GetEdgeCost(cur, n);
+                    int tentative = gCur + GetEdgeCost(cur, n);
                     if (tentative > maxCost) continue;
 
                     if (tentative < g.GetValueOrDefault(n, int.MaxValue))
                     {
                         came[n] = cur;
                         g[n] = tentative;
-                        f[n] = tentative + Heuristic(n, goalNode);
-                        if (openSet.Add(n))
-                            open.Add(n);
+                        open.Enqueue(n, tentative + Heuristic(n, goalNode));
                     }
                 }
             }
@@ -154,26 +161,6 @@ namespace XCOM_3
                 baseCost += VerticalTransitionExtraCost;
 
             return baseCost;
-        }
-
-        private GridNode GetLowestCostNode(List<GridNode> openNodes, Dictionary<GridNode, int> fScores)
-        {
-            var bestNode = openNodes[0];
-            var bestScore = fScores.GetValueOrDefault(bestNode, int.MaxValue);
-
-            for (int i = 1; i < openNodes.Count; i++)
-            {
-                var node = openNodes[i];
-                var score = fScores.GetValueOrDefault(node, int.MaxValue);
-
-                if (score < bestScore)
-                {
-                    bestNode = node;
-                    bestScore = score;
-                }
-            }
-
-            return bestNode;
         }
 
         private bool CanTraverseNeighbor(GridNode current, GridNode neighbor, GridNode goalNode, Unit movingUnit)
@@ -266,43 +253,39 @@ namespace XCOM_3
 
         private List<GridNode> GetCellsInRange(Unit u, int range, bool includeAllFloors)
         {
-            var reachable = new List<GridNode>();
+            var reachable = new HashSet<GridNode>();
             var start = new GridNode(u.Cell, u.Floor);
-            var open = new List<GridNode>();
+            var open = new PriorityQueue<GridNode, int>();
+            var settled = new HashSet<GridNode>();
             var costs = new Dictionary<GridNode, int> { { start, 0 } };
 
-            open.Add(start);
+            open.Enqueue(start, 0);
 
             while (open.Count > 0)
             {
-                var current = GetLowestCostNode(open, costs);
-                open.Remove(current);
-                int currentCost = costs[current];
+                var current = open.Dequeue();
+                if (settled.Contains(current)) continue; // stale entry from a cost update
+                settled.Add(current);
 
+                int currentCost = costs[current];
                 if (currentCost >= range)
                     continue;
 
                 foreach (var neighbor in GetNeighbors(current))
                 {
-                    if (!IsFloorInBounds(neighbor.Floor))
-                        continue;
-
-                    if (!IsWalkable(neighbor.Cell, neighbor.Floor, u))
-                        continue;
-
-                    if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell))
-                        continue;
+                    if (settled.Contains(neighbor)) continue;
+                    if (!IsFloorInBounds(neighbor.Floor)) continue;
+                    if (!IsWalkable(neighbor.Cell, neighbor.Floor, u)) continue;
+                    if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell)) continue;
 
                     int nextCost = currentCost + GetEdgeCost(current, neighbor);
-                    if (nextCost > range)
-                        continue;
+                    if (nextCost > range) continue;
 
                     if (costs.TryGetValue(neighbor, out int bestKnownCost) && bestKnownCost <= nextCost)
                         continue;
 
                     costs[neighbor] = nextCost;
-                    if (!open.Contains(neighbor))
-                        open.Add(neighbor);
+                    open.Enqueue(neighbor, nextCost);
 
                     if (neighbor.Cell == u.Cell && neighbor.Floor == u.Floor)
                         continue;
@@ -312,7 +295,7 @@ namespace XCOM_3
                 }
             }
 
-            return reachable;
+            return reachable.ToList();
         }
 
         public List<Point> GetMovableCells(Unit u)
@@ -329,22 +312,87 @@ namespace XCOM_3
             public List<GridNode> ShortMove { get; set; } = new List<GridNode>();
             public List<GridNode> MaxMove { get; set; } = new List<GridNode>();
             public List<GridNode> Sprint { get; set; } = new List<GridNode>();
+
+            // Per-floor HashSets for rendering — built lazily once per zone object
+            private Dictionary<int, HashSet<Point>> _shortByFloor;
+            private Dictionary<int, HashSet<Point>> _maxByFloor;
+            private Dictionary<int, HashSet<Point>> _sprintByFloor;
+
+            public Dictionary<int, HashSet<Point>> GetShortByFloor()
+                => _shortByFloor ??= BuildGroupedByFloor(ShortMove);
+
+            // MaxByFloor is the cumulative short ∪ max zone used for perimeter rendering
+            public Dictionary<int, HashSet<Point>> GetMaxByFloor()
+                => _maxByFloor ??= BuildGroupedByFloor(ShortMove, MaxMove);
+
+            // SprintByFloor is the cumulative short ∪ max ∪ sprint zone
+            public Dictionary<int, HashSet<Point>> GetSprintByFloor()
+                => _sprintByFloor ??= BuildGroupedByFloor(ShortMove, MaxMove, Sprint);
+
+            private static Dictionary<int, HashSet<Point>> BuildGroupedByFloor(params List<GridNode>[] lists)
+            {
+                var result = new Dictionary<int, HashSet<Point>>();
+                foreach (var list in lists)
+                {
+                    if (list == null) continue;
+                    foreach (var n in list)
+                    {
+                        if (!result.TryGetValue(n.Floor, out var set))
+                            result[n.Floor] = set = new HashSet<Point>();
+                        set.Add(n.Cell);
+                    }
+                }
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Invalidate the movement zone cache. Call when the selected unit changes,
+        /// moves, uses AP, or when walls are destroyed.
+        /// </summary>
+        public void InvalidateMovementCache()
+        {
+            _cachedZonesUnit = null;
         }
 
         public MovementZones GetMovementZones(Unit u)
         {
+            if (u == null) return new MovementZones();
+
+            // Return cached result if unit state hasn't changed
+            if (u == _cachedZonesUnit
+                && u.Cell == _cachedZonesCell
+                && u.Floor == _cachedZonesFloor
+                && u.ActionPoints == _cachedZonesActionPoints)
+                return _cachedZones;
+
             var zones = new MovementZones();
-            if (u == null) return zones;
-            if (u.ActionPoints >= 1) zones.ShortMove = GetCellsInRange(u, u.GetShortMoveRange(), includeAllFloors: true);
+            if (u.ActionPoints >= 1)
+                zones.ShortMove = GetCellsInRange(u, u.GetShortMoveRange(), includeAllFloors: true);
+
             if (u.ActionPoints >= 2)
+            {
+                var shortSet = new HashSet<GridNode>(zones.ShortMove);
                 zones.MaxMove = GetCellsInRange(u, u.GetMaxMoveRange(), includeAllFloors: true)
-                    .Except(zones.ShortMove)
+                    .Where(n => !shortSet.Contains(n))
                     .ToList();
+            }
+
             if (u.CanSprint())
+            {
+                var shortSet = new HashSet<GridNode>(zones.ShortMove);
+                var maxSet = new HashSet<GridNode>(zones.MaxMove);
                 zones.Sprint = GetCellsInRange(u, u.GetSprintRange(), includeAllFloors: true)
-                    .Except(zones.ShortMove)
-                    .Except(zones.MaxMove)
+                    .Where(n => !shortSet.Contains(n) && !maxSet.Contains(n))
                     .ToList();
+            }
+
+            _cachedZones = zones;
+            _cachedZonesUnit = u;
+            _cachedZonesCell = u.Cell;
+            _cachedZonesFloor = u.Floor;
+            _cachedZonesActionPoints = u.ActionPoints;
+
             return zones;
         }
 

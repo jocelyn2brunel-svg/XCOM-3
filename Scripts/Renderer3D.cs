@@ -1486,15 +1486,19 @@ namespace XCOM_3
             if (zones == null) return;
 
             float pulse = (float)Math.Sin(gameTime * 3f) * 0.15f + 0.85f;
-            var floors = new HashSet<int>();
-            if (zones.ShortMove != null) floors.UnionWith(zones.ShortMove.Select(n => n.Floor));
-            if (zones.MaxMove != null) floors.UnionWith(zones.MaxMove.Select(n => n.Floor));
-            if (zones.Sprint != null) floors.UnionWith(zones.Sprint.Select(n => n.Floor));
+
+            // Use lazily-cached per-floor dictionaries (built once per zone change, not every frame)
+            var shortByFloor = zones.GetShortByFloor();
+            var maxByFloor = zones.GetMaxByFloor();
+            var sprintByFloor = zones.GetSprintByFloor();
+
+            // Collect all floors present across the three zones
+            var floors = new HashSet<int>(shortByFloor.Keys);
+            floors.UnionWith(maxByFloor.Keys);
+            floors.UnionWith(sprintByFloor.Keys);
 
             // Limiter l'affichage à deux plans : RDC (0) + étage actuellement visualisé.
-            floors = floors
-                .Where(floor => floor == 0 || floor == viewedFloor)
-                .ToHashSet();
+            floors.RemoveWhere(f => f != 0 && f != viewedFloor);
 
             if (floors.Count == 0)
             {
@@ -1510,28 +1514,29 @@ namespace XCOM_3
                 {
                     float floorYOffset = WorldMetrics.FloorToWorldY(floor, cellSize);
 
-                    HashSet<Point> shortZone = zones.ShortMove != null
-                        ? zones.ShortMove.Where(node => node.Floor == floor).Select(node => node.Cell).ToHashSet()
-                        : new HashSet<Point>();
-                    HashSet<Point> maxZone = new HashSet<Point>(shortZone);
-                    if (zones.MaxMove != null)
-                    {
-                        maxZone.UnionWith(zones.MaxMove.Where(node => node.Floor == floor).Select(node => node.Cell));
-                    }
-                    HashSet<Point> sprintZone = new HashSet<Point>(maxZone);
-                    if (zones.Sprint != null)
-                    {
-                        sprintZone.UnionWith(zones.Sprint.Where(node => node.Floor == floor).Select(node => node.Cell));
-                    }
+                    bool needBuildingFilter = floor == 0 && viewedFloor != 0 && buildings != null && buildings.Count > 0;
 
-                    // Quand on regarde un étage supérieur, masquer les cellules du RDC
-                    // situées à l'intérieur d'un bâtiment : elles sont couvertes par le
-                    // toit et ne font que doubler visuellement le périmètre de l'étage.
-                    if (floor == 0 && viewedFloor != 0 && buildings != null && buildings.Count > 0)
+                    HashSet<Point> shortZone, maxZone, sprintZone;
+                    if (needBuildingFilter)
                     {
+                        // Clone cached sets before mutating (filtering interior building cells)
+                        shortZone = shortByFloor.TryGetValue(floor, out var s) ? new HashSet<Point>(s) : new HashSet<Point>();
+                        maxZone = maxByFloor.TryGetValue(floor, out var m) ? new HashSet<Point>(m) : new HashSet<Point>();
+                        sprintZone = sprintByFloor.TryGetValue(floor, out var sp) ? new HashSet<Point>(sp) : new HashSet<Point>();
+
+                        // Quand on regarde un étage supérieur, masquer les cellules du RDC
+                        // situées à l'intérieur d'un bâtiment : elles sont couvertes par le
+                        // toit et ne font que doubler visuellement le périmètre de l'étage.
                         shortZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
                         maxZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
                         sprintZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
+                    }
+                    else
+                    {
+                        // No mutation needed — reuse the cached sets directly
+                        shortZone = shortByFloor.TryGetValue(floor, out var s) ? s : new HashSet<Point>();
+                        maxZone = maxByFloor.TryGetValue(floor, out var m) ? m : new HashSet<Point>();
+                        sprintZone = sprintByFloor.TryGetValue(floor, out var sp) ? sp : new HashSet<Point>();
                     }
 
                     // Quand on est à un étage supérieur, estomper les segments du périmètre

@@ -124,9 +124,24 @@ namespace XCOM_3
         {
             currentlySpottedEnemies.Clear();
 
+            // Pre-compute perception ranges once — avoids repeated Lerp + sqrt per pair
+            var playerRanges = new int[playerUnits.Count];
+            for (int i = 0; i < playerUnits.Count; i++)
+                playerRanges[i] = GetEffectivePerceptionRange(playerUnits[i]);
+
             foreach (var enemy in enemyUnits)
             {
-                bool spotted = playerUnits.Any(player => CanUnitPerceiveTarget(player, enemy));
+                bool spotted = false;
+                for (int i = 0; i < playerUnits.Count; i++)
+                {
+                    var player = playerUnits[i];
+                    // Manhattan pre-filter: always >= Euclidean, zero-cost early rejection
+                    int dx = Math.Abs(enemy.Cell.X - player.Cell.X);
+                    int dy = Math.Abs(enemy.Cell.Y - player.Cell.Y);
+                    if (dx + dy > playerRanges[i]) continue;
+
+                    if (CanUnitPerceiveTarget(player, enemy)) { spotted = true; break; }
+                }
                 enemy.IsSpottedByPlayerTeam = spotted;
 
                 if (spotted)
