@@ -8,7 +8,7 @@ namespace XCOM_3
     /// </summary>
     public static class HumanBodyMorphSettings
     {
-        // Échelles globales (appliquées au gabarit de base Soldier)
+        // Échelles globales (appliquées au gabarit de base Humain)
         public static float HeadScale = 1f;
         public static float TorsoWidthScale = 1f;
         public static float TorsoHeightScale = 1f;

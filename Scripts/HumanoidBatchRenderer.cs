@@ -49,7 +49,7 @@ namespace XCOM_3
             e.World = old;
         }
 
-        public void AddSoldier(Vector3 p, Color c, float sc, Matrix rot, float ls = 0f, float asw = 0f, float bb = 0f, float ib = 0f)
+        public void AddHumain(Vector3 p, Color c, float sc, Matrix rot, float ls = 0f, float asw = 0f, float bb = 0f, float ib = 0f)
         {
             Vector3 pos = p + new Vector3(0, bb + ib, 0);
             float hs = 0.25f * sc, tw = 0.35f * sc, th = 0.5f * sc, td = 0.25f * sc, lw = 0.12f * sc, al = 0.45f * sc, ll = 0.55f * sc;
