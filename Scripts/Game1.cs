@@ -2222,7 +2222,8 @@ namespace XCOM_3
                     (float)gameTime.TotalGameTime.TotalSeconds,
                     viewedFloor,
                     terrainHeights,
-                    currentMap?.Buildings);
+                    currentMap?.Buildings,
+                    camera.Position);
 
                 GraphicsDevice.BlendState = previousBlend;
                 GraphicsDevice.DepthStencilState = previousDepth;
