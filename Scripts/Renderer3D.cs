@@ -1481,7 +1481,7 @@ namespace XCOM_3
         /// <summary>
         /// Dessine les 3 zones de mouvement (court, max, sprint)
         /// </summary>
-        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime, int viewedFloor, IReadOnlyDictionary<Point, float> terrainHeights = null)
+        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime, int viewedFloor, IReadOnlyDictionary<Point, float> terrainHeights = null, IReadOnlyList<BuildingFootprintData> buildings = null)
         {
             if (zones == null) return;
 
@@ -1524,6 +1524,16 @@ namespace XCOM_3
                         sprintZone.UnionWith(zones.Sprint.Where(node => node.Floor == floor).Select(node => node.Cell));
                     }
 
+                    // Quand on regarde un étage supérieur, masquer les cellules du RDC
+                    // situées à l'intérieur d'un bâtiment : elles sont couvertes par le
+                    // toit et ne font que doubler visuellement le périmètre de l'étage.
+                    if (floor == 0 && viewedFloor != 0 && buildings != null && buildings.Count > 0)
+                    {
+                        shortZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
+                        maxZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
+                        sprintZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
+                    }
+
                     // Zone 1 : contour externe du mouvement court (1 AP) - VERT
                     DrawZonePerimeter(shortZone, cellSize, floorYOffset, 0.02f, new Color(0, 255, 0, 255) * pulse, terrainHeights);
 
@@ -1557,6 +1567,17 @@ namespace XCOM_3
             new Point(0, 1),
             new Point(-1, 0)
         };
+
+        private static bool IsInsideBuildingFootprint(Point cell, IReadOnlyList<BuildingFootprintData> buildings)
+        {
+            foreach (var b in buildings)
+            {
+                if (cell.X >= b.X && cell.X < b.X + b.Width &&
+                    cell.Y >= b.Y && cell.Y < b.Y + b.Height)
+                    return true;
+            }
+            return false;
+        }
 
         private bool IsBoundaryCell(Point cell, HashSet<Point> zone)
         {

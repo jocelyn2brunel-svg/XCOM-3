@@ -2221,7 +2221,8 @@ namespace XCOM_3
                 renderer3D.DrawMovementZones(zones, cellSize,
                     (float)gameTime.TotalGameTime.TotalSeconds,
                     viewedFloor,
-                    terrainHeights);
+                    terrainHeights,
+                    currentMap?.Buildings);
 
                 GraphicsDevice.BlendState = previousBlend;
                 GraphicsDevice.DepthStencilState = previousDepth;
