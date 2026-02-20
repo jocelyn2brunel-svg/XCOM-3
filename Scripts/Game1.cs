@@ -2033,6 +2033,8 @@ namespace XCOM_3
 
             bool useUpperFloorCutout = TryGetHoverOcclusionFocus(out Point focusCellForCutout, out int focusFloorForCutout);
 
+            var allOccludedUnits = new HashSet<Unit>();
+
             for (int floor = minFloor; floor < floorCount; floor++)
             {
                 float yOffset = WorldMetrics.FloorToWorldY(floor, cellSize);
@@ -2097,7 +2099,7 @@ namespace XCOM_3
                             .Concat(enemyUnits.Where(u => u.Health > 0 && u.Floor == floor && IsEnemyVisibleToPlayers(u)))
                             .ToList();
 
-                        ComputeOcclusionFromWalls(renderedWalls, unitsOnFloor, yOffset, fadedWalls, new HashSet<Unit>());
+                        ComputeOcclusionFromWalls(renderedWalls, unitsOnFloor, yOffset, fadedWalls, allOccludedUnits);
 
                         if (floor == viewedFloor)
                         {
@@ -2145,7 +2147,10 @@ namespace XCOM_3
                 DrawVisibleUnitGhostOutlines(visibleUnits);
 
             foreach (var unit in visibleUnits)
-                renderer3D.DrawUnit(unit, cellSize);
+            {
+                if (!allOccludedUnits.Contains(unit))
+                    renderer3D.DrawUnit(unit, cellSize);
+            }
 
             DrawActiveProjectiles3D();
 
