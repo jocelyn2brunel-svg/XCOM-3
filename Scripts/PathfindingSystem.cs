@@ -48,6 +48,8 @@ namespace XCOM_3
         private Point _cachedZonesCell;
         private int _cachedZonesFloor;
         private int _cachedZonesActionPoints = -1;
+        private int _cachedZonesPhosphocreatine = -1;
+        private int _cachedZonesAnaerobicFatigue = -1;
 
         public PathfindingSystem(int w, int h, HashSet<WallSegment> walls, Func<Point, Unit> getUnit)
             : this(
@@ -246,7 +248,7 @@ namespace XCOM_3
         public List<Point> GetSprintCells(Unit u)
         {
             if (u == null || !u.CanSprint()) return new List<Point>();
-            return GetCellsInRange(u, u.GetSprintRange(), includeAllFloors: false)
+            return GetCellsInRange(u, u.GetEffectiveSprintRange(), includeAllFloors: false)
                 .Select(node => node.Cell)
                 .ToList();
         }
@@ -363,7 +365,9 @@ namespace XCOM_3
             if (u == _cachedZonesUnit
                 && u.Cell == _cachedZonesCell
                 && u.Floor == _cachedZonesFloor
-                && u.ActionPoints == _cachedZonesActionPoints)
+                && u.ActionPoints == _cachedZonesActionPoints
+                && u.Phosphocreatine == _cachedZonesPhosphocreatine
+                && u.AnaerobicFatigue == _cachedZonesAnaerobicFatigue)
                 return _cachedZones;
 
             var zones = new MovementZones();
@@ -382,7 +386,7 @@ namespace XCOM_3
             {
                 var shortSet = new HashSet<GridNode>(zones.ShortMove);
                 var maxSet = new HashSet<GridNode>(zones.MaxMove);
-                zones.Sprint = GetCellsInRange(u, u.GetSprintRange(), includeAllFloors: true)
+                zones.Sprint = GetCellsInRange(u, u.GetEffectiveSprintRange(), includeAllFloors: true)
                     .Where(n => !shortSet.Contains(n) && !maxSet.Contains(n))
                     .ToList();
             }
@@ -392,6 +396,8 @@ namespace XCOM_3
             _cachedZonesCell = u.Cell;
             _cachedZonesFloor = u.Floor;
             _cachedZonesActionPoints = u.ActionPoints;
+            _cachedZonesPhosphocreatine = u.Phosphocreatine;
+            _cachedZonesAnaerobicFatigue = u.AnaerobicFatigue;
 
             return zones;
         }

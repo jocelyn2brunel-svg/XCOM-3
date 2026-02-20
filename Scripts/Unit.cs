@@ -1077,6 +1077,29 @@ namespace XCOM_3
             return Math.Max(GetMaxMoveRange(carriedWeightLbs), baseRange - penalty);
         }
 
+        /// <summary>
+        /// Portée de sprint réellement atteignable avec la phosphocréatine disponible.
+        /// Contrairement à GetSprintRange() qui retourne le maximum théorique, cette méthode
+        /// tient compte du niveau actuel de PCr : si la réserve est partielle, le périmètre
+        /// affiché reflète jusqu'où l'unité peut réellement sprinter.
+        ///
+        /// Formule de coût pour distance > maxRange : ceil(MaxPCr × 0.60 × d / sprintRange)
+        /// Distance max abordable : floor(PCr × sprintRange / (MaxPCr × 0.60))
+        /// </summary>
+        public int GetEffectiveSprintRange()
+        {
+            int maxRange = GetMaxMoveRange();
+            int sprintRange = GetSprintRange();
+
+            if (Phosphocreatine <= 0 || MaxPhosphocreatine <= 0)
+                return maxRange;
+
+            float affordableDistance = (float)Phosphocreatine * sprintRange / (MaxPhosphocreatine * 0.60f);
+            int effectiveRange = (int)Math.Floor(affordableDistance);
+
+            return Math.Max(maxRange, Math.Min(sprintRange, effectiveRange));
+        }
+
         public void BeginTurnMetabolicRecovery()
         {
             RegeneratePhosphocreatine();
