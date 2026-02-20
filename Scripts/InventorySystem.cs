@@ -84,9 +84,18 @@ namespace XCOM_3
         private const float PreviewModelScale = 1.85f;
         private const float PreviewRotationSpeed = 1.8f;
         private const float PreviewMouseRotationSensitivity = 0.015f;
+        private const float PreviewMousePanSensitivity = 0.003f;
+        private const float PreviewZoomSensitivity = 1f / 1200f;
+        private const float PreviewZoomMin = 0.3f;
+        private const float PreviewZoomMax = 3.0f;
+        private const float PreviewPanYMin = -1.5f;
+        private const float PreviewPanYMax = 1.5f;
         private float previewRotation = 0f;
+        private float previewZoom = 1.0f;
+        private float previewPanY = 0.0f;
         private bool isDraggingPreview = false;
         private int lastDragMouseX = 0;
+        private int lastDragMouseY = 0;
 
         // État des touches
         private KeyboardState previousKeyboardState;
@@ -1390,7 +1399,9 @@ namespace XCOM_3
             graphicsDevice.RasterizerState = RasterizerState.CullNone;
             graphicsDevice.Clear(new Color(14, 18, 28));
 
-            previewEffect.View = Matrix.CreateLookAt(new Vector3(0f, 2.5f, 5.6f), new Vector3(0f, 1.8f, 0f), Vector3.Up);
+            Vector3 previewLookAt = new Vector3(0f, 1.8f + previewPanY, 0f);
+            Vector3 previewEye = new Vector3(0f, previewLookAt.Y + 0.7f * previewZoom, 5.6f * previewZoom);
+            previewEffect.View = Matrix.CreateLookAt(previewEye, previewLookAt, Vector3.Up);
             previewEffect.Projection = Matrix.CreatePerspectiveFieldOfView(
                 MathHelper.ToRadians(45f),
                 Math.Max(0.2f, previewRect.Width / (float)previewRect.Height),
@@ -3792,7 +3803,7 @@ namespace XCOM_3
                 ParasiteEveTheme.TextDim,
                 0.55f);
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, font,
-                "Tourner: ← / → ou glisser souris",
+                "Glisser: rotation/pan | Molette: zoom",
                 new Vector2(content.X + 14, previewRect.Bottom - 20),
                 ParasiteEveTheme.TextDim,
                 0.52f);
@@ -3809,6 +3820,11 @@ namespace XCOM_3
             bool mouseInsidePreview = previewRect.Contains(mouse.Position);
             bool isMousePressed = mouse.LeftButton == ButtonState.Pressed;
 
+            // Zoom via molette (uniquement quand la souris survole l'aperçu)
+            int scrollDelta = mouse.ScrollWheelValue - previousMouse.ScrollWheelValue;
+            if (scrollDelta != 0 && mouseInsidePreview)
+                previewZoom = MathHelper.Clamp(previewZoom - scrollDelta * PreviewZoomSensitivity, PreviewZoomMin, PreviewZoomMax);
+
             if (!isMousePressed)
             {
                 isDraggingPreview = false;
@@ -3817,13 +3833,17 @@ namespace XCOM_3
             {
                 isDraggingPreview = true;
                 lastDragMouseX = mouse.X;
+                lastDragMouseY = mouse.Y;
             }
 
             if (isDraggingPreview)
             {
                 int deltaX = mouse.X - lastDragMouseX;
+                int deltaY = mouse.Y - lastDragMouseY;
                 previewRotation += deltaX * PreviewMouseRotationSensitivity;
+                previewPanY = MathHelper.Clamp(previewPanY - deltaY * PreviewMousePanSensitivity, PreviewPanYMin, PreviewPanYMax);
                 lastDragMouseX = mouse.X;
+                lastDragMouseY = mouse.Y;
             }
         }
 
