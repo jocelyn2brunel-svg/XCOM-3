@@ -122,30 +122,65 @@ namespace XCOM_3
 
         private void UpdateEnemyPerceptionVisibility()
         {
+            // Réinitialiser la visibilité pour cette mise à jour
+            foreach (var grid in visibleCells.Values)
+                Array.Clear(grid, 0, grid.Length);
+
+            // Mettre à jour les cellules visibles et explorées basées sur les joueurs
+            foreach (var player in playerUnits)
+            {
+                if (player.Health <= 0) continue;
+                int range = GetEffectivePerceptionRange(player);
+                var visGrid = GetVisibilityGrid(player.Floor);
+                var expGrid = GetExplorationGrid(player.Floor);
+
+                int minX = Math.Max(0, player.Cell.X - range);
+                int maxX = Math.Min(gridWidth - 1, player.Cell.X + range);
+                int minY = Math.Max(0, player.Cell.Y - range);
+                int maxY = Math.Min(gridHeight - 1, player.Cell.Y + range);
+
+                for (int x = minX; x <= maxX; x++)
+                {
+                    for (int y = minY; y <= maxY; y++)
+                    {
+                        if (Vector2.DistanceSquared(new Vector2(player.Cell.X, player.Cell.Y), new Vector2(x, y)) <= range * range)
+                        {
+                            if (pathfinding.HasLineOfSight(player.Cell, new Point(x, y)))
+                            {
+                                visGrid[x, y] = true;
+                                expGrid[x, y] = true;
+                            }
+                        }
+                    }
+                }
+            }
+
             currentlySpottedEnemies.Clear();
-
-            // Pre-compute perception ranges once — avoids repeated Lerp + sqrt per pair
-            var playerRanges = new int[playerUnits.Count];
-            for (int i = 0; i < playerUnits.Count; i++)
-                playerRanges[i] = GetEffectivePerceptionRange(playerUnits[i]);
-
             foreach (var enemy in enemyUnits)
             {
-                bool spotted = false;
-                for (int i = 0; i < playerUnits.Count; i++)
+                bool wasSpotted = enemy.IsSpottedByPlayerTeam;
+                bool isSpotted = enemy.Health > 0 && IsCellVisible(enemy.Cell, enemy.Floor);
+
+                enemy.IsSpottedByPlayerTeam = isSpotted;
+
+                if (isSpotted)
                 {
-                    var player = playerUnits[i];
-                    // Manhattan pre-filter: always >= Euclidean, zero-cost early rejection
-                    int dx = Math.Abs(enemy.Cell.X - player.Cell.X);
-                    int dy = Math.Abs(enemy.Cell.Y - player.Cell.Y);
-                    if (dx + dy > playerRanges[i]) continue;
-
-                    if (CanUnitPerceiveTarget(player, enemy)) { spotted = true; break; }
-                }
-                enemy.IsSpottedByPlayerTeam = spotted;
-
-                if (spotted)
                     currentlySpottedEnemies.Add(enemy);
+                    // Retirer le fantôme si il existe
+                    enemyGhosts.RemoveAll(g => g.Id == enemy.Id);
+                }
+                else if (wasSpotted && enemy.Health > 0)
+                {
+                    // L'ennemi vient de disparaître. Créer/Mettre à jour le fantôme.
+                    enemyGhosts.RemoveAll(g => g.Id == enemy.Id);
+                    enemyGhosts.Add(new Unit(enemy));
+                }
+
+                // Si l'ennemi est mort, retirer son fantôme
+                if (enemy.Health <= 0)
+                {
+                    enemyGhosts.RemoveAll(g => g.Id == enemy.Id);
+                }
             }
 
             if (combatUI.SelectedFireTarget?.Team == Team.Enemy && !IsEnemyVisibleToPlayers(combatUI.SelectedFireTarget))
@@ -525,6 +560,10 @@ namespace XCOM_3
 
             foreach (PlantedSatchelCharge charge in plantedSatchelCharges)
             {
+                // Uniquement si la case est visible
+                if (!IsCellVisible(charge.Cell, charge.Floor))
+                    continue;
+
                 float floorY = WorldMetrics.FloorToWorldY(charge.Floor, cellSize);
                 Vector3 center = new Vector3(
                     charge.Cell.X * cellSize + cellSize * 0.5f,
@@ -1255,6 +1294,10 @@ namespace XCOM_3
             foreach (FlashlightLootMarker marker in flashlightLootMarkers)
             {
                 if (marker.Floor != viewedFloor || marker.Quantity <= 0)
+                    continue;
+
+                // Uniquement si exploré
+                if (!IsCellExplored(marker.Cell, marker.Floor))
                     continue;
 
                 float pulse = 0.58f + 0.42f * (float)Math.Sin(gameSeconds * 6f + marker.PulseSeed);

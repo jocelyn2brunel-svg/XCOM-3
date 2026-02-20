@@ -1322,7 +1322,7 @@ namespace XCOM_3
         /// <summary>
         /// Dessine les indicateurs de couverture sur la grille
         /// </summary>
-        public void DrawCoverIndicators(CoverSystem coverSystem, int gridWidth, int gridHeight, int cellSize, float gameTime)
+        public void DrawCoverIndicators(CoverSystem coverSystem, int gridWidth, int gridHeight, int cellSize, float gameTime, Func<Point, int, bool> isExplored)
         {
             if (coverSystem == null)
                 return;
@@ -1334,6 +1334,10 @@ namespace XCOM_3
                 for (int y = 0; y < gridHeight; y++)
                 {
                     Point cell = new Point(x, y);
+
+                    if (isExplored != null && !isExplored(cell, 0))
+                        continue;
+
                     CoverData cover = coverSystem.GetCoverAt(cell);
 
                     if (cover.Type == CoverType.None)
@@ -1515,7 +1519,7 @@ namespace XCOM_3
         /// <summary>
         /// Dessine les 3 zones de mouvement (court, max, sprint)
         /// </summary>
-        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime, int viewedFloor, IReadOnlyDictionary<Point, float> terrainHeights = null, IReadOnlyList<BuildingFootprintData> buildings = null, Vector3? cameraPosition = null)
+        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime, int viewedFloor, IReadOnlyDictionary<Point, float> terrainHeights = null, IReadOnlyList<BuildingFootprintData> buildings = null, Vector3? cameraPosition = null, Func<Point, int, bool> isExplored = null)
         {
             if (zones == null) return;
 
@@ -1551,19 +1555,26 @@ namespace XCOM_3
                     bool needBuildingFilter = floor == 0 && viewedFloor != 0 && buildings != null && buildings.Count > 0;
 
                     HashSet<Point> shortZone, maxZone, sprintZone;
-                    if (needBuildingFilter)
+                    if (needBuildingFilter || isExplored != null)
                     {
-                        // Clone cached sets before mutating (filtering interior building cells)
+                        // Clone cached sets before mutating
                         shortZone = shortByFloor.TryGetValue(floor, out var s) ? new HashSet<Point>(s) : new HashSet<Point>();
                         maxZone = maxByFloor.TryGetValue(floor, out var m) ? new HashSet<Point>(m) : new HashSet<Point>();
                         sprintZone = sprintByFloor.TryGetValue(floor, out var sp) ? new HashSet<Point>(sp) : new HashSet<Point>();
 
-                        // Quand on regarde un étage supérieur, masquer les cellules du RDC
-                        // situées à l'intérieur d'un bâtiment : elles sont couvertes par le
-                        // toit et ne font que doubler visuellement le périmètre de l'étage.
-                        shortZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
-                        maxZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
-                        sprintZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
+                        if (needBuildingFilter)
+                        {
+                            shortZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
+                            maxZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
+                            sprintZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
+                        }
+
+                        if (isExplored != null)
+                        {
+                            shortZone.RemoveWhere(cell => !isExplored(cell, floor));
+                            maxZone.RemoveWhere(cell => !isExplored(cell, floor));
+                            sprintZone.RemoveWhere(cell => !isExplored(cell, floor));
+                        }
                     }
                     else
                     {
@@ -1791,7 +1802,7 @@ namespace XCOM_3
         /// <summary>
         /// Dessine le chemin avec coloration selon le coût (VERSION SIMPLIFIÉE)
         /// </summary>
-        public void DrawMovementPath(List<GridNode> path, Unit unit, int cellSize, float gameTime, IReadOnlyDictionary<Point, float> terrainHeights = null)
+        public void DrawMovementPath(List<GridNode> path, Unit unit, int cellSize, float gameTime, IReadOnlyDictionary<Point, float> terrainHeights = null, Func<Point, int, bool> isExplored = null)
         {
             if (path == null || path.Count == 0 || unit == null) return;
 
@@ -1807,6 +1818,9 @@ namespace XCOM_3
                 {
                     GridNode node = path[i];
                     Point cell = node.Cell;
+
+                    if (isExplored != null && !isExplored(cell, node.Floor))
+                        continue;
                     int distance = i + 1;
 
                     // Déterminer la couleur selon la distance
@@ -1872,5 +1886,80 @@ namespace XCOM_3
         private static float GetCellTerrainHeight(IReadOnlyDictionary<Point, float> terrainHeights, Point cell)
             => terrainHeights != null && terrainHeights.TryGetValue(cell, out float height) ? height : 0f;
 
+        public void DrawFogMesh(int w, int h, int size, float yOffset, bool[,] vis, bool[,] exp, IReadOnlyDictionary<Point, float> terrainHeights)
+        {
+            if (vis == null || exp == null) return;
+
+            // Nous avons besoin de (w+1) * (h+1) sommets
+            VertexPositionColor[] verts = new VertexPositionColor[(w + 1) * (h + 1)];
+            for (int z = 0; z <= h; z++)
+            {
+                for (int x = 0; x <= w; x++)
+                {
+                    float alpha = GetFogAlpha(x, z, w, h, vis, exp);
+                    float terrainH = terrainHeights != null ? ComputeCornerHeight(terrainHeights, x, z) : 0f;
+                    verts[z * (w + 1) + x] = new VertexPositionColor(
+                        new Vector3(x * size, yOffset + terrainH + 0.15f, z * size),
+                        new Color(0, 0, 0, alpha)
+                    );
+                }
+            }
+
+            // Indices pour les triangles
+            short[] indices = new short[w * h * 6];
+            int k = 0;
+            for (int z = 0; z < h; z++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    int v = z * (w + 1) + x;
+                    indices[k++] = (short)v;
+                    indices[k++] = (short)(v + w + 1);
+                    indices[k++] = (short)(v + 1);
+                    indices[k++] = (short)(v + 1);
+                    indices[k++] = (short)(v + w + 1);
+                    indices[k++] = (short)(v + w + 2);
+                }
+            }
+
+            basic.World = Matrix.Identity;
+            bool oldLighting = basic.LightingEnabled;
+            basic.LightingEnabled = false; // Le brouillard n'est pas éclairé
+
+            BlendState oldBS = gd.BlendState;
+            gd.BlendState = BlendState.AlphaBlend;
+
+            foreach (var pass in basic.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, verts.Length, indices, 0, indices.Length / 3);
+            }
+
+            gd.BlendState = oldBS;
+            basic.LightingEnabled = oldLighting;
+        }
+
+        private float GetFogAlpha(int x, int z, int w, int h, bool[,] vis, bool[,] exp)
+        {
+            // Moyenne de jusqu'à 4 cellules adjacentes pour lisser
+            float sum = 0;
+            int count = 0;
+            for (int dz = -1; dz <= 0; dz++)
+            {
+                for (int dx = -1; dx <= 0; dx++)
+                {
+                    int cx = x + dx;
+                    int cz = z + dz;
+                    if (cx >= 0 && cx < w && cz >= 0 && cz < h)
+                    {
+                        if (vis[cx, cz]) sum += 0.0f;
+                        else if (exp[cx, cz]) sum += 0.65f;
+                        else sum += 1.0f;
+                        count++;
+                    }
+                }
+            }
+            return count > 0 ? sum / count : 1.0f;
+        }
     }
 }

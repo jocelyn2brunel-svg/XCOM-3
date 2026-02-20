@@ -225,6 +225,12 @@ namespace XCOM_3
         private Unit movementCinematicUnit = null;
         private readonly Dictionary<Unit, bool> firingShoulderCameraDecisions = new Dictionary<Unit, bool>();
         private HashSet<Unit> currentlySpottedEnemies = new HashSet<Unit>();
+
+        // --- Système de brouillard de guerre ---
+        private Dictionary<int, bool[,]> exploredCells = new();
+        private Dictionary<int, bool[,]> visibleCells = new();
+        private List<Unit> enemyGhosts = new();
+
         private SoundEffect centreVilleMusicEffect;
         private SoundEffectInstance centreVilleMusicEffectInstance;
         private SoundEffect gunshotSoundEffect;
@@ -2067,15 +2073,27 @@ namespace XCOM_3
                 }
 
                 var hescoBarriersForFloor = GetHescoBarriersForFloor(floor);
-                if (applyUpperFloorCutout && hescoBarriersForFloor.Count > 0)
-                    hescoBarriersForFloor = hescoBarriersForFloor.Where(b => !IsPointInsideUpperFloorCutout(new Point(b.X, b.Y), focusCellForCutout, UpperFloorCutoutRadius)).ToList();
+                if (hescoBarriersForFloor.Count > 0)
+                {
+                    if (applyUpperFloorCutout)
+                        hescoBarriersForFloor = hescoBarriersForFloor.Where(b => !IsPointInsideUpperFloorCutout(new Point(b.X, b.Y), focusCellForCutout, UpperFloorCutoutRadius)).ToList();
+
+                    // Brouillard de guerre
+                    hescoBarriersForFloor = hescoBarriersForFloor.Where(b => IsCellExplored(new Point(b.X, b.Y), floor)).ToList();
+                }
 
                 if (hescoBarriersForFloor.Count > 0)
                     renderer3D.DrawHescoBarriers(hescoBarriersForFloor, cellSize, yOffset, hescoWallTexture);
 
                 var furnituresForFloor = GetFurnitureForFloor(floor);
-                if (applyUpperFloorCutout && furnituresForFloor.Count > 0)
-                    furnituresForFloor = furnituresForFloor.Where(f => !IsPointInsideUpperFloorCutout(new Point(f.X, f.Y), focusCellForCutout, UpperFloorCutoutRadius)).ToList();
+                if (furnituresForFloor.Count > 0)
+                {
+                    if (applyUpperFloorCutout)
+                        furnituresForFloor = furnituresForFloor.Where(f => !IsPointInsideUpperFloorCutout(new Point(f.X, f.Y), focusCellForCutout, UpperFloorCutoutRadius)).ToList();
+
+                    // Brouillard de guerre
+                    furnituresForFloor = furnituresForFloor.Where(f => IsCellExplored(new Point(f.X, f.Y), floor)).ToList();
+                }
 
                 if (furnituresForFloor.Count > 0)
                     renderer3D.DrawFurniture(furnituresForFloor, cellSize, yOffset, upperFloorOpacity);
@@ -2083,7 +2101,18 @@ namespace XCOM_3
                 var wallsForFloor = GetWallsForFloor(floor);
                 if (wallsForFloor.Count > 0)
                 {
-                    HashSet<WallSegment> renderedWalls = new HashSet<WallSegment>(wallsForFloor);
+                    HashSet<WallSegment> renderedWalls = new HashSet<WallSegment>();
+
+                    // Brouillard de guerre : Un mur est visible si l'une des deux cases adjacentes est explorée
+                    foreach (var wall in wallsForFloor)
+                    {
+                        bool wallExplored = false;
+                        foreach (var cell in GetCellsAdjacentToWall(wall))
+                        {
+                            if (IsCellExplored(cell, floor)) { wallExplored = true; break; }
+                        }
+                        if (wallExplored) renderedWalls.Add(wall);
+                    }
 
                     if (floor > viewedFloor)
                         renderedWalls = FilterUpperFloorWallsForLowerView(floor, viewedFloor, renderedWalls);
@@ -2123,6 +2152,15 @@ namespace XCOM_3
 
                 renderer3D.DrawRampTiles(currentMap?.RampTiles, floor, cellSize, upperFloorOpacity);
 
+                // Dessiner le brouillard de guerre pour cet étage
+                if (currentState == GameState.Playing)
+                {
+                    renderer3D.DrawFogMesh(gridWidth, gridHeight, cellSize, yOffset,
+                        visibleCells.TryGetValue(floor, out var v) ? v : null,
+                        exploredCells.TryGetValue(floor, out var e) ? e : null,
+                        floor == 0 ? terrainHeights : null);
+                }
+
                 // Draw pulsing arrow markers above ramp entry cells so the player can
                 // identify staircases and knows to click them to change floor.
                 {
@@ -2152,6 +2190,16 @@ namespace XCOM_3
                     renderer3D.DrawUnit(unit, cellSize);
             }
 
+            // Dessiner les fantômes d'ennemis (dernière position connue)
+            foreach (var ghost in enemyGhosts)
+            {
+                // On ne dessine le fantôme que si sa cellule est explorée mais non visible
+                if (IsCellExplored(ghost.Cell, ghost.Floor) && !IsCellVisible(ghost.Cell, ghost.Floor))
+                {
+                    renderer3D.DrawUnitSilhouette(ghost, cellSize, new Color(150, 150, 150, 80));
+                }
+            }
+
             DrawActiveProjectiles3D();
 
             DrawAlliedTacticalFlashlightBeams(minFloor, floorCount);
@@ -2162,8 +2210,8 @@ namespace XCOM_3
             Unit target = combatUI.SelectedFireTarget ?? combatUI.HoveredFireTarget;
             if (target != null && (target.Team != Team.Enemy || IsEnemyVisibleToPlayers(target))) renderer3D.DrawSelectionIndicator(target, cellSize, new Color(255, 0, 0, 128), 1.2f);
 
-            renderer3D.DrawCraters(craters, cellSize);
-            renderer3D.DrawGrenades(activeGrenades, cellSize);
+            renderer3D.DrawCraters(craters.Where(c => IsCellExplored(c.Cell, 0)).ToList(), cellSize);
+            renderer3D.DrawGrenades(activeGrenades.Where(g => IsCellVisible(new Point((int)(g.TargetPosition.X / cellSize), (int)(g.TargetPosition.Z / cellSize)), g.TargetFloor)).ToList(), cellSize);
             DrawPlantedSatchelCharges3D(gameTime);
             DrawFlashlightLootHighlights(gameTime);
 
@@ -2179,7 +2227,8 @@ namespace XCOM_3
                     gridWidth,
                     gridHeight,
                     cellSize,
-                    (float)gameTime.TotalGameTime.TotalSeconds
+                    (float)gameTime.TotalGameTime.TotalSeconds,
+                    IsCellExplored
                 );
             }
 
@@ -2228,7 +2277,8 @@ namespace XCOM_3
                     viewedFloor,
                     terrainHeights,
                     currentMap?.Buildings,
-                    camera.Position);
+                    camera.Position,
+                    IsCellExplored);
 
                 GraphicsDevice.BlendState = previousBlend;
                 GraphicsDevice.DepthStencilState = previousDepth;
@@ -2244,7 +2294,8 @@ namespace XCOM_3
 
                 renderer3D.DrawMovementPath(currentPathNodes, selectedUnit, cellSize,
                     (float)gameTime.TotalGameTime.TotalSeconds,
-                    terrainHeights);
+                    terrainHeights,
+                    IsCellExplored);
 
                 GraphicsDevice.BlendState = previousBlend;
                 GraphicsDevice.DepthStencilState = previousDepth;
@@ -2645,6 +2696,9 @@ namespace XCOM_3
         private void DrawHoveredCell3D(GameTime gameTime)
         {
             if (hoveredCell.X < 0 || hoveredCell.Y < 0)
+                return;
+
+            if (!IsCellExplored(hoveredCell, hoveredCellFloor))
                 return;
 
             BlendState previousBlend = GraphicsDevice.BlendState;
@@ -3830,6 +3884,8 @@ namespace XCOM_3
             // ✅ NOUVEAU : Charger une carte (générée aléatoirement)
             LoadMap(); // Génère automatiquement une carte selon selectedMission
 
+            ResetFogOfWar();
+
             CreateUnits(missionType);
             floorViewMode = FloorViewMode.AutoFollow;
             explicitUpperFloorTargeting = false;
@@ -3846,6 +3902,54 @@ namespace XCOM_3
             combatSystem.InitializeCoverSystem(gridWidth, gridHeight, wallSegments);
             combatSystem.RefreshAllUnitsCover();
             Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
+        }
+
+        private void ResetFogOfWar()
+        {
+            exploredCells.Clear();
+            visibleCells.Clear();
+            enemyGhosts.Clear();
+            currentlySpottedEnemies.Clear();
+        }
+
+        private bool IsCellExplored(Point cell, int floor)
+        {
+            if (exploredCells.TryGetValue(floor, out var grid))
+            {
+                if (cell.X >= 0 && cell.X < grid.GetLength(0) && cell.Y >= 0 && cell.Y < grid.GetLength(1))
+                    return grid[cell.X, cell.Y];
+            }
+            return false;
+        }
+
+        private bool[,] GetVisibilityGrid(int floor)
+        {
+            if (!visibleCells.TryGetValue(floor, out var grid))
+            {
+                grid = new bool[gridWidth, gridHeight];
+                visibleCells[floor] = grid;
+            }
+            return grid;
+        }
+
+        private bool[,] GetExplorationGrid(int floor)
+        {
+            if (!exploredCells.TryGetValue(floor, out var grid))
+            {
+                grid = new bool[gridWidth, gridHeight];
+                exploredCells[floor] = grid;
+            }
+            return grid;
+        }
+
+        private bool IsCellVisible(Point cell, int floor)
+        {
+            if (visibleCells.TryGetValue(floor, out var grid))
+            {
+                if (cell.X >= 0 && cell.X < grid.GetLength(0) && cell.Y >= 0 && cell.Y < grid.GetLength(1))
+                    return grid[cell.X, cell.Y];
+            }
+            return false;
         }
 
 
