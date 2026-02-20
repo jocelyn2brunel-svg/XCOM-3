@@ -47,6 +47,22 @@ namespace XCOM_3
             // Générer les zones de spawn avant les bâtiments/murs.
             map.GenerateDefaultSpawnZones();
 
+            // Pour les missions avec spawn au centre, ajouter une zone centrale
+            // afin que les véhicules n'y soient pas générés.
+            if (missionType == "Centre-Ville" || missionType == "Sabotage")
+            {
+                int cx = map.GridWidth / 2;
+                int cy = map.GridHeight / 2;
+                map.PlayerSpawnZones.Add(new SpawnZone
+                {
+                    MinX = Math.Max(0, cx - 3),
+                    MinY = Math.Max(0, cy - 3),
+                    MaxX = Math.Min(map.GridWidth - 1, cx + 3),
+                    MaxY = Math.Min(map.GridHeight - 1, cy + 3),
+                    MaxUnits = 0
+                });
+            }
+
             // Choisir le pattern de murs selon la mission
             EdgeWallGenerator.WallPattern pattern = GetPatternForMission(missionType);
             int density = map.GridWidth * map.GridHeight / 10;
