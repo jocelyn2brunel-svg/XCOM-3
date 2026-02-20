@@ -24,9 +24,18 @@ namespace XCOM_3
 
         private const float PreviewRotationSpeed = 1.8f;
         private const float MouseRotationSensitivity = 0.015f;
+        private const float MousePanSensitivity = 0.003f;
+        private const float ZoomSensitivity = 1f / 1200f;
+        private const float ZoomMin = 0.3f;
+        private const float ZoomMax = 3.0f;
+        private const float PanYMin = -1.5f;
+        private const float PanYMax = 1.5f;
         private float _previewRotation;
+        private float _previewZoom = 1.0f;
+        private float _previewPanY = 0.0f;
         private bool _isDraggingPreview;
         private int _lastDragMouseX;
+        private int _lastDragMouseY;
 
         public bool IsVisible { get; private set; }
 
@@ -69,23 +78,31 @@ namespace XCOM_3
             Rectangle previewRect = GetPreviewRect(GetPanelBounds());
             bool mouseInsidePreview = previewRect.Contains(mouse.Position);
             bool isMousePressed = mouse.LeftButton == ButtonState.Pressed;
-            _ = previousMouse;
+
+            // Zoom via molette (uniquement quand la souris survole l'aperçu)
+            int scrollDelta = mouse.ScrollWheelValue - previousMouse.ScrollWheelValue;
+            if (scrollDelta != 0 && mouseInsidePreview)
+                _previewZoom = MathHelper.Clamp(_previewZoom - scrollDelta * ZoomSensitivity, ZoomMin, ZoomMax);
 
             if (!isMousePressed)
             {
                 _isDraggingPreview = false;
             }
-            else if (!_isDraggingPreview && mouseInsidePreview)
+            else if (!_isDraggingPreview && previousMouse.LeftButton != ButtonState.Pressed && mouseInsidePreview)
             {
                 _isDraggingPreview = true;
                 _lastDragMouseX = mouse.X;
+                _lastDragMouseY = mouse.Y;
             }
 
             if (_isDraggingPreview)
             {
                 int deltaX = mouse.X - _lastDragMouseX;
+                int deltaY = mouse.Y - _lastDragMouseY;
                 _previewRotation += deltaX * MouseRotationSensitivity;
+                _previewPanY = MathHelper.Clamp(_previewPanY - deltaY * MousePanSensitivity, PanYMin, PanYMax);
                 _lastDragMouseX = mouse.X;
+                _lastDragMouseY = mouse.Y;
             }
         }
 
@@ -115,7 +132,9 @@ namespace XCOM_3
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
             _graphicsDevice.Clear(new Color(14, 18, 28));
 
-            _previewEffect.View = Matrix.CreateLookAt(new Vector3(0f, 2.5f, 5.6f), new Vector3(0f, 1.8f, 0f), Vector3.Up);
+            Vector3 lookAt = new Vector3(0f, 1.8f + _previewPanY, 0f);
+            Vector3 eyePos = new Vector3(0f, lookAt.Y + 0.7f * _previewZoom, 5.6f * _previewZoom);
+            _previewEffect.View = Matrix.CreateLookAt(eyePos, lookAt, Vector3.Up);
             _previewEffect.Projection = Matrix.CreatePerspectiveFieldOfView(
                 MathHelper.ToRadians(45f),
                 Math.Max(0.2f, previewRect.Width / (float)previewRect.Height),
@@ -201,7 +220,7 @@ namespace XCOM_3
                 ParasiteEveTheme.TextHighlight,
                 0.9f);
             ParasiteEveTheme.DrawTextWithShadow(spriteBatch, _font,
-                "Tourner: ← / → ou glisser souris",
+                "Glisser: rotation/pan | Molette: zoom",
                 new Vector2(previewRect.X + 14, previewRect.Bottom - 32),
                 ParasiteEveTheme.TextDim,
                 0.8f);

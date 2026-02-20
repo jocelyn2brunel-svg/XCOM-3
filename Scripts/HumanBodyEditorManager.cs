@@ -39,9 +39,18 @@ namespace XCOM_3
 
         private const float PreviewModelScale = 1.75f;
         private const float PreviewRotationSensitivity = 0.015f;
+        private const float PreviewPanSensitivity = 0.003f;
+        private const float PreviewZoomSensitivity = 1f / 1200f;
+        private const float PreviewZoomMin = 0.3f;
+        private const float PreviewZoomMax = 3.0f;
+        private const float PreviewPanYMin = -1.5f;
+        private const float PreviewPanYMax = 1.5f;
         private float _previewRotation = MathHelper.Pi;
+        private float _previewZoom = 1.0f;
+        private float _previewPanY = 0.0f;
         private bool _isDraggingPreview;
         private int _lastDragMouseX;
+        private int _lastDragMouseY;
 
         public event Action OnBackToMainMenu;
 
@@ -140,7 +149,9 @@ namespace XCOM_3
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
             _graphicsDevice.Clear(new Color(12, 18, 25));
 
-            _previewEffect.View = Matrix.CreateLookAt(new Vector3(0f, 2.4f, 5.5f), new Vector3(0f, 1.7f, 0f), Vector3.Up);
+            Vector3 lookAt = new Vector3(0f, 1.7f + _previewPanY, 0f);
+            Vector3 eyePos = new Vector3(0f, lookAt.Y + 0.7f * _previewZoom, 5.5f * _previewZoom);
+            _previewEffect.View = Matrix.CreateLookAt(eyePos, lookAt, Vector3.Up);
             _previewEffect.Projection = Matrix.CreatePerspectiveFieldOfView(
                 MathHelper.ToRadians(45f),
                 Math.Max(0.2f, previewRect.Width / (float)previewRect.Height),
@@ -310,7 +321,7 @@ namespace XCOM_3
                 _spriteBatch.Draw(_previewRenderTarget, previewRect, Color.White);
 
             _spriteBatch.DrawString(_font, "Unit Preview", new Vector2(previewRect.X + 10, previewRect.Y + 8), UIThemeManager.PrimaryColor);
-            _spriteBatch.DrawString(_font, "Glisser pour tourner", new Vector2(previewRect.X + 10, previewRect.Bottom - 24), UIThemeManager.PrimaryColor);
+            _spriteBatch.DrawString(_font, "Glisser: rotation/pan | Molette: zoom", new Vector2(previewRect.X + 10, previewRect.Bottom - 24), UIThemeManager.PrimaryColor);
         }
 
         private Rectangle GetPreviewRect() => new Rectangle(450, 90, 420, 560);
@@ -318,7 +329,13 @@ namespace XCOM_3
         private void HandlePreviewRotation(MouseState mouseState, MouseState previousMouseState)
         {
             Rectangle previewRect = GetPreviewRect();
+            bool mouseInsidePreview = previewRect.Contains(mouseState.Position);
             bool isMousePressed = mouseState.LeftButton == ButtonState.Pressed;
+
+            // Zoom via molette (uniquement quand la souris survole l'aperçu)
+            int scrollDelta = mouseState.ScrollWheelValue - previousMouseState.ScrollWheelValue;
+            if (scrollDelta != 0 && mouseInsidePreview)
+                _previewZoom = MathHelper.Clamp(_previewZoom - scrollDelta * PreviewZoomSensitivity, PreviewZoomMin, PreviewZoomMax);
 
             if (!isMousePressed)
             {
@@ -326,18 +343,22 @@ namespace XCOM_3
                 return;
             }
 
-            if (!_isDraggingPreview && previousMouseState.LeftButton != ButtonState.Pressed && previewRect.Contains(mouseState.Position))
+            if (!_isDraggingPreview && previousMouseState.LeftButton != ButtonState.Pressed && mouseInsidePreview)
             {
                 _isDraggingPreview = true;
                 _lastDragMouseX = mouseState.X;
+                _lastDragMouseY = mouseState.Y;
                 return;
             }
 
             if (_isDraggingPreview)
             {
                 int deltaX = mouseState.X - _lastDragMouseX;
+                int deltaY = mouseState.Y - _lastDragMouseY;
                 _previewRotation += deltaX * PreviewRotationSensitivity;
+                _previewPanY = MathHelper.Clamp(_previewPanY - deltaY * PreviewPanSensitivity, PreviewPanYMin, PreviewPanYMax);
                 _lastDragMouseX = mouseState.X;
+                _lastDragMouseY = mouseState.Y;
             }
         }
 
