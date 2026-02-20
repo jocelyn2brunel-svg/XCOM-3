@@ -31,6 +31,7 @@ namespace XCOM_3
         public enum Handedness { Right, Left }
         public enum EyeColorOption { Brown, Blue, Green }
 
+        public Guid Id { get; } = Guid.NewGuid();
         public Point Cell;
         public int Floor { get; set; } = 0;
         public Team Team { get; set; }
@@ -237,6 +238,7 @@ namespace XCOM_3
 
         public Unit(Unit other)
         {
+            Id = other.Id;
             Cell = other.Cell;
             Floor = other.Floor;
             Team = other.Team;
