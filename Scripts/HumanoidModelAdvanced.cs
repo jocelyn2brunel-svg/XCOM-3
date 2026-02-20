@@ -1604,10 +1604,10 @@ namespace XCOM_3
 
             DrawSphere(d, e, p, leftEye, dims.head * 0.075f, Color.White, r);
             DrawSphere(d, e, p, rightEye, dims.head * 0.075f, Color.White, r);
-            DrawSphere(d, e, p, leftEye + new Vector3(0f, 0f, dims.head * 0.03f), dims.head * 0.042f, irisColor, r);
-            DrawSphere(d, e, p, rightEye + new Vector3(0f, 0f, dims.head * 0.03f), dims.head * 0.042f, irisColor, r);
-            DrawSphere(d, e, p, leftEye + new Vector3(0f, 0f, dims.head * 0.05f), dims.head * 0.024f, Color.Black, r);
-            DrawSphere(d, e, p, rightEye + new Vector3(0f, 0f, dims.head * 0.05f), dims.head * 0.024f, Color.Black, r);
+            DrawSphere(d, e, p, leftEye + new Vector3(0f, 0f, dims.head * 0.05f), dims.head * 0.042f, irisColor, r);
+            DrawSphere(d, e, p, rightEye + new Vector3(0f, 0f, dims.head * 0.05f), dims.head * 0.042f, irisColor, r);
+            DrawSphere(d, e, p, leftEye + new Vector3(0f, 0f, dims.head * 0.07f), dims.head * 0.024f, Color.Black, r);
+            DrawSphere(d, e, p, rightEye + new Vector3(0f, 0f, dims.head * 0.07f), dims.head * 0.024f, Color.Black, r);
         }
 
         private static Color GetEyeIrisColor(Unit.EyeColorOption eyeColor)
