@@ -256,11 +256,33 @@ namespace XCOM_3
         private void HandleGrenadeThrow(MouseState mouse, bool leftClick)
         {
             if (selectedUnit == null || selectedGrenade == null) return;
-            throwTarget = camera.GetCellFromMouse(
-                mouse.Position,
-                GraphicsDevice.Viewport.Width,
-                GraphicsDevice.Viewport.Height,
-                WorldMetrics.FloorToWorldY(viewedFloor, cellSize));
+
+            // Sélection de la cible : on compare le t-value du sol et du mur le plus proche,
+            // et on retient l'intersection la plus proche de la caméra.
+            {
+                float floorY = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
+                Ray pickRay = camera.ScreenPointToRay(
+                    mouse.Position,
+                    GraphicsDevice.Viewport.Width,
+                    GraphicsDevice.Viewport.Height);
+
+                float floorT = float.MaxValue;
+                if (Math.Abs(pickRay.Direction.Y) > 0.001f)
+                {
+                    float t = (floorY - pickRay.Position.Y) / pickRay.Direction.Y;
+                    if (t > 0f) floorT = t;
+                }
+
+                if (TryGetWallCellFromMouse(mouse, viewedFloor, selectedUnit.Cell, out Point wallCell, out float wallT)
+                    && wallT < floorT)
+                    throwTarget = wallCell;
+                else
+                    throwTarget = camera.GetCellFromMouse(
+                        mouse.Position,
+                        GraphicsDevice.Viewport.Width,
+                        GraphicsDevice.Viewport.Height,
+                        floorY);
+            }
             if (throwTarget.X >= 0)
             {
                 if (throwModeUsesFlashlight)
@@ -1030,6 +1052,93 @@ namespace XCOM_3
             }
 
             return Vector2.DistanceSquared(a, b) > 0.0001f;
+        }
+
+        /// <summary>
+        /// Raycast 3D contre les murs du sol donné.
+        /// Retourne la cellule d'impact (côté tireur) du mur le plus proche touché par le rayon,
+        /// ainsi que la valeur t du rayon (distance relative depuis la caméra).
+        /// </summary>
+        private bool TryGetWallCellFromMouse(
+            MouseState mouse, int floor, Point throwerCell,
+            out Point wallCell, out float hitT)
+        {
+            wallCell = new Point(-1, -1);
+            hitT = float.MaxValue;
+
+            HashSet<WallSegment> walls = GetWallsForFloor(floor);
+            if (walls == null || walls.Count == 0)
+                return false;
+
+            Ray ray = camera.ScreenPointToRay(
+                mouse.Position,
+                GraphicsDevice.Viewport.Width,
+                GraphicsDevice.Viewport.Height);
+
+            float floorY = WorldMetrics.FloorToWorldY(floor, cellSize);
+            float wallTop = floorY + cellSize * 2.0f; // WallHeightRatio = 2.0f
+
+            float nearestT = float.MaxValue;
+            Point bestCell = new Point(-1, -1);
+
+            foreach (var wall in walls)
+            {
+                float t;
+                Vector3 hit;
+                Point candidate;
+
+                if (wall.IsHorizontal)
+                {
+                    // Plan du mur : Z_monde = wall.Start.Y * cellSize
+                    float wallZ = wall.Start.Y * cellSize;
+                    if (Math.Abs(ray.Direction.Z) < 0.0001f) continue;
+                    t = (wallZ - ray.Position.Z) / ray.Direction.Z;
+                    if (t <= 0f || t >= nearestT) continue;
+
+                    hit = ray.Position + ray.Direction * t;
+
+                    int minX = Math.Min(wall.Start.X, wall.End.X);
+                    int maxX = Math.Max(wall.Start.X, wall.End.X);
+                    if (hit.X < minX * cellSize || hit.X > maxX * cellSize) continue;
+                    if (hit.Y < floorY || hit.Y > wallTop) continue;
+
+                    int cellX = Math.Clamp((int)(hit.X / cellSize), 0, gridWidth - 1);
+                    int cellZ = throwerCell.Y < wall.Start.Y ? wall.Start.Y - 1 : wall.Start.Y;
+                    cellZ = Math.Clamp(cellZ, 0, gridHeight - 1);
+                    candidate = new Point(cellX, cellZ);
+                }
+                else
+                {
+                    // Plan du mur : X_monde = wall.Start.X * cellSize
+                    float wallX = wall.Start.X * cellSize;
+                    if (Math.Abs(ray.Direction.X) < 0.0001f) continue;
+                    t = (wallX - ray.Position.X) / ray.Direction.X;
+                    if (t <= 0f || t >= nearestT) continue;
+
+                    hit = ray.Position + ray.Direction * t;
+
+                    int minY = Math.Min(wall.Start.Y, wall.End.Y);
+                    int maxY = Math.Max(wall.Start.Y, wall.End.Y);
+                    if (hit.Z < minY * cellSize || hit.Z > maxY * cellSize) continue;
+                    if (hit.Y < floorY || hit.Y > wallTop) continue;
+
+                    int cellX2 = throwerCell.X < wall.Start.X ? wall.Start.X - 1 : wall.Start.X;
+                    cellX2 = Math.Clamp(cellX2, 0, gridWidth - 1);
+                    int cellZ2 = Math.Clamp((int)(hit.Z / cellSize), 0, gridHeight - 1);
+                    candidate = new Point(cellX2, cellZ2);
+                }
+
+                nearestT = t;
+                bestCell = candidate;
+            }
+
+            if (nearestT < float.MaxValue)
+            {
+                wallCell = bestCell;
+                hitT = nearestT;
+                return true;
+            }
+            return false;
         }
 
         private static bool TryGetSegmentIntersection(Vector2 p, Vector2 p2, Vector2 q, Vector2 q2, out float t, out float u)
