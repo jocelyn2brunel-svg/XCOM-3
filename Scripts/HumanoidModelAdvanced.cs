@@ -14,7 +14,7 @@ namespace XCOM_3
         private VertexPositionColor[] cubeVertices;
         private short[] cubeIndices;
 
-        public enum UnitType { Soldier, Alien, Zombie, Heavy, Scout }
+        public enum UnitType { Humain, Alien, Zombie, Heavy, Scout }
 
         public HumanoidModelAdvanced() => InitializeCube();
 
@@ -402,7 +402,7 @@ namespace XCOM_3
 
             switch (type)
             {
-                case UnitType.Soldier: DrawSoldier(device, effect, animatedPos, teamColor, scale, rot, legSwing, armSwing); break;
+                case UnitType.Humain: DrawHumain(device, effect, animatedPos, teamColor, scale, rot, legSwing, armSwing); break;
                 case UnitType.Alien: DrawAlien(device, effect, animatedPos, teamColor, scale, rot, legSwing, armSwing); break;
                 case UnitType.Zombie: DrawZombie(device, effect, animatedPos, teamColor, scale, rot, legSwing, armSwing); break;
                 case UnitType.Heavy: DrawHeavy(device, effect, animatedPos, teamColor, scale, rot, legSwing, armSwing); break;
@@ -1167,7 +1167,7 @@ namespace XCOM_3
             if (unit.Class == "Scout") return UnitType.Scout;
             if (unit.Class == "Undead") return UnitType.Zombie;
             if (unit.Team == Team.Enemy && !unit.Class.Contains("Assault")) return UnitType.Alien;
-            return UnitType.Soldier;
+            return UnitType.Humain;
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -1183,7 +1183,7 @@ namespace XCOM_3
         {
             UnitDimensions baseDimensions = type switch
             {
-                UnitType.Soldier => new UnitDimensions
+                UnitType.Humain => new UnitDimensions
                 {
                     head = 0.28f * scale,
                     tw = 0.38f * scale,
@@ -1245,7 +1245,7 @@ namespace XCOM_3
                 }
             };
 
-            if (type == UnitType.Soldier)
+            if (type == UnitType.Humain)
             {
                 baseDimensions.head *= HumanBodyMorphSettings.HeadScale;
                 baseDimensions.tw *= HumanBodyMorphSettings.TorsoWidthScale;
@@ -1256,7 +1256,7 @@ namespace XCOM_3
                 baseDimensions.ll *= HumanBodyMorphSettings.LegLengthScale;
             }
 
-            if (type == UnitType.Soldier && bodyType == Unit.HumanBodyType.Feminine)
+            if (type == UnitType.Humain && bodyType == Unit.HumanBodyType.Feminine)
             {
                 baseDimensions.head *= HumanBodyMorphSettings.FeminineHeadScale;
                 baseDimensions.tw *= HumanBodyMorphSettings.FeminineTorsoWidthScale;
@@ -1288,7 +1288,7 @@ namespace XCOM_3
 
             switch (type)
             {
-                case UnitType.Soldier: DrawSoldierBody(d, e, p, c, s, r, l, a, dims, bodyType, hasPants, useTPose, drawDefaultArms, eyeColor); break;
+                case UnitType.Humain: DrawHumainBody(d, e, p, c, s, r, l, a, dims, bodyType, hasPants, useTPose, drawDefaultArms, eyeColor); break;
                 case UnitType.Alien: DrawAlienBody(d, e, p, c, s, r, l, a, dims, useTPose, drawDefaultArms); break;
                 case UnitType.Zombie: DrawZombieBody(d, e, p, c, s, r, l, a, dims, useTPose, drawDefaultArms); break;
                 case UnitType.Heavy: DrawHeavyBody(d, e, p, c, s, r, l, a, dims, useTPose, drawDefaultArms); break;
@@ -1549,13 +1549,13 @@ namespace XCOM_3
                 footColor * 0.9f, r);
         }
 
-        private void DrawSoldier(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
+        private void DrawHumain(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
         {
-            var dims = GetUnitDimensions(UnitType.Soldier, s);
-            DrawSoldierBody(d, e, p, c, s, r, l, a, dims, Unit.HumanBodyType.Masculine);
+            var dims = GetUnitDimensions(UnitType.Humain, s);
+            DrawHumainBody(d, e, p, c, s, r, l, a, dims, Unit.HumanBodyType.Masculine);
         }
 
-        private void DrawSoldierBody(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r,
+        private void DrawHumainBody(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r,
                                      float l, float a, UnitDimensions dims, Unit.HumanBodyType bodyType,
                                      bool hasPants = false, bool useKungFuPose = false,
                                      bool drawDefaultArms = true,
@@ -1756,20 +1756,7 @@ namespace XCOM_3
                                    float l, float a, UnitDimensions dims, bool useKungFuPose = false,
                                    bool drawDefaultArms = true)
         {
-            Color skin = new(150, 200, 150), dark = c * 0.6f;
-            DrawRunningLegPair(d, e, p, r, dims, l * 1.1f, 0.3f, 1f, dark, dark * 0.9f);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, 0), new Vector3(dims.tw, dims.th, dims.td), c, r);
-            if (drawDefaultArms)
-            {
-                if (useKungFuPose)
-                    DrawTPose(d, e, p, r, dims, c * 0.85f);
-                else
-                    DrawSwingingArmPair(d, e, p, r, dims, a * 1.1f, 0.6f, 0.82f, 0.15f, 0.95f, c * 0.85f);
-            }
-            DrawSphere(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, 0), dims.head * 0.56f, skin, r);
-            DrawBodyPart(d, e, p, new Vector3(-dims.head * 0.3f, dims.ll + dims.th + dims.head * 0.5f + 0.1f * s, dims.head * 0.5f), new Vector3(dims.head * 0.2f, dims.head * 0.25f, dims.head * 0.1f), Color.Black, r);
-            DrawBodyPart(d, e, p, new Vector3(dims.head * 0.3f, dims.ll + dims.th + dims.head * 0.5f + 0.1f * s, dims.head * 0.5f), new Vector3(dims.head * 0.2f, dims.head * 0.25f, dims.head * 0.1f), Color.Black, r);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, dims.head * 0.55f), new Vector3(dims.head * 0.8f, dims.head * 0.15f, dims.head * 0.05f), new Color(0, 255, 0), r);
+            DrawHumainBody(d, e, p, c, s, r, l * 1.1f, a * 1.1f, dims, Unit.HumanBodyType.Masculine, false, useKungFuPose, drawDefaultArms);
         }
 
         private void DrawZombie(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
@@ -1782,19 +1769,7 @@ namespace XCOM_3
                                     float l, float a, UnitDimensions dims, bool useKungFuPose = false,
                                     bool drawDefaultArms = true)
         {
-            Color skin = new(140, 160, 130), dark = new(80, 70, 60);
-            DrawRunningLegPair(d, e, p, r, dims, l * 1.15f, 0.35f, 1f, dark, dark * 0.85f);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, -0.1f * s), new Vector3(dims.tw, dims.th, dims.td), c * 0.7f, r);
-            if (drawDefaultArms)
-            {
-                if (useKungFuPose)
-                    DrawTPose(d, e, p, r, dims, c * 0.6f);
-                else
-                    DrawSwingingArmPair(d, e, p, r, dims, a * 0.8f, 0.6f, 0.72f, 0.45f, 1f, c * 0.6f);
-            }
-            DrawSphere(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, -0.05f * s), dims.head * 0.5f, skin, r);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, dims.head * 0.55f), new Vector3(dims.head * 0.5f, dims.head * 0.2f, dims.head * 0.05f), new Color(180, 0, 0), r);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.4f, dims.td * 0.9f), new Vector3(dims.lw * 1.5f, dims.lw, dims.lw * 2f), c * 0.5f, r);
+            DrawHumainBody(d, e, p, c, s, r, l * 1.15f, a * 0.8f, dims, Unit.HumanBodyType.Masculine, false, useKungFuPose, drawDefaultArms);
         }
 
         private void DrawHeavy(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
@@ -1807,21 +1782,7 @@ namespace XCOM_3
                                    float l, float a, UnitDimensions dims, bool useKungFuPose = false,
                                    bool drawDefaultArms = true)
         {
-            Color skin = new(220, 180, 140), dark = new(50, 50, 70);
-            DrawRunningLegPair(d, e, p, r, dims, l * 0.9f, 0.3f, 1.2f, dark, dark * 0.8f);
-            DrawStructuredTorso(d, e, p, r, dims, c, dark, Unit.HumanBodyType.Masculine);
-            if (drawDefaultArms)
-            {
-                if (useKungFuPose)
-                    DrawTPose(d, e, p, r, dims, c * 0.85f);
-                else
-                    DrawSwingingArmPair(d, e, p, r, dims, a * 0.75f, 0.65f, 0.88f, -0.1f, 1.25f, c * 0.85f);
-            }
-            DrawSphere(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, 0), dims.head * 0.56f, skin, r);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.5f, dims.head * 0.6f), new Vector3(dims.head * 0.8f, dims.head * 0.4f, dims.head * 0.15f), new Color(30, 30, 30), r);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th * 0.5f, dims.td * 0.9f), new Vector3(dims.tw * 0.4f, dims.th * 0.4f, dims.td * 0.7f), new Color(60, 60, 60), r);
-
-            DrawCloudInspiredFeatures(d, e, p, c, r, dims);
+            DrawHumainBody(d, e, p, c, s, r, l * 0.9f, a * 0.75f, dims, Unit.HumanBodyType.Masculine, false, useKungFuPose, drawDefaultArms);
         }
 
         private void DrawScout(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float l = 0f, float a = 0f)
@@ -1834,21 +1795,7 @@ namespace XCOM_3
                                    float l, float a, UnitDimensions dims, bool useKungFuPose = false,
                                    bool drawDefaultArms = true)
         {
-            Color skin = new(220, 180, 140), dark = new(70, 70, 90);
-            DrawRunningLegPair(d, e, p, r, dims, l * 1.2f, 0.25f, 1f, dark, dark * 0.85f);
-            DrawStructuredTorso(d, e, p, r, dims, c, dark, Unit.HumanBodyType.Masculine);
-            if (drawDefaultArms)
-            {
-                if (useKungFuPose)
-                    DrawTPose(d, e, p, r, dims, c * 0.85f);
-                else
-                    DrawSwingingArmPair(d, e, p, r, dims, a * 1.2f, 0.55f, 0.9f, 0f, 0.95f, c * 0.85f);
-            }
-            DrawSphere(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, 0), dims.head * 0.5f, skin, r);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f + 0.05f * s, dims.head * 0.6f), new Vector3(dims.head * 0.7f, dims.head * 0.25f, dims.head * 0.08f), new Color(50, 100, 150), r);
-            DrawBodyPart(d, e, p, new Vector3(0, dims.ll + dims.th + dims.head * 0.6f, dims.head * 0.8f), new Vector3(dims.head * 0.1f, dims.head * 0.1f, dims.head * 0.35f), new Color(255, 0, 0), r);
-
-            DrawCloudInspiredFeatures(d, e, p, c, r, dims);
+            DrawHumainBody(d, e, p, c, s, r, l * 1.2f, a * 1.2f, dims, Unit.HumanBodyType.Masculine, false, useKungFuPose, drawDefaultArms);
         }
 
         private void DrawTPose(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
