@@ -2120,8 +2120,19 @@ namespace XCOM_3
                 }
 
                 renderer3D.DrawRampTiles(currentMap?.RampTiles, floor, cellSize, upperFloorOpacity);
-                // Stair traversal remains enabled via pathfinding/click handling,
-                // but grid stair markers are intentionally hidden.
+
+                // Draw pulsing arrow markers above ramp entry cells so the player can
+                // identify staircases and knows to click them to change floor.
+                {
+                    BlendState previousBlend = GraphicsDevice.BlendState;
+                    DepthStencilState previousDepth = GraphicsDevice.DepthStencilState;
+                    GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                    GraphicsDevice.DepthStencilState = DepthStencilState.None;
+                    renderer3D.DrawRampMarkers(currentMap?.RampTiles, floor, cellSize,
+                        (float)gameTime.TotalGameTime.TotalSeconds, upperFloorOpacity);
+                    GraphicsDevice.BlendState = previousBlend;
+                    GraphicsDevice.DepthStencilState = previousDepth;
+                }
             }
 
             var visibleUnits = playerUnits.Where(u => u.Health > 0)

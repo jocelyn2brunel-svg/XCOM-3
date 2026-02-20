@@ -1044,6 +1044,60 @@ namespace XCOM_3
             });
         }
 
+        /// <summary>
+        /// Draws visible upward-arrow markers above the base cell of each ramp so that the
+        /// player can identify stair entry points and knows to click them to change floor.
+        /// </summary>
+        public void DrawRampMarkers(IEnumerable<RampTileData> ramps, int floorToRender, int cellSize, float gameTime, float opacity = 1f)
+        {
+            if (ramps == null)
+                return;
+
+            float floorYOffset = WorldMetrics.FloorToWorldY(floorToRender, cellSize);
+            float pulse = (float)Math.Sin(gameTime * 2.5f) * 0.2f + 0.8f;
+
+            bool prevLighting = basic.LightingEnabled;
+            basic.LightingEnabled = false;
+            try
+            {
+                foreach (var ramp in ramps)
+                {
+                    if (ramp.Floor != floorToRender)
+                        continue;
+
+                    float baseCX = ramp.X * cellSize + cellSize * 0.5f;
+                    float baseCZ = ramp.Y * cellSize + cellSize * 0.5f;
+
+                    Color markerColor = new Color(255, 220, 60, 220) * pulse * opacity;
+                    Color arrowColor  = new Color(255, 220, 60, 240) * opacity;
+
+                    // Flat square at the floor entry of the ramp (the clickable cell).
+                    DrawCube(
+                        new Vector3(baseCX, floorYOffset + cellSize * 0.03f, baseCZ),
+                        new Vector3(cellSize * 0.75f, cellSize * 0.04f, cellSize * 0.75f),
+                        markerColor);
+
+                    // Thin vertical pole rising from the marker.
+                    float poleBase = floorYOffset + cellSize * 0.5f;
+                    float poleH    = cellSize * 0.55f;
+                    DrawCube(
+                        new Vector3(baseCX, poleBase + poleH * 0.5f, baseCZ),
+                        new Vector3(cellSize * 0.06f, poleH, cellSize * 0.06f),
+                        arrowColor);
+
+                    // Arrowhead — three stacked tiers that taper toward the top.
+                    float tip = poleBase + poleH;
+                    DrawCube(new Vector3(baseCX, tip + cellSize * 0.04f, baseCZ), new Vector3(cellSize * 0.32f, cellSize * 0.06f, cellSize * 0.32f), arrowColor);
+                    DrawCube(new Vector3(baseCX, tip + cellSize * 0.11f, baseCZ), new Vector3(cellSize * 0.20f, cellSize * 0.06f, cellSize * 0.20f), arrowColor);
+                    DrawCube(new Vector3(baseCX, tip + cellSize * 0.18f, baseCZ), new Vector3(cellSize * 0.09f, cellSize * 0.06f, cellSize * 0.09f), arrowColor);
+                }
+            }
+            finally
+            {
+                basic.LightingEnabled = prevLighting;
+            }
+        }
+
         private void DrawDirectionalRamp(int cellX, int cellY, int ascendDx, int ascendDy, float floorYOffset, int cellSize)
         {
             // Règle métier: 1 étage = 2 cases de hauteur.
