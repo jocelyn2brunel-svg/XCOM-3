@@ -1481,7 +1481,7 @@ namespace XCOM_3
         /// <summary>
         /// Dessine les 3 zones de mouvement (court, max, sprint)
         /// </summary>
-        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime, int viewedFloor, IReadOnlyDictionary<Point, float> terrainHeights = null, IReadOnlyList<BuildingFootprintData> buildings = null)
+        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime, int viewedFloor, IReadOnlyDictionary<Point, float> terrainHeights = null, IReadOnlyList<BuildingFootprintData> buildings = null, Vector3? cameraPosition = null)
         {
             if (zones == null) return;
 
@@ -1534,15 +1534,25 @@ namespace XCOM_3
                         sprintZone.RemoveWhere(cell => IsInsideBuildingFootprint(cell, buildings));
                     }
 
+                    // Quand on est à un étage supérieur, estomper les segments du périmètre
+                    // RDC qui sont cachés derrière un bâtiment du point de vue de la caméra.
+                    Vector2? camXZ = null;
+                    IReadOnlyList<BuildingFootprintData> occlusionBuildings = null;
+                    if (floor == 0 && viewedFloor != 0 && cameraPosition.HasValue && buildings != null && buildings.Count > 0)
+                    {
+                        camXZ = new Vector2(cameraPosition.Value.X, cameraPosition.Value.Z);
+                        occlusionBuildings = buildings;
+                    }
+
                     // Zone 1 : contour externe du mouvement court (1 AP) - VERT
-                    DrawZonePerimeter(shortZone, cellSize, floorYOffset, 0.02f, new Color(0, 255, 0, 255) * pulse, terrainHeights);
+                    DrawZonePerimeter(shortZone, cellSize, floorYOffset, 0.02f, new Color(0, 255, 0, 255) * pulse, terrainHeights, camXZ, occlusionBuildings);
 
                     // Zone 2 : contour externe du mouvement max (2 AP) - BLEU
-                    DrawZonePerimeter(maxZone, cellSize, floorYOffset, 0.03f, new Color(0, 150, 255, 255) * pulse, terrainHeights);
+                    DrawZonePerimeter(maxZone, cellSize, floorYOffset, 0.03f, new Color(0, 150, 255, 255) * pulse, terrainHeights, camXZ, occlusionBuildings);
 
                     // Zone 3 : contour externe du sprint (2 AP + phosphocréatine) - JAUNE
                     float sprintPulse = (float)Math.Sin(gameTime * 5f) * 0.2f + 0.8f;
-                    DrawZonePerimeter(sprintZone, cellSize, floorYOffset, 0.04f, new Color(255, 200, 0, 255) * sprintPulse, terrainHeights);
+                    DrawZonePerimeter(sprintZone, cellSize, floorYOffset, 0.04f, new Color(255, 200, 0, 255) * sprintPulse, terrainHeights, camXZ, occlusionBuildings);
 
                     // Indicateur sprint uniquement sur les cellules de frontière
                     foreach (var cell in sprintZone)
@@ -1594,9 +1604,11 @@ namespace XCOM_3
             return false;
         }
 
-        private void DrawZonePerimeter(HashSet<Point> zone, int cellSize, float floorYOffset, float lift, Color color, IReadOnlyDictionary<Point, float> terrainHeights)
+        private void DrawZonePerimeter(HashSet<Point> zone, int cellSize, float floorYOffset, float lift, Color color, IReadOnlyDictionary<Point, float> terrainHeights, Vector2? cameraXZ = null, IReadOnlyList<BuildingFootprintData> occlusionBuildings = null)
         {
             if (zone == null || zone.Count == 0) return;
+
+            bool checkOcclusion = cameraXZ.HasValue && occlusionBuildings != null && occlusionBuildings.Count > 0;
 
             foreach (Point cell in zone)
             {
@@ -1616,27 +1628,76 @@ namespace XCOM_3
                 if (!zone.Contains(new Point(cell.X, cell.Y - 1)))
                 {
                     Vector3 mid = new Vector3((xMin + xMax) / 2f, (yNW + yNE) / 2f, zMin);
-                    DrawCube(mid, new Vector3(cellSize, lh, lw), color);
+                    Color c = checkOcclusion && IsOccludedByBuilding(cameraXZ.Value, new Vector2(mid.X, mid.Z), occlusionBuildings, cellSize) ? color * 0.15f : color;
+                    DrawCube(mid, new Vector3(cellSize, lh, lw), c);
                 }
 
                 if (!zone.Contains(new Point(cell.X + 1, cell.Y)))
                 {
                     Vector3 mid = new Vector3(xMax, (yNE + ySE) / 2f, (zMin + zMax) / 2f);
-                    DrawCube(mid, new Vector3(lw, lh, cellSize), color);
+                    Color c = checkOcclusion && IsOccludedByBuilding(cameraXZ.Value, new Vector2(mid.X, mid.Z), occlusionBuildings, cellSize) ? color * 0.15f : color;
+                    DrawCube(mid, new Vector3(lw, lh, cellSize), c);
                 }
 
                 if (!zone.Contains(new Point(cell.X, cell.Y + 1)))
                 {
                     Vector3 mid = new Vector3((xMin + xMax) / 2f, (ySW + ySE) / 2f, zMax);
-                    DrawCube(mid, new Vector3(cellSize, lh, lw), color);
+                    Color c = checkOcclusion && IsOccludedByBuilding(cameraXZ.Value, new Vector2(mid.X, mid.Z), occlusionBuildings, cellSize) ? color * 0.15f : color;
+                    DrawCube(mid, new Vector3(cellSize, lh, lw), c);
                 }
 
                 if (!zone.Contains(new Point(cell.X - 1, cell.Y)))
                 {
                     Vector3 mid = new Vector3(xMin, (yNW + ySW) / 2f, (zMin + zMax) / 2f);
-                    DrawCube(mid, new Vector3(lw, lh, cellSize), color);
+                    Color c = checkOcclusion && IsOccludedByBuilding(cameraXZ.Value, new Vector2(mid.X, mid.Z), occlusionBuildings, cellSize) ? color * 0.15f : color;
+                    DrawCube(mid, new Vector3(lw, lh, cellSize), c);
                 }
             }
+        }
+
+        private static bool IsOccludedByBuilding(Vector2 cameraXZ, Vector2 segmentXZ, IReadOnlyList<BuildingFootprintData> buildings, int cellSize)
+        {
+            foreach (var b in buildings)
+            {
+                float x0 = b.X * cellSize;
+                float z0 = b.Y * cellSize;
+                float x1 = (b.X + b.Width) * cellSize;
+                float z1 = (b.Y + b.Height) * cellSize;
+
+                if (LineIntersectsRect2D(cameraXZ, segmentXZ, x0, z0, x1, z1))
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool LineIntersectsRect2D(Vector2 p1, Vector2 p2, float x0, float z0, float x1, float z1)
+        {
+            Vector2 a = new Vector2(x0, z0);
+            Vector2 b = new Vector2(x1, z0);
+            Vector2 c = new Vector2(x1, z1);
+            Vector2 d = new Vector2(x0, z1);
+
+            return TrySegmentIntersect2D(p1, p2, a, b)
+                || TrySegmentIntersect2D(p1, p2, b, c)
+                || TrySegmentIntersect2D(p1, p2, c, d)
+                || TrySegmentIntersect2D(p1, p2, d, a);
+        }
+
+        private static bool TrySegmentIntersect2D(Vector2 p1, Vector2 p2, Vector2 q1, Vector2 q2)
+        {
+            const float epsilon = 0.0001f;
+            Vector2 r = p2 - p1;
+            Vector2 s = q2 - q1;
+            float denom = r.X * s.Y - r.Y * s.X;
+
+            if (Math.Abs(denom) <= epsilon)
+                return false;
+
+            Vector2 delta = q1 - p1;
+            float t = (delta.X * s.Y - delta.Y * s.X) / denom;
+            float u = (delta.X * r.Y - delta.Y * r.X) / denom;
+
+            return t >= -epsilon && t <= 1f + epsilon && u >= -epsilon && u <= 1f + epsilon;
         }
 
         private void DrawZoneFill(IEnumerable<Point> cells, int cellSize, float floorYOffset, Color color, IReadOnlyDictionary<Point, float> terrainHeights)
