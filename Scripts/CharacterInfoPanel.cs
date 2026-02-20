@@ -100,7 +100,7 @@ namespace XCOM_3
                 int deltaX = mouse.X - _lastDragMouseX;
                 int deltaY = mouse.Y - _lastDragMouseY;
                 _previewRotation += deltaX * MouseRotationSensitivity;
-                _previewPanY = MathHelper.Clamp(_previewPanY - deltaY * MousePanSensitivity, PanYMin, PanYMax);
+                _previewPanY = MathHelper.Clamp(_previewPanY + deltaY * MousePanSensitivity, PanYMin, PanYMax);
                 _lastDragMouseX = mouse.X;
                 _lastDragMouseY = mouse.Y;
             }
