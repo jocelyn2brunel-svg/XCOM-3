@@ -2686,15 +2686,17 @@ namespace XCOM_3
             float ySE = floorYOffset + ComputeHoveredCornerHeight(hoveredCell.X + 1, hoveredCell.Y + 1) + outlineLift;
             float yNE = floorYOffset + ComputeHoveredCornerHeight(hoveredCell.X + 1, hoveredCell.Y) + outlineLift;
 
-            Vector3 nw = new Vector3(xMin, yNW, zMin);
-            Vector3 sw = new Vector3(xMin, ySW, zMax);
-            Vector3 se = new Vector3(xMax, ySE, zMax);
-            Vector3 ne = new Vector3(xMax, yNE, zMin);
+            float lw = cellSize * 0.12f;
+            float lh = 0.04f;
 
-            renderer3D.DrawLine(nw, sw, outlineColor);
-            renderer3D.DrawLine(sw, se, outlineColor);
-            renderer3D.DrawLine(se, ne, outlineColor);
-            renderer3D.DrawLine(ne, nw, outlineColor);
+            // Nord
+            renderer3D.DrawCube(new Vector3((xMin + xMax) / 2f, (yNW + yNE) / 2f, zMin), new Vector3(cellSize, lh, lw), outlineColor);
+            // Est
+            renderer3D.DrawCube(new Vector3(xMax, (yNE + ySE) / 2f, (zMin + zMax) / 2f), new Vector3(lw, lh, cellSize), outlineColor);
+            // Sud
+            renderer3D.DrawCube(new Vector3((xMin + xMax) / 2f, (ySW + ySE) / 2f, zMax), new Vector3(cellSize, lh, lw), outlineColor);
+            // Ouest
+            renderer3D.DrawCube(new Vector3(xMin, (yNW + ySW) / 2f, (zMin + zMax) / 2f), new Vector3(lw, lh, cellSize), outlineColor);
         }
 
         private float ComputeHoveredCornerHeight(int vertexX, int vertexZ)
