@@ -3335,8 +3335,10 @@ namespace XCOM_3
                 case "Centre-Ville":
                     {
                         var zombie = enemyPool.First(e => e.Name == "Zombie");
-                        var edgeSpawns = GetPerimeterSpawnCells(2);
+                        var spider = enemyPool.First(e => e.Name == "Giant Spider");
 
+                        // Zombies errants sur le périmètre de la carte
+                        var edgeSpawns = GetPerimeterSpawnCells(2);
                         foreach (var spawn in edgeSpawns)
                         {
                             var enemy = new Unit(
@@ -3348,6 +3350,22 @@ namespace XCOM_3
                                 null)
                             { ActionPoints = zombie.ActionPoints };
                             AssignWeaponToUnit(enemy, GetRandomWeaponData(zombie.Weapon, enforcePreferred: true));
+                            enemyUnits.Add(enemy);
+                        }
+
+                        // Araignées géantes tapies contre les murs extérieurs des bâtiments
+                        var wallSpawns = GetBuildingExteriorAdjacentCells(6);
+                        foreach (var spawn in wallSpawns)
+                        {
+                            var enemy = new Unit(
+                                spawn,
+                                Team.Enemy,
+                                spider.Name,
+                                spider.Class,
+                                string.Empty,
+                                null)
+                            { ActionPoints = spider.ActionPoints };
+                            AssignWeaponToUnit(enemy, GetRandomWeaponData(spider.Weapon, enforcePreferred: true));
                             enemyUnits.Add(enemy);
                         }
 
@@ -3979,6 +3997,45 @@ namespace XCOM_3
             return perimeter.Take(count).ToList();
         }
 
+        // Retourne des cases vides directement adjacentes (4 directions) à un mur extérieur de bâtiment.
+        private List<Point> GetBuildingExteriorAdjacentCells(int requestedCount)
+        {
+            var cells = new List<Point>();
+            int[] dx = { -1, 1, 0, 0 };
+            int[] dy = { 0, 0, -1, 1 };
+
+            for (int x = 0; x < gridWidth; x++)
+            {
+                for (int y = 0; y < gridHeight; y++)
+                {
+                    var p = new Point(x, y);
+                    if (IsInsideBuildingFootprint(p)) continue;
+                    if (playerUnits.Any(u => u.Cell == p)) continue;
+
+                    bool adjacentToBuilding = false;
+                    for (int d = 0; d < 4; d++)
+                    {
+                        if (IsInsideBuildingFootprint(new Point(x + dx[d], y + dy[d])))
+                        {
+                            adjacentToBuilding = true;
+                            break;
+                        }
+                    }
+
+                    if (adjacentToBuilding)
+                        cells.Add(p);
+                }
+            }
+
+            for (int i = 0; i < Math.Min(requestedCount, cells.Count); i++)
+            {
+                int swapIndex = random.Next(i, cells.Count);
+                (cells[i], cells[swapIndex]) = (cells[swapIndex], cells[i]);
+            }
+
+            return cells.Take(requestedCount).ToList();
+        }
+
         private IEnumerable<Unit> AllUnits()
         {
             foreach (var u in playerUnits) yield return u;
@@ -4122,6 +4179,8 @@ namespace XCOM_3
             var wallsByFloor = new Dictionary<int, HashSet<WallSegment>>();
             for (int f = GetMinimumViewFloor(); f < currentMap.FloorCount; f++) wallsByFloor[f] = GetWallsForFloor(f);
             spiderWebTiles.Clear();
+            if (missionType == "Centre-Ville")
+                SpawnCentreVilleSpiderWebs();
             pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallsByFloor, currentMap.RampTiles, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
             // Toiles d'araignée : coût +1 pour traverser une case couverte de toile (non-araignées seulement).
             pathfinding.GetExtraCellCost = (cell, floor) => spiderWebTiles.Contains((cell, floor)) ? 1 : 0;
@@ -4134,6 +4193,64 @@ namespace XCOM_3
             combatSystem.InitializeCoverSystem(gridWidth, gridHeight, wallSegments);
             combatSystem.RefreshAllUnitsCover();
             Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
+        }
+
+        // Tisse des toiles d'araignée sur toutes les rues étroites entre deux bâtiments face à face.
+        private void SpawnCentreVilleSpiderWebs()
+        {
+            if (currentMap?.Buildings == null || currentMap.Buildings.Count == 0) return;
+
+            const int maxStreetWidth = 8;
+
+            // Corridors horizontaux : bâtiment → rue → bâtiment sur une même rangée
+            for (int y = 0; y < gridHeight; y++)
+            {
+                int streetStart = -1;
+                bool prevWasBuilding = false;
+
+                for (int x = 0; x < gridWidth; x++)
+                {
+                    bool inBuilding = IsInsideBuildingFootprint(new Point(x, y));
+
+                    if (!inBuilding && prevWasBuilding)
+                        streetStart = x;
+                    else if (inBuilding && streetStart >= 0)
+                    {
+                        int width = x - streetStart;
+                        if (width <= maxStreetWidth)
+                            for (int wx = streetStart; wx < x; wx++)
+                                spiderWebTiles.Add((new Point(wx, y), 0));
+                        streetStart = -1;
+                    }
+
+                    prevWasBuilding = inBuilding;
+                }
+            }
+
+            // Corridors verticaux : bâtiment → rue → bâtiment sur une même colonne
+            for (int x = 0; x < gridWidth; x++)
+            {
+                int streetStart = -1;
+                bool prevWasBuilding = false;
+
+                for (int y = 0; y < gridHeight; y++)
+                {
+                    bool inBuilding = IsInsideBuildingFootprint(new Point(x, y));
+
+                    if (!inBuilding && prevWasBuilding)
+                        streetStart = y;
+                    else if (inBuilding && streetStart >= 0)
+                    {
+                        int width = y - streetStart;
+                        if (width <= maxStreetWidth)
+                            for (int wy = streetStart; wy < y; wy++)
+                                spiderWebTiles.Add((new Point(x, wy), 0));
+                        streetStart = -1;
+                    }
+
+                    prevWasBuilding = inBuilding;
+                }
+            }
         }
 
         private void HandleUnitCellEntered(Unit unit, Point cell, int floor)
