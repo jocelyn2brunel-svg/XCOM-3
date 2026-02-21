@@ -3885,6 +3885,8 @@ namespace XCOM_3
             LoadMap(); // Génère automatiquement une carte selon selectedMission
 
             ResetFogOfWar();
+            ResetLootSystem();
+            InitializeCrateLoot();
 
             CreateUnits(missionType);
             floorViewMode = FloorViewMode.AutoFollow;
@@ -3910,6 +3912,55 @@ namespace XCOM_3
             visibleCells.Clear();
             enemyGhosts.Clear();
             currentlySpottedEnemies.Clear();
+        }
+
+        private void ResetLootSystem()
+        {
+            flashlightLootMarkers.Clear();
+            inventorySystem?.ClearNearbyLoot();
+        }
+
+        private static readonly string[] CrateLootPool = new[]
+        {
+            "M1 Helmet",
+            "MICH",
+            "M-1952 Flak Jacket",
+            "Chargeur 5.56x45mm (30)",
+            "Chargeur 9x19mm (30)",
+            "Chargeur 7.62x39mm (30)",
+            "Chargeur 12 Gauge (30)",
+            "MK 2",
+            "Lampe tactique aluminium",
+            "Chest Rig Léger",
+            "Chest Rig Assaut",
+            "Genouilleres Souples",
+            "Bottes de Patrouille",
+        };
+
+        private void InitializeCrateLoot()
+        {
+            if (currentMap?.Furnitures == null || inventorySystem == null)
+                return;
+
+            foreach (FurnitureData furniture in currentMap.Furnitures)
+            {
+                if (furniture.Type != FurnitureType.LootCrate)
+                    continue;
+
+                Point crateCell = new Point(furniture.X, furniture.Y);
+                int itemCount = random.Next(2, 5);
+                var pool = new List<string>(CrateLootPool);
+
+                for (int i = 0; i < itemCount && pool.Count > 0; i++)
+                {
+                    int idx = random.Next(pool.Count);
+                    string itemName = pool[idx];
+                    pool.RemoveAt(idx);
+                    RegisterGroundLoot(itemName, crateCell, furniture.Floor);
+                }
+            }
+
+            Console.WriteLine($"[LOOT] Crate loot initialized for {currentMap.Furnitures.Count(f => f.Type == FurnitureType.LootCrate)} crates.");
         }
 
         private bool IsCellExplored(Point cell, int floor)

@@ -208,6 +208,12 @@ namespace XCOM_3
             isNearbyLootAccessible = isAccessible;
         }
 
+        public void ClearNearbyLoot()
+        {
+            nearbyLootGrid.Clear();
+            ClampNearbyLootScroll();
+        }
+
 
         // ═══════════════════════════════════════════════════════════════════════
         // CONSTRUCTEUR
