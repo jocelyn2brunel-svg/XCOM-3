@@ -116,13 +116,21 @@ namespace XCOM_3
         public float TargetOrientation = 0f;
 
         // Animation de déplacement
+        public struct MovementWaypoint
+        {
+            public Vector3 TargetPosition;
+            public GridNode Node;
+        }
+
         public bool IsMoving = false;
         public Vector3 VisualPosition { get; set; }
         public Vector3 TargetPosition;
         public float MoveProgress = 0f;
         private Vector3 moveSegmentStart;
-        private readonly Queue<Vector3> movementWaypoints = new Queue<Vector3>();
+        private readonly Queue<MovementWaypoint> movementWaypoints = new Queue<MovementWaypoint>();
         private float? finalMoveOrientation;
+
+        public event Action<Unit, Point, int> OnCellEntered;
 
         // Animation idle
         public float IdleTime = 0f;
@@ -764,30 +772,9 @@ namespace XCOM_3
             if (path == null || path.Count == 0)
                 return;
 
-            Point newCell = path[path.Count - 1];
-
-            if (lastPosition.HasValue && Team == Team.Player)
-            {
-                Skills.GainMovementXP(path.Count);
-            }
-
-            lastPosition = Cell;
-            Cell = newCell;
-            IsMoving = true;
-            MoveProgress = 0f;
-            WalkCycleTime = 0f;
-
-            movementWaypoints.Clear();
-            foreach (Point cell in path)
-            {
-                movementWaypoints.Enqueue(new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
-                    WorldMetrics.FloorToWorldY(Floor, cellSize),
-                    cell.Y * cellSize + cellSize / 2f
-                ));
-            }
-
-            BeginNextMoveSegment();
+            // Conversion List<Point> en List<GridNode> pour uniformiser
+            var nodes = path.Select(p => new GridNode(p, Floor)).ToList();
+            StartMoveAlongPath(nodes, cellSize);
         }
 
         public void StartMoveAlongPath(List<GridNode> path, int cellSize = 2)
@@ -795,15 +782,14 @@ namespace XCOM_3
             if (path == null || path.Count == 0)
                 return;
 
-            Point newCell = path[path.Count - 1].Cell;
-
             if (lastPosition.HasValue && Team == Team.Player)
             {
                 Skills.GainMovementXP(path.Count);
             }
 
             lastPosition = Cell;
-            Cell = newCell;
+            // On ne change PAS Cell et Floor ici pour permettre une progression réelle.
+
             IsMoving = true;
             MoveProgress = 0f;
             WalkCycleTime = 0f;
@@ -811,11 +797,15 @@ namespace XCOM_3
             movementWaypoints.Clear();
             foreach (GridNode node in path)
             {
-                movementWaypoints.Enqueue(new Vector3(
-                    node.Cell.X * cellSize + cellSize / 2f,
-                    WorldMetrics.FloorToWorldY(node.Floor, cellSize),
-                    node.Cell.Y * cellSize + cellSize / 2f
-                ));
+                movementWaypoints.Enqueue(new MovementWaypoint
+                {
+                    TargetPosition = new Vector3(
+                        node.Cell.X * cellSize + cellSize / 2f,
+                        WorldMetrics.FloorToWorldY(node.Floor, cellSize),
+                        node.Cell.Y * cellSize + cellSize / 2f
+                    ),
+                    Node = node
+                });
             }
 
             BeginNextMoveSegment();
@@ -827,7 +817,13 @@ namespace XCOM_3
                 return;
 
             moveSegmentStart = VisualPosition;
-            TargetPosition = movementWaypoints.Dequeue();
+            var waypoint = movementWaypoints.Dequeue();
+            TargetPosition = waypoint.TargetPosition;
+
+            // Mise à jour de la position logique à chaque début de segment
+            Cell = waypoint.Node.Cell;
+            Floor = waypoint.Node.Floor;
+            OnCellEntered?.Invoke(this, Cell, Floor);
 
             Vector3 direction = TargetPosition - VisualPosition;
             if (direction.LengthSquared() > 0.001f)

@@ -232,6 +232,9 @@ namespace XCOM_3
         private Dictionary<Point, float> terrainHeights = new Dictionary<Point, float>();
         private readonly Dictionary<int, HashSet<WallSegment>> wallsByFloorCache = new Dictionary<int, HashSet<WallSegment>>();
         private readonly Dictionary<int, HashSet<Point>> cellsByFloorCache = new Dictionary<int, HashSet<Point>>();
+        private readonly Dictionary<int, bool[,]> slabMasks = new();
+        private readonly Dictionary<int, bool[,]> coveredMasks = new();
+
         private Unit movementCinematicUnit = null;
         private readonly Dictionary<Unit, bool> firingShoulderCameraDecisions = new Dictionary<Unit, bool>();
         private HashSet<Unit> currentlySpottedEnemies = new HashSet<Unit>();
@@ -931,6 +934,7 @@ namespace XCOM_3
 
         private void HandleUnitKilled(Unit unit, Vector3 kineticImpulse)
         {
+            unit.OnCellEntered -= HandleUnitCellEntered;
             DropUnitLootToGround(unit);
             RegisterDeadUnitRemains(unit, kineticImpulse);
             if (unit.Team == Team.Player) { playerUnits.Remove(unit); if (playerUnits.Count == 0) currentState = GameState.GameOver; }
@@ -1119,7 +1123,7 @@ namespace XCOM_3
                 lastTurnState = combatSystem.CurrentTurn;
             }
 
-            if (visibilityDirty || playerUnits.Any(u => u.IsMoving) || enemyUnits.Any(u => u.IsMoving))
+            if (visibilityDirty)
             {
                 UpdateEnemyPerceptionVisibility();
                 visibilityDirty = false;
@@ -3973,6 +3977,11 @@ namespace XCOM_3
             InitializeCrateLoot();
 
             CreateUnits(missionType);
+            foreach (var unit in playerUnits.Concat(enemyUnits))
+            {
+                unit.OnCellEntered += HandleUnitCellEntered;
+            }
+
             floorViewMode = FloorViewMode.AutoFollow;
             explicitUpperFloorTargeting = false;
             wallSegments = currentMap.GetWalls();
@@ -3990,6 +3999,12 @@ namespace XCOM_3
             combatSystem.InitializeCoverSystem(gridWidth, gridHeight, wallSegments);
             combatSystem.RefreshAllUnitsCover();
             Console.WriteLine($"[OPTIMIZATION] Spatial hash initialized with {playerUnits.Count + enemyUnits.Count} units");
+        }
+
+        private void HandleUnitCellEntered(Unit unit, Point cell, int floor)
+        {
+            unitManager.OnUnitMoved(unit, cell, floor);
+            visibilityDirty = true;
         }
 
         private void ResetFogOfWar()
@@ -4420,8 +4435,7 @@ namespace XCOM_3
                 // Effectuer le déplacement
                 selectedUnit.SetMovementStyle(apCost, distance > maxRange);
                 selectedUnit.StartMoveAlongPath(pathNodes, cellSize);
-                selectedUnit.Floor = detailedPath.EndFloor;
-                unitManager.OnUnitMoved(selectedUnit, movementGoal, detailedPath.EndFloor);
+                // La position logique et le spatial hash sont maintenant mis à jour progressivement via OnCellEntered
                 selectedUnit.ActionPoints -= apCost;
 
                 bool isLastAlliedUnitWithActions = playerUnits.Count(u => u.ActionPoints > 0) == 0;
@@ -4532,6 +4546,12 @@ namespace XCOM_3
 
             playerUnits = savedPlayerUnits.Select(u => new Unit(u)).ToList();
             enemyUnits = savedEnemyUnits.Select(u => new Unit(u)).ToList();
+
+            foreach (var unit in playerUnits.Concat(enemyUnits))
+            {
+                unit.OnCellEntered += HandleUnitCellEntered;
+            }
+
             currentState = GameState.Playing;
 
             Console.WriteLine("[GAME] Game continued!");
