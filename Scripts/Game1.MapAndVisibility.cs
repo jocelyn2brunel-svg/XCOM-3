@@ -346,16 +346,17 @@ namespace XCOM_3
 
         private HashSet<WallSegment> GetWallsForFloor(int floor)
         {
-            if (wallsByFloorCache.TryGetValue(floor, out var cachedWalls))
+            if (currentMap == null) return new HashSet<WallSegment>();
+            if (currentMap.WallsPerFloor.TryGetValue(floor, out var cachedWalls))
                 return cachedWalls;
 
-            if (floor == 0 || currentMap?.Buildings == null || currentMap.Buildings.Count == 0)
+            if (floor == 0 || currentMap.Buildings == null || currentMap.Buildings.Count == 0)
             {
                 var baseFloorWalls = new HashSet<WallSegment>();
                 foreach (var wall in wallSegments)
                     baseFloorWalls.Add(ApplyShatteredWindowState(wall, floor));
 
-                wallsByFloorCache[floor] = baseFloorWalls;
+                currentMap.WallsPerFloor[floor] = baseFloorWalls;
                 return baseFloorWalls;
             }
 
@@ -425,13 +426,13 @@ namespace XCOM_3
                 }
             }
 
-            wallsByFloorCache[floor] = filteredWalls;
+            currentMap.WallsPerFloor[floor] = filteredWalls;
             return filteredWalls;
         }
 
         private void InvalidateWallsByFloorCache()
         {
-            wallsByFloorCache.Clear();
+            currentMap?.WallsPerFloor.Clear();
         }
 
         private void InvalidateCellsByFloorCache()
