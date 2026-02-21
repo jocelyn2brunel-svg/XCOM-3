@@ -1652,7 +1652,7 @@ namespace XCOM_3
         /// <summary>
         /// Dessine les 3 zones de mouvement (court, max, sprint)
         /// </summary>
-        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime, int viewedFloor, IReadOnlyDictionary<Point, float> terrainHeights = null, IReadOnlyList<BuildingFootprintData> buildings = null, Vector3? cameraPosition = null, Func<Point, int, bool> isExplored = null)
+        public void DrawMovementZones(PathfindingSystem.MovementZones zones, int cellSize, float gameTime, int viewedFloor, int unitFloor, IReadOnlyDictionary<Point, float> terrainHeights = null, IReadOnlyList<BuildingFootprintData> buildings = null, Vector3? cameraPosition = null, Func<Point, int, bool> isExplored = null)
         {
             if (zones == null) return;
 
@@ -1675,9 +1675,13 @@ namespace XCOM_3
             {
                 foreach (int floor in floors)
                 {
+                    // N'afficher que l'étage de l'unité et l'étage visionné (inclut RDC et souterrains)
+                    if (floor != unitFloor && floor != viewedFloor) continue;
+
                     float floorYOffset = WorldMetrics.FloorToWorldY(floor, cellSize);
 
-                    bool needBuildingFilter = floor == 0 && viewedFloor != 0 && buildings != null && buildings.Count > 0;
+                    // Filtrer les tuiles à l'intérieur des bâtiments quand l'étage rendu n'est pas celui visionné
+                    bool needBuildingFilter = floor != viewedFloor && buildings != null && buildings.Count > 0;
 
                     HashSet<Point> shortZone, maxZone, sprintZone;
                     if (needBuildingFilter || isExplored != null)
@@ -1709,11 +1713,11 @@ namespace XCOM_3
                         sprintZone = sprintByFloor.TryGetValue(floor, out var sp) ? sp : new HashSet<Point>();
                     }
 
-                    // Quand on est à un étage supérieur, estomper les segments du périmètre
-                    // RDC qui sont cachés derrière un bâtiment du point de vue de la caméra.
+                    // Estomper les segments du périmètre d'un étage non visionné
+                    // qui sont cachés derrière un bâtiment du point de vue de la caméra.
                     Vector2? camXZ = null;
                     IReadOnlyList<BuildingFootprintData> occlusionBuildings = null;
-                    if (floor == 0 && viewedFloor != 0 && cameraPosition.HasValue && buildings != null && buildings.Count > 0)
+                    if (floor != viewedFloor && cameraPosition.HasValue && buildings != null && buildings.Count > 0)
                     {
                         camXZ = new Vector2(cameraPosition.Value.X, cameraPosition.Value.Z);
                         occlusionBuildings = buildings;

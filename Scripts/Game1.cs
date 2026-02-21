@@ -2270,6 +2270,7 @@ namespace XCOM_3
                 renderer3D.DrawMovementZones(zones, cellSize,
                     (float)gameTime.TotalGameTime.TotalSeconds,
                     viewedFloor,
+                    selectedUnit.Floor,
                     terrainHeights,
                     currentMap?.Buildings,
                     camera.Position,
