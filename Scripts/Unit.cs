@@ -56,6 +56,12 @@ namespace XCOM_3
         public Point GrappleAnchorCell { get; set; } = Point.Zero;
         public int GrappleAnchorFloor { get; set; } = -1;
 
+        /// <summary>
+        /// Indique si cette unité peut marcher sur les murs (ex : araignée géante).
+        /// Les unités avec cette capacité ignorent les murs lors du pathfinding.
+        /// </summary>
+        public bool CanWalkOnWalls => string.Equals(Class, "Spider", StringComparison.OrdinalIgnoreCase);
+
         private static readonly int[] phosphocreatineRegenByRound = { 18, 15, 12, 10, 8, 7, 6, 5, 4, 3 };
         private int phosphocreatineRegenRound = 0;
         private int intenseActionsThisTurn = 0;
@@ -1213,6 +1219,16 @@ namespace XCOM_3
 
         private void InitializeMovementProfile()
         {
+            // Les araignées géantes ont un profil de mouvement fixe et agile.
+            if (CanWalkOnWalls)
+            {
+                jogRangeCells = 4;
+                runRangeCells = 6;
+                sprintRangeCells = 8;
+                MovementRange = runRangeCells;
+                return;
+            }
+
             const int feetPerCell = FeetPerCell;
 
             // Même indice de condition physique pour maintenir une progression logique

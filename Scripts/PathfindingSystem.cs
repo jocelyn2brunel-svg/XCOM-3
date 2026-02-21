@@ -42,6 +42,12 @@ namespace XCOM_3
         private readonly Func<Point, int, bool> isCellAvailableOnFloor;
         private readonly List<RampTileData> ramps;
 
+        /// <summary>
+        /// Coût supplémentaire optionnel pour traverser une case donnée (ex : toile d'araignée).
+        /// Retourne 0 si aucun surcoût. Ignoré si la fonction est nulle.
+        /// </summary>
+        public Func<Point, int, int> GetExtraCellCost { get; set; }
+
         // Cache for GetMovementZones — invalidated when unit state changes
         private MovementZones _cachedZones;
         private Unit _cachedZonesUnit;
@@ -174,7 +180,10 @@ namespace XCOM_3
                     if (!CanTraverseNeighbor(cur, n, goalNode, movingUnit))
                         continue;
 
-                    int tentative = gCur + GetEdgeCost(cur, n);
+                    int extraCost = (GetExtraCellCost != null && !(movingUnit?.CanWalkOnWalls ?? false))
+                        ? GetExtraCellCost(n.Cell, n.Floor)
+                        : 0;
+                    int tentative = gCur + GetEdgeCost(cur, n) + extraCost;
                     if (tentative > maxCost) continue;
 
                     if (tentative < g.GetValueOrDefault(n, int.MaxValue))
@@ -217,7 +226,9 @@ namespace XCOM_3
             if (!IsFloorInBounds(neighbor.Floor))
                 return false;
 
-            if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell, current.Floor))
+            // Les unités qui marchent sur les murs (araignées) ignorent les murs.
+            bool wallWalker = movingUnit?.CanWalkOnWalls ?? false;
+            if (!wallWalker && neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell, current.Floor))
                 return false;
 
             if (neighbor.Equals(goalNode))
@@ -320,14 +331,18 @@ namespace XCOM_3
                 if (currentCost >= range)
                     continue;
 
+                bool unitWallWalker = u?.CanWalkOnWalls ?? false;
                 foreach (var neighbor in GetNeighbors(current))
                 {
                     if (settled.Contains(neighbor)) continue;
                     if (!IsFloorInBounds(neighbor.Floor)) continue;
                     if (!IsWalkable(neighbor.Cell, neighbor.Floor, u)) continue;
-                    if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell, current.Floor)) continue;
+                    if (!unitWallWalker && neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell, current.Floor)) continue;
 
-                    int nextCost = currentCost + GetEdgeCost(current, neighbor);
+                    int extraCost = (GetExtraCellCost != null && !(u?.CanWalkOnWalls ?? false))
+                        ? GetExtraCellCost(neighbor.Cell, neighbor.Floor)
+                        : 0;
+                    int nextCost = currentCost + GetEdgeCost(current, neighbor) + extraCost;
                     if (nextCost > range) continue;
 
                     if (costs.TryGetValue(neighbor, out int bestKnownCost) && bestKnownCost <= nextCost)
