@@ -379,6 +379,10 @@ namespace XCOM_3
                         PlaceFurniture(FurnitureType.Bed, 1);
                     }
 
+                    // Placer une caisse de loot dans certains bâtiments (seulement au rez-de-chaussée)
+                    if (floor == 0 && random.NextDouble() < 0.6)
+                        PlaceFurniture(FurnitureType.LootCrate, 1);
+
                     List<Point> PlaceFurniture(FurnitureType type, int count)
                     {
                         var placed = new List<Point>();

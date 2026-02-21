@@ -432,6 +432,10 @@ namespace XCOM_3
                     DrawTreePineFurniture(center, totalScale, baseColor);
                     break;
 
+                case FurnitureType.LootCrate:
+                    DrawLootCrateFurniture(center, totalScale, baseColor);
+                    break;
+                
                 case FurnitureType.Computer:
                     DrawComputerFurniture(center, totalScale, baseColor);
                     break;
@@ -503,6 +507,31 @@ namespace XCOM_3
                 Color foliageColor = Color.Lerp(new Color(34, 110, 34), new Color(20, 70, 20), t);
                 DrawCube(tierCenter, tierScale, foliageColor);
             }
+        }
+
+        private void DrawLootCrateFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
+        {
+            float bottomY = center.Y - totalScale.Y / 2f;
+
+            // Corps principal de la caisse
+            Vector3 bodyScale = new Vector3(totalScale.X * 0.92f, totalScale.Y * 0.88f, totalScale.Z * 0.92f);
+            Vector3 bodyCenter = new Vector3(center.X, bottomY + bodyScale.Y / 2f, center.Z);
+            DrawCube(bodyCenter, bodyScale, baseColor);
+
+            // Couvercle légèrement plus large
+            Vector3 lidScale = new Vector3(totalScale.X * 0.96f, totalScale.Y * 0.14f, totalScale.Z * 0.96f);
+            Vector3 lidCenter = new Vector3(center.X, bottomY + bodyScale.Y + lidScale.Y / 2f, center.Z);
+            DrawCube(lidCenter, lidScale, baseColor * 1.12f);
+
+            // Armatures métalliques (coins horizontaux)
+            Color metalColor = new Color(80, 80, 88);
+            float bandThickness = totalScale.Y * 0.06f;
+            float bandWidth = totalScale.X * 0.94f;
+            float bandMid = bottomY + bodyScale.Y * 0.5f;
+
+            DrawCube(new Vector3(center.X, bandMid, center.Z),
+                     new Vector3(bandWidth, bandThickness, totalScale.Z * 0.94f),
+                     metalColor);
         }
 
         private void DrawCounterFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
@@ -805,6 +834,7 @@ namespace XCOM_3
                 FurnitureType.PickupFordF150 => new Vector2(19.5f * feetToWorld, 6.7f * feetToWorld),
                 FurnitureType.PickupRam3500 => new Vector2(20.3f * feetToWorld, 6.8f * feetToWorld),
                 FurnitureType.TreePine => new Vector2(8f * feetToWorld, 8f * feetToWorld),
+                FurnitureType.LootCrate => new Vector2(cellSize * 0.6f, cellSize * 0.6f),
                 _ => new Vector2(baseSize, baseSize)
             };
         }
@@ -826,6 +856,7 @@ namespace XCOM_3
                 FurnitureType.PickupFordF150 => new Color(178, 46, 52),
                 FurnitureType.PickupRam3500 => new Color(220, 220, 228),
                 FurnitureType.TreePine => new Color(34, 139, 34),
+                FurnitureType.LootCrate => new Color(148, 108, 60),
                 FurnitureType.Computer => new Color(50, 50, 60),
                 _ => new Color(130, 130, 130)
             };

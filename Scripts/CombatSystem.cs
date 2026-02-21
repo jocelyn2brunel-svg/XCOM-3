@@ -78,6 +78,7 @@ namespace XCOM_3
                 FurnitureType.PickupFordF150 => 45,
                 FurnitureType.PickupRam3500 => 50,
                 FurnitureType.TreePine => 40,
+                FurnitureType.LootCrate => 20,
                 _ => 0
             };
         }
