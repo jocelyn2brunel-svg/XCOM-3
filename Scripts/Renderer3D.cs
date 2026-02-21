@@ -710,7 +710,7 @@ namespace XCOM_3
         {
             Vector3 worldPos = vehicleCenter + Vector3.Transform(localOffset, rotation);
             DrawCube(worldPos, new Vector3(wheelLength, wheelHeight, wheelWidth), tireColor, rotation);
-            DrawCube(worldPos, new Vector3(wheelLength * 0.45f, wheelHeight * 0.45f, wheelWidth * 1.05f), rimColor, rotation);
+            DrawCube(worldPos, new Vector3(wheelLength * 0.75f, wheelHeight * 0.75f, wheelWidth * 0.82f), rimColor, rotation);
         }
 
         private void DrawVehicleFurniture(FurnitureType type, Vector3 center, Vector3 totalScale, float orientationRadians, bool shattered)
@@ -821,7 +821,7 @@ namespace XCOM_3
             DrawVehicleComponent(center, rotation, new Vector3(length * 0.48f, bodyRelY - bodyHeight * 0.28f, 0), new Vector3(bumperLength, bumperHeight, width * 0.84f), trimColor);
 
             // Roues
-            float wheelLength = length * 0.16f;
+            float wheelLength = wheelHeight;
             float wheelWidth = width * 0.15f;
             float wheelY = bottomY + wheelHeight * 0.52f;
             float frontAxle = -length * 0.28f;
