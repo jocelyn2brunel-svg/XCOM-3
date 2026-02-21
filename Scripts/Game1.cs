@@ -490,7 +490,7 @@ namespace XCOM_3
             inventorySystem = new InventorySystem(GraphicsDevice, _spriteBatch, font, pixel);
             unitManager = new OptimizedUnitManager();
 
-            pathfinding = new PathfindingSystem(gridWidth, gridHeight, 1, new HashSet<WallSegment>(), new List<RampTileData>(), GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, 1, new Dictionary<int, HashSet<WallSegment>>(), new List<RampTileData>(), GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
             statsPanel = new StatsPanel(
                 Content.Load<SpriteFont>("Arial"),
                 GraphicsDevice);
@@ -2174,7 +2174,8 @@ namespace XCOM_3
                     renderer3D.DrawFogMesh(gridWidth, gridHeight, cellSize, yOffset,
                         visibleCells.TryGetValue(floor, out var v) ? v : null,
                         exploredCells.TryGetValue(floor, out var e) ? e : null,
-                        floor == 0 ? terrainHeights : null);
+                        floor == 0 ? terrainHeights : null,
+                        GetSlabMaskForFloor(floor));
                 }
 
                 // Draw pulsing arrow markers above ramp entry cells so the player can
@@ -2459,7 +2460,7 @@ namespace XCOM_3
                 for (int y = minY; y <= maxY; y++)
                 {
                     Point cell = new Point(x, y);
-                    if (!pathfinding.HasLineOfSight(ally.Cell, cell))
+                    if (!pathfinding.HasLineOfSight(ally.Cell, ally.Floor, cell, floorToRender))
                         continue;
 
                     Vector2 toCell = new Vector2(x + 0.5f, y + 0.5f) - beamOrigin;
@@ -3936,7 +3937,9 @@ namespace XCOM_3
             wallSegments = currentMap.GetWalls();
             shatteredWindows.Clear();
             InvalidateWallsByFloorCache();
-            pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallSegments, currentMap.RampTiles, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
+            var wallsByFloor = new Dictionary<int, HashSet<WallSegment>>();
+            for (int f = GetMinimumViewFloor(); f < currentMap.FloorCount; f++) wallsByFloor[f] = GetWallsForFloor(f);
+            pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallsByFloor, currentMap.RampTiles, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
             combatSystem.SetPathfinding(pathfinding);
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
             unitManager.InitializeForMission(playerUnits, enemyUnits);

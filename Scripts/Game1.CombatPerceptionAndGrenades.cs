@@ -127,28 +127,59 @@ namespace XCOM_3
                 Array.Clear(grid, 0, grid.Length);
 
             // Mettre à jour les cellules visibles et explorées basées sur les joueurs
+            // On parcourt tous les étages de la carte (y compris sous-sols) pour la visibilité.
+            int minMapFloor = GetMinimumViewFloor();
+            int maxMapFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
+
             foreach (var player in playerUnits)
             {
                 if (player.Health <= 0) continue;
                 int range = GetEffectivePerceptionRange(player);
-                var visGrid = GetVisibilityGrid(player.Floor);
-                var expGrid = GetExplorationGrid(player.Floor);
 
-                int minX = Math.Max(0, player.Cell.X - range);
-                int maxX = Math.Min(gridWidth - 1, player.Cell.X + range);
-                int minY = Math.Max(0, player.Cell.Y - range);
-                int maxY = Math.Min(gridHeight - 1, player.Cell.Y + range);
-
-                for (int x = minX; x <= maxX; x++)
+                // Perception multi-étages : on vérifie la visibilité sur tous les étages à portée
+                for (int f = minMapFloor; f <= maxMapFloor; f++)
                 {
-                    for (int y = minY; y <= maxY; y++)
+                    var visGrid = GetVisibilityGrid(f);
+                    var expGrid = GetExplorationGrid(f);
+
+                    int minX = Math.Max(0, player.Cell.X - range);
+                    int maxX = Math.Min(gridWidth - 1, player.Cell.X + range);
+                    int minY = Math.Max(0, player.Cell.Y - range);
+                    int maxY = Math.Min(gridHeight - 1, player.Cell.Y + range);
+
+                    for (int x = minX; x <= maxX; x++)
                     {
-                        if (Vector2.DistanceSquared(new Vector2(player.Cell.X, player.Cell.Y), new Vector2(x, y)) <= range * range)
+                        for (int y = minY; y <= maxY; y++)
                         {
-                            if (pathfinding.HasLineOfSight(player.Cell, new Point(x, y)))
+                            if (Vector2.DistanceSquared(new Vector2(player.Cell.X, player.Cell.Y), new Vector2(x, y)) <= range * range)
                             {
-                                visGrid[x, y] = true;
-                                expGrid[x, y] = true;
+                                if (pathfinding.HasLineOfSight(player.Cell, player.Floor, new Point(x, y), f))
+                                {
+                                    visGrid[x, y] = true;
+                                    expGrid[x, y] = true;
+
+                                    // Propagation de la visibilité pour les zones extérieures (non couvertes)
+                                    // pour un effet 3D cohérent (on voit le sol si on voit le balcon, et inversement).
+                                    if (f > 0 && !IsCellCovered(new Point(x, y), f))
+                                    {
+                                        GetVisibilityGrid(0)[x, y] = true;
+                                        GetExplorationGrid(0)[x, y] = true;
+                                    }
+                                    else if (f == 0 && !IsCellCovered(new Point(x, y), 0))
+                                    {
+                                        // Si on voit le sol et qu'il n'est pas couvert, on révèle aussi les étages supérieurs
+                                        // qui n'ont pas de dalle (le "vide" extérieur).
+                                        for (int upF = 1; upF <= maxMapFloor; upF++)
+                                        {
+                                            if (!IsSlabAt(new Point(x, y), upF))
+                                            {
+                                                GetVisibilityGrid(upF)[x, y] = true;
+                                                GetExplorationGrid(upF)[x, y] = true;
+                                            }
+                                            else break;
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -208,15 +239,12 @@ namespace XCOM_3
             if (observer.Health <= 0)
                 return false;
 
-            if (observer.Floor != targetFloor)
-                return false;
-
             float distanceCells = Vector2.Distance(new Vector2(observer.Cell.X, observer.Cell.Y), new Vector2(targetCell.X, targetCell.Y));
             if (distanceCells > GetEffectivePerceptionRange(observer))
                 return false;
 
             // Vision 360°: pas de contrainte d'angle, uniquement portée + ligne de vue.
-            return pathfinding.HasLineOfSight(observer.Cell, targetCell);
+            return pathfinding.HasLineOfSight(observer.Cell, observer.Floor, targetCell, targetFloor);
         }
 
         private bool IsEnemyCellVisibleToPlayers(Unit enemy, Point cell, int floor)
@@ -1505,9 +1533,12 @@ namespace XCOM_3
                 return true;
 
             if (unit.Floor != explosionFloor)
-                return true;
+            {
+                // Unité à un étage différent : elle est exposée si LoS 3D directe.
+                return pathfinding.HasLineOfSight(explosionCenter, explosionFloor, unit.Cell, unit.Floor);
+            }
 
-            return pathfinding.HasLineOfSight(explosionCenter, unit.Cell);
+            return pathfinding.HasLineOfSight(explosionCenter, explosionFloor, unit.Cell, unit.Floor);
         }
 
         private int GetMk2FragmentationProtectionReductionPercent(Unit unit)
