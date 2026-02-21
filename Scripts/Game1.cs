@@ -2926,6 +2926,29 @@ namespace XCOM_3
             return 0f;
         }
 
+        // Retourne la hauteur de terrain interpolée bilinéairement au point monde (wx, wz),
+        // en utilisant la même moyenne de coins que le renderer (ComputeHoveredCornerHeight).
+        // C'est la hauteur *visuelle* réelle de la surface à cet endroit précis.
+        private float GetBilinearTerrainHeight(float wx, float wz)
+        {
+            float fcx = wx / cellSize;
+            float fcz = wz / cellSize;
+            int ix = (int)MathF.Floor(fcx);
+            int iz = (int)MathF.Floor(fcz);
+            float u = fcx - ix;
+            float v = fcz - iz;
+
+            float yNW = ComputeHoveredCornerHeight(ix,     iz);
+            float yNE = ComputeHoveredCornerHeight(ix + 1, iz);
+            float ySW = ComputeHoveredCornerHeight(ix,     iz + 1);
+            float ySE = ComputeHoveredCornerHeight(ix + 1, iz + 1);
+
+            return yNW * (1 - u) * (1 - v)
+                 + yNE * u       * (1 - v)
+                 + ySW * (1 - u) * v
+                 + ySE * u       * v;
+        }
+
         private void DrawHoveredCellTerrainOutline(float floorYOffset, float pulseBoost)
         {
             const float outlineLift = 0.14f;
@@ -4378,21 +4401,50 @@ namespace XCOM_3
                 GraphicsDevice.Viewport.Height,
                 WorldMetrics.FloorToWorldY(interactionFloor, cellSize));
 
-            // Correction de parallaxe terrain : le raycast vise un plan plat à y=floorY,
-            // mais les cases avec relief (tranchées, collines) ont une surface à une autre
-            // hauteur. On re-projette sur le vrai plan de la case pour corriger le décalage.
+            // Correction de parallaxe terrain itérative : le renderer dessine chaque tuile
+            // avec des hauteurs de coins *interpolées bilinéairement* (moyenne des cellules
+            // voisines). Une projection one-shot sur la hauteur discrète du centre de la
+            // case initiale rate les bords de tranchée, où la surface visuelle est à mi-
+            // chemin entre les deux hauteurs. On itère jusqu'à convergence en utilisant la
+            // même interpolation bilinéaire que le renderer pour éliminer ce décalage résiduel.
             if (rawHoveredCell.X >= 0 && rawHoveredCell.Y >= 0)
             {
-                float terrainOffset = GetTerrainHeightOffset(rawHoveredCell);
-                if (MathF.Abs(terrainOffset) > 0.05f)
+                float baseY = WorldMetrics.FloorToWorldY(interactionFloor, cellSize);
+                Ray mouseRay = camera.ScreenPointToRay(
+                    mouse.Position,
+                    GraphicsDevice.Viewport.Width,
+                    GraphicsDevice.Viewport.Height);
+
+                for (int iter = 0; iter < 4; iter++)
                 {
+                    if (MathF.Abs(mouseRay.Direction.Y) < 0.001f) break;
+
+                    // Point d'intersection avec le plan de la case courante
+                    float planeY = baseY + GetTerrainHeightOffset(rawHoveredCell);
+                    float t = (planeY - mouseRay.Position.Y) / mouseRay.Direction.Y;
+                    if (t < 0f) break;
+
+                    Vector3 hitPoint = mouseRay.Position + mouseRay.Direction * t;
+
+                    // Hauteur visuelle réelle au point de contact (interpolation bilinéaire
+                    // identique à celle du renderer), relative à baseY
+                    float interpH = GetBilinearTerrainHeight(hitPoint.X, hitPoint.Z);
+
+                    // Convergé si la surface interpolée coïncide avec le plan courant
+                    if (MathF.Abs(interpH - GetTerrainHeightOffset(rawHoveredCell)) < 0.05f)
+                        break;
+
+                    // Re-projeter sur le plan de la vraie surface visuelle
                     Point refined = camera.GetCellFromMouse(
                         mouse.Position,
                         GraphicsDevice.Viewport.Width,
                         GraphicsDevice.Viewport.Height,
-                        WorldMetrics.FloorToWorldY(interactionFloor, cellSize) + terrainOffset);
-                    if (refined.X >= 0 && refined.Y >= 0)
-                        rawHoveredCell = refined;
+                        baseY + interpH);
+
+                    if (refined.X < 0 || refined.Y < 0 || refined == rawHoveredCell)
+                        break;
+
+                    rawHoveredCell = refined;
                 }
             }
 
