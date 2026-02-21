@@ -104,6 +104,13 @@ namespace XCOM_3
             // Réinitialiser spatial hash
             if (unitManager != null)
                 unitManager.InitializeForMission(playerUnits, enemyUnits);
+
+            PrecomputeBuildingGrid();
+            exploredHescoCache.Clear();
+            exploredFurnitureCache.Clear();
+            exploredWallsCache.Clear();
+            exploredCachesDirty = true;
+            visibilityDirty = true;
         }
 
 
@@ -229,22 +236,34 @@ namespace XCOM_3
             return GetBuildingIndexAt(cell) != -1;
         }
 
-        private int GetBuildingIndexAt(Point cell)
+        private void PrecomputeBuildingGrid()
         {
-            if (currentMap?.Buildings == null)
-                return -1;
+            buildingIndexGrid = new int[gridWidth, gridHeight];
+            for (int x = 0; x < gridWidth; x++)
+                for (int y = 0; y < gridHeight; y++)
+                    buildingIndexGrid[x, y] = -1;
+
+            if (currentMap?.Buildings == null) return;
 
             for (int i = 0; i < currentMap.Buildings.Count; i++)
             {
-                var building = currentMap.Buildings[i];
-                if (cell.X >= building.X && cell.X < building.X + building.Width &&
-                    cell.Y >= building.Y && cell.Y < building.Y + building.Height)
+                var b = currentMap.Buildings[i];
+                for (int x = b.X; x < b.X + b.Width; x++)
                 {
-                    return i;
+                    for (int y = b.Y; y < b.Y + b.Height; y++)
+                    {
+                        if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight)
+                            buildingIndexGrid[x, y] = i;
+                    }
                 }
             }
+        }
 
-            return -1;
+        private int GetBuildingIndexAt(Point cell)
+        {
+            if (buildingIndexGrid == null) return -1;
+            if (cell.X < 0 || cell.X >= gridWidth || cell.Y < 0 || cell.Y >= gridHeight) return -1;
+            return buildingIndexGrid[cell.X, cell.Y];
         }
 
         private bool IsWallExterior(WallSegment wall)

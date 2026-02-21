@@ -151,6 +151,8 @@ namespace XCOM_3
                     {
                         for (int y = minY; y <= maxY; y++)
                         {
+                            if (visGrid[x, y]) continue;
+
                             if (Vector2.DistanceSquared(new Vector2(player.Cell.X, player.Cell.Y), new Vector2(x, y)) <= range * range)
                             {
                                 if (pathfinding.HasLineOfSight(player.Cell, player.Floor, new Point(x, y), f))
@@ -1422,6 +1424,7 @@ namespace XCOM_3
                     foreach (var wall in destroyedWalls) wallSegments.Remove(wall);
                     InvalidateWallsByFloorCache();
                     unitManager.OnWallsDestroyed();
+                    visibilityDirty = true;
                     Console.WriteLine($"Destroyed {destroyedWalls.Count} walls - cache invalidated");
                 }
             }

@@ -24,6 +24,10 @@ namespace XCOM_3
         // Dans Renderer3D.cs, ajoutez :
         private float globalAnimationTime = 0f;
 
+        private VertexPositionColor[] _fogVerts;
+        private short[] _fogIndices;
+        private int _cachedFogW, _cachedFogH;
+
         public void Update(GameTime gameTime)
         {
             globalAnimationTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -2001,35 +2005,49 @@ namespace XCOM_3
         {
             if (vis == null || exp == null) return;
 
-            // Nous avons besoin de (w+1) * (h+1) sommets
-            VertexPositionColor[] verts = new VertexPositionColor[(w + 1) * (h + 1)];
+            int vertexCount = (w + 1) * (h + 1);
+            int indexCount = w * h * 6;
+
+            if (_fogVerts == null || _fogVerts.Length < vertexCount)
+                _fogVerts = new VertexPositionColor[vertexCount];
+
+            bool indicesDirty = false;
+            if (_fogIndices == null || _fogIndices.Length < indexCount || _cachedFogW != w || _cachedFogH != h)
+            {
+                _fogIndices = new short[indexCount];
+                indicesDirty = true;
+                _cachedFogW = w;
+                _cachedFogH = h;
+            }
+
             for (int z = 0; z <= h; z++)
             {
                 for (int x = 0; x <= w; x++)
                 {
                     float alpha = GetFogAlpha(x, z, w, h, vis, exp, hasSlab);
                     float terrainH = terrainHeights != null ? ComputeCornerHeight(terrainHeights, x, z) : 0f;
-                    verts[z * (w + 1) + x] = new VertexPositionColor(
+                    _fogVerts[z * (w + 1) + x] = new VertexPositionColor(
                         new Vector3(x * size, yOffset + terrainH + 0.15f, z * size),
                         new Color(0, 0, 0, alpha)
                     );
                 }
             }
 
-            // Indices pour les triangles
-            short[] indices = new short[w * h * 6];
-            int k = 0;
-            for (int z = 0; z < h; z++)
+            if (indicesDirty)
             {
-                for (int x = 0; x < w; x++)
+                int k = 0;
+                for (int z = 0; z < h; z++)
                 {
-                    int v = z * (w + 1) + x;
-                    indices[k++] = (short)v;
-                    indices[k++] = (short)(v + w + 1);
-                    indices[k++] = (short)(v + 1);
-                    indices[k++] = (short)(v + 1);
-                    indices[k++] = (short)(v + w + 1);
-                    indices[k++] = (short)(v + w + 2);
+                    for (int x = 0; x < w; x++)
+                    {
+                        int v = z * (w + 1) + x;
+                        _fogIndices[k++] = (short)v;
+                        _fogIndices[k++] = (short)(v + w + 1);
+                        _fogIndices[k++] = (short)(v + 1);
+                        _fogIndices[k++] = (short)(v + 1);
+                        _fogIndices[k++] = (short)(v + w + 1);
+                        _fogIndices[k++] = (short)(v + w + 2);
+                    }
                 }
             }
 
@@ -2043,7 +2061,7 @@ namespace XCOM_3
             foreach (var pass in basic.CurrentTechnique.Passes)
             {
                 pass.Apply();
-                gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, verts.Length, indices, 0, indices.Length / 3);
+                gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, _fogVerts, 0, vertexCount, _fogIndices, 0, indexCount / 3);
             }
 
             gd.BlendState = oldBS;

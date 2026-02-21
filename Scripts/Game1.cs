@@ -191,6 +191,15 @@ namespace XCOM_3
         private PathfindingSystem pathfinding;
         private InventorySystem inventorySystem;
 
+        private bool visibilityDirty = true;
+        private bool exploredCachesDirty = true;
+        private TurnState lastTurnState = TurnState.Busy;
+
+        private Dictionary<int, List<Point>> exploredHescoCache = new();
+        private Dictionary<int, List<FurnitureData>> exploredFurnitureCache = new();
+        private Dictionary<int, List<WallSegment>> exploredWallsCache = new();
+        private int[,] buildingIndexGrid;
+
         // ✅ NOUVEAU CODE - Managers
         private MainMenuManager mainMenuManager;
         private CharacterCreationManager characterCreationManager;
@@ -927,6 +936,7 @@ namespace XCOM_3
             if (unit.Team == Team.Player) { playerUnits.Remove(unit); if (playerUnits.Count == 0) currentState = GameState.GameOver; }
             else enemyUnits.Remove(unit);
             unitManager.OnUnitDied(unit);
+            visibilityDirty = true;
         }
 
 
@@ -1103,7 +1113,18 @@ namespace XCOM_3
                 }
             }
 
-            UpdateEnemyPerceptionVisibility();
+            if (combatSystem.CurrentTurn != lastTurnState)
+            {
+                visibilityDirty = true;
+                lastTurnState = combatSystem.CurrentTurn;
+            }
+
+            if (visibilityDirty || playerUnits.Any(u => u.IsMoving) || enemyUnits.Any(u => u.IsMoving))
+            {
+                UpdateEnemyPerceptionVisibility();
+                visibilityDirty = false;
+                exploredCachesDirty = true;
+            }
 
             combatSystem.UpdateFiringAnimations(gameTime);
             UpdateAimCameraAndPose();
@@ -2025,8 +2046,63 @@ namespace XCOM_3
             camera.SetAntiOcclusionOffsets(antiOcclusionCameraHeight, antiOcclusionCameraOrbit);
         }
 
+        private void UpdateExploredCaches()
+        {
+            if (!exploredCachesDirty) return;
+
+            exploredHescoCache.Clear();
+            exploredFurnitureCache.Clear();
+            exploredWallsCache.Clear();
+
+            int floorCount = Math.Max(1, currentMap?.FloorCount ?? 1);
+            int minF = GetMinimumViewFloor();
+
+            for (int floor = minF; floor < floorCount; floor++)
+            {
+                var hescos = GetHescoBarriersForFloor(floor)
+                    .Where(b => IsCellExplored(new Point(b.X, b.Y), floor))
+                    .ToList();
+                if (hescos.Count > 0) exploredHescoCache[floor] = hescos;
+
+                var furns = GetFurnitureForFloor(floor)
+                    .Where(f => IsCellExplored(new Point(f.X, f.Y), floor))
+                    .ToList();
+                if (furns.Count > 0) exploredFurnitureCache[floor] = furns;
+
+                var walls = GetWallsForFloor(floor);
+                var exploredWallsList = new List<WallSegment>();
+                foreach (var wall in walls)
+                {
+                    bool wallExplored = false;
+                    var adj = GetCellsAdjacentToWall(wall).ToList();
+                    foreach (var cell in adj)
+                    {
+                        if (IsCellExplored(cell, floor)) { wallExplored = true; break; }
+                    }
+
+                    if (!wallExplored && floor > 0 && IsWallExterior(wall))
+                    {
+                        foreach (var cell in adj)
+                        {
+                            if (!IsInsideBuildingFootprint(cell) && IsCellExplored(cell, 0))
+                            {
+                                wallExplored = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (wallExplored) exploredWallsList.Add(wall);
+                }
+                if (exploredWallsList.Count > 0) exploredWallsCache[floor] = exploredWallsList;
+            }
+
+            exploredCachesDirty = false;
+        }
+
         private void DrawWorld3D(GameTime gameTime)
         {
+            UpdateExploredCaches();
             UpdateDiscreetAntiOcclusionCamera();
             camera.UpdateCamera();
             renderer3D.SetMatrices(camera.ViewMatrix, camera.ProjectionMatrix);
@@ -2073,62 +2149,27 @@ namespace XCOM_3
                         renderer3D.DrawGridCells(floorCells, cellSize, tileTexture, yOffset, upperFloorOpacity);
                 }
 
-                var hescoBarriersForFloor = GetHescoBarriersForFloor(floor);
-                if (hescoBarriersForFloor.Count > 0)
+                if (exploredHescoCache.TryGetValue(floor, out var hescoBarriersForFloor))
                 {
                     if (applyUpperFloorCutout)
                         hescoBarriersForFloor = hescoBarriersForFloor.Where(b => !IsPointInsideUpperFloorCutout(new Point(b.X, b.Y), focusCellForCutout, UpperFloorCutoutRadius)).ToList();
 
-                    // Brouillard de guerre
-                    hescoBarriersForFloor = hescoBarriersForFloor.Where(b => IsCellExplored(new Point(b.X, b.Y), floor)).ToList();
+                    if (hescoBarriersForFloor.Count > 0)
+                        renderer3D.DrawHescoBarriers(hescoBarriersForFloor, cellSize, yOffset, hescoWallTexture, upperFloorOpacity);
                 }
 
-                if (hescoBarriersForFloor.Count > 0)
-                    renderer3D.DrawHescoBarriers(hescoBarriersForFloor, cellSize, yOffset, hescoWallTexture, upperFloorOpacity);
-
-                var furnituresForFloor = GetFurnitureForFloor(floor);
-                if (furnituresForFloor.Count > 0)
+                if (exploredFurnitureCache.TryGetValue(floor, out var furnituresForFloor))
                 {
                     if (applyUpperFloorCutout)
                         furnituresForFloor = furnituresForFloor.Where(f => !IsPointInsideUpperFloorCutout(new Point(f.X, f.Y), focusCellForCutout, UpperFloorCutoutRadius)).ToList();
 
-                    // Brouillard de guerre
-                    furnituresForFloor = furnituresForFloor.Where(f => IsCellExplored(new Point(f.X, f.Y), floor)).ToList();
+                    if (furnituresForFloor.Count > 0)
+                        renderer3D.DrawFurniture(furnituresForFloor, cellSize, yOffset, upperFloorOpacity);
                 }
 
-                if (furnituresForFloor.Count > 0)
-                    renderer3D.DrawFurniture(furnituresForFloor, cellSize, yOffset, upperFloorOpacity);
-
-                var wallsForFloor = GetWallsForFloor(floor);
-                if (wallsForFloor.Count > 0)
+                if (exploredWallsCache.TryGetValue(floor, out var exploredWallsList))
                 {
-                    HashSet<WallSegment> renderedWalls = new HashSet<WallSegment>();
-
-                    // Brouillard de guerre : Un mur est visible si l'une des deux cases adjacentes est explorée
-                    foreach (var wall in wallsForFloor)
-                    {
-                        bool wallExplored = false;
-                        var adj = GetCellsAdjacentToWall(wall).ToList();
-                        foreach (var cell in adj)
-                        {
-                            if (IsCellExplored(cell, floor)) { wallExplored = true; break; }
-                        }
-
-                        // Amélioration : Si c'est un mur extérieur et que le sol adjacent est exploré
-                        if (!wallExplored && floor > 0 && IsWallExterior(wall))
-                        {
-                            foreach (var cell in adj)
-                            {
-                                if (!IsInsideBuildingFootprint(cell) && IsCellExplored(cell, 0))
-                                {
-                                    wallExplored = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (wallExplored) renderedWalls.Add(wall);
-                    }
+                    HashSet<WallSegment> renderedWalls = new HashSet<WallSegment>(exploredWallsList);
 
                     if (floor > viewedFloor)
                         renderedWalls = FilterUpperFloorWallsForLowerView(floor, viewedFloor, renderedWalls);
