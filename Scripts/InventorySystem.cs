@@ -72,6 +72,8 @@ namespace XCOM_3
         private Texture2D flashlightTexture;
         private Texture2D grapplingHookTexture;
         private Texture2D satchelChargeTexture;
+        private Texture2D magazineTexture;
+        private Texture2D weaponUpgradeTexture;
         private Dictionary<string, Texture2D> armorTextures;
         private Dictionary<string, Texture2D> weaponTextures;
         private Dictionary<GrenadeType, Texture2D> grenadeTextures;
@@ -234,6 +236,8 @@ namespace XCOM_3
             flashlightTexture = CreateFlashlightIconTexture(new Color(140, 156, 170));
             grapplingHookTexture = CreateGrapplingHookIconTexture(new Color(110, 165, 188));
             satchelChargeTexture = CreateSatchelChargeIconTexture(new Color(138, 102, 86), new Color(178, 128, 108));
+            magazineTexture = CreateMagazineIconTexture();
+            weaponUpgradeTexture = CreateWeaponUpgradeIconTexture();
             armorTextures = LoadArmorTextures();
             weaponTextures = LoadWeaponTextures();
             grenadeTextures = LoadGrenadeTextures();
@@ -310,7 +314,11 @@ namespace XCOM_3
                 ["assault_rifle"] = CreateWeaponIconTexture(new Color(105, 125, 95), WeaponIconKind.AssaultRifle),
                 ["rifle"] = CreateWeaponIconTexture(new Color(130, 120, 90), WeaponIconKind.Rifle),
                 ["shotgun"] = CreateWeaponIconTexture(new Color(110, 95, 80), WeaponIconKind.Shotgun),
-                ["sniper"] = CreateWeaponIconTexture(new Color(95, 110, 125), WeaponIconKind.Sniper)
+                ["sniper"] = CreateWeaponIconTexture(new Color(95, 110, 125), WeaponIconKind.Sniper),
+                ["melee"] = CreateWeaponIconTexture(new Color(155, 130, 95), WeaponIconKind.Melee),
+                ["machine_gun"] = CreateWeaponIconTexture(new Color(100, 115, 100), WeaponIconKind.MachineGun),
+                ["grenade_launcher"] = CreateWeaponIconTexture(new Color(118, 104, 88), WeaponIconKind.GrenadeLauncher),
+                ["rocket_launcher"] = CreateWeaponIconTexture(new Color(88, 100, 112), WeaponIconKind.RocketLauncher)
             };
         }
 
@@ -347,7 +355,11 @@ namespace XCOM_3
             AssaultRifle,
             Rifle,
             Shotgun,
-            Sniper
+            Sniper,
+            Melee,
+            MachineGun,
+            GrenadeLauncher,
+            RocketLauncher
         }
 
         private Texture2D CreateArmorIconTexture(Color accent, ArmorIconKind kind)
@@ -598,6 +610,31 @@ namespace XCOM_3
                     FillRect(24, 30, 36, 44, accent);
                     FillRect(84, 23, 94, 24, accent);
                     break;
+                case WeaponIconKind.Melee:
+                    FillRect(8, 29, 28, 35, accent);
+                    FillRect(28, 26, 82, 38, metal);
+                    FillRect(78, 24, 88, 40, accent);
+                    break;
+                case WeaponIconKind.MachineGun:
+                    FillRect(8, 22, 86, 30, metal);
+                    FillRect(18, 31, 30, 50, accent);
+                    FillRect(38, 30, 58, 36, accent);
+                    FillRect(42, 36, 58, 48, accent);
+                    FillRect(78, 19, 92, 22, accent);
+                    break;
+                case WeaponIconKind.GrenadeLauncher:
+                    FillRect(14, 20, 72, 33, metal);
+                    FillRect(22, 34, 38, 50, accent);
+                    FillRect(58, 17, 74, 20, accent);
+                    FillRect(36, 33, 52, 39, accent);
+                    break;
+                case WeaponIconKind.RocketLauncher:
+                    FillRect(4, 24, 90, 40, metal);
+                    FillRect(28, 41, 46, 55, accent);
+                    FillRect(60, 20, 76, 24, accent);
+                    FillRect(86, 26, 94, 38, accent);
+                    FillRect(4, 26, 12, 38, accent);
+                    break;
             }
 
             var texture = new Texture2D(graphicsDevice, width, height);
@@ -816,6 +853,80 @@ namespace XCOM_3
             return texture;
         }
 
+        private Texture2D CreateMagazineIconTexture()
+        {
+            const int width = 64;
+            const int height = 64;
+            var data = new Color[width * height];
+
+            Color background = ParasiteEveTheme.BackgroundDark;
+            Color body = new Color(110, 115, 108);
+            Color highlight = new Color(145, 150, 140);
+            Color dark = new Color(75, 80, 74);
+
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                    data[y * width + x] = background;
+
+            void FillRect(int x0, int y0, int x1, int y1, Color c)
+            {
+                for (int y = Math.Max(0, y0); y <= Math.Min(height - 1, y1); y++)
+                    for (int x = Math.Max(0, x0); x <= Math.Min(width - 1, x1); x++)
+                        data[y * width + x] = c;
+            }
+
+            FillRect(20, 14, 44, 52, body);
+            FillRect(22, 10, 42, 14, highlight);
+            FillRect(24, 8, 40, 10, new Color(160, 165, 155));
+            FillRect(20, 14, 22, 52, dark);
+            FillRect(42, 14, 44, 52, dark);
+            for (int i = 0; i < 6; i++)
+            {
+                int iy = 18 + i * 6;
+                FillRect(24, iy, 40, iy + 2, new Color(145, 148, 140));
+            }
+            FillRect(22, 50, 42, 54, dark);
+
+            var texture = new Texture2D(graphicsDevice, width, height);
+            texture.SetData(data);
+            return texture;
+        }
+
+        private Texture2D CreateWeaponUpgradeIconTexture()
+        {
+            const int width = 64;
+            const int height = 64;
+            var data = new Color[width * height];
+
+            Color background = ParasiteEveTheme.BackgroundDark;
+            Color body = new Color(90, 95, 105);
+            Color highlight = new Color(120, 128, 140);
+            Color lens = new Color(60, 80, 110);
+
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                    data[y * width + x] = background;
+
+            void FillRect(int x0, int y0, int x1, int y1, Color c)
+            {
+                for (int y = Math.Max(0, y0); y <= Math.Min(height - 1, y1); y++)
+                    for (int x = Math.Max(0, x0); x <= Math.Min(width - 1, x1); x++)
+                        data[y * width + x] = c;
+            }
+
+            FillRect(10, 26, 54, 38, body);
+            FillRect(48, 22, 58, 42, highlight);
+            FillRect(54, 24, 62, 40, body);
+            FillRect(8, 23, 16, 41, highlight);
+            FillRect(12, 25, 16, 39, lens);
+            FillRect(26, 20, 34, 26, highlight);
+            FillRect(26, 38, 34, 44, highlight);
+            FillRect(13, 27, 15, 30, new Color(90, 115, 150));
+
+            var texture = new Texture2D(graphicsDevice, width, height);
+            texture.SetData(data);
+            return texture;
+        }
 
         private Texture2D GetArmorTexture(ItemData data)
         {
@@ -939,6 +1050,30 @@ namespace XCOM_3
             if (data?.Type != ItemType.Weapon)
                 return null;
 
+            if (data.WeaponData != null)
+            {
+                string textureKey = data.WeaponData.Type switch
+                {
+                    WeaponType.Melee           => "melee",
+                    WeaponType.Pistol          => "pistol",
+                    WeaponType.Revolver        => "pistol",
+                    WeaponType.SMG             => "smg",
+                    WeaponType.AssaultRifle    => "assault_rifle",
+                    WeaponType.Carbine         => "assault_rifle",
+                    WeaponType.BattleRifle     => "rifle",
+                    WeaponType.Shotgun         => "shotgun",
+                    WeaponType.MachineGun      => "machine_gun",
+                    WeaponType.DMR             => "rifle",
+                    WeaponType.SniperRifle     => "sniper",
+                    WeaponType.GrenadeLauncher => "grenade_launcher",
+                    WeaponType.RocketLauncher  => "rocket_launcher",
+                    _                          => "rifle"
+                };
+                if (weaponTextures.TryGetValue(textureKey, out Texture2D typedTexture))
+                    return typedTexture;
+            }
+
+            // Fallback: name-based heuristics for legacy items without WeaponData.Type
             string name = data.Name ?? string.Empty;
 
             if (name.Contains("Sniper", StringComparison.OrdinalIgnoreCase) && weaponTextures.TryGetValue("sniper", out Texture2D sniperTexture))
@@ -1031,8 +1166,22 @@ namespace XCOM_3
             return null;
         }
 
+        private Texture2D GetMagazineTexture(ItemData data)
+        {
+            if (data?.Type != ItemType.Magazine)
+                return null;
+            return magazineTexture;
+        }
+
+        private Texture2D GetWeaponUpgradeTexture(ItemData data)
+        {
+            if (data?.Type != ItemType.WeaponUpgrade)
+                return null;
+            return weaponUpgradeTexture;
+        }
+
         private Texture2D GetItemPreviewTexture(ItemData data)
-            => GetArmorTexture(data) ?? GetWeaponTexture(data) ?? GetGrenadeTexture(data) ?? GetAccessoryTexture(data);
+            => GetArmorTexture(data) ?? GetWeaponTexture(data) ?? GetGrenadeTexture(data) ?? GetAccessoryTexture(data) ?? GetMagazineTexture(data) ?? GetWeaponUpgradeTexture(data);
 
         private void DrawItemPreviewImage(ItemData data, Rectangle targetRect, float alpha = 1f)
         {
