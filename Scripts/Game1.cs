@@ -2249,6 +2249,56 @@ namespace XCOM_3
             if (currentMap?.Objectives != null)
                 renderer3D.DrawObjectives(currentMap.Objectives, cellSize, viewedFloor);
 
+            // --- OUTLINES ET TRACÉS (doivent être sous les unités actives) ---
+            DrawHoveredCell3D(gameTime);
+
+            if (selectedUnit != null)
+                renderer3D.DrawSelectionIndicator(selectedUnit, cellSize, new Color(0, 255, 255, 128));
+
+            Unit targetUI = combatUI.SelectedFireTarget ?? combatUI.HoveredFireTarget;
+            if (targetUI != null && (targetUI.Team != Team.Enemy || IsEnemyVisibleToPlayers(targetUI)))
+                renderer3D.DrawSelectionIndicator(targetUI, cellSize, new Color(255, 0, 0, 128), 1.2f);
+
+            if (!throwMode && selectedUnit != null && selectedUnit.Team == Team.Player)
+            {
+                BlendState previousBlend = GraphicsDevice.BlendState;
+                DepthStencilState previousDepth = GraphicsDevice.DepthStencilState;
+
+                GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                GraphicsDevice.DepthStencilState = DepthStencilState.None;
+
+                var zones = pathfinding.GetMovementZones(selectedUnit);
+                renderer3D.DrawMovementZones(zones, cellSize,
+                    (float)gameTime.TotalGameTime.TotalSeconds,
+                    viewedFloor,
+                    terrainHeights,
+                    currentMap?.Buildings,
+                    camera.Position,
+                    null);
+
+                GraphicsDevice.BlendState = previousBlend;
+                GraphicsDevice.DepthStencilState = previousDepth;
+            }
+
+            if (!throwMode && currentPathNodes.Count > 0 && selectedUnit != null)
+            {
+                BlendState previousBlend = GraphicsDevice.BlendState;
+                DepthStencilState previousDepth = GraphicsDevice.DepthStencilState;
+
+                GraphicsDevice.BlendState = BlendState.AlphaBlend;
+                GraphicsDevice.DepthStencilState = DepthStencilState.None;
+
+                renderer3D.DrawMovementPath(currentPathNodes, selectedUnit, cellSize,
+                    (float)gameTime.TotalGameTime.TotalSeconds,
+                    terrainHeights,
+                    null);
+
+                GraphicsDevice.BlendState = previousBlend;
+                GraphicsDevice.DepthStencilState = previousDepth;
+            }
+
+            DrawPerceivedUnitOutlines3D(gameTime);
+
             foreach (var unit in visibleUnits)
             {
                 if (!allOccludedUnits.Contains(unit))
@@ -2273,18 +2323,12 @@ namespace XCOM_3
 
             DrawAlliedTacticalFlashlightBeams(minFloor, floorCount);
 
-            if (selectedUnit != null)
-                renderer3D.DrawSelectionIndicator(selectedUnit, cellSize, new Color(0, 255, 255, 128));
-
-            Unit target = combatUI.SelectedFireTarget ?? combatUI.HoveredFireTarget;
-            if (target != null && (target.Team != Team.Enemy || IsEnemyVisibleToPlayers(target))) renderer3D.DrawSelectionIndicator(target, cellSize, new Color(255, 0, 0, 128), 1.2f);
 
             renderer3D.DrawCraters(craters.Where(c => IsCellExplored(c.Cell, 0)).ToList(), cellSize);
             renderer3D.DrawGrenades(activeGrenades.Where(g => IsCellVisible(new Point((int)(g.TargetPosition.X / cellSize), (int)(g.TargetPosition.Z / cellSize)), g.TargetFloor)).ToList(), cellSize);
             DrawPlantedSatchelCharges3D(gameTime);
             DrawFlashlightLootHighlights(gameTime);
 
-            DrawHoveredCell3D(gameTime);
             DrawThrowMode3D(gameTime);
             DrawSatchelPlacementMode3D(gameTime);
             DrawGrappleMode3D(gameTime);
@@ -2332,45 +2376,6 @@ namespace XCOM_3
                 }
             }
 
-            if (!throwMode && selectedUnit != null && selectedUnit.Team == Team.Player)
-            {
-                BlendState previousBlend = GraphicsDevice.BlendState;
-                DepthStencilState previousDepth = GraphicsDevice.DepthStencilState;
-
-                GraphicsDevice.BlendState = BlendState.AlphaBlend;
-                GraphicsDevice.DepthStencilState = DepthStencilState.None;
-
-                var zones = pathfinding.GetMovementZones(selectedUnit);
-                renderer3D.DrawMovementZones(zones, cellSize,
-                    (float)gameTime.TotalGameTime.TotalSeconds,
-                    viewedFloor,
-                    terrainHeights,
-                    currentMap?.Buildings,
-                    camera.Position,
-                    null);
-
-                GraphicsDevice.BlendState = previousBlend;
-                GraphicsDevice.DepthStencilState = previousDepth;
-            }
-
-            if (!throwMode && currentPathNodes.Count > 0 && selectedUnit != null)
-            {
-                BlendState previousBlend = GraphicsDevice.BlendState;
-                DepthStencilState previousDepth = GraphicsDevice.DepthStencilState;
-
-                GraphicsDevice.BlendState = BlendState.AlphaBlend;
-                GraphicsDevice.DepthStencilState = DepthStencilState.None;
-
-                renderer3D.DrawMovementPath(currentPathNodes, selectedUnit, cellSize,
-                    (float)gameTime.TotalGameTime.TotalSeconds,
-                    terrainHeights,
-                    null);
-
-                GraphicsDevice.BlendState = previousBlend;
-                GraphicsDevice.DepthStencilState = previousDepth;
-            }
-
-            DrawPerceivedUnitOutlines3D(gameTime);
 
         }
 
