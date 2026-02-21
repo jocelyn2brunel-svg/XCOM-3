@@ -20,8 +20,6 @@ namespace XCOM_3
         private VertexPositionNormalTexture[] texturedPlaneVerts;
         private short[] texturedPlaneIdx;
         private HumanoidModelAdvanced humanoidModel;
-        private float geometryOpacityMultiplier = 1f;
-        private float textureOpacityMultiplier = 1f;
 
         // Dans Renderer3D.cs, ajoutez :
         private float globalAnimationTime = 0f;
@@ -146,18 +144,16 @@ namespace XCOM_3
 
         public void DrawCube(Vector3 pos, Vector3 scale, Color color, Matrix rotation)
         {
-            Color effectiveColor = color * geometryOpacityMultiplier;
-            var verts = cubeVerts.Select(v => new VertexPositionColor(v.Position, effectiveColor)).ToArray();
+            var verts = cubeVerts.Select(v => new VertexPositionColor(v.Position, color)).ToArray();
             DrawVertices(verts, cubeIdx, Matrix.CreateScale(scale) * rotation * Matrix.CreateTranslation(pos));
         }
 
         public void DrawLine(Vector3 start, Vector3 end, Color color)
         {
-            Color effectiveColor = color * geometryOpacityMultiplier;
             VertexPositionColor[] lineVertices = new[]
             {
-                new VertexPositionColor(start, effectiveColor),
-                new VertexPositionColor(end, effectiveColor)
+                new VertexPositionColor(start, color),
+                new VertexPositionColor(end, color)
             };
 
             basic.World = Matrix.Identity;
@@ -175,8 +171,6 @@ namespace XCOM_3
         /// </summary>
         public void DrawSlopedEdge(Vector3 start, Vector3 end, Color color, float width)
         {
-            Color effectiveColor = color * geometryOpacityMultiplier;
-
             Vector3 dir = end - start;
             float length = dir.Length();
             if (length < 0.0001f) return;
@@ -187,10 +181,10 @@ namespace XCOM_3
 
             VertexPositionColor[] verts = new[]
             {
-                new VertexPositionColor(start - perp, effectiveColor),
-                new VertexPositionColor(start + perp, effectiveColor),
-                new VertexPositionColor(end   + perp, effectiveColor),
-                new VertexPositionColor(end   - perp, effectiveColor),
+                new VertexPositionColor(start - perp, color),
+                new VertexPositionColor(start + perp, color),
+                new VertexPositionColor(end   + perp, color),
+                new VertexPositionColor(end   - perp, color),
             };
             short[] idx = new short[] { 0, 1, 2, 0, 2, 3 };
 
@@ -207,8 +201,7 @@ namespace XCOM_3
 
         public void DrawPlane(Vector3 pos, Vector3 scale, Color color, float rotationX, float rotationY, float rotationZ)
         {
-            Color effectiveColor = color * geometryOpacityMultiplier;
-            var verts = planeVerts.Select(v => new VertexPositionColor(v.Position, effectiveColor)).ToArray();
+            var verts = planeVerts.Select(v => new VertexPositionColor(v.Position, color)).ToArray();
             Matrix world = Matrix.CreateScale(scale)
                 * Matrix.CreateRotationX(rotationX)
                 * Matrix.CreateRotationY(rotationY)
@@ -221,11 +214,9 @@ namespace XCOM_3
         {
             textured.World = Matrix.CreateScale(scale) * Matrix.CreateTranslation(pos);
             textured.Texture = tex;
-            textured.Alpha = textureOpacityMultiplier;
             foreach (var pass in textured.CurrentTechnique.Passes)
                 pass.Apply();
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, texturedPlaneVerts, 0, 4, texturedPlaneIdx, 0, 2);
-            textured.Alpha = 1f;
         }
 
         private void DrawTexturedFloorVolumeTop(Vector3 topCenter, Vector3 topScale, Texture2D tex, int cellSize)
@@ -275,33 +266,31 @@ namespace XCOM_3
 
             textured.World = Matrix.Identity;
             textured.Texture = tex;
-            textured.Alpha = textureOpacityMultiplier;
             gd.SamplerStates[0] = SamplerState.LinearWrap;
             foreach (var pass in textured.CurrentTechnique.Passes)
                 pass.Apply();
 
             gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, verts, 0, 4, texturedPlaneIdx, 0, 2);
-            textured.Alpha = 1f;
         }
 
         private void ExecuteWithOpacity(float opacity, Action drawAction, bool affectTextures = false)
         {
             float clamped = MathHelper.Clamp(opacity, 0f, 1f);
             BlendState previousBlend = gd.BlendState;
-            float previousGeometryOpacity = geometryOpacityMultiplier;
-            float previousTextureOpacity = textureOpacityMultiplier;
+            float previousBasicAlpha = basic.Alpha;
+            float previousTexturedAlpha = textured.Alpha;
 
             if (clamped < 0.999f)
                 gd.BlendState = BlendState.AlphaBlend;
 
-            geometryOpacityMultiplier = clamped;
+            basic.Alpha = clamped;
             if (affectTextures)
-                textureOpacityMultiplier = clamped;
+                textured.Alpha = clamped;
 
             drawAction?.Invoke();
 
-            geometryOpacityMultiplier = previousGeometryOpacity;
-            textureOpacityMultiplier = previousTextureOpacity;
+            basic.Alpha = previousBasicAlpha;
+            textured.Alpha = previousTexturedAlpha;
 
             if (clamped < 0.999f)
                 gd.BlendState = previousBlend;
@@ -333,41 +322,44 @@ namespace XCOM_3
 
 
 
-        public void DrawHescoBarriers(IEnumerable<Point> cells, int cellSize, float floorHeightOffset, Texture2D hescoTexture)
+        public void DrawHescoBarriers(IEnumerable<Point> cells, int cellSize, float floorHeightOffset, Texture2D hescoTexture, float opacity = 1f)
         {
             if (cells == null)
                 return;
 
-            float blockWidth = cellSize * 0.9f;
-            float blockHeight = cellSize * 0.9f;
-            float halfWidth = blockWidth / 2f;
-            float halfHeight = blockHeight / 2f;
-
-            foreach (Point cell in cells)
+            ExecuteWithOpacity(opacity, () =>
             {
-                Vector3 center = new Vector3(
-                    cell.X * cellSize + cellSize / 2f,
-                    floorHeightOffset + halfHeight,
-                    cell.Y * cellSize + cellSize / 2f);
+                float blockWidth = cellSize * 0.9f;
+                float blockHeight = cellSize * 0.9f;
+                float halfWidth = blockWidth / 2f;
+                float halfHeight = blockHeight / 2f;
 
-                DrawCube(center, new Vector3(blockWidth, blockHeight, blockWidth), new Color(132, 120, 95));
+                foreach (Point cell in cells)
+                {
+                    Vector3 center = new Vector3(
+                        cell.X * cellSize + cellSize / 2f,
+                        floorHeightOffset + halfHeight,
+                        cell.Y * cellSize + cellSize / 2f);
 
-                if (hescoTexture == null)
-                    continue;
+                    DrawCube(center, new Vector3(blockWidth, blockHeight, blockWidth), new Color(132, 120, 95));
 
-                float leftX = center.X - halfWidth - 0.01f;
-                float rightX = center.X + halfWidth + 0.01f;
-                float nearZ = center.Z - halfWidth - 0.01f;
-                float farZ = center.Z + halfWidth + 0.01f;
+                    if (hescoTexture == null)
+                        continue;
 
-                DrawTexturedVerticalQuad(center, blockWidth, blockHeight, true, nearZ, hescoTexture);
-                DrawTexturedVerticalQuad(center, blockWidth, blockHeight, true, farZ, hescoTexture);
-                DrawTexturedVerticalQuad(center, blockWidth, blockHeight, false, leftX, hescoTexture);
-                DrawTexturedVerticalQuad(center, blockWidth, blockHeight, false, rightX, hescoTexture);
+                    float leftX = center.X - halfWidth - 0.01f;
+                    float rightX = center.X + halfWidth + 0.01f;
+                    float nearZ = center.Z - halfWidth - 0.01f;
+                    float farZ = center.Z + halfWidth + 0.01f;
 
-                Vector3 topPos = new Vector3(center.X, floorHeightOffset + blockHeight + 0.01f, center.Z);
-                DrawTexturedPlane(topPos, new Vector3(blockWidth, 1f, blockWidth), hescoTexture);
-            }
+                    DrawTexturedVerticalQuad(center, blockWidth, blockHeight, true, nearZ, hescoTexture);
+                    DrawTexturedVerticalQuad(center, blockWidth, blockHeight, true, farZ, hescoTexture);
+                    DrawTexturedVerticalQuad(center, blockWidth, blockHeight, false, leftX, hescoTexture);
+                    DrawTexturedVerticalQuad(center, blockWidth, blockHeight, false, rightX, hescoTexture);
+
+                    Vector3 topPos = new Vector3(center.X, floorHeightOffset + blockHeight + 0.01f, center.Z);
+                    DrawTexturedPlane(topPos, new Vector3(blockWidth, 1f, blockWidth), hescoTexture);
+                }
+            }, affectTextures: true);
         }
 
         public void DrawFurniture(IEnumerable<FurnitureData> furnitures, int cellSize, float floorHeightOffset, float opacity = 1f)
@@ -993,14 +985,10 @@ namespace XCOM_3
         /// </summary>
         public void DrawWalls(HashSet<WallSegment> walls, int size, bool editorMode = false, float floorHeightOffset = 0f, Color? wallOverrideColor = null, Texture2D brickWallTexture = null, Texture2D hescoWallTexture = null, float wallOpacity = 1f)
         {
-            float clampedOpacity = MathHelper.Clamp(wallOpacity, 0f, 1f);
-            BlendState previousBlend = gd.BlendState;
-
-            if (clampedOpacity < 0.999f)
-                gd.BlendState = BlendState.AlphaBlend;
-
-            foreach (var s in walls)
+            ExecuteWithOpacity(wallOpacity, () =>
             {
+                foreach (var s in walls)
+                {
                 Vector3 start = new(s.Start.X * size, floorHeightOffset, s.Start.Y * size);
                 Vector3 end = new(s.End.X * size, floorHeightOffset, s.End.Y * size);
                 Vector3 center = (start + end) / 2f;
@@ -1020,7 +1008,6 @@ namespace XCOM_3
                 Color wallColor = wallOverrideColor ?? (editorMode
                     ? new Color(140, 140, 140)  // Gris clair en mode éditeur
                     : new Color(100, 85, 70));   // Beige/brun en jeu
-                wallColor *= clampedOpacity;
 
                 Texture2D wallTexture = null;
                 if (!editorMode)
@@ -1067,8 +1054,8 @@ namespace XCOM_3
                             ? new Vector3(size * 0.94f, glassHeight * 0.96f, glassThickness)
                             : new Vector3(glassThickness, glassHeight * 0.96f, size * 0.94f);
 
-                        DrawCube(glassCenter, glassScale, new Color(175, 225, 255, 95) * clampedOpacity);
-                        DrawCube(glassCenter, glassScale * new Vector3(1.02f, 0.08f, 1.02f), new Color(235, 245, 255, 65) * clampedOpacity);
+                        DrawCube(glassCenter, glassScale, new Color(175, 225, 255, 95));
+                        DrawCube(glassCenter, glassScale * new Vector3(1.02f, 0.08f, 1.02f), new Color(235, 245, 255, 65));
                     }
                 }
                 else if (s.Type == WallType.Door)
@@ -1158,8 +1145,7 @@ namespace XCOM_3
                 }
             }
 
-            if (clampedOpacity < 0.999f)
-                gd.BlendState = previousBlend;
+            }, affectTextures: true);
         }
 
 
@@ -1285,7 +1271,7 @@ namespace XCOM_3
 
 
         public void DrawUnit(Unit unit, int cellSize, Color? bodyColorOverride = null, bool drawEquipment = true,
-            Vector3? positionOverride = null, Matrix? modelRotationOverride = null)
+            Vector3? positionOverride = null, Matrix? modelRotationOverride = null, float opacity = 1f)
         {
             if (humanoidModel == null)
             {
@@ -1293,46 +1279,48 @@ namespace XCOM_3
                 return;
             }
 
-            // Une cellule représente un volume de 5x5x5 pieds.
-            // On calibre la hauteur visuelle d'un humain (~6 pieds) à ~1.2 cellule.
-            // Le modèle humanoïde fait environ 2x "scale" en hauteur totale,
-            // donc on convertit via ce facteur pour conserver des proportions réalistes.
-            const float cellSizeFeet = 5f;
-            const float averageUnitHeightFeet = 6f;
-            const float humanoidModelHeightInScaleUnits = 2f;
-            float scale = cellSize * (averageUnitHeightFeet / cellSizeFeet) / humanoidModelHeightInScaleUnits;
-
-            // Utiliser l'orientation pilotée par l'unité (déplacement, visée, tir)
-            float orientation = unit.Orientation;
-
-            // Animation pilotée par l'état de l'unité (jog / run / sprint)
-            float legSwing = unit.IsMoving ? unit.LegSwing : 0f;
-            float armSwing = unit.IsMoving ? unit.ArmSwing : 0f;
-            float bodyBob = unit.IsMoving ? unit.BodyBob : 0f;
-            float idleBob = unit.IsMoving ? 0f : unit.IdleBobOffset;
-
-            if (unit.IsAiming || unit.IsFiring)
+            ExecuteWithOpacity(opacity, () =>
             {
-                armSwing = unit.DominantHand == Unit.Handedness.Right ? -0.28f : 0.28f;
-            }
+                // Une cellule représente un volume de 5x5x5 pieds.
+                // On calibre la hauteur visuelle d'un humain (~6 pieds) à ~1.2 cellule.
+                // Le modèle humanoïde fait environ 2x "scale" en hauteur totale,
+                // donc on convertit via ce facteur pour conserver des proportions réalistes.
+                const float cellSizeFeet = 5f;
+                const float averageUnitHeightFeet = 6f;
+                const float humanoidModelHeightInScaleUnits = 2f;
+                float scale = cellSize * (averageUnitHeightFeet / cellSizeFeet) / humanoidModelHeightInScaleUnits;
 
-            // ✅ NOUVEAU : Utiliser DrawWithEquipment au lieu de Draw
-            humanoidModel.DrawWithEquipment(
-                gd,
-                basic,
-                unit,           // ← Passer l'unité complète
-                scale,
-                orientation,
-                legSwing,
-                armSwing,
-                bodyBob,
-                idleBob,
-                bodyColorOverride,
-                drawEquipment,
-                positionOverride,
-                modelRotationOverride
-            );
+                // Utiliser l'orientation pilotée par l'unité (déplacement, visée, tir)
+                float orientation = unit.Orientation;
 
+                // Animation pilotée par l'état de l'unité (jog / run / sprint)
+                float legSwing = unit.IsMoving ? unit.LegSwing : 0f;
+                float armSwing = unit.IsMoving ? unit.ArmSwing : 0f;
+                float bodyBob = unit.IsMoving ? unit.BodyBob : 0f;
+                float idleBob = unit.IsMoving ? 0f : unit.IdleBobOffset;
+
+                if (unit.IsAiming || unit.IsFiring)
+                {
+                    armSwing = unit.DominantHand == Unit.Handedness.Right ? -0.28f : 0.28f;
+                }
+
+                // ✅ NOUVEAU : Utiliser DrawWithEquipment au lieu de Draw
+                humanoidModel.DrawWithEquipment(
+                    gd,
+                    basic,
+                    unit,           // ← Passer l'unité complète
+                    scale,
+                    orientation,
+                    legSwing,
+                    armSwing,
+                    bodyBob,
+                    idleBob,
+                    bodyColorOverride,
+                    drawEquipment,
+                    positionOverride,
+                    modelRotationOverride
+                );
+            });
         }
 
         private void DrawUnitFacingArrow(Unit unit, int cellSize)
@@ -1375,14 +1363,14 @@ namespace XCOM_3
                 Matrix.CreateTranslation(headCenter));
         }
 
-        public void DrawUnitSilhouette(Unit unit, int cellSize, Color silhouetteColor)
+        public void DrawUnitSilhouette(Unit unit, int cellSize, Color silhouetteColor, float opacity = 1f)
         {
-            DrawUnit(unit, cellSize, silhouetteColor, drawEquipment: false);
+            DrawUnit(unit, cellSize, silhouetteColor, drawEquipment: false, opacity: opacity);
         }
 
-        public void DrawUnitGhost(Unit unit, int cellSize, Color ghostColor)
+        public void DrawUnitGhost(Unit unit, int cellSize, Color ghostColor, float opacity = 1f)
         {
-            DrawUnit(unit, cellSize, ghostColor, drawEquipment: true);
+            DrawUnit(unit, cellSize, ghostColor, drawEquipment: true, opacity: opacity);
         }
 
 

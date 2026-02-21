@@ -2084,7 +2084,7 @@ namespace XCOM_3
                 }
 
                 if (hescoBarriersForFloor.Count > 0)
-                    renderer3D.DrawHescoBarriers(hescoBarriersForFloor, cellSize, yOffset, hescoWallTexture);
+                    renderer3D.DrawHescoBarriers(hescoBarriersForFloor, cellSize, yOffset, hescoWallTexture, upperFloorOpacity);
 
                 var furnituresForFloor = GetFurnitureForFloor(floor);
                 if (furnituresForFloor.Count > 0)
@@ -2159,20 +2159,7 @@ namespace XCOM_3
                             ? upperWallTexture ?? brickWallTexture
                             : brickWallTexture;
 
-                        if (floor > viewedFloor)
-                        {
-                            var exteriorWalls = renderedWalls.Where(w => IsWallExterior(w)).ToHashSet();
-                            var interiorWalls = renderedWalls.Where(w => !IsWallExterior(w)).ToHashSet();
-
-                            if (exteriorWalls.Count > 0)
-                                renderer3D.DrawWalls(exteriorWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture, wallOpacity: 1.0f);
-                            if (interiorWalls.Count > 0)
-                                renderer3D.DrawWalls(interiorWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture, wallOpacity: upperFloorOpacity);
-                        }
-                        else
-                        {
-                            renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture, wallOpacity: upperFloorOpacity);
-                        }
+                        renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture, wallOpacity: upperFloorOpacity);
 
                         if (fadedWalls.Count > 0)
                             DrawWireframeWalls(fadedWalls, yOffset, new Color(245, 225, 140, 170));
@@ -2219,7 +2206,10 @@ namespace XCOM_3
             foreach (var unit in visibleUnits)
             {
                 if (!allOccludedUnits.Contains(unit))
-                    renderer3D.DrawUnit(unit, cellSize);
+                {
+                    float opacity = unit.Floor > viewedFloor ? UpperFloorWallOpacityWhenLookingBelow : 1.0f;
+                    renderer3D.DrawUnit(unit, cellSize, opacity: opacity);
+                }
             }
 
             // Dessiner les fantômes d'ennemis (dernière position connue)
@@ -2228,7 +2218,8 @@ namespace XCOM_3
                 // On ne dessine le fantôme que si sa cellule est explorée mais non visible
                 if (IsCellExplored(ghost.Cell, ghost.Floor) && !IsCellVisible(ghost.Cell, ghost.Floor))
                 {
-                    renderer3D.DrawUnitSilhouette(ghost, cellSize, new Color(150, 150, 150, 80));
+                    float opacity = ghost.Floor > viewedFloor ? UpperFloorWallOpacityWhenLookingBelow : 1.0f;
+                    renderer3D.DrawUnitSilhouette(ghost, cellSize, new Color(150, 150, 150, 80), opacity: opacity);
                 }
             }
 
@@ -2388,13 +2379,15 @@ namespace XCOM_3
                     Matrix.CreateRotationX(remains.Pitch) *
                     Matrix.CreateRotationY(remains.Yaw);
 
+                float opacity = remains.UnitSnapshot.Floor > viewedFloor ? UpperFloorWallOpacityWhenLookingBelow : 1.0f;
                 renderer3D.DrawUnit(
                     remains.UnitSnapshot,
                     cellSize,
                     bodyColorOverride: new Color(100, 100, 100),
                     drawEquipment: true,
                     positionOverride: remains.Position,
-                    modelRotationOverride: rotation);
+                    modelRotationOverride: rotation,
+                    opacity: opacity);
             }
         }
 
