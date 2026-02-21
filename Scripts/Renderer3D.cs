@@ -1640,14 +1640,6 @@ namespace XCOM_3
             floors.UnionWith(maxByFloor.Keys);
             floors.UnionWith(sprintByFloor.Keys);
 
-            // Limiter l'affichage à deux plans : RDC (0) + étage actuellement visualisé.
-            floors.RemoveWhere(f => f != 0 && f != viewedFloor);
-
-            if (floors.Count == 0)
-            {
-                floors.Add(0);
-                floors.Add(viewedFloor);
-            }
 
             bool prevLighting = basic.LightingEnabled;
             basic.LightingEnabled = false;

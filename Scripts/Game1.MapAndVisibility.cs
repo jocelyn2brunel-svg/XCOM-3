@@ -217,19 +217,37 @@ namespace XCOM_3
 
         private bool IsInsideBuildingFootprint(Point cell)
         {
-            if (currentMap?.Buildings == null)
-                return false;
+            return GetBuildingIndexAt(cell) != -1;
+        }
 
-            foreach (var building in currentMap.Buildings)
+        private int GetBuildingIndexAt(Point cell)
+        {
+            if (currentMap?.Buildings == null)
+                return -1;
+
+            for (int i = 0; i < currentMap.Buildings.Count; i++)
             {
+                var building = currentMap.Buildings[i];
                 if (cell.X >= building.X && cell.X < building.X + building.Width &&
                     cell.Y >= building.Y && cell.Y < building.Y + building.Height)
                 {
-                    return true;
+                    return i;
                 }
             }
 
-            return false;
+            return -1;
+        }
+
+        private bool IsWallExterior(WallSegment wall)
+        {
+            var adj = GetCellsAdjacentToWall(wall).ToList();
+            if (adj.Count < 2) return false;
+
+            int b0 = GetBuildingIndexAt(adj[0]);
+            int b1 = GetBuildingIndexAt(adj[1]);
+
+            if (b0 == -1 && b1 == -1) return false; // Les deux sont à l'extérieur
+            return b0 != b1; // Un dedans/un dehors OU deux bâtiments différents
         }
 
         private static (int MinSize, int MaxSize) GetMissionMapSizeRange(string missionType)
