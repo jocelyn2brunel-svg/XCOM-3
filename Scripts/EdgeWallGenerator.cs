@@ -85,7 +85,8 @@ namespace XCOM_3
             Bunker,         // Structure défensive
             Urban,          // Bâtiments urbains
             Trenches,       // Tranchées de guerre
-            Forest          // Forêt avec cabanes
+            Forest,         // Forêt avec cabanes
+            TheHive         // Bunker souterrain high-tech
         }
 
         public EdgeWallGenerator(Random rng)
@@ -125,6 +126,8 @@ namespace XCOM_3
                         return GenerateTrenches(gridWidth, gridHeight);
                     case WallPattern.Forest:
                         return GenerateForest(gridWidth, gridHeight);
+                    case WallPattern.TheHive:
+                        return GenerateTheHive(gridWidth, gridHeight);
                     default:
                         return GenerateRooms(gridWidth, gridHeight, density);
                 }
@@ -1002,6 +1005,79 @@ namespace XCOM_3
                 int doorY = y + 1 + row * cubicleHeight + cubicleHeight / 2;
                 AddVerticalDoor(walls, corridorX, doorY);
             }
+        }
+
+        /// <summary>
+        /// Génère le pattern "The Hive" : un bunker souterrain massif
+        /// </summary>
+        private HashSet<WallSegment> GenerateTheHive(int gridWidth, int gridHeight)
+        {
+            HashSet<WallSegment> walls = new HashSet<WallSegment>();
+
+            // Un seul bâtiment massif qui occupe le centre
+            int margin = 6;
+            int bWidth = gridWidth - margin * 2;
+            int bHeight = gridHeight - margin * 2;
+            int bX = margin;
+            int bY = margin;
+
+            if (bWidth < 10 || bHeight < 10)
+                return GenerateScattered(gridWidth, gridHeight, 20);
+
+            // 1 étage en surface, 8 en sous-sol
+            GeneratedBuilding building = new GeneratedBuilding(bX, bY, bWidth, bHeight, 1, 8);
+            LastGeneratedBuildings.Add(building);
+
+            // Murs extérieurs du bâtiment
+            for (int i = bX; i < bX + bWidth; i++)
+            {
+                AddHorizontalWall(walls, i, bY, WallType.Full, false, 0, WallMaterial.Brick);
+                AddHorizontalWall(walls, i, bY + bHeight, WallType.Full, false, 0, WallMaterial.Brick);
+            }
+            for (int i = bY; i < bY + bHeight; i++)
+            {
+                AddVerticalWall(walls, bX, i, WallType.Full, false, 0, WallMaterial.Brick);
+                AddVerticalWall(walls, bX + bWidth, i, WallType.Full, false, 0, WallMaterial.Brick);
+            }
+
+            // Entrée principale (Porte) au sud
+            AddHorizontalDoor(walls, bX + bWidth / 2, bY + bHeight);
+
+            // Structure interne : Couloir central avec des labos de chaque côté
+            int centerX = bX + bWidth / 2;
+            int corridorHalfWidth = 1; // Couloir de 3 cases de large (centerX-1, centerX, centerX+1)
+
+            // Couloir vertical central
+            for (int y = bY + 1; y < bY + bHeight - 1; y++)
+            {
+                AddVerticalWall(walls, centerX - corridorHalfWidth, y);
+                AddVerticalWall(walls, centerX + corridorHalfWidth + 1, y);
+            }
+
+            // Pièces latérales (Laboratoires)
+            int roomHeight = 6;
+            for (int y = bY + 2; y < bY + bHeight - roomHeight; y += roomHeight + 2)
+            {
+                // Murs horizontaux pour séparer les pièces
+                for (int x = bX + 1; x < centerX - corridorHalfWidth; x++)
+                    AddHorizontalWall(walls, x, y);
+                for (int x = centerX + corridorHalfWidth + 1; x < bX + bWidth; x++)
+                    AddHorizontalWall(walls, x, y);
+
+                // Portes vers le couloir
+                AddVerticalDoor(walls, centerX - corridorHalfWidth, y + roomHeight / 2);
+                AddVerticalDoor(walls, centerX + corridorHalfWidth + 1, y + roomHeight / 2);
+            }
+
+            // Hub central (Reine Rouge) au fond (nord)
+            int hubY = bY + 4;
+            for (int x = centerX - 4; x <= centerX + 4; x++)
+            {
+                if (x < centerX - corridorHalfWidth || x > centerX + corridorHalfWidth)
+                    AddHorizontalWall(walls, x, hubY);
+            }
+
+            return walls;
         }
 
         /// <summary>

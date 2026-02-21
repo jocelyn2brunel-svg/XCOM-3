@@ -432,9 +432,43 @@ namespace XCOM_3
                     DrawTreePineFurniture(center, totalScale, baseColor);
                     break;
 
+                case FurnitureType.Computer:
+                    DrawComputerFurniture(center, totalScale, baseColor);
+                    break;
+
                 default:
                     DrawCube(center, totalScale, baseColor);
                     break;
+            }
+        }
+
+        private void DrawComputerFurniture(Vector3 center, Vector3 totalScale, Color baseColor)
+        {
+            float bottomY = center.Y - totalScale.Y / 2f;
+
+            // Corps principal (armoire serveur)
+            Vector3 bodyScale = new Vector3(totalScale.X * 0.8f, totalScale.Y * 0.95f, totalScale.Z * 0.8f);
+            Vector3 bodyCenter = new Vector3(center.X, bottomY + bodyScale.Y / 2f, center.Z);
+            DrawCube(bodyCenter, bodyScale, new Color(40, 40, 45));
+
+            // Écran/Face avant
+            Vector3 screenScale = new Vector3(bodyScale.X * 0.9f, bodyScale.Y * 0.4f, bodyScale.Z * 0.1f);
+            Vector3 screenCenter = new Vector3(center.X, bodyCenter.Y + bodyScale.Y * 0.2f, center.Z - bodyScale.Z * 0.45f);
+            float pulse = (float)Math.Sin(globalAnimationTime * 2f) * 0.2f + 0.8f;
+            DrawCube(screenCenter, screenScale, new Color(0, 150, 255) * pulse); // Écran bleu qui pulse
+
+            // Clavier/Console
+            Vector3 keyboardScale = new Vector3(bodyScale.X * 0.9f, bodyScale.Y * 0.05f, bodyScale.Z * 0.3f);
+            Vector3 keyboardCenter = new Vector3(center.X, bodyCenter.Y - bodyScale.Y * 0.1f, center.Z - bodyScale.Z * 0.55f);
+            DrawCube(keyboardCenter, keyboardScale, new Color(60, 60, 65));
+
+            // Lumières d'état
+            for (int i = 0; i < 3; i++)
+            {
+                Vector3 lightScale = new Vector3(bodyScale.X * 0.1f, bodyScale.Y * 0.05f, bodyScale.Z * 0.05f);
+                Vector3 lightCenter = new Vector3(center.X - bodyScale.X * 0.3f + i * bodyScale.X * 0.3f, bodyCenter.Y - bodyScale.Y * 0.3f, center.Z - bodyScale.Z * 0.46f);
+                Color lightColor = i == 0 ? Color.Red : (i == 1 ? Color.Green : Color.Yellow);
+                DrawCube(lightCenter, lightScale, lightColor * pulse);
             }
         }
 
@@ -792,6 +826,7 @@ namespace XCOM_3
                 FurnitureType.PickupFordF150 => new Color(178, 46, 52),
                 FurnitureType.PickupRam3500 => new Color(220, 220, 228),
                 FurnitureType.TreePine => new Color(34, 139, 34),
+                FurnitureType.Computer => new Color(50, 50, 60),
                 _ => new Color(130, 130, 130)
             };
         }
@@ -1924,6 +1959,32 @@ namespace XCOM_3
 
         private static float GetCellTerrainHeight(IReadOnlyDictionary<Point, float> terrainHeights, Point cell)
             => terrainHeights != null && terrainHeights.TryGetValue(cell, out float height) ? height : 0f;
+
+        public void DrawObjectives(IEnumerable<ObjectivePoint> objectives, int cellSize, int viewedFloor)
+        {
+            if (objectives == null) return;
+
+            float pulse = (float)Math.Sin(globalAnimationTime * 5f) * 0.25f + 0.75f;
+
+            foreach (var obj in objectives)
+            {
+                if (obj.Floor != viewedFloor) continue;
+
+                Vector3 pos = new Vector3(
+                    obj.X * cellSize + cellSize / 2f,
+                    WorldMetrics.FloorToWorldY(obj.Floor, cellSize) + cellSize * 1.8f,
+                    obj.Y * cellSize + cellSize / 2f
+                );
+
+                // Marqueur d'objectif : un losange flottant qui tourne
+                Matrix rotation = Matrix.CreateRotationY(globalAnimationTime * 3f) * Matrix.CreateRotationZ(MathHelper.PiOver4);
+                DrawCube(pos, new Vector3(cellSize * 0.5f), Color.Gold * pulse, rotation);
+
+                // Un socle au sol
+                Vector3 basePos = new Vector3(pos.X, WorldMetrics.FloorToWorldY(obj.Floor, cellSize) + 0.05f, pos.Z);
+                DrawPlane(basePos, new Vector3(cellSize * 0.8f, 1f, cellSize * 0.8f), Color.Gold * 0.5f * pulse);
+            }
+        }
 
         public void DrawFogMesh(int w, int h, int size, float yOffset, bool[,] vis, bool[,] exp, IReadOnlyDictionary<Point, float> terrainHeights)
         {
