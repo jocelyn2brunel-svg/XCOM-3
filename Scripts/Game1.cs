@@ -2108,10 +2108,25 @@ namespace XCOM_3
                     foreach (var wall in wallsForFloor)
                     {
                         bool wallExplored = false;
-                        foreach (var cell in GetCellsAdjacentToWall(wall))
+                        var adj = GetCellsAdjacentToWall(wall).ToList();
+                        foreach (var cell in adj)
                         {
                             if (IsCellExplored(cell, floor)) { wallExplored = true; break; }
                         }
+
+                        // Amélioration : Si c'est un mur extérieur et que le sol adjacent est exploré
+                        if (!wallExplored && floor > 0 && IsWallExterior(wall))
+                        {
+                            foreach (var cell in adj)
+                            {
+                                if (!IsInsideBuildingFootprint(cell) && IsCellExplored(cell, 0))
+                                {
+                                    wallExplored = true;
+                                    break;
+                                }
+                            }
+                        }
+
                         if (wallExplored) renderedWalls.Add(wall);
                     }
 
@@ -2144,7 +2159,20 @@ namespace XCOM_3
                             ? upperWallTexture ?? brickWallTexture
                             : brickWallTexture;
 
-                        renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture, wallOpacity: upperFloorOpacity);
+                        if (floor > viewedFloor)
+                        {
+                            var exteriorWalls = renderedWalls.Where(w => IsWallExterior(w)).ToHashSet();
+                            var interiorWalls = renderedWalls.Where(w => !IsWallExterior(w)).ToHashSet();
+
+                            if (exteriorWalls.Count > 0)
+                                renderer3D.DrawWalls(exteriorWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture, wallOpacity: 1.0f);
+                            if (interiorWalls.Count > 0)
+                                renderer3D.DrawWalls(interiorWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture, wallOpacity: upperFloorOpacity);
+                        }
+                        else
+                        {
+                            renderer3D.DrawWalls(renderedWalls, cellSize, editorMode: false, floorHeightOffset: yOffset, brickWallTexture: wallTextureForFloor, hescoWallTexture: hescoWallTexture, wallOpacity: upperFloorOpacity);
+                        }
 
                         if (fadedWalls.Count > 0)
                             DrawWireframeWalls(fadedWalls, yOffset, new Color(245, 225, 140, 170));
@@ -2154,7 +2182,7 @@ namespace XCOM_3
                 renderer3D.DrawRampTiles(currentMap?.RampTiles, floor, cellSize, upperFloorOpacity);
 
                 // Dessiner le brouillard de guerre pour cet étage
-                if (currentState == GameState.Playing)
+                if (currentState == GameState.Playing && floor <= viewedFloor)
                 {
                     renderer3D.DrawFogMesh(gridWidth, gridHeight, cellSize, yOffset,
                         visibleCells.TryGetValue(floor, out var v) ? v : null,
@@ -2282,7 +2310,7 @@ namespace XCOM_3
                     terrainHeights,
                     currentMap?.Buildings,
                     camera.Position,
-                    IsCellExplored);
+                    null);
 
                 GraphicsDevice.BlendState = previousBlend;
                 GraphicsDevice.DepthStencilState = previousDepth;
@@ -2299,7 +2327,7 @@ namespace XCOM_3
                 renderer3D.DrawMovementPath(currentPathNodes, selectedUnit, cellSize,
                     (float)gameTime.TotalGameTime.TotalSeconds,
                     terrainHeights,
-                    IsCellExplored);
+                    null);
 
                 GraphicsDevice.BlendState = previousBlend;
                 GraphicsDevice.DepthStencilState = previousDepth;
