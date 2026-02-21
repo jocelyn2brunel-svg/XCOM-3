@@ -222,6 +222,7 @@ namespace XCOM_3
         private HashSet<Point> sidewalkCells = new();
         private Dictionary<Point, float> terrainHeights = new Dictionary<Point, float>();
         private readonly Dictionary<int, HashSet<WallSegment>> wallsByFloorCache = new Dictionary<int, HashSet<WallSegment>>();
+        private readonly Dictionary<int, HashSet<Point>> cellsByFloorCache = new Dictionary<int, HashSet<Point>>();
         private Unit movementCinematicUnit = null;
         private readonly Dictionary<Unit, bool> firingShoulderCameraDecisions = new Dictionary<Unit, bool>();
         private HashSet<Unit> currentlySpottedEnemies = new HashSet<Unit>();

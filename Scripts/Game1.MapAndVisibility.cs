@@ -42,6 +42,7 @@ namespace XCOM_3
             wallSegments = map.GetWalls();
             shatteredWindows.Clear();
             InvalidateWallsByFloorCache();
+            InvalidateCellsByFloorCache();
             terrainHeights = currentMap.TerrainHeights
                 .Where(t => t.X >= 0 && t.X < gridWidth && t.Y >= 0 && t.Y < gridHeight)
                 .GroupBy(t => new Point(t.X, t.Y))
@@ -331,6 +332,11 @@ namespace XCOM_3
         private void InvalidateWallsByFloorCache()
         {
             wallsByFloorCache.Clear();
+        }
+
+        private void InvalidateCellsByFloorCache()
+        {
+            cellsByFloorCache.Clear();
         }
 
         private static bool IsPerimeterWall(WallSegment wall, int minX, int minY, int maxX, int maxY)
@@ -663,11 +669,21 @@ namespace XCOM_3
 
         private HashSet<Point> GetCellsForFloor(int floor)
         {
-            if (floor <= 0)
-            {
-                if (floor == 0)
-                    return new HashSet<Point>();
+            if (floor == 0)
+                return new HashSet<Point>();
 
+            if (cellsByFloorCache.TryGetValue(floor, out var cached))
+                return cached;
+
+            HashSet<Point> result = ComputeCellsForFloor(floor);
+            cellsByFloorCache[floor] = result;
+            return result;
+        }
+
+        private HashSet<Point> ComputeCellsForFloor(int floor)
+        {
+            if (floor < 0)
+            {
                 var basementCells = new HashSet<Point>();
                 if (currentMap?.Buildings == null)
                     return basementCells;
