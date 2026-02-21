@@ -49,6 +49,7 @@ namespace XCOM_3
                 .GroupBy(t => new Point(t.X, t.Y))
                 .ToDictionary(g => g.Key, g => g.Last().HeightOffset);
             upperFloorCells = ComputeUpperFloorCells();
+            PrecomputeBuildingGrid();
             roadCells = GenerateRoadCells();
             sidewalkCells = GenerateSidewalkCells(roadCells);
 
@@ -106,7 +107,6 @@ namespace XCOM_3
             if (unitManager != null)
                 unitManager.InitializeForMission(playerUnits, enemyUnits);
 
-            PrecomputeBuildingGrid();
             PrecomputeSlabAndCoverageMasks();
             exploredHescoCache.Clear();
             exploredFurnitureCache.Clear();
