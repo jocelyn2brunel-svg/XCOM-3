@@ -67,7 +67,16 @@ namespace XCOM_3
 
             // Mise à jour du pathfinding
             if (pathfinding != null)
-                pathfinding.UpdateGrid(gridWidth, gridHeight, wallSegments);
+            {
+                var wallsByFloor = new Dictionary<int, HashSet<WallSegment>>();
+                int floors = currentMap?.FloorCount ?? 1;
+                int minF = GetMinimumViewFloor();
+                for (int f = minF; f < floors; f++)
+                {
+                    wallsByFloor[f] = GetWallsForFloor(f);
+                }
+                pathfinding.UpdateGrid(gridWidth, gridHeight, wallsByFloor);
+            }
 
             // Réinitialiser les unités
             foreach (var unit in playerUnits)
@@ -698,6 +707,42 @@ namespace XCOM_3
             return result;
         }
 
+        private bool IsSlabAt(Point cell, int floor)
+        {
+            if (floor == 0) return true;
+            return GetCellsForFloor(floor).Contains(cell);
+        }
+
+        private bool IsCellCovered(Point cell, int floor)
+        {
+            int maxF = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
+            for (int f = floor + 1; f <= maxF; f++)
+            {
+                if (IsSlabAt(cell, f)) return true;
+            }
+            return false;
+        }
+
+        private bool[,] GetSlabMaskForFloor(int floor)
+        {
+            var mask = new bool[gridWidth, gridHeight];
+            if (floor == 0)
+            {
+                for (int x = 0; x < gridWidth; x++)
+                    for (int y = 0; y < gridHeight; y++)
+                        mask[x, y] = true;
+                return mask;
+            }
+
+            var floorCells = GetCellsForFloor(floor);
+            foreach (var cell in floorCells)
+            {
+                if (cell.X >= 0 && cell.X < gridWidth && cell.Y >= 0 && cell.Y < gridHeight)
+                    mask[cell.X, cell.Y] = true;
+            }
+            return mask;
+        }
+
         private HashSet<Point> ComputeCellsForFloor(int floor)
         {
             if (floor < 0)
@@ -889,7 +934,7 @@ namespace XCOM_3
             }
         }
 
-        private bool IsBlockedByWall(Point a, Point b)
+        private bool IsBlockedByWall(Point a, Point b, int floor = 0)
         {
             int dx = b.X - a.X;
             int dy = b.Y - a.Y;
@@ -897,7 +942,8 @@ namespace XCOM_3
             if (Math.Abs(dx) + Math.Abs(dy) != 1)
                 return true;
 
-            foreach (var wall in wallSegments)
+            var wallsOnFloor = GetWallsForFloor(floor);
+            foreach (var wall in wallsOnFloor)
             {
                 bool isBetweenCells =
                     (dy == 1 && wall.IsHorizontal && wall.Start.Y == b.Y && a.X >= wall.Start.X && a.X < wall.End.X) ||

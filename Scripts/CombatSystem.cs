@@ -256,7 +256,7 @@ namespace XCOM_3
             int distance = Math.Abs(target.Cell.X - enemy.Cell.X) + Math.Abs(target.Cell.Y - enemy.Cell.Y);
             bool canSeeTarget = lineOfSightCache.TryGetValue(target, out bool cachedLoS)
                 ? cachedLoS
-                : pathfinding.HasLineOfSight(enemy.Cell, target.Cell);
+                : pathfinding.HasLineOfSight(enemy.Cell, enemy.Floor, target.Cell, target.Floor);
 
             if (distance <= GetWeaponRange(enemy) && canSeeTarget)
             {
@@ -276,7 +276,7 @@ namespace XCOM_3
             {
                 Point plannedCell = movePath.Count > 0 ? movePath[movePath.Count - 1] : enemy.Cell;
                 int plannedDistance = Math.Abs(target.Cell.X - plannedCell.X) + Math.Abs(target.Cell.Y - plannedCell.Y);
-                bool canSeeAfterMove = pathfinding.HasLineOfSight(plannedCell, target.Cell);
+                bool canSeeAfterMove = pathfinding.HasLineOfSight(plannedCell, enemy.Floor, target.Cell, target.Floor);
                 if (plannedDistance <= GetWeaponRange(enemy) && canSeeAfterMove)
                 {
                     enemyIntentQueue.Add(new EnemyIntent(EnemyIntentType.Fire, target));
@@ -510,7 +510,7 @@ namespace XCOM_3
                 return false;
             }
 
-            bool hasLoS = pathfinding.HasLineOfSight(enemy.Cell, target.Cell);
+            bool hasLoS = pathfinding.HasLineOfSight(enemy.Cell, enemy.Floor, target.Cell, target.Floor);
             lineOfSightCache[target] = hasLoS;
             return hasLoS;
         }
@@ -537,8 +537,8 @@ namespace XCOM_3
 
             foreach (Point move in moves)
             {
-                if (pathfinding.IsWalkable(move, enemy) &&
-                    !pathfinding.BlocksMovement(enemy.Cell, move) &&
+                if (pathfinding.IsWalkable(move, enemy.Floor, enemy) &&
+                    !pathfinding.BlocksMovement(enemy.Cell, move, enemy.Floor) &&
                     getUnitAtCell(move) == null)
                 {
                     enemy.SetMovementStyle(1);
@@ -590,7 +590,7 @@ namespace XCOM_3
             if (distance > weaponRange)
                 return;
 
-            if (!pathfinding.HasLineOfSight(shooter.Cell, target.Cell))
+            if (!pathfinding.HasLineOfSight(shooter.Cell, shooter.Floor, target.Cell, target.Floor))
                 return;
 
             float deltaX = target.Cell.X - shooter.Cell.X;
@@ -833,7 +833,7 @@ namespace XCOM_3
                               Math.Abs(u.Cell.Y - shooter.Cell.Y);
 
                 if (distance <= GetWeaponRange(shooter) &&
-                    pathfinding.HasLineOfSight(shooter.Cell, u.Cell))
+                    pathfinding.HasLineOfSight(shooter.Cell, shooter.Floor, u.Cell, u.Floor))
                 {
                     targets.Add(u);
                 }

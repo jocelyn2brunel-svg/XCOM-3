@@ -35,8 +35,7 @@ namespace XCOM_3
         private int gridW, gridH;
         private int minFloor;
         private int maxFloor;
-        private HashSet<WallSegment> walls;
-        private Dictionary<(Point A, Point B), WallSegment> wallLookup = new();
+        private Dictionary<int, Dictionary<(Point A, Point B), WallSegment>> wallLookupPerFloor = new();
         private readonly Func<Point, Unit> getUnit;
         private readonly Func<Point, int, Unit> getUnitByFloor;
         private readonly Func<Point, int, bool> isCellAvailableOnFloor;
@@ -56,14 +55,14 @@ namespace XCOM_3
                 w,
                 h,
                 1,
-                walls,
+                new Dictionary<int, HashSet<WallSegment>> { { 0, walls } },
                 new List<RampTileData>(),
                 getUnit,
                 (cell, floor) => floor == 0 ? getUnit(cell) : null,
                 (cell, floor) => floor == 0)
         { }
 
-        public PathfindingSystem(int w, int h, int floors, HashSet<WallSegment> walls,
+        public PathfindingSystem(int w, int h, int floors, Dictionary<int, HashSet<WallSegment>> wallsByFloor,
             List<RampTileData> ramps,
             Func<Point, Unit> getUnit,
             Func<Point, int, Unit> getUnitByFloor,
@@ -86,14 +85,63 @@ namespace XCOM_3
             minFloor = computedMinFloor;
             maxFloor = computedMaxFloor;
 
-            this.walls = walls;
             this.getUnit = getUnit;
             this.getUnitByFloor = getUnitByFloor;
             this.isCellAvailableOnFloor = isCellAvailableOnFloor;
-            BuildWallLookup();
+            UpdateGrid(w, h, wallsByFloor);
         }
 
-        public void UpdateGrid(int w, int h) { gridW = w; gridH = h; }
+        public void UpdateGrid(int w, int h, Dictionary<int, HashSet<WallSegment>> wallsByFloor)
+        {
+            gridW = w;
+            gridH = h;
+            BuildWallLookupPerFloor(wallsByFloor);
+        }
+
+        private void BuildWallLookupPerFloor(Dictionary<int, HashSet<WallSegment>> wallsByFloor)
+        {
+            wallLookupPerFloor = new Dictionary<int, Dictionary<(Point A, Point B), WallSegment>>();
+
+            if (wallsByFloor == null)
+                return;
+
+            foreach (var kvp in wallsByFloor)
+            {
+                int floor = kvp.Key;
+                var floorLookup = new Dictionary<(Point A, Point B), WallSegment>();
+                wallLookupPerFloor[floor] = floorLookup;
+
+                foreach (var wall in kvp.Value)
+                {
+                    if (wall.IsHorizontal)
+                    {
+                        int minX = Math.Min(wall.Start.X, wall.End.X);
+                        int maxX = Math.Max(wall.Start.X, wall.End.X);
+
+                        for (int x = minX; x < maxX; x++)
+                        {
+                            var top = new Point(x, wall.Start.Y - 1);
+                            var bottom = new Point(x, wall.Start.Y);
+                            floorLookup[(top, bottom)] = wall;
+                            floorLookup[(bottom, top)] = wall;
+                        }
+                    }
+                    else
+                    {
+                        int minY = Math.Min(wall.Start.Y, wall.End.Y);
+                        int maxY = Math.Max(wall.Start.Y, wall.End.Y);
+
+                        for (int y = minY; y < maxY; y++)
+                        {
+                            var left = new Point(wall.Start.X - 1, y);
+                            var right = new Point(wall.Start.X, y);
+                            floorLookup[(left, right)] = wall;
+                            floorLookup[(right, left)] = wall;
+                        }
+                    }
+                }
+            }
+        }
 
         public PathResult FindPathDetailed(Point start, int startFloor, Point goal, int goalFloor, int maxCost, Unit movingUnit)
         {
@@ -103,7 +151,6 @@ namespace XCOM_3
             if (startNode.Equals(goalNode))
                 return new PathResult { Cells = new List<Point>(), EndFloor = goalFloor };
 
-            // PriorityQueue + lazy deletion: O(log n) dequeue instead of O(n) linear scan
             var open = new PriorityQueue<GridNode, int>();
             var closed = new HashSet<GridNode>();
             var came = new Dictionary<GridNode, GridNode>();
@@ -114,7 +161,7 @@ namespace XCOM_3
             while (open.Count > 0)
             {
                 GridNode cur = open.Dequeue();
-                if (closed.Contains(cur)) continue; // stale entry from a cost update
+                if (closed.Contains(cur)) continue;
                 closed.Add(cur);
 
                 if (cur.Equals(goalNode))
@@ -170,7 +217,7 @@ namespace XCOM_3
             if (!IsFloorInBounds(neighbor.Floor))
                 return false;
 
-            if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell))
+            if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell, current.Floor))
                 return false;
 
             if (neighbor.Equals(goalNode))
@@ -266,7 +313,7 @@ namespace XCOM_3
             while (open.Count > 0)
             {
                 var current = open.Dequeue();
-                if (settled.Contains(current)) continue; // stale entry from a cost update
+                if (settled.Contains(current)) continue;
                 settled.Add(current);
 
                 int currentCost = costs[current];
@@ -278,7 +325,7 @@ namespace XCOM_3
                     if (settled.Contains(neighbor)) continue;
                     if (!IsFloorInBounds(neighbor.Floor)) continue;
                     if (!IsWalkable(neighbor.Cell, neighbor.Floor, u)) continue;
-                    if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell)) continue;
+                    if (neighbor.Floor == current.Floor && BlocksMovement(current.Cell, neighbor.Cell, current.Floor)) continue;
 
                     int nextCost = currentCost + GetEdgeCost(current, neighbor);
                     if (nextCost > range) continue;
@@ -315,7 +362,6 @@ namespace XCOM_3
             public List<GridNode> MaxMove { get; set; } = new List<GridNode>();
             public List<GridNode> Sprint { get; set; } = new List<GridNode>();
 
-            // Per-floor HashSets for rendering — built lazily once per zone object
             private Dictionary<int, HashSet<Point>> _shortByFloor;
             private Dictionary<int, HashSet<Point>> _maxByFloor;
             private Dictionary<int, HashSet<Point>> _sprintByFloor;
@@ -323,11 +369,9 @@ namespace XCOM_3
             public Dictionary<int, HashSet<Point>> GetShortByFloor()
                 => _shortByFloor ??= BuildGroupedByFloor(ShortMove);
 
-            // MaxByFloor is the cumulative short ∪ max zone used for perimeter rendering
             public Dictionary<int, HashSet<Point>> GetMaxByFloor()
                 => _maxByFloor ??= BuildGroupedByFloor(ShortMove, MaxMove);
 
-            // SprintByFloor is the cumulative short ∪ max ∪ sprint zone
             public Dictionary<int, HashSet<Point>> GetSprintByFloor()
                 => _sprintByFloor ??= BuildGroupedByFloor(ShortMove, MaxMove, Sprint);
 
@@ -348,10 +392,6 @@ namespace XCOM_3
             }
         }
 
-        /// <summary>
-        /// Invalidate the movement zone cache. Call when the selected unit changes,
-        /// moves, uses AP, or when walls are destroyed.
-        /// </summary>
         public void InvalidateMovementCache()
         {
             _cachedZonesUnit = null;
@@ -361,7 +401,6 @@ namespace XCOM_3
         {
             if (u == null) return new MovementZones();
 
-            // Return cached result if unit state hasn't changed
             if (u == _cachedZonesUnit
                 && u.Cell == _cachedZonesCell
                 && u.Floor == _cachedZonesFloor
@@ -402,7 +441,53 @@ namespace XCOM_3
             return zones;
         }
 
-        public bool HasLineOfSight(Point from, Point to)
+        public bool HasLineOfSight(Point from, Point to, int floor)
+        {
+            return HasLineOfSight(from, floor, to, floor);
+        }
+
+        public bool HasLineOfSight(Point from, int fromFloor, Point to, int toFloor)
+        {
+            if (fromFloor == toFloor)
+            {
+                return Has2DLineOfSight(from, to, fromFloor);
+            }
+
+            // Simple 3D implementation: check LoS at both floors and ensure no slab in between at target.
+            // This is a simplified 3D LoS. A more advanced one would raycast through slabs.
+            if (!Has2DLineOfSight(from, to, fromFloor)) return false;
+            if (!Has2DLineOfSight(from, to, toFloor)) return false;
+
+            // If looking down
+            if (fromFloor > toFloor)
+            {
+                // Target cell must not have a slab on floors strictly above it up to fromFloor
+                for (int f = toFloor + 1; f <= fromFloor; f++)
+                {
+                    if (isCellAvailableOnFloor != null && isCellAvailableOnFloor(to, f))
+                    {
+                        // Wait, if it's available, it means there IS a slab (for floor > 0).
+                        // Except for floor 0 where it's always available.
+                        if (f > 0) return false;
+                    }
+                }
+            }
+            else // Looking up
+            {
+                 // Similar logic for looking up
+                 for (int f = fromFloor + 1; f <= toFloor; f++)
+                 {
+                     if (isCellAvailableOnFloor != null && isCellAvailableOnFloor(from, f))
+                     {
+                         if (f > 0) return false;
+                     }
+                 }
+            }
+
+            return true;
+        }
+
+        private bool Has2DLineOfSight(Point from, Point to, int floor)
         {
             int x0 = from.X;
             int y0 = from.Y;
@@ -441,22 +526,19 @@ namespace XCOM_3
                     stepY = true;
                 }
 
-                // Déplacement orthogonal : un seul segment à vérifier.
                 if (stepX ^ stepY)
                 {
-                    if (BlocksSight(new Point(previousX, previousY), new Point(currentX, currentY)))
+                    if (BlocksSight(new Point(previousX, previousY), new Point(currentX, currentY), floor))
                         return false;
 
                     continue;
                 }
 
-                // Déplacement diagonal : vérifier les deux arêtes traversées pour éviter
-                // qu'une ligne de vue "passe à travers" un mur placé sur un coin.
                 Point horizontalCell = new Point(previousX + (stepX ? sx : 0), previousY);
                 Point verticalCell = new Point(previousX, previousY + (stepY ? sy : 0));
 
-                bool blockedHorizontally = stepX && BlocksSight(new Point(previousX, previousY), horizontalCell);
-                bool blockedVertically = stepY && BlocksSight(new Point(previousX, previousY), verticalCell);
+                bool blockedHorizontally = stepX && BlocksSight(new Point(previousX, previousY), horizontalCell, floor);
+                bool blockedVertically = stepY && BlocksSight(new Point(previousX, previousY), verticalCell, floor);
 
                 if (blockedHorizontally || blockedVertically)
                     return false;
@@ -465,33 +547,35 @@ namespace XCOM_3
             return true;
         }
 
-        public WallSegment? GetWallBetween(Point a, Point b)
+        public WallSegment? GetWallBetween(Point a, Point b, int floor)
         {
             int dx = b.X - a.X, dy = b.Y - a.Y;
             if (Math.Abs(dx) + Math.Abs(dy) != 1) return null;
 
-            return wallLookup.TryGetValue((a, b), out var wall) ? wall : null;
+            if (wallLookupPerFloor.TryGetValue(floor, out var lookup))
+            {
+                if (lookup.TryGetValue((a, b), out var wall)) return wall;
+            }
+            return null;
         }
 
-        public bool BlocksMovement(Point a, Point b)
+        public bool BlocksMovement(Point a, Point b, int floor)
         {
-            var wall = GetWallBetween(a, b);
+            var wall = GetWallBetween(a, b, floor);
             return wall.HasValue && (wall.Value.Type == WallType.Full || wall.Value.Type == WallType.Window);
         }
 
-        public bool BlocksSight(Point a, Point b)
+        public bool BlocksSight(Point a, Point b, int floor)
         {
-            var wall = GetWallBetween(a, b);
+            var wall = GetWallBetween(a, b, floor);
             return wall.HasValue && wall.Value.Type == WallType.Full;
         }
 
-        public List<Point> GetNeighbors(Point c)
+        public List<Point> GetNeighbors(Point c, int floor)
         {
             return new[] { new Point(c.X, c.Y - 1), new Point(c.X, c.Y + 1), new Point(c.X - 1, c.Y), new Point(c.X + 1, c.Y) }
-                   .Where(n => n.X >= 0 && n.X < gridW && n.Y >= 0 && n.Y < gridH && !BlocksMovement(c, n)).ToList();
+                   .Where(n => n.X >= 0 && n.X < gridW && n.Y >= 0 && n.Y < gridH && !BlocksMovement(c, n, floor)).ToList();
         }
-
-        public bool IsWalkable(Point c, Unit movingUnit = null) => IsWalkable(c, movingUnit?.Floor ?? 0, movingUnit);
 
         public bool IsWalkable(Point c, int floor, Unit movingUnit = null)
         {
@@ -503,53 +587,6 @@ namespace XCOM_3
             var u = getUnitByFloor(c, floor);
             return u == null || u == movingUnit;
         }
-
-        public void UpdateGrid(int w, int h, HashSet<WallSegment> newWalls)
-        {
-            gridW = w;
-            gridH = h;
-            walls = newWalls;
-            BuildWallLookup();
-        }
-
-        private void BuildWallLookup()
-        {
-            wallLookup = new Dictionary<(Point A, Point B), WallSegment>();
-
-            if (walls == null)
-                return;
-
-            foreach (var wall in walls)
-            {
-                if (wall.IsHorizontal)
-                {
-                    int minX = Math.Min(wall.Start.X, wall.End.X);
-                    int maxX = Math.Max(wall.Start.X, wall.End.X);
-
-                    for (int x = minX; x < maxX; x++)
-                    {
-                        var top = new Point(x, wall.Start.Y - 1);
-                        var bottom = new Point(x, wall.Start.Y);
-                        wallLookup[(top, bottom)] = wall;
-                        wallLookup[(bottom, top)] = wall;
-                    }
-                }
-                else
-                {
-                    int minY = Math.Min(wall.Start.Y, wall.End.Y);
-                    int maxY = Math.Max(wall.Start.Y, wall.End.Y);
-
-                    for (int y = minY; y < maxY; y++)
-                    {
-                        var left = new Point(wall.Start.X - 1, y);
-                        var right = new Point(wall.Start.X, y);
-                        wallLookup[(left, right)] = wall;
-                        wallLookup[(right, left)] = wall;
-                    }
-                }
-            }
-        }
-
 
         private bool IsFloorInBounds(int floor)
         {

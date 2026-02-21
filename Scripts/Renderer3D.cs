@@ -1997,7 +1997,7 @@ namespace XCOM_3
             }
         }
 
-        public void DrawFogMesh(int w, int h, int size, float yOffset, bool[,] vis, bool[,] exp, IReadOnlyDictionary<Point, float> terrainHeights)
+        public void DrawFogMesh(int w, int h, int size, float yOffset, bool[,] vis, bool[,] exp, IReadOnlyDictionary<Point, float> terrainHeights, bool[,] hasSlab = null)
         {
             if (vis == null || exp == null) return;
 
@@ -2007,7 +2007,7 @@ namespace XCOM_3
             {
                 for (int x = 0; x <= w; x++)
                 {
-                    float alpha = GetFogAlpha(x, z, w, h, vis, exp);
+                    float alpha = GetFogAlpha(x, z, w, h, vis, exp, hasSlab);
                     float terrainH = terrainHeights != null ? ComputeCornerHeight(terrainHeights, x, z) : 0f;
                     verts[z * (w + 1) + x] = new VertexPositionColor(
                         new Vector3(x * size, yOffset + terrainH + 0.15f, z * size),
@@ -2050,7 +2050,7 @@ namespace XCOM_3
             basic.LightingEnabled = oldLighting;
         }
 
-        private float GetFogAlpha(int x, int z, int w, int h, bool[,] vis, bool[,] exp)
+        private float GetFogAlpha(int x, int z, int w, int h, bool[,] vis, bool[,] exp, bool[,] hasSlab = null)
         {
             // Moyenne de jusqu'à 4 cellules adjacentes pour lisser
             float sum = 0;
@@ -2063,9 +2063,18 @@ namespace XCOM_3
                     int cz = z + dz;
                     if (cx >= 0 && cx < w && cz >= 0 && cz < h)
                     {
-                        if (vis[cx, cz]) sum += 0.0f;
-                        else if (exp[cx, cz]) sum += 0.65f;
-                        else sum += 1.0f;
+                        // S'il n'y a pas de plancher à cet étage (étage supérieur extérieur),
+                        // le brouillard doit être totalement transparent pour voir l'étage en dessous.
+                        if (hasSlab != null && !hasSlab[cx, cz])
+                        {
+                            sum += 0.0f;
+                        }
+                        else
+                        {
+                            if (vis[cx, cz]) sum += 0.0f;
+                            else if (exp[cx, cz]) sum += 0.65f;
+                            else sum += 1.0f;
+                        }
                         count++;
                     }
                 }
