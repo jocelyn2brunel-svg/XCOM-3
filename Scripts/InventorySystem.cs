@@ -1921,31 +1921,43 @@ namespace XCOM_3
                         return;
                     }
 
-                    // Hors grille, replacer automatiquement
-                    Point? freePos = inventoryGrid.FindFreePosition(draggedItem.GetCurrentSize(), true);
-                    if (freePos.HasValue)
+                    // Hors grille — si grille cachée, tout va au loot de proximité
+                    if (!IsMainInventoryGridVisible)
                     {
-                        draggedItem.GridPosition = freePos.Value;
-                        draggedItem.UpdatePixelBounds(gridStartX, gridStartY);
-                        inventoryGrid.PlaceItem(draggedItem);
+                        TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _, draggedItem.Payload);
+                        ClampNearbyLootScroll();
                         PlayUiSound(uiClickSound, 0.5f);
 
-                        Console.WriteLine($"[INVENTORY] Dropped outside, auto-placed at {freePos.Value}: {draggedItem.Data.Name}");
+                        Console.WriteLine($"[INVENTORY] Dropped outside (grid hidden), sent to nearby loot: {draggedItem.Data.Name}");
                     }
                     else
                     {
-                        if (draggedItemFromNearbyLoot)
+                        // Hors grille, replacer automatiquement
+                        Point? freePos = inventoryGrid.FindFreePosition(draggedItem.GetCurrentSize(), true);
+                        if (freePos.HasValue)
                         {
-                            TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _, draggedItem.Payload);
-                            PlayUiSound(uiErrorSound, 0.65f);
+                            draggedItem.GridPosition = freePos.Value;
+                            draggedItem.UpdatePixelBounds(gridStartX, gridStartY);
+                            inventoryGrid.PlaceItem(draggedItem);
+                            PlayUiSound(uiClickSound, 0.5f);
 
-                            Console.WriteLine($"[INVENTORY] No space. Item returned to nearby loot: {draggedItem.Data.Name}");
+                            Console.WriteLine($"[INVENTORY] Dropped outside, auto-placed at {freePos.Value}: {draggedItem.Data.Name}");
                         }
                         else
                         {
-                            PlayUiSound(uiErrorSound, 0.65f);
+                            if (draggedItemFromNearbyLoot)
+                            {
+                                TryPlaceItemInNearbyLootGrid(draggedItem.Data, out _, draggedItem.Payload);
+                                PlayUiSound(uiErrorSound, 0.65f);
 
-                            Console.WriteLine($"[INVENTORY] WARNING: No space! Item lost: {draggedItem.Data.Name}");
+                                Console.WriteLine($"[INVENTORY] No space. Item returned to nearby loot: {draggedItem.Data.Name}");
+                            }
+                            else
+                            {
+                                PlayUiSound(uiErrorSound, 0.65f);
+
+                                Console.WriteLine($"[INVENTORY] WARNING: No space! Item lost: {draggedItem.Data.Name}");
+                            }
                         }
                     }
                 }
@@ -2434,6 +2446,13 @@ namespace XCOM_3
 
         private void ReturnGridItemToGrid(GridItem item)
         {
+            if (!IsMainInventoryGridVisible)
+            {
+                TryPlaceItemInNearbyLootGrid(item.Data, out _, item.Payload);
+                Console.WriteLine($"[INVENTORY] Returned old item to nearby loot (grid hidden): {item.Data.Name}");
+                return;
+            }
+
             Point? freePos = inventoryGrid.FindFreePosition(item.GetCurrentSize(), true);
             if (!freePos.HasValue)
                 return;
@@ -2447,6 +2466,14 @@ namespace XCOM_3
         private void ReturnItemToGrid(Item item)
         {
             ItemSize size = ItemSizeDatabase.GetItemSize(item.Data.Name);
+
+            if (!IsMainInventoryGridVisible)
+            {
+                TryPlaceItemInNearbyLootGrid(item.Data, out _);
+                Console.WriteLine($"[INVENTORY] Returned old item to nearby loot (grid hidden): {item.Data.Name}");
+                return;
+            }
+
             Point? freePos = inventoryGrid.FindFreePosition(size, true);
 
             if (freePos.HasValue)
@@ -2554,15 +2581,22 @@ namespace XCOM_3
                 {
                     RemoveItemFromSource(contextMenuItem, unit);
 
-                    ItemSize size = ItemSizeDatabase.GetItemSize(contextMenuItem.Data.Name);
-                    Point? freePos = inventoryGrid.FindFreePosition(size, true);
-                    if (freePos.HasValue)
+                    if (!IsMainInventoryGridVisible)
                     {
-                        inventoryGrid.PlaceItem(new GridItem(contextMenuItem.Data, freePos.Value, size, false));
+                        TryPlaceItemInNearbyLootGrid(contextMenuItem.Data, out _);
                     }
                     else
                     {
-                        TryPlaceItemInNearbyLootGrid(contextMenuItem.Data, out _);
+                        ItemSize size = ItemSizeDatabase.GetItemSize(contextMenuItem.Data.Name);
+                        Point? freePos = inventoryGrid.FindFreePosition(size, true);
+                        if (freePos.HasValue)
+                        {
+                            inventoryGrid.PlaceItem(new GridItem(contextMenuItem.Data, freePos.Value, size, false));
+                        }
+                        else
+                        {
+                            TryPlaceItemInNearbyLootGrid(contextMenuItem.Data, out _);
+                        }
                     }
 
                     showContextMenu = false;
