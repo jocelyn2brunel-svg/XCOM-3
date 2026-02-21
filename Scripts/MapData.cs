@@ -280,6 +280,7 @@ namespace XCOM_3
         PickupToyotaTacoma,
         PickupFordF150,
         PickupRam3500,
+        VanGeneric,
         TreePine,
         LootCrate,
         Computer
@@ -302,7 +303,8 @@ namespace XCOM_3
                 FurnitureType.SedanMercedesEClass or
                 FurnitureType.PickupToyotaTacoma or
                 FurnitureType.PickupFordF150 or
-                FurnitureType.PickupRam3500;
+                FurnitureType.PickupRam3500 or
+                FurnitureType.VanGeneric;
         }
 
         public static (float LengthFeet, float WidthFeet) GetFootprintFeet(FurnitureType type)
@@ -315,6 +317,7 @@ namespace XCOM_3
                 FurnitureType.PickupToyotaTacoma => (17.9f, 6.3f),
                 FurnitureType.PickupFordF150 => (19.5f, 6.7f),
                 FurnitureType.PickupRam3500 => (19.9f, 6.8f),
+                FurnitureType.VanGeneric => (17.5f, 6.5f),
                 FurnitureType.TreePine => (8f, 8f),
                 FurnitureType.Computer => (4f, 4f),
                 _ => (5f, 5f)
@@ -371,6 +374,7 @@ namespace XCOM_3
                 FurnitureType.PickupToyotaTacoma => 6.0f,
                 FurnitureType.PickupFordF150 => 6.4f,
                 FurnitureType.PickupRam3500 => 6.6f,
+                FurnitureType.VanGeneric => 8.2f,
                 FurnitureType.TreePine => 16.0f,
                 FurnitureType.LootCrate => 2.5f,
                 FurnitureType.Computer => 5f,

@@ -621,7 +621,8 @@ namespace XCOM_3
                 FurnitureType.SedanMercedesEClass,
                 FurnitureType.PickupToyotaTacoma,
                 FurnitureType.PickupFordF150,
-                FurnitureType.PickupRam3500
+                FurnitureType.PickupRam3500,
+                FurnitureType.VanGeneric
             };
 
             foreach (Point candidate in roadCandidates)
