@@ -1774,18 +1774,27 @@ namespace XCOM_3
                 WorldMetrics.FloorToWorldY(centerFloor, cellSize) + cellSize * 0.12f,
                 centerCell.Y * cellSize + cellSize / 2f);
 
+            float linearPulse = renderer3D.GlobalAnimationTime % 1.0f;
+
             foreach (Mk2FragmentationPreviewInfo info in infos)
             {
                 Color rayColor = GetMk2PreviewChanceColor(info.HitChancePercent) * (0.55f + 0.35f * pulse);
                 Vector3 start = blastOrigin;
                 Vector3 end = info.UnitWorldCenter;
 
-                renderer3D.DrawLine(start, end, rayColor);
+                // On dessine la ligne de base avec une opacité un peu réduite pour faire ressortir le pulse
+                renderer3D.DrawLine(start, end, rayColor * 0.6f);
 
                 Vector3 direction = end - start;
                 if (direction.LengthSquared() > 0.0001f)
                 {
                     direction.Normalize();
+
+                    // Flèche de pulse qui parcourt la ligne
+                    Vector3 pulsePos = Vector3.Lerp(start, end, linearPulse);
+                    renderer3D.DrawCube(pulsePos, new Vector3(cellSize * 0.12f), rayColor);
+
+                    // Pointe de flèche statique à la fin
                     Vector3 arrowHead = end + direction * (cellSize * 0.15f);
                     renderer3D.DrawCube(arrowHead, new Vector3(cellSize * 0.14f), rayColor);
                 }
