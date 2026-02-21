@@ -46,6 +46,9 @@ namespace XCOM_3
         public List<HescoBarrierData> HescoBarriers { get; set; } = new List<HescoBarrierData>();
         public List<FurnitureData> Furnitures { get; set; } = new List<FurnitureData>();
 
+        [JsonIgnore]
+        public Dictionary<int, HashSet<WallSegment>> WallsPerFloor { get; set; } = new Dictionary<int, HashSet<WallSegment>>();
+
         // Paramètres de mission
         public string SuggestedMissionType { get; set; } = "Tutorial";
         public int MaxPlayerUnits { get; set; } = 6;

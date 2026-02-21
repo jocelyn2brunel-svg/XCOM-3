@@ -231,7 +231,6 @@ namespace XCOM_3
         private HashSet<Point> roadCells = new();
         private HashSet<Point> sidewalkCells = new();
         private Dictionary<Point, float> terrainHeights = new Dictionary<Point, float>();
-        private readonly Dictionary<int, HashSet<WallSegment>> wallsByFloorCache = new Dictionary<int, HashSet<WallSegment>>();
         private readonly Dictionary<int, HashSet<Point>> cellsByFloorCache = new Dictionary<int, HashSet<Point>>();
         private readonly Dictionary<int, bool[,]> slabMasks = new();
         private readonly Dictionary<int, bool[,]> coveredMasks = new();
