@@ -14,7 +14,8 @@ namespace XCOM_3
         Armor,
         Accessory,
         Grenade,
-        Magazine
+        Magazine,
+        WeaponUpgrade
     }
 
     public enum ArmorSlot
@@ -72,6 +73,9 @@ namespace XCOM_3
         // Données de chargeur
         public string CompatibleCaliber { get; set; }
         public int AmmoCount { get; set; }
+
+        // Données de modification d'arme
+        public WeaponUpgradeData UpgradeData { get; set; }
 
         // Constructeur pour armes
         public ItemData(string name, ItemType type, WeaponData weaponData)
@@ -155,6 +159,27 @@ namespace XCOM_3
             GeneratedTextureKey = string.Empty;
             CompatibleCaliber = compatibleCaliber ?? string.Empty;
             AmmoCount = Math.Max(1, ammoCount);
+        }
+
+        // Constructeur pour modifications d'armes
+        public ItemData(WeaponUpgradeData upgradeData)
+        {
+            Name = upgradeData?.Name ?? "Modification inconnue";
+            Type = ItemType.WeaponUpgrade;
+            UpgradeData = upgradeData;
+            WeaponData = null;
+            ArmorValue = 0;
+            ArmorSlot = ArmorSlot.None;
+            ProtectionLevel = ProtectionLevel.None;
+            MobilityPenalty = 0;
+            WeightLbs = 0.1f;
+            BonusInventorySlots = 0;
+            FragmentationProtectionPercent = 0;
+            BodyCoveragePercent = 0;
+            Description = "";
+            GeneratedTextureKey = string.Empty;
+            CompatibleCaliber = string.Empty;
+            AmmoCount = 0;
         }
 
         public int GetEffectiveBodyCoveragePercent()

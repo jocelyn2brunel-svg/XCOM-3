@@ -1511,6 +1511,31 @@ namespace XCOM_3
                 }
             }
 
+            // Déséquiper une modification d'arme depuis son slot
+            if (unit.EquippedWeapon != null && unit.WeaponData != null)
+            {
+                foreach (WeaponUpgradeSlotType slotType in System.Enum.GetValues<WeaponUpgradeSlotType>())
+                {
+                    Rectangle upgradeSlot = GetWeaponUpgradeSlotBounds(slotType);
+                    if (upgradeSlot.Contains(mouse.Position))
+                    {
+                        WeaponUpgradeData removedUpgrade = unit.WeaponData.RemoveUpgrade(slotType);
+                        if (removedUpgrade != null)
+                        {
+                            ItemData upgradeItemData = new ItemData(removedUpgrade);
+                            Item upgradeItem = new Item(upgradeItemData, Point.Zero);
+                            StartDragFromEquipment(upgradeItem, mouse, upgradeSlot);
+                            draggedItemSourceInfo = new ItemContextInfo { Data = upgradeItemData, Source = "weaponupgrade", Index = (int)slotType, GridPosition = Point.Zero };
+                            hasDraggedItemSourceInfo = true;
+                            PlayUiSound(uiClickSound, 0.48f);
+
+                            Console.WriteLine($"[INVENTORY] Modification retirée de l'arme: {removedUpgrade.Name}");
+                            return;
+                        }
+                    }
+                }
+            }
+
             Rectangle helmetSlot = GetHelmetSlotBounds();
             if (unit.EquippedHelmet != null && helmetSlot.Contains(mouse.Position))
             {
@@ -2057,6 +2082,27 @@ namespace XCOM_3
 
                 Console.WriteLine($"[INVENTORY] ✅ Equipped weapon: {item.Data.Name}");
                 return true;
+            }
+
+            // Installer une modification dans un slot d'arme
+            if (item.Data.Type == ItemType.WeaponUpgrade && item.Data.UpgradeData != null &&
+                unit.EquippedWeapon != null && unit.WeaponData != null)
+            {
+                Rectangle upgradeSlotBounds = GetWeaponUpgradeSlotBounds(item.Data.UpgradeData.SlotType);
+                if (upgradeSlotBounds.Contains(mousePosition))
+                {
+                    WeaponUpgradeData existingUpgrade = unit.WeaponData.RemoveUpgrade(item.Data.UpgradeData.SlotType);
+                    if (existingUpgrade != null)
+                    {
+                        ItemData existingItemData = new ItemData(existingUpgrade);
+                        ReturnItemToGrid(new Item(existingItemData, Point.Zero));
+                    }
+                    unit.WeaponData.TryInstallUpgrade(item.Data.UpgradeData);
+                    PlayUiSound(uiEquipSound, 0.6f);
+
+                    Console.WriteLine($"[INVENTORY] ✅ Modification installée: {item.Data.UpgradeData.Name}");
+                    return true;
+                }
             }
 
             int pantsCapacity = unit.GetPantsInventoryCapacity();
