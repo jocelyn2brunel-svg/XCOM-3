@@ -1802,34 +1802,33 @@ namespace XCOM_3
                 float yNE = floorYOffset + ComputeCornerHeight(terrainHeights, cell.X + 1, cell.Y) + lift;
 
                 float lw = cellSize * 0.12f;
-                float lh = 0.04f;
 
                 if (!zone.Contains(new Point(cell.X, cell.Y - 1)))
                 {
                     Vector3 mid = new Vector3((xMin + xMax) / 2f, (yNW + yNE) / 2f, zMin);
                     Color c = checkOcclusion && IsOccludedByBuilding(cameraXZ.Value, new Vector2(mid.X, mid.Z), occlusionBuildings, cellSize) ? color * 0.15f : color;
-                    DrawCube(mid, new Vector3(cellSize, lh, lw), c);
+                    DrawSlopedEdge(new Vector3(xMin, yNW, zMin), new Vector3(xMax, yNE, zMin), c, lw);
                 }
 
                 if (!zone.Contains(new Point(cell.X + 1, cell.Y)))
                 {
                     Vector3 mid = new Vector3(xMax, (yNE + ySE) / 2f, (zMin + zMax) / 2f);
                     Color c = checkOcclusion && IsOccludedByBuilding(cameraXZ.Value, new Vector2(mid.X, mid.Z), occlusionBuildings, cellSize) ? color * 0.15f : color;
-                    DrawCube(mid, new Vector3(lw, lh, cellSize), c);
+                    DrawSlopedEdge(new Vector3(xMax, yNE, zMin), new Vector3(xMax, ySE, zMax), c, lw);
                 }
 
                 if (!zone.Contains(new Point(cell.X, cell.Y + 1)))
                 {
                     Vector3 mid = new Vector3((xMin + xMax) / 2f, (ySW + ySE) / 2f, zMax);
                     Color c = checkOcclusion && IsOccludedByBuilding(cameraXZ.Value, new Vector2(mid.X, mid.Z), occlusionBuildings, cellSize) ? color * 0.15f : color;
-                    DrawCube(mid, new Vector3(cellSize, lh, lw), c);
+                    DrawSlopedEdge(new Vector3(xMax, ySE, zMax), new Vector3(xMin, ySW, zMax), c, lw);
                 }
 
                 if (!zone.Contains(new Point(cell.X - 1, cell.Y)))
                 {
                     Vector3 mid = new Vector3(xMin, (yNW + ySW) / 2f, (zMin + zMax) / 2f);
                     Color c = checkOcclusion && IsOccludedByBuilding(cameraXZ.Value, new Vector2(mid.X, mid.Z), occlusionBuildings, cellSize) ? color * 0.15f : color;
-                    DrawCube(mid, new Vector3(lw, lh, cellSize), c);
+                    DrawSlopedEdge(new Vector3(xMin, ySW, zMax), new Vector3(xMin, yNW, zMin), c, lw);
                 }
             }
         }
