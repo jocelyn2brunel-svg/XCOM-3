@@ -24,8 +24,11 @@ namespace XCOM_3.Scripts
                 { "Alien Scout", 
                     new EnemyTemplate("Alien Scout","Scout","H&K MP5K",4) },
                 
-                { "Zombie", 
-                    new EnemyTemplate("Zombie","Undead","Zombie Claws",2) }
+                { "Zombie",
+                    new EnemyTemplate("Zombie","Undead","Zombie Claws",2) },
+
+                { "Giant Spider",
+                    new EnemyTemplate("Giant Spider","Spider","Spider Fangs",3) }
             };
         }
 

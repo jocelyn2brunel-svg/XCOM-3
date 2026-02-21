@@ -2323,6 +2323,8 @@ namespace XCOM_3
             DrawAlliedTacticalFlashlightBeams(minFloor, floorCount);
 
 
+            DrawSpiderWebs3D();
+
             renderer3D.DrawCraters(craters.Where(c => IsCellExplored(c.Cell, 0)).ToList(), cellSize);
             renderer3D.DrawGrenades(activeGrenades.Where(g => IsCellVisible(new Point((int)(g.TargetPosition.X / cellSize), (int)(g.TargetPosition.Z / cellSize)), g.TargetFloor)).ToList(), cellSize);
             DrawPlantedSatchelCharges3D(gameTime);
@@ -2448,6 +2450,52 @@ namespace XCOM_3
             bool leftOn = string.Equals(unit?.EquippedLeftHandFlashlight?.Data?.Name, TacticalFlashlightItemName, StringComparison.OrdinalIgnoreCase)
                 && unit.IsLeftHandFlashlightOn;
             return rightOn || leftOn;
+        }
+
+        /// <summary>
+        /// Dessine les toiles d'araignée sur les cases occupées.
+        /// Chaque toile est représentée par des fils entrecroisés (cubes fins) posés au sol.
+        /// </summary>
+        private void DrawSpiderWebs3D()
+        {
+            if (spiderWebTiles.Count == 0)
+                return;
+
+            Color webColor = new Color(220, 220, 210, 140);
+            float yOffset = WorldMetrics.FloorToWorldY(viewedFloor, cellSize);
+            float webY = yOffset + cellSize * 0.03f;
+            float threadW = cellSize * 0.04f;
+            float threadH = cellSize * 0.02f;
+
+            foreach (var (cell, floor) in spiderWebTiles)
+            {
+                if (floor != viewedFloor) continue;
+                if (!IsCellExplored(cell, floor)) continue;
+
+                float cx = cell.X * cellSize + cellSize * 0.5f;
+                float cz = cell.Y * cellSize + cellSize * 0.5f;
+
+                // Fils horizontaux et verticaux de la toile
+                renderer3D.DrawCube(
+                    new Vector3(cx, webY, cz),
+                    new Vector3(cellSize * 0.9f, threadH, threadW),
+                    webColor);
+                renderer3D.DrawCube(
+                    new Vector3(cx, webY, cz),
+                    new Vector3(threadW, threadH, cellSize * 0.9f),
+                    webColor);
+                // Diagonales
+                renderer3D.DrawCube(
+                    new Vector3(cx, webY, cz),
+                    new Vector3(cellSize * 0.65f, threadH, threadW * 0.7f),
+                    webColor,
+                    Matrix.CreateRotationY(MathHelper.ToRadians(45f)));
+                renderer3D.DrawCube(
+                    new Vector3(cx, webY, cz),
+                    new Vector3(cellSize * 0.65f, threadH, threadW * 0.7f),
+                    webColor,
+                    Matrix.CreateRotationY(MathHelper.ToRadians(-45f)));
+            }
         }
 
         private void DrawAlliedTacticalFlashlightBeams(int fromFloor, int floorCount)
@@ -4032,8 +4080,12 @@ namespace XCOM_3
             new("Alien Sniper","Sniper","M2010 ESR",2),
             new("Alien Heavy","Heavy","M16A1",2),
             new("Alien Scout","Scout","H&K MP5K",4),
-            new("Zombie","Undead","Zombie Claws",2)
+            new("Zombie","Undead","Zombie Claws",2),
+            new("Giant Spider","Spider","Spider Fangs",3)
         };
+
+        // Toiles d'araignée : cases recouvertes de toile qui ralentissent les unités non-araignées.
+        private readonly HashSet<(Point cell, int floor)> spiderWebTiles = new();
 
         private void InitializeWeapons()
         {
@@ -4069,7 +4121,10 @@ namespace XCOM_3
             InvalidateWallsByFloorCache();
             var wallsByFloor = new Dictionary<int, HashSet<WallSegment>>();
             for (int f = GetMinimumViewFloor(); f < currentMap.FloorCount; f++) wallsByFloor[f] = GetWallsForFloor(f);
+            spiderWebTiles.Clear();
             pathfinding = new PathfindingSystem(gridWidth, gridHeight, currentMap.FloorCount, wallsByFloor, currentMap.RampTiles, GetUnitAtCell, GetUnitAtCellOnFloor, IsCellAvailableOnFloor);
+            // Toiles d'araignée : coût +1 pour traverser une case couverte de toile (non-araignées seulement).
+            pathfinding.GetExtraCellCost = (cell, floor) => spiderWebTiles.Contains((cell, floor)) ? 1 : 0;
             combatSystem.SetPathfinding(pathfinding);
             Console.WriteLine($"Mission '{missionType}' launched in 3D!");
             unitManager.InitializeForMission(playerUnits, enemyUnits);
@@ -4085,6 +4140,10 @@ namespace XCOM_3
         {
             unitManager.OnUnitMoved(unit, cell, floor);
             visibilityDirty = true;
+
+            // Les araignées déposent une toile sur chaque case traversée.
+            if (unit.CanWalkOnWalls)
+                spiderWebTiles.Add((cell, floor));
         }
 
         private void ResetFogOfWar()

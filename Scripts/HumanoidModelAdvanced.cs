@@ -14,7 +14,7 @@ namespace XCOM_3
         private VertexPositionColor[] cubeVertices;
         private short[] cubeIndices;
 
-        public enum UnitType { Humain, Alien, Zombie, Heavy, Scout }
+        public enum UnitType { Humain, Alien, Zombie, Heavy, Scout, Spider }
 
         public HumanoidModelAdvanced() => InitializeCube();
 
@@ -407,6 +407,7 @@ namespace XCOM_3
                 case UnitType.Zombie: DrawZombie(device, effect, animatedPos, teamColor, scale, rot, legSwing, armSwing); break;
                 case UnitType.Heavy: DrawHeavy(device, effect, animatedPos, teamColor, scale, rot, legSwing, armSwing); break;
                 case UnitType.Scout: DrawScout(device, effect, animatedPos, teamColor, scale, rot, legSwing, armSwing); break;
+                case UnitType.Spider: DrawSpider(device, effect, animatedPos, teamColor, scale, rot, legSwing); break;
             }
         }
 
@@ -426,6 +427,13 @@ namespace XCOM_3
             // Déterminer le type d'unité
             UnitType type = GetUnitType(unit);
             Color bodyColor = bodyColorOverride ?? GetDefaultBodyColor(type);
+
+            // Les araignées ont leur propre rendu complet, sans équipement humanoïde
+            if (type == UnitType.Spider)
+            {
+                DrawSpider(device, effect, animatedPos, bodyColor, scale, rot, legSwing);
+                return;
+            }
 
             // Dimensions de base selon le type
             var dims = GetUnitDimensions(type, scale, unit.BodyType);
@@ -453,6 +461,7 @@ namespace XCOM_3
                 UnitType.Zombie => new Color(120, 110, 95),
                 UnitType.Heavy => new Color(110, 120, 130),
                 UnitType.Scout => new Color(105, 125, 115),
+                UnitType.Spider => new Color(35, 25, 20),
                 _ => new Color(115, 125, 110)
             };
 
@@ -1166,6 +1175,7 @@ namespace XCOM_3
             if (unit.Class == "Heavy") return UnitType.Heavy;
             if (unit.Class == "Scout") return UnitType.Scout;
             if (unit.Class == "Undead") return UnitType.Zombie;
+            if (unit.Class == "Spider") return UnitType.Spider;
             if (unit.Team == Team.Enemy && !unit.Class.Contains("Assault")) return UnitType.Alien;
             return UnitType.Humain;
         }
@@ -1233,6 +1243,17 @@ namespace XCOM_3
                     al = 0.58f * scale,
                     ll = 1.05f * scale
                 },
+                // Araignée : corps large et plat, pattes longues
+                UnitType.Spider => new UnitDimensions
+                {
+                    head = 0.20f * scale,
+                    tw = 0.55f * scale,  // abdomen large
+                    th = 0.35f * scale,  // corps bas
+                    td = 0.45f * scale,  // corps profond
+                    lw = 0.09f * scale,  // pattes fines
+                    al = 0.70f * scale,  // pattes longues (réutilise al pour segment supérieur)
+                    ll = 0.55f * scale   // hauteur du corps au sol
+                },
                 _ => new UnitDimensions
                 {
                     head = 0.25f * scale,
@@ -1293,6 +1314,7 @@ namespace XCOM_3
                 case UnitType.Zombie: DrawZombieBody(d, e, p, c, s, r, l, a, dims, useTPose, drawDefaultArms); break;
                 case UnitType.Heavy: DrawHeavyBody(d, e, p, c, s, r, l, a, dims, useTPose, drawDefaultArms); break;
                 case UnitType.Scout: DrawScoutBody(d, e, p, c, s, r, l, a, dims, useTPose, drawDefaultArms); break;
+                case UnitType.Spider: DrawSpiderBody(d, e, p, c, s, r, l, dims); return; // Spider has its own complete draw logic
             }
 
             DrawSkeletonJoints(d, e, p, dims, r, c, l, a);
@@ -1796,6 +1818,111 @@ namespace XCOM_3
                                    bool drawDefaultArms = true)
         {
             DrawHumainBody(d, e, p, c, s, r, l * 1.2f, a * 1.2f, dims, Unit.HumanBodyType.Masculine, false, useKungFuPose, drawDefaultArms);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ARAIGNÉE GÉANTE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        private void DrawSpider(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r, float legSwing = 0f)
+        {
+            var dims = GetUnitDimensions(UnitType.Spider, s);
+            DrawSpiderBody(d, e, p, c, s, r, legSwing, dims);
+        }
+
+        /// <summary>
+        /// Dessine une araignée géante avec abdomen, céphalothorax, tête et 8 pattes.
+        /// </summary>
+        private void DrawSpiderBody(GraphicsDevice d, BasicEffect e, Vector3 p, Color c, float s, Matrix r,
+                                    float legSwing, UnitDimensions dims)
+        {
+            Color bodyColor    = c;
+            Color abdomenColor = new Color((int)(c.R * 0.85f), (int)(c.G * 0.85f), (int)(c.B * 0.85f));
+            Color legColor     = new Color(Math.Min(255, (int)(c.R * 1.4f)), Math.Min(255, (int)(c.G * 1.4f)), Math.Min(255, (int)(c.B * 1.4f)));
+            Color eyeColor     = new Color(220, 30, 30); // Yeux rouges
+
+            // Hauteur du sol au centre du corps
+            float bodyY = dims.ll;
+
+            // --- Abdomen (partie arrière, plus grande) ---
+            float abdW = dims.tw;
+            float abdH = dims.th * 1.1f;
+            float abdD = dims.td * 1.3f;
+            Vector3 abdCenter = new Vector3(0f, bodyY, abdD * 0.3f);
+            DrawBodyPart(d, e, p, abdCenter, new Vector3(abdW, abdH, abdD), abdomenColor, r);
+
+            // --- Céphalothorax (partie avant, plus petite) ---
+            float cephW = dims.tw * 0.65f;
+            float cephH = dims.th * 0.85f;
+            float cephD = dims.td * 0.75f;
+            Vector3 cephCenter = new Vector3(0f, bodyY + dims.th * 0.05f, -abdD * 0.55f);
+            DrawBodyPart(d, e, p, cephCenter, new Vector3(cephW, cephH, cephD), bodyColor, r);
+
+            // --- Tête (petite, à l'avant) ---
+            float headR = dims.head;
+            Vector3 headCenter = new Vector3(0f, bodyY + dims.th * 0.3f, -abdD * 0.95f);
+            DrawBodyPart(d, e, p, headCenter, new Vector3(headR * 1.4f, headR, headR * 1.2f), bodyColor, r);
+
+            // Yeux (4 paires sur la tête, couleur rouge)
+            float eyeSize = headR * 0.22f;
+            float eyeZ = -abdD * 0.98f - headR * 0.55f;
+            float eyeY = bodyY + dims.th * 0.42f;
+            for (int col = -1; col <= 1; col += 2)
+            {
+                DrawBodyPart(d, e, p, new Vector3(col * headR * 0.32f, eyeY, eyeZ),
+                    new Vector3(eyeSize, eyeSize, eyeSize * 0.5f), eyeColor, r);
+                DrawBodyPart(d, e, p, new Vector3(col * headR * 0.62f, eyeY - eyeSize, eyeZ),
+                    new Vector3(eyeSize * 0.8f, eyeSize * 0.8f, eyeSize * 0.5f), eyeColor, r);
+            }
+
+            // Chélicères (crochets devant la tête)
+            float chelW  = dims.lw * 0.8f;
+            float chelLen = dims.head * 0.9f;
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Vector3 chelBase = new Vector3(side * headR * 0.35f, bodyY + dims.th * 0.1f, eyeZ);
+                Vector3 chelTip  = chelBase + new Vector3(side * chelLen * 0.3f, -chelLen * 0.5f, -chelLen);
+                DrawFrustumBetween(d, e, p, chelBase, chelTip, chelW, chelW * 0.4f, legColor, r);
+            }
+
+            // --- 8 pattes (4 de chaque côté) ---
+            // Chaque patte = 2 segments (fémur + tibia), avec balancement alterné
+            float legSegUp   = dims.al * 0.85f;   // segment supérieur
+            float legSegDown = dims.al * 0.90f;   // segment inférieur
+            float legRadius  = dims.lw;
+
+            // Positions de départ le long du céphalothorax / abdomen
+            float[] legAttachZ = { -abdD * 0.35f, -abdD * 0.05f, abdD * 0.20f, abdD * 0.48f };
+
+            for (int i = 0; i < 4; i++)
+            {
+                float swing = legSwing * ((i % 2 == 0) ? 1f : -1f);
+                float attachZ = legAttachZ[i];
+                float attachY = bodyY + dims.th * 0.05f;
+
+                // Angle de départ de la patte (s'écarte vers l'extérieur)
+                float baseAngle = MathHelper.ToRadians(40f + i * 12f);
+                float swingAngle = swing * 0.25f;
+                float angle = baseAngle + swingAngle;
+
+                float elbowX = MathF.Sin(angle) * legSegUp;
+                float elbowY = attachY - MathF.Cos(angle) * legSegUp * 0.4f;
+                float elbowZ = attachZ + MathF.Cos(angle) * legSegUp * 0.2f;
+
+                float tipX = elbowX + MathF.Sin(angle + 0.6f) * legSegDown;
+                float tipY = 0.02f * s; // pointe au sol
+                float tipZ = elbowZ + MathF.Cos(angle) * legSegDown * 0.15f;
+
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Vector3 attach = new Vector3(side * dims.tw * 0.5f, attachY, attachZ);
+                    Vector3 elbow  = new Vector3(side * elbowX, elbowY, elbowZ);
+                    Vector3 tip    = new Vector3(side * tipX, tipY, tipZ);
+
+                    DrawFrustumBetween(d, e, p, attach, elbow, legRadius, legRadius * 0.75f, legColor, r);
+                    DrawFrustumBetween(d, e, p, elbow, tip, legRadius * 0.75f, legRadius * 0.45f, legColor, r);
+                }
+            }
         }
 
         private void DrawTPose(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
