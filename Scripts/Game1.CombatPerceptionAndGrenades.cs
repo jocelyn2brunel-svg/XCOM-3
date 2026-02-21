@@ -370,8 +370,8 @@ namespace XCOM_3
                 else
                     explosionPreview = ThrowTrajectoryCalculator.GetExplosionPreview(throwTarget, viewedFloor, selectedGrenade.Radius, gridWidth, gridHeight, pathfinding);
 
-                Vector3 startPos = new Vector3(selectedUnit.Cell.X * cellSize + cellSize / 2f, cellSize * 1.5f, selectedUnit.Cell.Y * cellSize + cellSize / 2f);
-                Vector3 targetPos = new Vector3(throwTarget.X * cellSize + cellSize / 2f, WorldMetrics.FloorToWorldY(viewedFloor, cellSize) + cellSize * 0.5f, throwTarget.Y * cellSize + cellSize / 2f);
+                Vector3 startPos = new Vector3(selectedUnit.Cell.X * cellSize + cellSize / 2f, WorldMetrics.FloorToWorldY(selectedUnit.Floor, cellSize) + GetTerrainHeightOffset(selectedUnit.Cell) + cellSize * 1.5f, selectedUnit.Cell.Y * cellSize + cellSize / 2f);
+                Vector3 targetPos = new Vector3(throwTarget.X * cellSize + cellSize / 2f, WorldMetrics.FloorToWorldY(viewedFloor, cellSize) + GetTerrainHeightOffset(throwTarget) + cellSize * 0.5f, throwTarget.Y * cellSize + cellSize / 2f);
                 trajectoryPreview = ThrowTrajectoryCalculator.CalculateArcPoints(startPos, targetPos);
                 ricochetPreview.Clear();
 
