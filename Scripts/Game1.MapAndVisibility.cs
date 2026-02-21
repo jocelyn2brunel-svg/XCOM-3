@@ -41,6 +41,7 @@ namespace XCOM_3
             // Charger les murs
             wallSegments = map.GetWalls();
             shatteredWindows.Clear();
+            shatteredVehicleWindows.Clear();
             InvalidateWallsByFloorCache();
             InvalidateCellsByFloorCache();
             terrainHeights = currentMap.TerrainHeights

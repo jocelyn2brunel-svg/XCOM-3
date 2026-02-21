@@ -148,6 +148,7 @@ namespace XCOM_3
         // --- Murs sur les edges des cases ---
         private HashSet<WallSegment> wallSegments = new HashSet<WallSegment>();
         private readonly HashSet<WindowInstance> shatteredWindows = new HashSet<WindowInstance>();
+        private readonly HashSet<(int Floor, int X, int Y)> shatteredVehicleWindows = new HashSet<(int Floor, int X, int Y)>();
         private EdgeWallGenerator edgeWallGenerator;
 
         // --- Unités et combat ---
@@ -498,6 +499,7 @@ namespace XCOM_3
             // tileTexture = Content.Load<Texture2D>("TileParchment32x32");
 
             renderer3D = new Renderer3D(GraphicsDevice);
+            renderer3D.IsVehicleWindowShattered = (f, x, y) => shatteredVehicleWindows.Contains((f, x, y));
             camera = new CameraController(gridWidth, gridHeight, cellSize, GraphicsDevice.Viewport.AspectRatio);
             inventorySystem = new InventorySystem(GraphicsDevice, _spriteBatch, font, pixel);
             unitManager = new OptimizedUnitManager();
@@ -3991,6 +3993,7 @@ namespace XCOM_3
             explicitUpperFloorTargeting = false;
             wallSegments = currentMap.GetWalls();
             shatteredWindows.Clear();
+            shatteredVehicleWindows.Clear();
             InvalidateWallsByFloorCache();
             var wallsByFloor = new Dictionary<int, HashSet<WallSegment>>();
             for (int f = GetMinimumViewFloor(); f < currentMap.FloorCount; f++) wallsByFloor[f] = GetWallsForFloor(f);

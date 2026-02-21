@@ -1473,9 +1473,31 @@ namespace XCOM_3
             foreach (WallSegment window in windowsToShatter)
                 shatteredWindows.Add(new WindowInstance(centerFloor, window));
 
-            InvalidateWallsByFloorCache();
-            unitManager.OnWallsDestroyed();
-            return windowsToShatter.Count;
+            // Bris de vitres de véhicules
+            int shatteredVehiclesCount = 0;
+            if (currentMap != null)
+            {
+                foreach (var furniture in currentMap.Furnitures)
+                {
+                    if (furniture.Floor != centerFloor || !FurnitureData.IsVehicle(furniture.Type))
+                        continue;
+
+                    Vector2 vehiclePos = new Vector2(furniture.X, furniture.Y);
+                    if (Vector2.Distance(new Vector2(center.X, center.Y), vehiclePos) <= breakDistanceCells)
+                    {
+                        if (shatteredVehicleWindows.Add((furniture.Floor, furniture.X, furniture.Y)))
+                            shatteredVehiclesCount++;
+                    }
+                }
+            }
+
+            if (windowsToShatter.Count > 0 || shatteredVehiclesCount > 0)
+            {
+                InvalidateWallsByFloorCache();
+                unitManager.OnWallsDestroyed();
+            }
+
+            return windowsToShatter.Count + shatteredVehiclesCount;
         }
 
         private float GetWindowBreakDistanceMeters(GrenadeData grenadeData, int explosionFloor)
