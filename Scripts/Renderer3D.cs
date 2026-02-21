@@ -22,7 +22,7 @@ namespace XCOM_3
         private HumanoidModelAdvanced humanoidModel;
 
         // Dans Renderer3D.cs, ajoutez :
-        private float globalAnimationTime = 0f;
+        public float GlobalAnimationTime { get; private set; } = 0f;
 
         private VertexPositionColor[] _fogVerts;
         private short[] _fogIndices;
@@ -30,7 +30,7 @@ namespace XCOM_3
 
         public void Update(GameTime gameTime)
         {
-            globalAnimationTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            GlobalAnimationTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
         }
 
         public Renderer3D(GraphicsDevice device)
@@ -454,7 +454,7 @@ namespace XCOM_3
             // Écran/Face avant
             Vector3 screenScale = new Vector3(bodyScale.X * 0.9f, bodyScale.Y * 0.4f, bodyScale.Z * 0.1f);
             Vector3 screenCenter = new Vector3(center.X, bodyCenter.Y + bodyScale.Y * 0.2f, center.Z - bodyScale.Z * 0.45f);
-            float pulse = (float)Math.Sin(globalAnimationTime * 2f) * 0.2f + 0.8f;
+            float pulse = (float)Math.Sin(GlobalAnimationTime * 2f) * 0.2f + 0.8f;
             DrawCube(screenCenter, screenScale, new Color(0, 150, 255) * pulse); // Écran bleu qui pulse
 
             // Clavier/Console
@@ -1403,7 +1403,7 @@ namespace XCOM_3
                 if (!g.EmitsLight)
                     continue;
 
-                float pulse = 0.72f + 0.28f * (float)Math.Sin(globalAnimationTime * 14f + g.Progress * MathHelper.TwoPi);
+                float pulse = 0.72f + 0.28f * (float)Math.Sin(GlobalAnimationTime * 14f + g.Progress * MathHelper.TwoPi);
                 DrawCube(g.Position, new Vector3(size * 0.32f), new Color(255, 250, 200, 170) * pulse);
 
                 Vector3 haloPos = new Vector3(g.Position.X, g.Position.Y - size * 0.12f, g.Position.Z);
@@ -1979,7 +1979,7 @@ namespace XCOM_3
         {
             if (objectives == null) return;
 
-            float pulse = (float)Math.Sin(globalAnimationTime * 5f) * 0.25f + 0.75f;
+            float pulse = (float)Math.Sin(GlobalAnimationTime * 5f) * 0.25f + 0.75f;
 
             foreach (var obj in objectives)
             {
@@ -1992,7 +1992,7 @@ namespace XCOM_3
                 );
 
                 // Marqueur d'objectif : un losange flottant qui tourne
-                Matrix rotation = Matrix.CreateRotationY(globalAnimationTime * 3f) * Matrix.CreateRotationZ(MathHelper.PiOver4);
+                Matrix rotation = Matrix.CreateRotationY(GlobalAnimationTime * 3f) * Matrix.CreateRotationZ(MathHelper.PiOver4);
                 DrawCube(pos, new Vector3(cellSize * 0.5f), Color.Gold * pulse, rotation);
 
                 // Un socle au sol
