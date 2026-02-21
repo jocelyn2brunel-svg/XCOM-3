@@ -69,6 +69,7 @@ namespace XCOM_3
         public Point? FireTarget = null;
         public float FireProgress = 0f;
         public int FireRoundsToAnimate = 1;
+        public int FireRoundsAnimatedSoFar = 0;
         public int FireActionPointsSpent = 1;
         public int ConsecutiveFireActionsThisTurn = 0;
         public float FireAnimationDurationSeconds = 0.25f;
@@ -331,6 +332,7 @@ namespace XCOM_3
             IsCrouched = other.IsCrouched;
             CoverTransitionProgress = other.CoverTransitionProgress;
             FireRoundsToAnimate = other.FireRoundsToAnimate;
+            FireRoundsAnimatedSoFar = other.FireRoundsAnimatedSoFar;
             FireActionPointsSpent = other.FireActionPointsSpent;
             ConsecutiveFireActionsThisTurn = other.ConsecutiveFireActionsThisTurn;
             FireAnimationDurationSeconds = other.FireAnimationDurationSeconds;

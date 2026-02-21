@@ -643,6 +643,7 @@ namespace XCOM_3
             int roundsConsumed = shooter.ConsumeRoundsForFireAction();
             shooter.RegisterFireActionInCurrentTurn();
             shooter.FireRoundsToAnimate = Math.Max(1, roundsConsumed);
+            shooter.FireRoundsAnimatedSoFar = 0;
             shooter.FireAnimationDurationSeconds = ComputeFireAnimationDurationSeconds(shooter, shooter.FireRoundsToAnimate, shooter.FireActionPointsSpent);
             OnShotFired?.Invoke(shooter);
 
@@ -671,6 +672,18 @@ namespace XCOM_3
                 float fireDuration = Math.Max(0.01f, u.FireAnimationDurationSeconds);
                 u.FireProgress += deltaSeconds / fireDuration;
 
+                // Déclencher les événements de tir par balle
+                while (u.FireRoundsAnimatedSoFar < u.FireRoundsToAnimate)
+                {
+                    float threshold = (float)u.FireRoundsAnimatedSoFar / u.FireRoundsToAnimate;
+                    if (u.FireProgress >= threshold)
+                    {
+                        OnRoundFired?.Invoke(u);
+                        u.FireRoundsAnimatedSoFar++;
+                    }
+                    else break;
+                }
+
                 if (u.FireProgress < 1f)
                     continue;
 
@@ -696,6 +709,10 @@ namespace XCOM_3
                         GiveShootingXP(u, u.PendingTarget);
                         u.PendingTarget = null;
                         u.WillHit = false;
+
+                        // Petite pause même en cas d'échec pour laisser le dernier projectile finir son trajet
+                        postHitPauseTimers[u] = 0.3f;
+                        continue;
                     }
                 }
 
@@ -716,6 +733,7 @@ namespace XCOM_3
                 u.FireProgress = 0f;
                 u.FireTarget = null;
                 u.FireRoundsToAnimate = 1;
+                u.FireRoundsAnimatedSoFar = 0;
                 u.FireActionPointsSpent = 1;
                 u.FireAnimationDurationSeconds = 0.25f;
                 IsActionInProgress = false;
@@ -846,6 +864,7 @@ namespace XCOM_3
         public event Action OnFireCompleted;
         public event Action<Unit, Vector3> OnUnitKilled;
         public event Action<Unit> OnShotFired;
+        public event Action<Unit> OnRoundFired;
 
         public void InitializeCoverSystem(int gridWidth, int gridHeight, HashSet<WallSegment> walls)
         {

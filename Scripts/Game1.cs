@@ -515,7 +515,7 @@ namespace XCOM_3
             combatUI = new CombatUISystem(GraphicsDevice, _spriteBatch, font, pixel);
             combatSystem.OnUnitKilled += HandleUnitKilled;
             combatSystem.OnFireCompleted += HandleFireCompleted;
-            combatSystem.OnShotFired += HandleShotFired;
+            combatSystem.OnRoundFired += HandleShotFired;
 
             Window.ClientSizeChanged += (_, _) =>
             {
@@ -618,16 +618,14 @@ namespace XCOM_3
 
         private void HandleShotFired(Unit shooter)
         {
-            if (gunshotSoundEffectInstance == null)
+            if (gunshotSoundEffect == null)
                 return;
 
             float volume = MathHelper.Clamp(0.4f + optionsMenuManager.GetMusicVolume() * 0.25f, 0.2f, 0.8f);
             float pitch = MathHelper.Clamp((float)(random.NextDouble() * 0.16 - 0.08), -1f, 1f);
+            float pan = MathHelper.Clamp((shooter.VisualPosition.X - camera.Position.X) / Math.Max(1f, cellSize * 16f), -0.7f, 0.7f);
 
-            gunshotSoundEffectInstance.Stop();
-            gunshotSoundEffectInstance.Volume = volume;
-            gunshotSoundEffectInstance.Pitch = pitch;
-            gunshotSoundEffectInstance.Play();
+            gunshotSoundEffect.Play(volume, pitch, pan);
 
             VisualEffects.PlaySpentCasingEjection(shooter, cellSize, renderer3D);
         }
@@ -2590,6 +2588,13 @@ namespace XCOM_3
                     if (bulletProgress < 0f || bulletProgress > 1f)
                         continue;
 
+                    // Effet de muzzle flash au début du trajet de chaque balle
+                    if (bulletProgress < 0.18f)
+                    {
+                        float flashScale = 1f - (bulletProgress / 0.18f);
+                        DrawMuzzleFlashEffects(shooter, muzzlePosition, shotDirection, flashScale);
+                    }
+
                     Vector3 projectilePosition = Vector3.Lerp(muzzlePosition, targetPosition, bulletProgress);
                     renderer3D.DrawCube(projectilePosition, new Vector3(cellSize * 0.09f), new Color(255, 210, 80, 235));
 
@@ -2688,6 +2693,74 @@ namespace XCOM_3
                         rotationX: MathHelper.PiOver2,
                         rotationY: MathHelper.PiOver2,
                         rotationZ: 0f);
+                }
+            }
+        }
+
+        private void DrawMuzzleFlashEffects(Unit shooter, Vector3 muzzlePosition, Vector3 shotDirection, float flashScale)
+        {
+            // Point lumineux au canon
+            renderer3D.DrawCube(muzzlePosition, new Vector3(cellSize * 0.22f * flashScale), new Color(255, 255, 180) * flashScale);
+
+            // Illumination de l'environnement (murs et sol)
+            float range = 3.5f;
+            int floor = shooter.Floor;
+            if (currentMap == null || !currentMap.WallsPerFloor.TryGetValue(floor, out var walls))
+                return;
+
+            Vector2 muzzlePos2D = new Vector2(muzzlePosition.X / cellSize, muzzlePosition.Z / cellSize);
+            Color lightColor = new Color(255, 230, 150) * (flashScale * 0.35f);
+
+            foreach (var wall in walls)
+            {
+                Vector2 wallCenter = new Vector2((wall.Start.X + wall.End.X) * 0.5f, (wall.Start.Y + wall.End.Y) * 0.5f);
+                float distSq = Vector2.DistanceSquared(muzzlePos2D, wallCenter);
+                if (distSq < range * range)
+                {
+                    float dist = (float)Math.Sqrt(distSq);
+                    float intensity = (1f - dist / range);
+
+                    float wallHeight = cellSize * WallHeightRatio;
+                    float surfaceYOffset = floor * cellSize + wallHeight * 0.52f;
+                    float surfaceInset = cellSize * 0.05f;
+
+                    if (wall.IsHorizontal)
+                    {
+                        float litFaceZ = (wallCenter.Y > muzzlePos2D.Y) ? wall.Start.Y - surfaceInset : wall.Start.Y + surfaceInset;
+                        renderer3D.DrawPlane(new Vector3(wallCenter.X * cellSize, surfaceYOffset, litFaceZ * cellSize),
+                            new Vector3(cellSize * 0.95f, 1f, wallHeight * 0.9f), lightColor * intensity, MathHelper.PiOver2, 0, 0);
+                    }
+                    else
+                    {
+                        float litFaceX = (wallCenter.X > muzzlePos2D.X) ? wall.Start.X - surfaceInset : wall.Start.X + surfaceInset;
+                        renderer3D.DrawPlane(new Vector3(litFaceX * cellSize, surfaceYOffset, wallCenter.Y * cellSize),
+                            new Vector3(cellSize * 0.95f, 1f, wallHeight * 0.9f), lightColor * intensity, MathHelper.PiOver2, MathHelper.PiOver2, 0);
+                    }
+                }
+            }
+
+            // Sol
+            int minX = (int)Math.Floor(muzzlePos2D.X - range);
+            int maxX = (int)Math.Ceiling(muzzlePos2D.X + range);
+            int minY = (int)Math.Floor(muzzlePos2D.Y - range);
+            int maxY = (int)Math.Ceiling(muzzlePos2D.Y + range);
+
+            for (int x = Math.Max(0, minX); x <= Math.Min(gridWidth - 1, maxX); x++)
+            {
+                for (int y = Math.Max(0, minY); y <= Math.Min(gridHeight - 1, maxY); y++)
+                {
+                    float dx = x + 0.5f - muzzlePos2D.X;
+                    float dy = y + 0.5f - muzzlePos2D.Y;
+                    float distSq = dx * dx + dy * dy;
+                    if (distSq < range * range)
+                    {
+                        float intensity = (1f - (float)Math.Sqrt(distSq) / range);
+                        renderer3D.DrawPlane(
+                            new Vector3(x * cellSize + cellSize / 2f, floor * cellSize + 0.02f, y * cellSize + cellSize / 2f),
+                            new Vector3(cellSize * 0.92f),
+                            lightColor * intensity,
+                            0f, 0f, 0f);
+                    }
                 }
             }
         }

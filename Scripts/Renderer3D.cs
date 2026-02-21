@@ -1329,6 +1329,19 @@ namespace XCOM_3
                 if (unit.IsAiming || unit.IsFiring)
                 {
                     armSwing = unit.DominantHand == Unit.Handedness.Right ? -0.28f : 0.28f;
+
+                    if (unit.IsFiring && unit.FireRoundsToAnimate > 0)
+                    {
+                        // Animation de recul : mouvement brusque vers l'arrière puis retour
+                        float roundProgress = (unit.FireProgress * unit.FireRoundsToAnimate) % 1.0f;
+                        float recoil = 0f;
+                        if (roundProgress < 0.2f)
+                            recoil = (roundProgress / 0.2f) * 0.18f;
+                        else
+                            recoil = MathHelper.Lerp(0.18f, 0f, (roundProgress - 0.2f) / 0.8f);
+
+                        armSwing += (unit.DominantHand == Unit.Handedness.Right ? 1f : -1f) * recoil;
+                    }
                 }
 
                 // ✅ NOUVEAU : Utiliser DrawWithEquipment au lieu de Draw
