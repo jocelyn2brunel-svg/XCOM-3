@@ -281,7 +281,7 @@ namespace XCOM_3
         PickupFordF150,
         PickupRam3500,
         TreePine,
-        LootCrate
+        LootCrate,
         Computer
     }
 
