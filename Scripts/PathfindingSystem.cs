@@ -35,7 +35,8 @@ namespace XCOM_3
         private int gridW, gridH;
         private int minFloor;
         private int maxFloor;
-        private Dictionary<int, Dictionary<(Point A, Point B), WallSegment>> wallLookupPerFloor = new();
+        private Dictionary<int, WallSegment?[,]> horizontalWallsPerFloor = new();
+        private Dictionary<int, WallSegment?[,]> verticalWallsPerFloor = new();
         private readonly Func<Point, Unit> getUnit;
         private readonly Func<Point, int, Unit> getUnitByFloor;
         private readonly Func<Point, int, bool> isCellAvailableOnFloor;
@@ -100,7 +101,8 @@ namespace XCOM_3
 
         private void BuildWallLookupPerFloor(Dictionary<int, HashSet<WallSegment>> wallsByFloor)
         {
-            wallLookupPerFloor = new Dictionary<int, Dictionary<(Point A, Point B), WallSegment>>();
+            horizontalWallsPerFloor = new Dictionary<int, WallSegment?[,]>();
+            verticalWallsPerFloor = new Dictionary<int, WallSegment?[,]>();
 
             if (wallsByFloor == null)
                 return;
@@ -108,8 +110,10 @@ namespace XCOM_3
             foreach (var kvp in wallsByFloor)
             {
                 int floor = kvp.Key;
-                var floorLookup = new Dictionary<(Point A, Point B), WallSegment>();
-                wallLookupPerFloor[floor] = floorLookup;
+                var hWalls = new WallSegment?[gridW, gridH + 1];
+                var vWalls = new WallSegment?[gridW + 1, gridH];
+                horizontalWallsPerFloor[floor] = hWalls;
+                verticalWallsPerFloor[floor] = vWalls;
 
                 foreach (var wall in kvp.Value)
                 {
@@ -120,10 +124,8 @@ namespace XCOM_3
 
                         for (int x = minX; x < maxX; x++)
                         {
-                            var top = new Point(x, wall.Start.Y - 1);
-                            var bottom = new Point(x, wall.Start.Y);
-                            floorLookup[(top, bottom)] = wall;
-                            floorLookup[(bottom, top)] = wall;
+                            if (x >= 0 && x < gridW && wall.Start.Y >= 0 && wall.Start.Y <= gridH)
+                                hWalls[x, wall.Start.Y] = wall;
                         }
                     }
                     else
@@ -133,10 +135,8 @@ namespace XCOM_3
 
                         for (int y = minY; y < maxY; y++)
                         {
-                            var left = new Point(wall.Start.X - 1, y);
-                            var right = new Point(wall.Start.X, y);
-                            floorLookup[(left, right)] = wall;
-                            floorLookup[(right, left)] = wall;
+                            if (wall.Start.X >= 0 && wall.Start.X <= gridW && y >= 0 && y < gridH)
+                                vWalls[wall.Start.X, y] = wall;
                         }
                     }
                 }
@@ -552,9 +552,25 @@ namespace XCOM_3
             int dx = b.X - a.X, dy = b.Y - a.Y;
             if (Math.Abs(dx) + Math.Abs(dy) != 1) return null;
 
-            if (wallLookupPerFloor.TryGetValue(floor, out var lookup))
+            if (dy != 0) // Horizontal wall (separating North/South)
             {
-                if (lookup.TryGetValue((a, b), out var wall)) return wall;
+                int x = a.X;
+                int y = Math.Max(a.Y, b.Y);
+                if (horizontalWallsPerFloor.TryGetValue(floor, out var hWalls))
+                {
+                    if (x >= 0 && x < gridW && y >= 0 && y <= gridH)
+                        return hWalls[x, y];
+                }
+            }
+            else // Vertical wall (separating West/East)
+            {
+                int x = Math.Max(a.X, b.X);
+                int y = a.Y;
+                if (verticalWallsPerFloor.TryGetValue(floor, out var vWalls))
+                {
+                    if (x >= 0 && x <= gridW && y >= 0 && y < gridH)
+                        return vWalls[x, y];
+                }
             }
             return null;
         }

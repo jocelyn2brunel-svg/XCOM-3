@@ -106,11 +106,64 @@ namespace XCOM_3
                 unitManager.InitializeForMission(playerUnits, enemyUnits);
 
             PrecomputeBuildingGrid();
+            PrecomputeSlabAndCoverageMasks();
             exploredHescoCache.Clear();
             exploredFurnitureCache.Clear();
             exploredWallsCache.Clear();
             exploredCachesDirty = true;
             visibilityDirty = true;
+        }
+
+        private void PrecomputeSlabAndCoverageMasks()
+        {
+            slabMasks.Clear();
+            coveredMasks.Clear();
+
+            int floorCount = currentMap?.FloorCount ?? 1;
+            int minF = GetMinimumViewFloor();
+
+            // 1. Slabs
+            for (int f = minF; f < floorCount; f++)
+            {
+                var mask = new bool[gridWidth, gridHeight];
+                if (f == 0)
+                {
+                    for (int x = 0; x < gridWidth; x++)
+                        for (int y = 0; y < gridHeight; y++)
+                            mask[x, y] = true;
+                }
+                else
+                {
+                    var cells = ComputeCellsForFloor(f); // Use Compute to avoid cache recursion
+                    foreach (var p in cells)
+                    {
+                        if (p.X >= 0 && p.X < gridWidth && p.Y >= 0 && p.Y < gridHeight)
+                            mask[p.X, p.Y] = true;
+                    }
+                }
+                slabMasks[f] = mask;
+            }
+
+            // 2. Coverage
+            for (int f = minF; f < floorCount; f++)
+            {
+                var mask = new bool[gridWidth, gridHeight];
+                for (int x = 0; x < gridWidth; x++)
+                {
+                    for (int y = 0; y < gridHeight; y++)
+                    {
+                        for (int upF = f + 1; upF < floorCount; upF++)
+                        {
+                            if (slabMasks.TryGetValue(upF, out var upMask) && upMask[x, y])
+                            {
+                                mask[x, y] = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                coveredMasks[f] = mask;
+            }
         }
 
 
@@ -728,38 +781,45 @@ namespace XCOM_3
 
         private bool IsSlabAt(Point cell, int floor)
         {
-            if (floor == 0) return true;
-            return GetCellsForFloor(floor).Contains(cell);
+            if (slabMasks.TryGetValue(floor, out var mask))
+            {
+                if (cell.X >= 0 && cell.X < gridWidth && cell.Y >= 0 && cell.Y < gridHeight)
+                    return mask[cell.X, cell.Y];
+            }
+            return floor == 0;
         }
 
         private bool IsCellCovered(Point cell, int floor)
         {
-            int maxF = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
-            for (int f = floor + 1; f <= maxF; f++)
+            if (coveredMasks.TryGetValue(floor, out var mask))
             {
-                if (IsSlabAt(cell, f)) return true;
+                if (cell.X >= 0 && cell.X < gridWidth && cell.Y >= 0 && cell.Y < gridHeight)
+                    return mask[cell.X, cell.Y];
             }
             return false;
         }
 
         private bool[,] GetSlabMaskForFloor(int floor)
         {
-            var mask = new bool[gridWidth, gridHeight];
+            if (slabMasks.TryGetValue(floor, out var mask))
+                return mask;
+
+            var fallbackMask = new bool[gridWidth, gridHeight];
             if (floor == 0)
             {
                 for (int x = 0; x < gridWidth; x++)
                     for (int y = 0; y < gridHeight; y++)
-                        mask[x, y] = true;
-                return mask;
+                        fallbackMask[x, y] = true;
+                return fallbackMask;
             }
 
             var floorCells = GetCellsForFloor(floor);
             foreach (var cell in floorCells)
             {
                 if (cell.X >= 0 && cell.X < gridWidth && cell.Y >= 0 && cell.Y < gridHeight)
-                    mask[cell.X, cell.Y] = true;
+                    fallbackMask[cell.X, cell.Y] = true;
             }
-            return mask;
+            return fallbackMask;
         }
 
         private HashSet<Point> ComputeCellsForFloor(int floor)
