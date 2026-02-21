@@ -317,9 +317,9 @@ namespace XCOM_3
         }
 
         /// <summary>
-        /// Calcule le rayon d'effet visuel pour affichage
+        /// Calcule le rayon d'effet visuel pour affichage, tenant compte des obstacles
         /// </summary>
-        public static List<Point> GetExplosionPreview(Point center, int radius, int gridWidth, int gridHeight)
+        public static List<Point> GetExplosionPreview(Point center, int floor, int radius, int gridWidth, int gridHeight, PathfindingSystem pathfinding)
         {
             List<Point> cells = new List<Point>();
 
@@ -330,6 +330,7 @@ namespace XCOM_3
                     if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight)
                         continue;
 
+                    Point target = new Point(x, y);
                     float distance = Vector2.Distance(
                         new Vector2(center.X, center.Y),
                         new Vector2(x, y)
@@ -337,7 +338,11 @@ namespace XCOM_3
 
                     if (distance <= radius)
                     {
-                        cells.Add(new Point(x, y));
+                        // Vérifier la ligne de vue pour ne pas afficher le preview derrière les murs
+                        if (target == center || pathfinding == null || pathfinding.HasLineOfSight(center, target, floor))
+                        {
+                            cells.Add(target);
+                        }
                     }
                 }
             }

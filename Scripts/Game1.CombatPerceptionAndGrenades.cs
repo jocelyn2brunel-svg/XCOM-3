@@ -368,7 +368,7 @@ namespace XCOM_3
                 if (throwModeUsesFlashlight)
                     explosionPreview.Clear();
                 else
-                    explosionPreview = ThrowTrajectoryCalculator.GetExplosionPreview(throwTarget, selectedGrenade.Radius, gridWidth, gridHeight);
+                    explosionPreview = ThrowTrajectoryCalculator.GetExplosionPreview(throwTarget, viewedFloor, selectedGrenade.Radius, gridWidth, gridHeight, pathfinding);
 
                 Vector3 startPos = new Vector3(selectedUnit.Cell.X * cellSize + cellSize / 2f, cellSize * 1.5f, selectedUnit.Cell.Y * cellSize + cellSize / 2f);
                 Vector3 targetPos = new Vector3(throwTarget.X * cellSize + cellSize / 2f, 0, throwTarget.Y * cellSize + cellSize / 2f);
@@ -1895,6 +1895,9 @@ namespace XCOM_3
                         new Vector2(unit.Cell.X, unit.Cell.Y));
 
                     if (distance < minRadius || distance > maxRadius)
+                        continue;
+
+                    if (!IsUnitExposedToExplosion(centerCell, viewedFloor, unit))
                         continue;
 
                     unitsInZone.Add(unit);
