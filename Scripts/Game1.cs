@@ -2184,6 +2184,9 @@ namespace XCOM_3
             if (AlwaysDrawUnitGhostOutline)
                 DrawVisibleUnitGhostOutlines(visibleUnits);
 
+            if (currentMap?.Objectives != null)
+                renderer3D.DrawObjectives(currentMap.Objectives, cellSize, viewedFloor);
+
             foreach (var unit in visibleUnits)
             {
                 if (!allOccludedUnits.Contains(unit))
@@ -3205,9 +3208,26 @@ namespace XCOM_3
 
                         break;
                     }
+
+                case "The Hive":
+                    {
+                        var zombie = enemyPool.First(e => e.Name == "Zombie");
+                        int zombieCount = 35;
+
+                        for (int i = 0; i < zombieCount; i++)
+                        {
+                            // On les place n'importe où, DistributeEnemiesAcrossFloors s'en occupera
+                            var enemy = new Unit(new Point(0, 0), Team.Enemy, zombie.Name, zombie.Class, string.Empty, null)
+                            { ActionPoints = zombie.ActionPoints };
+                            AssignWeaponToUnit(enemy, GetRandomWeaponData(zombie.Weapon, enforcePreferred: true));
+                            enemyUnits.Add(enemy);
+                        }
+
+                        break;
+                    }
             }
 
-            DistributeEnemiesAcrossUpperFloors();
+            DistributeEnemiesAcrossFloors();
 
             AssignRandomPants(enemyUnits);
             AssignRandomEquipmentToUnits(enemyUnits);
@@ -3317,58 +3337,58 @@ namespace XCOM_3
             }
         }
 
-        private void DistributeEnemiesAcrossUpperFloors()
+        private void DistributeEnemiesAcrossFloors()
         {
             int maxFloor = Math.Max(0, (currentMap?.FloorCount ?? 1) - 1);
-            if (maxFloor <= 0 || enemyUnits.Count == 0)
+            int minFloor = GetMinimumViewFloor();
+            if (enemyUnits.Count == 0)
                 return;
 
-            var upperFloorAssignments = new List<(Point Cell, int Floor)>();
+            var possibleAssignments = new List<(Point Cell, int Floor)>();
             var occupied = new HashSet<(int Floor, Point Cell)>();
 
             foreach (var player in playerUnits)
                 occupied.Add((player.Floor, player.Cell));
 
-            foreach (var enemy in enemyUnits)
-                occupied.Add((enemy.Floor, enemy.Cell));
-
-            for (int floor = 1; floor <= maxFloor; floor++)
+            // Recueillir toutes les cellules disponibles à tous les étages (sauf RDC hors bâtiments pour éviter spawn à découvert)
+            for (int floor = minFloor; floor <= maxFloor; floor++)
             {
-                var floorCells = GetCellsForFloor(floor)
-                    .Where(c => !occupied.Contains((floor, c)))
-                    .ToList();
-
-                if (floorCells.Count == 0)
-                    continue;
-
-                for (int i = floorCells.Count - 1; i > 0; i--)
+                var floorCells = GetCellsForFloor(floor);
+                foreach (var cell in floorCells)
                 {
-                    int swapIndex = random.Next(i + 1);
-                    (floorCells[i], floorCells[swapIndex]) = (floorCells[swapIndex], floorCells[i]);
-                }
+                    if (occupied.Contains((floor, cell))) continue;
 
-                int desiredForFloor = Math.Max(1, enemyUnits.Count / (maxFloor + 2));
-                int assignCount = Math.Min(desiredForFloor, floorCells.Count);
-                for (int i = 0; i < assignCount; i++)
-                {
-                    var cell = floorCells[i];
-                    upperFloorAssignments.Add((cell, floor));
-                    occupied.Add((floor, cell));
+                    // Si on est au RDC, on ne veut spawner que dans les bâtiments
+                    if (floor == 0 && !IsInsideBuildingFootprint(cell)) continue;
+
+                    possibleAssignments.Add((cell, floor));
                 }
             }
 
-            if (upperFloorAssignments.Count == 0)
-                return;
-
-            var movableEnemies = enemyUnits.OrderBy(_ => random.Next()).ToList();
-            int moved = Math.Min(upperFloorAssignments.Count, movableEnemies.Count);
-
-            for (int i = 0; i < moved; i++)
+            if (possibleAssignments.Count == 0)
             {
-                var enemy = movableEnemies[i];
-                var assignment = upperFloorAssignments[i];
-                enemy.Cell = assignment.Cell;
-                enemy.Floor = assignment.Floor;
+                // Fallback : utiliser le périmètre si vraiment rien d'autre (uniquement RDC)
+                var fallbackSpawns = GetPerimeterSpawnCells(enemyUnits.Count);
+                for (int i = 0; i < Math.Min(fallbackSpawns.Count, enemyUnits.Count); i++)
+                {
+                    enemyUnits[i].Cell = fallbackSpawns[i];
+                    enemyUnits[i].Floor = 0;
+                }
+                return;
+            }
+
+            // Mélanger les assignations possibles
+            for (int i = possibleAssignments.Count - 1; i > 0; i--)
+            {
+                int swapIndex = random.Next(i + 1);
+                (possibleAssignments[i], possibleAssignments[swapIndex]) = (possibleAssignments[swapIndex], possibleAssignments[i]);
+            }
+
+            for (int i = 0; i < enemyUnits.Count; i++)
+            {
+                var assignment = possibleAssignments[i % possibleAssignments.Count];
+                enemyUnits[i].Cell = assignment.Cell;
+                enemyUnits[i].Floor = assignment.Floor;
             }
         }
 

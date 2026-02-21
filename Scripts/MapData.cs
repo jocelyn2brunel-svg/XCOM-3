@@ -282,6 +282,7 @@ namespace XCOM_3
         PickupRam3500,
         TreePine,
         LootCrate
+        Computer
     }
 
     [Serializable]
@@ -315,6 +316,7 @@ namespace XCOM_3
                 FurnitureType.PickupFordF150 => (19.5f, 6.7f),
                 FurnitureType.PickupRam3500 => (19.9f, 6.8f),
                 FurnitureType.TreePine => (8f, 8f),
+                FurnitureType.Computer => (4f, 4f),
                 _ => (5f, 5f)
             };
         }
@@ -371,6 +373,7 @@ namespace XCOM_3
                 FurnitureType.PickupRam3500 => 6.6f,
                 FurnitureType.TreePine => 16.0f,
                 FurnitureType.LootCrate => 2.5f,
+                FurnitureType.Computer => 5f,
                 _ => 3f
             };
         }
@@ -437,6 +440,7 @@ namespace XCOM_3
     {
         public int X { get; set; }
         public int Y { get; set; }
+        public int Floor { get; set; } = 0;
         public string Type { get; set; } // "Extraction", "Defense", "Capture", etc.
         public string Description { get; set; }
     }

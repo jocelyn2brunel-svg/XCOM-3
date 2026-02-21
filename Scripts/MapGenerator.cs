@@ -108,6 +108,46 @@ namespace XCOM_3
             map.RampTiles = GenerateDefaultRamps(map.GridWidth, map.GridHeight, map.FloorCount, map.Buildings);
             map.TerrainHeights = GenerateTerrainRelief(map.GridWidth, map.GridHeight, pattern);
 
+            if (missionType == "The Hive")
+            {
+                if (map.PlayerSpawnZones.Count > 0)
+                {
+                    var zone = map.PlayerSpawnZones[0];
+                    map.Furnitures.Add(new FurnitureData
+                    {
+                        X = (zone.MinX + zone.MaxX) / 2 + 2,
+                        Y = (zone.MinY + zone.MaxY) / 2,
+                        Floor = 0,
+                        Type = FurnitureType.SedanToyotaCorolla
+                    });
+                }
+
+                var mainBuilding = map.Buildings.FirstOrDefault();
+                if (mainBuilding != null)
+                {
+                    int objX = mainBuilding.X + mainBuilding.Width / 2;
+                    int objY = mainBuilding.Y + 4;
+                    int objFloor = -8;
+
+                    map.Objectives.Add(new ObjectivePoint
+                    {
+                        X = objX,
+                        Y = objY,
+                        Floor = objFloor,
+                        Type = "Sabotage",
+                        Description = "Saboter l'ordinateur central (Reine Rouge)"
+                    });
+
+                    map.Furnitures.Add(new FurnitureData
+                    {
+                        X = objX,
+                        Y = objY,
+                        Floor = objFloor,
+                        Type = FurnitureType.Computer
+                    });
+                }
+            }
+
             Console.WriteLine($"[MAP GEN] Generated {map.Name}: {map.GridWidth}x{map.GridHeight}, floors={map.FloorCount}, {map.Walls.Count} walls");
 
             return map;
@@ -873,6 +913,7 @@ namespace XCOM_3
                 "Blackout" => EdgeWallGenerator.WallPattern.Bunker,
                 "Sprint" => EdgeWallGenerator.WallPattern.Trenches,
                 "Forêt" => EdgeWallGenerator.WallPattern.Forest,
+                "The Hive" => EdgeWallGenerator.WallPattern.TheHive,
                 _ => (EdgeWallGenerator.WallPattern)random.Next(0, 7)
             };
         }
@@ -885,6 +926,7 @@ namespace XCOM_3
                 "Centre-Ville" => 8,
                 "Blackout" => random.Next(2, 4),
                 "Forêt" => 1,
+                "The Hive" => 1,
                 _ => random.Next(2, 4)
             };
         }
