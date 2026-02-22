@@ -1592,7 +1592,7 @@ namespace XCOM_3
                 DrawRunningLegPair(d, e, p, r, dims, l, 0.3f, 0.55f, dark, dark * 0.8f);
             }
 
-            DrawStructuredTorso(d, e, p, r, dims, body, dark, bodyType);
+            DrawCapsuleTorso(d, e, p, r, dims, body, dark, bodyType);
 
             // Bras: épaules sphériques, segments en cônes tronqués, mains en prismes rectangulaires
             if (drawDefaultArms)
@@ -1614,6 +1614,38 @@ namespace XCOM_3
             DrawHumanEyes(d, e, p, r, dims, eyeColor);
 
             // Pas d'accessoires vestimentaires/cosmétiques.
+        }
+
+        private void DrawCapsuleTorso(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r,
+                                      UnitDimensions dims, Color chestColor, Color pelvisColor,
+                                      Unit.HumanBodyType bodyType)
+        {
+            bool feminine = bodyType == Unit.HumanBodyType.Feminine;
+            float torsoHeight = dims.th * (feminine ? 1.03f : 1f);
+            float torsoRadius = dims.tw * (feminine ? 0.34f : 0.36f);
+            float torsoCenterY = dims.ll + torsoHeight * 0.54f;
+
+            DrawRoundedCapsuleY(d, e, p,
+                new Vector3(0f, torsoCenterY, 0f),
+                torsoHeight,
+                torsoRadius,
+                chestColor,
+                r,
+                8);
+
+            DrawRoundedCapsuleY(d, e, p,
+                new Vector3(0f, dims.ll + torsoHeight * 0.12f, dims.td * 0.05f),
+                torsoHeight * 0.34f,
+                torsoRadius * 1.08f,
+                pelvisColor * 0.95f,
+                r,
+                5);
+
+            DrawRoundedHead(d, e, p,
+                new Vector3(0f, dims.ll + torsoHeight * 0.96f, 0f),
+                torsoRadius * 0.9f,
+                chestColor * 1.05f,
+                r);
         }
 
         private void DrawHumanEyes(GraphicsDevice d, BasicEffect e, Vector3 p, Matrix r, UnitDimensions dims, Unit.EyeColorOption eyeColor)
