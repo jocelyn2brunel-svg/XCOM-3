@@ -171,9 +171,22 @@ namespace XCOM_3
 
             foreach (string item in profile.StartingEquipment)
             {
-                _spriteBatch.DrawString(_font, $"- {item}", new Vector2(detailsX + 12, y), UIThemeManager.SecondaryColor);
+                string safeItem = NormalizeEquipmentLabel(item);
+                _spriteBatch.DrawString(_font, $"- {safeItem}", new Vector2(detailsX + 12, y), UIThemeManager.SecondaryColor);
                 y += 24;
             }
+        }
+
+        private static string NormalizeEquipmentLabel(string item)
+        {
+            if (string.IsNullOrWhiteSpace(item))
+                return "?";
+
+            return item
+                .Replace('\u2022', '-')  // bullet
+                .Replace('\u0095', '-')  // cp1252 bullet interpreted as control char
+                .Replace('\u25CF', '-')  // black circle
+                .Trim();
         }
 
         private void CreateDefaultProfiles()
