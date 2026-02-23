@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<XnaContent xmlns:Graphics="Microsoft.Xna.Framework.Content.Pipeline.Graphics">
+  <Asset Type="Graphics:FontDescription">
+    <FontName>Arial</FontName>
+    <Size>20</Size>
+    <Spacing>0</Spacing>
+    <UseKerning>true</UseKerning>
+    <Style>Regular</Style>
+    <CharacterRegions>
+      <!-- Basic Latin (32-126) -->
+      <CharacterRegion>
+        <Start>&#32;</Start>
+        <End>&#126;</End>
+      </CharacterRegion>
+      <!-- Latin-1 Supplement (Accents, etc.) (160-255) -->
+      <CharacterRegion>
+        <Start>&#160;</Start>
+        <End>&#255;</End>
+      </CharacterRegion>
+      <!-- French Ligatures Œ and œ (338-339) -->
+      <CharacterRegion>
+        <Start>&#338;</Start>
+        <End>&#339;</End>
+      </CharacterRegion>
+      <!-- Euro Symbol (8364) -->
+      <CharacterRegion>
+        <Start>&#8364;</Start>
+        <End>&#8364;</End>
+      </CharacterRegion>
+      <!-- Bullets (8226) -->
+      <CharacterRegion>
+        <Start>&#8226;</Start>
+        <End>&#8226;</End>
+      </CharacterRegion>
+      <!-- Arrows (8592-8601) -->
+      <CharacterRegion>
+        <Start>&#8592;</Start>
+        <End>&#8601;</End>
+      </CharacterRegion>
+      <!-- Geometric Shapes (9632-9727) -->
+      <CharacterRegion>
+        <Start>&#9632;</Start>
+        <End>&#9727;</End>
+      </CharacterRegion>
+      <!-- Miscellaneous Symbols (9728-9983) -->
+      <CharacterRegion>
+        <Start>&#9728;</Start>
+        <End>&#9983;</End>
+      </CharacterRegion>
+    </CharacterRegions>
+  </Asset>
+</XnaContent>
